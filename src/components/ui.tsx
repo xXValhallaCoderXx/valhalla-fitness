@@ -45,7 +45,7 @@ export function Button({
   variant = 'primary',
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: ButtonVariant
+    variant?: ButtonVariant
 }) {
   const variants = {
     primary: 'bg-[var(--action)] text-white',
