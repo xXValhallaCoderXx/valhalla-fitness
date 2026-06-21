@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Calculator, Check, History, Repeat2, Timer, X } from 'lucide-react'
+import { Calculator, Check, Circle, History, Repeat2, X } from 'lucide-react'
 import { useState } from 'react'
 import { patchSetInSession, sessionCompletion, type SetPatch } from '~/lib/session-cache'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/types/training'
 import { upsertSetLogFn } from '~/server/api'
-import { Button, Card, Chip, TextInput } from './ui'
+import { Button, Card, Chip, TextInput, showToast } from './ui'
 
 export function SyncPill({ state }: { state?: string }) {
   const label = state === 'syncFailed' ? 'Sync failed' : state === 'saving' ? 'Saving' : 'Synced'
@@ -128,6 +128,7 @@ function SetRow({
   })
 
   const complete = () => {
+    const nowCompleted = !set.completed
     mutation.mutate({
       exerciseLogId: movement.id,
       movementSlotId: movement.id,
@@ -135,9 +136,12 @@ function SetRow({
       actualLoad: Number(draft.actualLoad),
       actualReps: Number(draft.actualReps),
       actualRir: draft.actualRir,
-      completed: !set.completed,
+      completed: nowCompleted,
       clientMutationId: crypto.randomUUID(),
     })
+    if (nowCompleted) {
+      showToast('Set complete!')
+    }
   }
 
   return (
@@ -179,7 +183,7 @@ function SetRow({
         onClick={complete}
         title={set.completed ? 'Mark incomplete' : 'Complete set'}
       >
-        {set.completed ? <Check size={16} /> : <Timer size={16} />}
+        {set.completed ? <Check size={16} /> : <Circle size={16} />}
       </Button>
     </div>
   )

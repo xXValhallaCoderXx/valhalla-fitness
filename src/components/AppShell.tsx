@@ -10,6 +10,7 @@ import {
 import type { ReactNode } from 'react'
 import type { AuthUser } from '~/server/auth'
 import { cn } from '~/lib/cn'
+import { ToastContainer } from '~/components/ui'
 
 const navItems = [
   { to: '/today', label: 'Today', icon: CalendarDays },
@@ -62,6 +63,7 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
         </div>
       </header>
       {children}
+      <ToastContainer />
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[var(--surface)] px-2 pb-[env(safe-area-inset-bottom)] md:hidden">
         <div className="grid h-16 grid-cols-5">
           {navItems.map((item) => {

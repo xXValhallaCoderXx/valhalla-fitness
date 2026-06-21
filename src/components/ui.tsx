@@ -1,5 +1,45 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
+import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, useEffect, useState } from 'react'
 import { cn } from '~/lib/cn'
+
+// ─── Minimal toast ────────────────────────────────────────────────────────────
+
+type ToastItem = { id: number; message: string }
+let _toastListeners: Array<(items: ToastItem[]) => void> = []
+let _toasts: ToastItem[] = []
+let _nextId = 0
+
+export function showToast(message: string) {
+  const id = _nextId++
+  _toasts = [..._toasts, { id, message }]
+  _toastListeners.forEach((fn) => fn(_toasts))
+  setTimeout(() => {
+    _toasts = _toasts.filter((t) => t.id !== id)
+    _toastListeners.forEach((fn) => fn(_toasts))
+  }, 2500)
+}
+
+export function ToastContainer() {
+  const [list, setList] = useState<ToastItem[]>([])
+  useEffect(() => {
+    _toastListeners.push(setList)
+    return () => {
+      _toastListeners = _toastListeners.filter((fn) => fn !== setList)
+    }
+  }, [])
+  if (!list.length) return null
+  return (
+    <div className="pointer-events-none fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2 md:bottom-6">
+      {list.map((toast) => (
+        <div
+          key={toast.id}
+          className="rounded-lg border border-emerald-700/40 bg-emerald-950/90 px-4 py-2 text-sm font-semibold text-emerald-300 shadow-lg"
+        >
+          {toast.message}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
   return <main className={cn('mx-auto w-full max-w-6xl px-4 py-5 md:px-6', className)}>{children}</main>

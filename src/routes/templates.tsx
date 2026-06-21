@@ -1,9 +1,9 @@
 import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { Check, Lock, Search } from 'lucide-react'
+import { AlertTriangle, Check, Lock, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { defaultAnchors } from '~/lib/templates'
-import { meQueryOptions, templatesQueryOptions } from '~/lib/query-options'
+import { meQueryOptions, templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
 import { startProgramFn } from '~/server/api'
 import type { AnchorInput, ProgramTemplateSummary, Unit } from '~/types/training'
 import { Button, Card, Chip, EmptyState, Page, PageHeader, TextInput } from '~/components/ui'
@@ -11,7 +11,10 @@ import { Button, Card, Chip, EmptyState, Page, PageHeader, TextInput } from '~/c
 export const Route = createFileRoute('/templates')({
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(templatesQueryOptions())
-    if ((context as any).user) await context.queryClient.ensureQueryData(meQueryOptions())
+    if ((context as any).user) {
+      await context.queryClient.ensureQueryData(meQueryOptions())
+      await context.queryClient.ensureQueryData(todayQueryOptions())
+    }
   },
   component: TemplatesRoute,
 })
@@ -20,12 +23,41 @@ function TemplatesRoute() {
   const router = useRouter()
   const { data: templates } = useSuspenseQuery(templatesQueryOptions())
   const { data: me } = useSuspenseQuery(meQueryOptions())
+
+  if (!me) {
+    return (
+      <Page>
+        <EmptyState
+          title="Sign in to start a program"
+          action={<Button onClick={() => router.navigate({ to: '/auth' })}>Sign in</Button>}
+        >
+          Templates are visible, but starting a program requires a Supabase account.
+        </EmptyState>
+      </Page>
+    )
+  }
+
+  return <AuthedTemplates me={me} templates={templates} />
+}
+
+function AuthedTemplates({
+  me,
+  templates,
+}: {
+  me: { units: Unit; rounding: number }
+  templates: ProgramTemplateSummary[]
+}) {
+  const router = useRouter()
+  const { data: today } = useSuspenseQuery(todayQueryOptions())
   const [filter, setFilter] = useState('All')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<ProgramTemplateSummary | null>(null)
-  const [units, setUnits] = useState<Unit>(me?.units ?? 'kg')
-  const [rounding, setRounding] = useState(me?.rounding ?? 2.5)
-  const [anchors, setAnchors] = useState<AnchorInput[]>(defaultAnchors(me?.units ?? 'kg'))
+  const [pendingTemplate, setPendingTemplate] = useState<ProgramTemplateSummary | null>(null)
+  const [units, setUnits] = useState<Unit>(me.units ?? 'kg')
+  const [rounding, setRounding] = useState(me.rounding ?? 2.5)
+  const [anchors, setAnchors] = useState<AnchorInput[]>(defaultAnchors(me.units ?? 'kg'))
+
+  const hasActiveSession = Boolean(today?.activeSession)
 
   const filtered = useMemo(() => {
     return templates.filter((template) => {
@@ -60,17 +92,19 @@ function TemplatesRoute() {
     },
   })
 
-  if (!me) {
-    return (
-      <Page>
-        <EmptyState
-          title="Sign in to start a program"
-          action={<Button onClick={() => router.navigate({ to: '/auth' })}>Sign in</Button>}
-        >
-          Templates are visible, but starting a program requires a Supabase account.
-        </EmptyState>
-      </Page>
-    )
+  const handleStart = (template: ProgramTemplateSummary) => {
+    if (hasActiveSession) {
+      setPendingTemplate(template)
+    } else {
+      setSelected(template)
+    }
+  }
+
+  const confirmReplace = () => {
+    if (pendingTemplate) {
+      setSelected(pendingTemplate)
+      setPendingTemplate(null)
+    }
   }
 
   return (
@@ -108,10 +142,38 @@ function TemplatesRoute() {
 
       <div className="grid gap-3 md:grid-cols-2">
         {filtered.map((template) => (
-          <TemplateCard key={template.id} template={template} onStart={() => setSelected(template)} />
+          <TemplateCard key={template.id} template={template} onStart={() => handleStart(template)} />
         ))}
       </div>
 
+      {/* Conflict warning modal */}
+      {pendingTemplate ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/60 p-3 sm:items-center sm:justify-center">
+          <Card className="w-full max-w-lg">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 shrink-0 text-amber-400" size={20} />
+              <div>
+                <h2 className="text-lg font-bold">Workout in progress</h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  You have an active workout session. Starting{' '}
+                  <span className="font-semibold text-[var(--text)]">{pendingTemplate.name}</span> will archive your
+                  current programme. Any sets you have already logged will be retained in your history.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <Button className="flex-1" onClick={confirmReplace}>
+                Yes, start new programme
+              </Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setPendingTemplate(null)}>
+                Cancel
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {/* Setup modal */}
       {selected ? (
         <div className="fixed inset-0 z-50 flex items-end bg-black/60 p-3 sm:items-center sm:justify-center">
           <Card className="w-full max-w-lg">

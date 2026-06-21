@@ -1,7 +1,7 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { recentHistoryQueryOptions } from '~/lib/query-options'
-import { Card, Chip, EmptyState, Page, PageHeader } from '~/components/ui'
+import { Chip, EmptyState, Page, PageHeader } from '~/components/ui'
 
 export const Route = createFileRoute('/history')({
   loader: async ({ context }) => {
@@ -28,34 +28,30 @@ function AuthedHistory() {
   return (
     <Page>
       <PageHeader title="History" eyebrow="Recent sessions">
-        Recent, Movements, Bests, and Volume views share the same logged session data.
+        A log of your completed workouts.
       </PageHeader>
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {['Recent', 'Movements', 'Bests', 'Volume'].map((tab, index) => (
-          <Chip key={tab} tone={index === 0 ? 'action' : 'neutral'}>
-            {tab}
-          </Chip>
-        ))}
-      </div>
       {data.length ? (
         <div className="grid gap-3">
           {data.map((session: any) => (
-            <Card key={session.id}>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-bold">{session.title}</p>
-                  <p className="text-sm text-[var(--muted)]">{session.programTitle}</p>
-                </div>
-                <Chip tone="success">
-                  {session.completedAt
-                    ? new Date(session.completedAt).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                      })
-                    : 'Done'}
-                </Chip>
+            <Link
+              key={session.id}
+              to="/sessions/$sessionId/summary"
+              params={{ sessionId: session.id }}
+              className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 transition-colors hover:border-[var(--action)]"
+            >
+              <div>
+                <p className="font-bold">{session.title}</p>
+                <p className="text-sm text-[var(--muted)]">{session.programTitle}</p>
               </div>
-            </Card>
+              <Chip tone="success">
+                {session.completedAt
+                  ? new Date(session.completedAt).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                    })
+                  : 'Done'}
+              </Chip>
+            </Link>
           ))}
         </div>
       ) : (

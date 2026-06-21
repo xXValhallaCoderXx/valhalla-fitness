@@ -42,6 +42,8 @@ function SessionRoute() {
     },
   })
 
+  const anyCompleted = session.movements.some((movement) => movement.sets.some((set) => set.completed))
+
   return (
     <Page className="max-w-4xl">
       <div className="sticky top-14 z-20 -mx-4 mb-4 border-b border-[var(--border)] bg-[var(--bg)] px-4 py-3 md:mx-0 md:rounded-lg md:border md:bg-[var(--surface)]">
@@ -55,7 +57,7 @@ function SessionRoute() {
               {session.programTitle} · {session.weekLabel}
             </p>
           </div>
-          <Button disabled={finishMutation.isPending} onClick={() => finishMutation.mutate()}>
+          <Button disabled={finishMutation.isPending || !anyCompleted} onClick={() => finishMutation.mutate()}>
             <Flag size={16} />
             Finish
           </Button>
