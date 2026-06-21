@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { notifications } from '@mantine/notifications'
 import { Outlet, createFileRoute, useRouter, useRouterState } from '@tanstack/react-router'
 import { Dumbbell, KeyRound, Link as LinkIcon, Mail } from 'lucide-react'
 import { useState } from 'react'
@@ -8,6 +9,7 @@ import {
   signInWithPasswordFn,
   signUpWithPasswordFn,
 } from '~/server/auth'
+import { getApiErrorMessage } from '~/lib/api-error'
 import { Button, Card, TextInput } from '~/components/ui'
 
 export const Route = createFileRoute('/auth')({
@@ -27,37 +29,82 @@ function AuthForm() {
   const [password, setPassword] = useState('')
   const [authMethod, setAuthMethod] = useState<'password' | 'magic'>('password')
   const [mode, setMode] = useState<'login' | 'signup'>('login')
-  const [message, setMessage] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ tone: 'success' | 'danger' | 'neutral'; text: string } | null>(null)
 
   const passwordMutation = useMutation({
     mutationFn: () =>
       mode === 'login'
         ? signInWithPasswordFn({ data: { email, password } })
         : signUpWithPasswordFn({ data: { email, password } }),
+    onMutate: () => {
+      setMessage(null)
+    },
     onSuccess: async (result) => {
       if (!result.ok) {
-        setMessage(result.message)
+        setMessage({ tone: 'danger', text: result.message })
         return
       }
-      setMessage(mode === 'login' ? null : 'Account created. You are signed in.')
+      if (mode === 'signup' && 'needsEmailConfirmation' in result && result.needsEmailConfirmation) {
+        const text = 'Account created. Check your email to confirm your account.'
+        setMessage({ tone: 'success', text })
+        notifications.show({ color: 'success', title: 'Account created', message: text })
+        return
+      }
+      notifications.show({
+        color: 'success',
+        title: mode === 'login' ? 'Logged in' : 'Account created',
+        message: mode === 'login' ? 'Welcome back.' : 'Your account is ready.',
+      })
       await router.invalidate()
       await router.navigate({ to: '/today' })
+    },
+    onError: (error) => {
+      setMessage({ tone: 'danger', text: getApiErrorMessage(error, 'Unable to sign in') })
     },
   })
 
   const magicMutation = useMutation({
     mutationFn: () => sendMagicLinkFn({ data: { email } }),
+    onMutate: () => {
+      setMessage(null)
+    },
     onSuccess: (result) => {
-      setMessage(result.ok ? 'Magic link sent. Check your email.' : result.message)
+      const text = result.ok ? 'Magic link sent. Check your email.' : result.message
+      setMessage({ tone: result.ok ? 'success' : 'danger', text })
+      if (result.ok) notifications.show({ color: 'success', title: 'Magic link sent', message: text })
+    },
+    onError: (error) => {
+      setMessage({ tone: 'danger', text: getApiErrorMessage(error, 'Unable to send magic link') })
     },
   })
 
   const resetMutation = useMutation({
     mutationFn: () => resetPasswordFn({ data: { email } }),
+    onMutate: () => {
+      setMessage(null)
+    },
     onSuccess: (result) => {
-      setMessage(result.ok ? 'Password reset email sent.' : result.message)
+      const text = result.ok ? 'Password reset email sent.' : result.message
+      setMessage({ tone: result.ok ? 'success' : 'danger', text })
+      if (result.ok) notifications.show({ color: 'success', title: 'Password reset sent', message: text })
+    },
+    onError: (error) => {
+      setMessage({ tone: 'danger', text: getApiErrorMessage(error, 'Unable to send password reset') })
     },
   })
+
+  const submitLabel =
+    authMethod === 'magic'
+      ? magicMutation.isPending
+        ? 'Sending link...'
+        : 'Send magic link'
+      : passwordMutation.isPending
+        ? mode === 'login'
+          ? 'Logging in...'
+          : 'Creating account...'
+        : mode === 'login'
+          ? 'Log in'
+          : 'Create account'
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-8">
@@ -89,7 +136,10 @@ function AuthForm() {
               className={`rounded-md px-3 py-2 text-sm font-bold ${
                 authMethod === 'password' ? 'bg-[var(--action)] text-white' : 'text-[var(--muted)]'
               }`}
-              onClick={() => setAuthMethod('password')}
+              onClick={() => {
+                setAuthMethod('password')
+                setMessage(null)
+              }}
             >
               Password
             </button>
@@ -98,7 +148,10 @@ function AuthForm() {
               className={`rounded-md px-3 py-2 text-sm font-bold ${
                 authMethod === 'magic' ? 'bg-[var(--action)] text-white' : 'text-[var(--muted)]'
               }`}
-              onClick={() => setAuthMethod('magic')}
+              onClick={() => {
+                setAuthMethod('magic')
+                setMessage(null)
+              }}
             >
               Magic link
             </button>
@@ -136,7 +189,7 @@ function AuthForm() {
             }
           >
             {authMethod === 'magic' ? <Mail size={16} /> : <KeyRound size={16} />}
-            {authMethod === 'magic' ? 'Send magic link' : mode === 'login' ? 'Log in' : 'Create account'}
+            {submitLabel}
           </Button>
         </form>
 
@@ -150,12 +203,15 @@ function AuthForm() {
               onClick={() => resetMutation.mutate()}
             >
               <LinkIcon size={15} />
-              Reset password
+              {resetMutation.isPending ? 'Sending reset...' : 'Reset password'}
             </Button>
             <button
               type="button"
               className="mt-4 w-full text-center text-sm font-semibold text-[var(--action)]"
-              onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+              onClick={() => {
+                setMode(mode === 'login' ? 'signup' : 'login')
+                setMessage(null)
+              }}
             >
               {mode === 'login' ? 'Create an account' : 'Already have an account? Log in'}
             </button>
@@ -171,13 +227,22 @@ function AuthForm() {
             onClick={() => resetMutation.mutate()}
           >
             <LinkIcon size={15} />
-            Reset password
+            {resetMutation.isPending ? 'Sending reset...' : 'Reset password'}
           </Button>
         ) : null}
 
         {message ? (
-          <p className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3 text-sm text-[var(--muted)]">
-            {message}
+          <p
+            className={`mt-4 rounded-lg border p-3 text-sm ${
+              message.tone === 'danger'
+                ? 'border-red-500/30 bg-red-500/10 text-red-200'
+                : message.tone === 'success'
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                  : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)]'
+            }`}
+            role={message.tone === 'danger' ? 'alert' : 'status'}
+          >
+            {message.text}
           </p>
         ) : null}
       </Card>

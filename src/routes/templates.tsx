@@ -1,8 +1,10 @@
 import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
+import { notifications } from '@mantine/notifications'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { Check, Lock, Search } from 'lucide-react'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { shouldConfirmProgramStart } from '~/lib/program-switch'
+import { getApiErrorMessage } from '~/lib/api-error'
 import { defaultAnchors } from '~/lib/templates'
 import { meQueryOptions, templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
 import { startProgramFn } from '~/server/api'
@@ -96,9 +98,12 @@ function AuthedTemplates({
         setShowSwitchConfirm(true)
         return
       }
-      setStartError(error instanceof Error ? error.message : 'Unable to start program')
+      const message = getApiErrorMessage(error, 'Unable to start program')
+      setStartError(message)
+      notifications.show({ color: 'danger', title: 'Could not start program', message })
     },
     onSuccess: async () => {
+      notifications.show({ color: 'success', title: 'Program started', message: 'Your next workout is ready.' })
       setShowSwitchConfirm(false)
       setShowSetup(false)
       setSelected(null)

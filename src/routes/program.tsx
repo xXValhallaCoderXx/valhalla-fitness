@@ -1,6 +1,8 @@
 import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
+import { notifications } from '@mantine/notifications'
 import { createFileRoute } from '@tanstack/react-router'
 import { Check, Clock3, X } from 'lucide-react'
+import { getApiErrorMessage } from '~/lib/api-error'
 import { activeProgramQueryOptions, todayQueryOptions } from '~/lib/query-options'
 import { resolveProgressionDecisionFn } from '~/server/api'
 import { Button, Card, Chip, EmptyState, Page, PageHeader } from '~/components/ui'
@@ -35,6 +37,16 @@ function AuthedProgram() {
   const mutation = useMutation({
     mutationFn: (data: { decisionId: string; action: 'accepted' | 'dismissed' | 'pending' }) =>
       resolveProgressionDecisionFn({ data }),
+    onSuccess: () => {
+      notifications.show({ color: 'success', title: 'Progression updated', message: 'Your decision was saved.' })
+    },
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Could not save decision',
+        message: getApiErrorMessage(error, 'Unable to save progression decision'),
+      })
+    },
   })
 
   if (!program) {

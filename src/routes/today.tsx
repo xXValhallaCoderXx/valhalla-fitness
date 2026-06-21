@@ -1,6 +1,8 @@
 import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
+import { notifications } from '@mantine/notifications'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { ArrowRight, Play, RotateCw } from 'lucide-react'
+import { getApiErrorMessage } from '~/lib/api-error'
 import { todayQueryOptions } from '~/lib/query-options'
 import { startSessionFn } from '~/server/api'
 import { Button, Card, Chip, EmptyState, Page, PageHeader } from '~/components/ui'
@@ -44,6 +46,13 @@ function AuthedToday() {
       router.options.context.queryClient.setQueryData(['session', session.sessionId], session)
       await router.options.context.queryClient.invalidateQueries({ queryKey: ['today'] })
       await router.navigate({ to: '/sessions/$sessionId', params: { sessionId: session.sessionId } })
+    },
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Could not start workout',
+        message: getApiErrorMessage(error, "Unable to start today's workout"),
+      })
     },
   })
 

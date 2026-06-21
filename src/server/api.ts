@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import type {
   AnchorInput,
+  MovementSlot,
   PlannedSession,
   ProgramInstance,
   ProgramTemplateSummary,
@@ -467,6 +468,20 @@ export const upsertSetLogFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const { supabase, user } = await requireUser()
+    const { data: sessionRow, error: sessionError } = await supabase
+      .from('workout_sessions')
+      .select('status')
+      .eq('id', data.sessionId)
+      .eq('user_id', user.id)
+      .single()
+    if (sessionError) throw new Error(sessionError.message)
+    if (sessionRow.status === 'completed') {
+      throw new Error('This session is already finished. Completed sessions cannot be edited.')
+    }
+    if (sessionRow.status !== 'in_progress') {
+      throw new Error('Only in-progress sessions can be edited.')
+    }
+
     const { error } = await supabase
       .from('set_logs')
       .update({
@@ -481,6 +496,8 @@ export const upsertSetLogFn = createServerFn({ method: 'POST' })
       .eq('user_id', user.id)
       .eq('exercise_log_id', data.exerciseLogId)
       .eq('set_index', data.setIndex)
+      .select('id')
+      .single()
     if (error) throw new Error(error.message)
     return getSessionInternal(data.sessionId)
   })
@@ -518,28 +535,50 @@ export const substituteMovementFn = createServerFn({ method: 'POST' })
     return getSessionInternal(data.sessionId)
   })
 
+function hasNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function hasCompletedReps(set: SetLog) {
+  return set.completed && hasNumber(set.actualReps)
+}
+
+function hasCompletedRepsAndRir(set: SetLog) {
+  return hasCompletedReps(set) && hasNumber(set.actualRir)
+}
+
+function hasCompleteAccessoryInputs(movement: MovementSlot) {
+  return movement.sets.length > 0 && movement.sets.every(hasCompletedRepsAndRir)
+}
+
+function accessoryOutcome(movement: MovementSlot) {
+  if (!hasCompleteAccessoryInputs(movement)) return 'Incomplete data - no recommendation'
+  return evaluateAccessoryDoubleProgression(
+    movement.sets,
+    movement.sets[0]?.targetRepMin ?? 8,
+    movement.sets[0]?.targetRepMax ?? 12,
+    movement.sets[0]?.targetRir ?? 2,
+  )
+}
+
 function buildDecisions(session: WorkoutSession, activeProgram: ProgramInstance) {
   const decisions: ProgressionDecision[] = []
   for (const movement of session.movements) {
     if (movement.role === 'main') {
-      const topSet = movement.sets.find((set) => set.isTopSet || set.isAmrap)
       const anchor = activeProgram.anchors.find((item) => item.movementId === movement.movementId)
-      if (topSet && anchor && session.templateId === 'bromley-bullmastiff') {
+      const topSetWithReps = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedReps(set))
+      const topSetWithRir = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedRepsAndRir(set))
+      if (topSetWithReps && anchor && session.templateId === 'bromley-bullmastiff') {
         decisions.push(
-          evaluateBullmastiffPlusSet(topSet, topSet.targetReps ?? 1, anchor.value, activeProgram.rounding, movement.movementId),
+          evaluateBullmastiffPlusSet(topSetWithReps, topSetWithReps.targetReps ?? 1, anchor.value, activeProgram.rounding, movement.movementId),
         )
       }
-      if (topSet && anchor && session.templateId === 'healthy-531-fsl') {
-        decisions.push(evaluate531TmBand([topSet], anchor.value, activeProgram.rounding, movement.movementId))
+      if (topSetWithRir && anchor && session.templateId === 'healthy-531-fsl') {
+        decisions.push(evaluate531TmBand([topSetWithRir], anchor.value, activeProgram.rounding, movement.movementId))
       }
     }
-    if (movement.role === 'accessory') {
-      const outcome = evaluateAccessoryDoubleProgression(
-        movement.sets,
-        movement.sets[0]?.targetRepMin ?? 8,
-        movement.sets[0]?.targetRepMax ?? 12,
-        movement.sets[0]?.targetRir ?? 2,
-      )
+    if (movement.role === 'accessory' && hasCompleteAccessoryInputs(movement)) {
+      const outcome = accessoryOutcome(movement)
       if (outcome === 'Add load next time') {
         decisions.push({
           id: `pending-accessory-${movement.movementId}`,
@@ -563,10 +602,12 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
     const activeProgram = await getActiveProgramInternal()
     if (!activeProgram) throw new Error('No active program')
     const session = await getSessionInternal(data.sessionId)
+    if (session.status === 'completed') throw new Error('Session is already finished')
+    if (session.status !== 'in_progress') throw new Error('Only in-progress sessions can be finished')
     const { supabase, user } = await requireUser()
     const decisions = buildDecisions(session, activeProgram)
 
-    await supabase
+    const { error: finishError } = await supabase
       .from('workout_sessions')
       .update({
         status: 'completed',
@@ -575,9 +616,13 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
       })
       .eq('id', data.sessionId)
       .eq('user_id', user.id)
+      .eq('status', 'in_progress')
+      .select('id')
+      .single()
+    if (finishError) throw new Error(finishError.message)
 
     for (const decision of decisions) {
-      await supabase.from('progression_decisions').insert({
+      const { error: decisionError } = await supabase.from('progression_decisions').insert({
         user_id: user.id,
         program_instance_id: activeProgram.id,
         movement_id: decision.movementId,
@@ -589,6 +634,7 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
         previous_anchor: decision.previousAnchor,
         recommended_anchor: decision.recommendedAnchor,
       })
+      if (decisionError) throw new Error(decisionError.message)
     }
 
     const completedSession = await getSessionInternal(data.sessionId)
@@ -600,7 +646,7 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
       topSets: sets.filter((set) => set.isTopSet || set.isAmrap),
       accessoryOutcomes: completedSession.movements
         .filter((movement) => movement.role === 'accessory')
-        .map((movement) => `${movement.movementName}: ${evaluateAccessoryDoubleProgression(movement.sets, movement.sets[0]?.targetRepMin ?? 8, movement.sets[0]?.targetRepMax ?? 12, movement.sets[0]?.targetRir ?? 2)}`),
+        .map((movement) => `${movement.movementName}: ${accessoryOutcome(movement)}`),
       decisions,
     }
   })

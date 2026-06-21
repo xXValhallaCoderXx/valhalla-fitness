@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { MantineProvider } from '@mantine/core'
+import { Notifications } from '@mantine/notifications'
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import {
@@ -59,6 +60,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <QueryClientProvider client={queryClient}>
           <MantineProvider theme={mantineTheme} defaultColorScheme="dark">
             <AppShell user={user}>{children}</AppShell>
+            <Notifications position="top-right" limit={4} />
             <ReactQueryDevtools buttonPosition="bottom-left" initialIsOpen={false} />
             <TanStackRouterDevtools position="bottom-right" />
           </MantineProvider>

@@ -1,6 +1,8 @@
 import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
+import { notifications } from '@mantine/notifications'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
+import { getApiErrorMessage } from '~/lib/api-error'
 import { meQueryOptions } from '~/lib/query-options'
 import { signOutFn } from '~/server/auth'
 import { updateSettingsFn } from '~/server/api'
@@ -58,6 +60,14 @@ function AuthedSettings() {
       }),
     onSuccess: (next) => {
       router.options.context.queryClient.setQueryData(['me'], next)
+      notifications.show({ color: 'success', title: 'Settings saved', message: 'Your preferences were updated.' })
+    },
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Could not save settings',
+        message: getApiErrorMessage(error, 'Unable to save settings'),
+      })
     },
   })
 
@@ -66,6 +76,13 @@ function AuthedSettings() {
     onSuccess: async () => {
       await router.invalidate()
       await router.navigate({ to: '/auth' })
+    },
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Could not sign out',
+        message: getApiErrorMessage(error, 'Unable to sign out'),
+      })
     },
   })
 
@@ -78,8 +95,8 @@ function AuthedSettings() {
         <Card>
           <h2 className="text-sm font-bold uppercase text-[var(--muted)]">Account</h2>
           <p className="mt-3 text-sm">{me?.email}</p>
-          <Button className="mt-4" variant="danger" onClick={() => signOutMutation.mutate()}>
-            Sign out
+          <Button className="mt-4" variant="danger" disabled={signOutMutation.isPending} onClick={() => signOutMutation.mutate()}>
+            {signOutMutation.isPending ? 'Signing out...' : 'Sign out'}
           </Button>
         </Card>
 
@@ -130,8 +147,8 @@ function AuthedSettings() {
                 </label>
               ))}
             </div>
-            <Button className="mt-4 w-full" onClick={() => updateMutation.mutate()}>
-              Save changes
+            <Button className="mt-4 w-full" disabled={updateMutation.isPending} onClick={() => updateMutation.mutate()}>
+              {updateMutation.isPending ? 'Saving...' : 'Save changes'}
             </Button>
           </Card>
 

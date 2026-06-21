@@ -1,7 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Calculator, Check, History, Repeat2, Timer, X } from 'lucide-react'
-import { useState } from 'react'
+import { notifications } from '@mantine/notifications'
+import { Calculator, Check, ChevronDown, History, RefreshCw, Repeat2, Timer, X } from 'lucide-react'
+import { useId, useState } from 'react'
 import { Button, Card, Chip, TextInput } from '~/components/atoms'
+import { getApiErrorMessage } from '~/lib/api-error'
 import { patchSetInSession, sessionCompletion, type SetPatch } from '~/lib/session-cache'
 import { upsertSetLogFn } from '~/server/api'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/types/training'
@@ -15,28 +17,51 @@ export function SyncPill({ state }: { state?: string }) {
 export function MovementCard({
     session,
     movement,
+    isOpen,
+    onToggle,
 }: {
     session: WorkoutSession
     movement: MovementSlot
+    isOpen: boolean
+    onToggle: () => void
 }) {
+    const contentId = useId()
+    const completedSets = movement.sets.filter((set) => set.completed).length
+    const totalSets = movement.sets.length
+
     return (
-        <Card className="space-y-3">
-            <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="truncate text-base font-bold">{movement.movementName}</h2>
-                        <Chip tone={movement.role === 'main' ? 'action' : 'neutral'}>{movement.role}</Chip>
+        <Card className="overflow-hidden p-0">
+            <div className="flex items-start justify-between gap-3 p-3">
+                <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                    aria-expanded={isOpen}
+                    aria-controls={contentId}
+                    onClick={onToggle}
+                >
+                    <ChevronDown
+                        className={`mt-1 shrink-0 text-[var(--muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                        size={16}
+                    />
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="truncate text-base font-bold">{movement.movementName}</h2>
+                            <Chip tone={movement.role === 'main' ? 'action' : 'neutral'}>{movement.role}</Chip>
+                            <Chip tone={completedSets === totalSets ? 'success' : 'warning'}>
+                                {completedSets}/{totalSets} sets
+                            </Chip>
+                        </div>
+                        {movement.performedMovementId && movement.performedMovementId !== movement.movementId ? (
+                            <p className="mt-1 text-xs text-[var(--warning)]">
+                                Performed as {movement.performedMovementName}
+                            </p>
+                        ) : null}
+                        <p className="mt-1 text-xs text-[var(--muted)]">{movement.targetSummary}</p>
+                        {movement.previous ? (
+                            <p className="mt-1 text-xs text-[var(--muted)]">{movement.previous.label}</p>
+                        ) : null}
                     </div>
-                    {movement.performedMovementId && movement.performedMovementId !== movement.movementId ? (
-                        <p className="mt-1 text-xs text-[var(--warning)]">
-                            Performed as {movement.performedMovementName}
-                        </p>
-                    ) : null}
-                    <p className="mt-1 text-xs text-[var(--muted)]">{movement.targetSummary}</p>
-                    {movement.previous ? (
-                        <p className="mt-1 text-xs text-[var(--muted)]">{movement.previous.label}</p>
-                    ) : null}
-                </div>
+                </button>
                 <div className="flex shrink-0 items-center gap-1">
                     <Button variant="ghost" className="h-9 w-9 px-0" title="Plate math">
                         <Calculator size={16} />
@@ -49,11 +74,13 @@ export function MovementCard({
                     </Button>
                 </div>
             </div>
-            <div className="space-y-2">
-                {movement.sets.map((set) => (
-                    <SetRow key={`${movement.id}-${set.setIndex}`} session={session} movement={movement} set={set} />
-                ))}
-            </div>
+            {isOpen ? (
+                <div id={contentId} className="space-y-2 border-t border-[var(--border)] p-3">
+                    {movement.sets.map((set) => (
+                        <SetRow key={`${movement.id}-${set.setIndex}`} session={session} movement={movement} set={set} />
+                    ))}
+                </div>
+            ) : null}
         </Card>
     )
 }
@@ -106,7 +133,7 @@ function SetRow({
             }
             return { previous }
         },
-        onError: (_error, patch, context) => {
+        onError: (error, patch, context) => {
             if (context?.previous) {
                 queryClient.setQueryData(
                     ['session', session.sessionId],
@@ -118,6 +145,11 @@ function SetRow({
                     }),
                 )
             }
+            notifications.show({
+                color: 'danger',
+                title: 'Set not saved',
+                message: getApiErrorMessage(error, 'Unable to save this set. Retry when your connection is stable.'),
+            })
         },
         onSuccess: (nextSession) => {
             queryClient.setQueryData(['session', session.sessionId], nextSession)
@@ -128,6 +160,8 @@ function SetRow({
     })
 
     const complete = () => {
+        if (mutation.isPending || set.syncState === 'saving') return
+        const completed = set.syncState === 'syncFailed' ? set.completed : !set.completed
         mutation.mutate({
             exerciseLogId: movement.id,
             movementSlotId: movement.id,
@@ -135,13 +169,18 @@ function SetRow({
             actualLoad: Number(draft.actualLoad),
             actualReps: Number(draft.actualReps),
             actualRir: draft.actualRir,
-            completed: !set.completed,
+            completed,
             clientMutationId: crypto.randomUUID(),
         })
     }
 
+    const isSaving = mutation.isPending || set.syncState === 'saving'
+    const saveFailed = set.syncState === 'syncFailed'
+    const isEditingDisabled = set.completed || isSaving
+    const actionLabel = saveFailed ? 'Retry' : set.completed ? 'Edit' : 'Complete'
+
     return (
-        <div className="grid grid-cols-[2rem_1fr_auto] items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-2">
+        <div className={`grid grid-cols-[2rem_1fr_auto] items-center gap-2 rounded-lg border p-2 ${saveFailed ? 'border-red-500/40 bg-red-500/10' : set.completed ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-[var(--border)] bg-[var(--surface-2)]'}`}>
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--surface)] text-xs font-bold">
                 {set.setIndex}
             </div>
@@ -152,7 +191,8 @@ function SetRow({
                     </span>
                     {set.isTopSet ? <Chip tone="warning">Top set</Chip> : null}
                     {set.isBackoff ? <Chip>Back-off</Chip> : null}
-                    {set.syncState && set.syncState !== 'synced' ? <SyncPill state={set.syncState} /> : null}
+                    <SetSyncStatus state={set.syncState} />
+                    {set.completed ? <span className="font-semibold text-emerald-300">Locked</span> : null}
                 </div>
                 <div className="mt-2 grid grid-cols-[1fr_1fr_1.3fr] gap-2">
                     <NumberField
@@ -160,28 +200,42 @@ function SetRow({
                         value={draft.actualLoad}
                         step={session.units === 'kg' ? session.rounding : 5}
                         onChange={(value) => setDraft((prev) => ({ ...prev, actualLoad: value }))}
+                        disabled={isEditingDisabled}
                     />
                     <NumberField
                         label="Reps"
                         value={draft.actualReps}
                         step={1}
                         onChange={(value) => setDraft((prev) => ({ ...prev, actualReps: value }))}
+                        disabled={isEditingDisabled}
                     />
                     <RirSelector
                         value={draft.actualRir}
                         onChange={(value) => setDraft((prev) => ({ ...prev, actualRir: value }))}
+                        disabled={isEditingDisabled}
                     />
                 </div>
             </div>
             <Button
-                variant={set.completed ? 'success' : 'secondary'}
-                className="h-10 w-10 px-0"
+                variant={saveFailed ? 'danger' : set.completed ? 'success' : 'secondary'}
+                className="h-10 min-w-24 px-3"
+                disabled={isSaving}
                 onClick={complete}
-                title={set.completed ? 'Mark incomplete' : 'Complete set'}
+                title={saveFailed ? 'Retry save' : set.completed ? 'Mark incomplete to edit' : 'Complete set'}
             >
-                {set.completed ? <Check size={16} /> : <Timer size={16} />}
+                {saveFailed ? <RefreshCw size={16} /> : set.completed ? <Check size={16} /> : <Timer size={16} />}
+                {actionLabel}
             </Button>
         </div>
+    )
+}
+
+function SetSyncStatus({ state }: { state?: string }) {
+    const showStatus = state && state !== 'synced'
+    return (
+        <span className="inline-flex min-h-[1.375rem] min-w-24 items-center" aria-live="polite">
+            {showStatus ? <SyncPill state={state} /> : null}
+        </span>
     )
 }
 
@@ -190,11 +244,13 @@ function NumberField({
     value,
     step,
     onChange,
+    disabled = false,
 }: {
     label: string
     value: number
     step: number
     onChange: (value: number) => void
+    disabled?: boolean
 }) {
     return (
         <label className="grid gap-1">
@@ -203,19 +259,22 @@ function NumberField({
                 <button
                     type="button"
                     className="bg-[var(--surface)] text-[var(--muted)]"
+                    disabled={disabled}
                     onClick={() => onChange(Number(value) - step)}
                 >
                     -
                 </button>
                 <input
                     type="number"
-                    className="min-w-0 bg-[var(--surface-2)] px-1 py-1 text-center text-xs font-bold outline-none"
+                    className="min-w-0 bg-[var(--surface-2)] px-1 py-1 text-center text-xs font-bold outline-none disabled:text-[var(--muted)]"
                     value={Number.isFinite(value) ? value : 0}
+                    disabled={disabled}
                     onChange={(event) => onChange(Number(event.target.value))}
                 />
                 <button
                     type="button"
                     className="bg-[var(--surface)] text-[var(--muted)]"
+                    disabled={disabled}
                     onClick={() => onChange(Number(value) + step)}
                 >
                     +
@@ -228,9 +287,11 @@ function NumberField({
 function RirSelector({
     value,
     onChange,
+    disabled = false,
 }: {
     value?: number
     onChange: (value: number) => void
+    disabled?: boolean
 }) {
     return (
         <div>
@@ -244,6 +305,7 @@ function RirSelector({
                                 ? 'border-[var(--action)] bg-[var(--action)] text-white'
                                 : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]'
                             }`}
+                        disabled={disabled}
                         onClick={() => onChange(item)}
                     >
                         {item === 4 ? '4+' : item}
