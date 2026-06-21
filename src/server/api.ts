@@ -296,6 +296,7 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       units: Unit
       rounding: number
       anchors: AnchorInput[]
+      replaceActiveProgram?: boolean
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -311,6 +312,35 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       .order('created_at', { ascending: false })
       .limit(1)
     if (versionError) throw new Error(versionError.message)
+
+    const { data: activePrograms, error: activeProgramError } = await supabase
+      .from('program_instances')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+    if (activeProgramError) throw new Error(activeProgramError.message)
+
+    const { data: activeSessions, error: activeSessionError } = await supabase
+      .from('workout_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'in_progress')
+    if (activeSessionError) throw new Error(activeSessionError.message)
+
+    const activeProgramIds = (activePrograms ?? []).map((program: any) => program.id as string)
+    const activeSessionIds = (activeSessions ?? []).map((session: any) => session.id as string)
+    if ((activeProgramIds.length || activeSessionIds.length) && !data.replaceActiveProgram) {
+      throw new Error('Active program in progress')
+    }
+
+    if (activeSessionIds.length) {
+      const { error: abandonError } = await supabase
+        .from('workout_sessions')
+        .update({ status: 'skipped' })
+        .eq('user_id', user.id)
+        .in('id', activeSessionIds)
+      if (abandonError) throw new Error(abandonError.message)
+    }
 
     await supabase
       .from('program_instances')
