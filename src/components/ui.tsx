@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
+import { useEffect, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '~/lib/cn'
 
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
@@ -38,12 +38,14 @@ export function Card({ children, className }: { children: ReactNode; className?:
   )
 }
 
+export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'ghost'
+
 export function Button({
   className,
   variant = 'primary',
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'ghost'
+  variant?: ButtonVariant
 }) {
   const variants = {
     primary: 'bg-[var(--action)] text-white',
@@ -61,6 +63,77 @@ export function Button({
       )}
       {...props}
     />
+  )
+}
+
+export function ConfirmDialog({
+  open,
+  title,
+  children,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  confirmVariant = 'primary',
+  isPending = false,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean
+  title: string
+  children: ReactNode
+  confirmLabel?: string
+  cancelLabel?: string
+  confirmVariant?: ButtonVariant
+  isPending?: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const titleId = useId()
+
+  useEffect(() => {
+    if (!open || isPending) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCancel()
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isPending, onCancel, open])
+
+  if (!open) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end bg-black/70 p-3 sm:items-center sm:justify-center"
+      onClick={() => {
+        if (!isPending) onCancel()
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="w-full max-w-md"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <Card className="space-y-4">
+          <div>
+            <h2 id={titleId} className="text-lg font-bold">
+              {title}
+            </h2>
+            <div className="mt-2 text-sm text-[var(--muted)]">{children}</div>
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="secondary" disabled={isPending} onClick={onCancel}>
+              {cancelLabel}
+            </Button>
+            <Button variant={confirmVariant} disabled={isPending} onClick={onConfirm}>
+              {isPending ? 'Starting…' : confirmLabel}
+            </Button>
+          </div>
+        </Card>
+      </div>
+    </div>
   )
 }
 
