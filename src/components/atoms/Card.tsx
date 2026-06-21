@@ -7,7 +7,10 @@ export function Card({ children, className, ...props }: CardProps) {
     return (
         <MantineCard
             withBorder
-            className={cn('rounded-lg border-[var(--border)] bg-[var(--surface)] p-4', className)}
+            className={cn(
+                'rounded-[var(--radius-card)] !border-[var(--border)] !bg-[var(--surface)] p-4 !text-[var(--text)] shadow-[var(--shadow-card)]',
+                className,
+            )}
             {...props}
         >
             {children}

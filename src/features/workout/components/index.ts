@@ -5,3 +5,4 @@ export {
     SessionProgress,
     SyncPill,
 } from './session'
+export { LiveSessionFrame } from './live-session'

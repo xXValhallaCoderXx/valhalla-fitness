@@ -42,6 +42,7 @@ const today = ({
   activeProgram,
   plannedSession: null,
   activeSession,
+  completedSession: null,
   pendingDecisions: [],
 })
 

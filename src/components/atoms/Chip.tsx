@@ -12,23 +12,23 @@ export type ChipProps = Omit<BadgeProps, 'children' | 'color'> & {
 const toneConfig: Record<ChipTone, { color: string; className: string }> = {
     neutral: {
         color: 'neutral',
-        className: 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)]',
+        className: '!border-[var(--border)] !bg-[var(--surface-2)] !text-[var(--muted)]',
     },
     action: {
         color: 'action',
-        className: 'border-blue-500/30 bg-blue-500/10 text-blue-300',
+        className: '!border-[var(--action-border)] !bg-[var(--action-soft)] !text-[var(--action-text)]',
     },
     success: {
         color: 'success',
-        className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+        className: '!border-[var(--success-border)] !bg-[var(--success-soft)] !text-[var(--success-text)]',
     },
     warning: {
         color: 'warning',
-        className: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
+        className: '!border-[var(--warning-border)] !bg-[var(--warning-soft)] !text-[var(--warning-text)]',
     },
     danger: {
         color: 'danger',
-        className: 'border-red-500/30 bg-red-500/10 text-red-300',
+        className: '!border-[var(--danger-border)] !bg-[var(--danger-soft)] !text-[var(--danger-text)]',
     },
 }
 
@@ -43,7 +43,7 @@ export function Chip({ children, tone = 'neutral', className, ...props }: ChipPr
             variant="light"
             color={config.color}
             className={cn(
-                'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase',
+                'inline-flex items-center rounded-full !border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider',
                 config.className,
                 className,
             )}

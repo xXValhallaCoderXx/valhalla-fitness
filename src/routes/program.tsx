@@ -57,53 +57,87 @@ function AuthedProgram() {
     )
   }
 
+  const weeksInCycle = program.templateId === 'healthy-531-fsl' ? 4 : 3
+  const currentWeek = program.currentWeekIndex % weeksInCycle
+  const weekLabels = ['Opening work', 'Build', 'Heavy review', 'Deload']
+
   return (
     <Page>
-      <PageHeader title={program.title} eyebrow="Program">
+      <PageHeader
+        title={program.title}
+        eyebrow="Program"
+        actions={<Chip tone="action">Week {currentWeek + 1} of {weeksInCycle}</Chip>}
+      >
         Current position: week {program.currentWeekIndex + 1}
       </PageHeader>
 
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      {today.pendingDecisions.length ? (
+        <Card className="mb-4 !border-[var(--warning-border)] !bg-[var(--warning-soft)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="vf-section-label text-[var(--warning-text)]">Pending Decision</p>
+              <p className="mt-1 text-sm font-semibold">Review {today.pendingDecisions[0]?.movementName} progression before the next block.</p>
+            </div>
+            <Chip tone="warning">{today.pendingDecisions.length} pending</Chip>
+          </div>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <Card>
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase text-[var(--muted)]">Timeline</h2>
+            <h2 className="vf-section-label">Timeline — Cycle</h2>
             <Chip tone="action">{program.status}</Chip>
           </div>
-          <div className="mt-4 space-y-3">
-            {Array.from({ length: program.templateId === 'healthy-531-fsl' ? 4 : 3 }, (_, index) => (
-              <div
-                key={index}
-                className={`rounded-lg border p-3 ${
-                  index === program.currentWeekIndex % (program.templateId === 'healthy-531-fsl' ? 4 : 3)
-                    ? 'border-[var(--action)] bg-blue-500/10'
-                    : 'border-[var(--border)] bg-[var(--surface-2)]'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-bold">Week {index + 1}</p>
-                    <p className="text-xs text-[var(--muted)]">
-                      {index === 0 ? 'Opening work' : index === 1 ? 'Build' : index === 2 ? 'Heavy review' : 'Deload'}
-                    </p>
+          <div className="relative mt-4 space-y-3 before:absolute before:bottom-4 before:left-4 before:top-4 before:w-px before:bg-[var(--border)]">
+            {Array.from({ length: weeksInCycle }, (_, index) => {
+              const current = index === currentWeek
+              const complete = index < currentWeek
+              return (
+              <div key={index} className="relative z-10 flex gap-3">
+                <div className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-4 border-[var(--bg)] ${complete ? 'bg-[var(--success)] text-white' : current ? 'bg-[var(--action)] text-white shadow-sm' : 'bg-[var(--surface-2)] text-[var(--muted)]'}`}>
+                  {complete ? <Check size={12} /> : current ? <span className="h-2.5 w-2.5 rounded-full bg-white" /> : <span className="h-2 w-2 rounded-full bg-[var(--border)]" />}
+                </div>
+                <div
+                  className={`flex-1 rounded-xl border p-3 ${
+                    current
+                      ? 'border-[var(--action)] bg-[var(--action-soft)]'
+                      : complete
+                        ? 'border-[var(--border)] bg-[var(--surface)] opacity-70'
+                        : 'border-dashed border-[var(--border)] bg-transparent'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-extrabold">Week {index + 1}</p>
+                      <p className="text-xs text-[var(--muted)]">{weekLabels[index] ?? 'Training week'}</p>
+                    </div>
+                    {complete ? <Chip tone="success">Done</Chip> : current ? <Chip tone="action">Current</Chip> : <Chip>Locked</Chip>}
                   </div>
-                  {index === program.currentWeekIndex % (program.templateId === 'healthy-531-fsl' ? 4 : 3) ? (
-                    <Chip tone="action">Current</Chip>
+                  {current ? (
+                    <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border)] pt-3">
+                      {['S1', 'S2', 'S3', 'S4'].slice(0, program.templateId === 'healthy-531-fsl' ? 4 : 3).map((sessionLabel, sessionIndex) => (
+                        <span key={sessionLabel} className={`rounded-lg px-2.5 py-2 text-[11px] font-semibold ${sessionIndex === 0 ? 'bg-[var(--surface-2)] text-[var(--muted)] line-through' : sessionIndex === 1 ? 'border border-[var(--action-border)] bg-[var(--action-soft)] text-[var(--text)]' : 'text-[var(--muted)]'}`}>
+                          {sessionLabel}: {sessionIndex === 0 ? 'Squat' : sessionIndex === 1 ? 'Deadlift' : sessionIndex === 2 ? 'Bench' : 'OHP'}
+                        </span>
+                      ))}
+                    </div>
                   ) : null}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </Card>
 
         <div className="space-y-4">
           <Card>
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold uppercase text-[var(--muted)]">Current Anchors</h2>
+              <h2 className="vf-section-label">Current Anchors</h2>
               <Chip>{program.units}</Chip>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
               {program.anchors.map((anchor) => (
-                <div key={anchor.movementId} className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3">
+                <div key={anchor.movementId} className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
                   <p className="text-xs text-[var(--muted)]">{anchor.movementId.replaceAll('_', ' ')}</p>
                   <p className="mt-1 text-lg font-bold">
                     {anchor.value} <span className="text-xs text-[var(--muted)]">{program.units}</span>
@@ -114,11 +148,11 @@ function AuthedProgram() {
           </Card>
 
           <Card>
-            <h2 className="text-sm font-bold uppercase text-[var(--muted)]">Progression</h2>
+            <h2 className="vf-section-label">Progression</h2>
             {today.pendingDecisions.length ? (
               <div className="mt-3 space-y-3">
                 {today.pendingDecisions.map((decision) => (
-                  <div key={decision.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3">
+                  <div key={decision.id} className="rounded-xl border border-[var(--warning-border)] bg-[var(--surface-2)] p-3">
                     <p className="font-bold">{decision.movementName}</p>
                     <p className="mt-1 text-xs text-[var(--muted)]">{decision.recommendation}</p>
                     <div className="mt-3 grid grid-cols-3 gap-2">

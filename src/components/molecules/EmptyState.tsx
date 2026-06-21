@@ -13,7 +13,7 @@ export function EmptyState({
 }) {
     return (
         <Card className="flex min-h-64 flex-col items-center justify-center text-center">
-            <Title order={2} className="text-lg font-bold">
+            <Title order={2} className="text-lg font-extrabold">
                 {title}
             </Title>
             <Text component="p" className="mt-2 max-w-md text-sm text-[var(--muted)]">

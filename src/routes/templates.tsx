@@ -173,7 +173,14 @@ function AuthedTemplates({
 
   return (
     <Page>
-      <PageHeader title="Choose a program">
+      <PageHeader
+        title="Choose a program"
+        actions={
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--muted)] shadow-[var(--shadow-card)]">
+            <span className="font-extrabold text-[var(--text)]">{templates.length}</span> programs available
+          </span>
+        }
+      >
         Select a structured program to start your next training cycle.
       </PageHeader>
 
@@ -187,7 +194,7 @@ function AuthedTemplates({
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
           {['All', '5/3/1', 'Bromley', 'Base', 'Peak', 'High volume', 'Low volume'].map((item) => (
             <button
               key={item}
@@ -204,7 +211,9 @@ function AuthedTemplates({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <p className="mb-3 text-[11px] font-semibold text-[var(--muted)]">Showing {filtered.length} programs</p>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {filtered.map((template) => (
           <TemplateCard key={template.id} template={template} onStart={() => selectTemplate(template)} />
         ))}
@@ -339,26 +348,35 @@ function TemplateCard({
   onStart: () => void
 }) {
   return (
-    <Card className="flex flex-col justify-between gap-4">
+    <Card className="group flex flex-col justify-between gap-4 vf-card-hover">
       <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-bold">{template.name}</h2>
-          <Chip tone={template.sourceLabel === 'Bromley' ? 'warning' : 'action'}>{template.sourceLabel}</Chip>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-extrabold leading-tight md:text-base">{template.name}</h2>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <Chip tone={template.sourceLabel === 'Bromley' ? 'warning' : 'action'}>{template.sourceLabel}</Chip>
+              <span className="text-[10px] font-medium text-[var(--muted)]">{template.daysPerWeek} days/wk</span>
+            </div>
+          </div>
+          <Chip tone="action" className="shrink-0 normal-case">
+            {template.progressionLabel}
+          </Chip>
           {!template.available ? <Chip>Later</Chip> : null}
         </div>
-        <p className="mt-2 text-sm text-[var(--muted)]">{template.description}</p>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
-          <span>{template.daysPerWeek} days/week</span>
-          <span>•</span>
-          <span>{template.progressionLabel}</span>
-          <span>•</span>
-          <span>{template.complexity}</span>
+        <p className="mt-3 text-[11px] leading-relaxed text-[var(--muted)] md:text-xs">{template.description}</p>
+        <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] text-[var(--muted)]">
+          <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 font-semibold">{template.complexity}</span>
+          {template.tags.slice(0, 2).map((tag) => (
+            <span key={tag} className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 font-semibold">
+              {tag}
+            </span>
+          ))}
         </div>
       </div>
       {template.available ? (
-        <Button onClick={onStart}>
+        <Button className="w-full md:bg-[var(--surface-2)] md:!text-[var(--text)] md:group-hover:!bg-[var(--brand-mark)] md:group-hover:!text-[var(--brand-mark-text)]" onClick={onStart}>
           <Check size={16} />
-          Start
+          Start Program
         </Button>
       ) : (
         <Button variant="secondary" disabled>

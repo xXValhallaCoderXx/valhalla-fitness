@@ -107,67 +107,75 @@ function AuthForm() {
           : 'Create account'
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-8">
-      <Card className="w-full max-w-md p-6">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--action)] text-white">
-            <Dumbbell size={24} />
+    <main className="flex min-h-screen items-center justify-center bg-[var(--bg)] px-4 py-8 text-[var(--text)]">
+      <Card className="w-full max-w-[520px] overflow-hidden p-0">
+        <div className="hidden h-12 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-5 md:flex">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--brand-mark)] text-[var(--brand-mark-text)]">
+              <Dumbbell size={12} />
+            </div>
+            <span className="text-sm font-extrabold tracking-tight">Valhalla Fitness</span>
           </div>
-          <h1 className="text-2xl font-bold">Mobile Strength Tracker</h1>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Sign in to continue to your training log.
-          </p>
+          <span className="text-xs font-medium text-[var(--muted)]">Sign in to continue</span>
         </div>
-
-        <form
-          className="space-y-3"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (authMethod === 'magic') {
-              magicMutation.mutate()
-            } else {
-              passwordMutation.mutate()
-            }
-          }}
-        >
-          <div className="grid grid-cols-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-1">
-            <button
-              type="button"
-              className={`rounded-md px-3 py-2 text-sm font-bold ${
-                authMethod === 'password' ? 'bg-[var(--action)] text-white' : 'text-[var(--muted)]'
-              }`}
-              onClick={() => {
-                setAuthMethod('password')
-                setMessage(null)
-              }}
-            >
-              Password
-            </button>
-            <button
-              type="button"
-              className={`rounded-md px-3 py-2 text-sm font-bold ${
-                authMethod === 'magic' ? 'bg-[var(--action)] text-white' : 'text-[var(--muted)]'
-              }`}
-              onClick={() => {
-                setAuthMethod('magic')
-                setMessage(null)
-              }}
-            >
-              Magic link
-            </button>
+        <div className="bg-[var(--bg)] p-6 md:p-8">
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--action)] shadow-sm md:h-14 md:w-14 md:bg-[var(--brand-mark)] md:text-[var(--brand-mark-text)]">
+              <Dumbbell size={24} />
+            </div>
+            <h1 className="text-[22px] font-extrabold tracking-tight md:text-xl">Welcome back</h1>
+            <p className="mt-1 text-xs font-medium text-[var(--muted)]">Sign in to your Valhalla Fitness account.</p>
           </div>
-          <label className="grid gap-1">
-            <span className="text-xs font-bold uppercase text-[var(--muted)]">Email</span>
-            <TextInput
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="name@example.com"
-              required
-            />
-          </label>
-          {authMethod === 'password' ? (
+
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (authMethod === 'magic') {
+                magicMutation.mutate()
+              } else {
+                passwordMutation.mutate()
+              }
+            }}
+          >
+            <div className="grid grid-cols-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
+              <button
+                type="button"
+                className={`rounded-lg px-3 py-2 text-sm font-bold ${
+                  authMethod === 'password' ? 'bg-[var(--action)] text-white' : 'text-[var(--muted)]'
+                }`}
+                onClick={() => {
+                  setAuthMethod('password')
+                  setMessage(null)
+                }}
+              >
+                Password
+              </button>
+              <button
+                type="button"
+                className={`rounded-lg px-3 py-2 text-sm font-bold ${
+                  authMethod === 'magic' ? 'bg-[var(--action)] text-white' : 'text-[var(--muted)]'
+                }`}
+                onClick={() => {
+                  setAuthMethod('magic')
+                  setMessage(null)
+                }}
+              >
+                Magic link
+              </button>
+            </div>
+            <label className="grid gap-1">
+              <span className="text-xs font-bold uppercase text-[var(--muted)]">Email</span>
+              <TextInput
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="name@example.com"
+                required
+              />
+            </label>
+            {authMethod === 'password' ? (
             <label className="grid gap-1">
               <span className="text-xs font-bold uppercase text-[var(--muted)]">Password</span>
               <TextInput
@@ -180,20 +188,20 @@ function AuthForm() {
               />
             </label>
           ) : null}
-          <Button
-            className="w-full"
-            disabled={
-              authMethod === 'magic'
-                ? !email || magicMutation.isPending
-                : !email || !password || passwordMutation.isPending
-            }
-          >
-            {authMethod === 'magic' ? <Mail size={16} /> : <KeyRound size={16} />}
-            {submitLabel}
-          </Button>
-        </form>
+            <Button
+              className="w-full py-3"
+              disabled={
+                authMethod === 'magic'
+                  ? !email || magicMutation.isPending
+                  : !email || !password || passwordMutation.isPending
+              }
+            >
+              {authMethod === 'magic' ? <Mail size={16} /> : <KeyRound size={16} />}
+              {submitLabel}
+            </Button>
+          </form>
 
-        {authMethod === 'password' ? (
+          {authMethod === 'password' ? (
           <>
             <Button
               type="button"
@@ -216,9 +224,9 @@ function AuthForm() {
               {mode === 'login' ? 'Create an account' : 'Already have an account? Log in'}
             </button>
           </>
-        ) : null}
+          ) : null}
 
-        {authMethod === 'magic' ? (
+          {authMethod === 'magic' ? (
           <Button
             type="button"
             className="mt-3 w-full"
@@ -229,9 +237,9 @@ function AuthForm() {
             <LinkIcon size={15} />
             {resetMutation.isPending ? 'Sending reset...' : 'Reset password'}
           </Button>
-        ) : null}
+          ) : null}
 
-        {message ? (
+          {message ? (
           <p
             className={`mt-4 rounded-lg border p-3 text-sm ${
               message.tone === 'danger'
@@ -244,7 +252,8 @@ function AuthForm() {
           >
             {message.text}
           </p>
-        ) : null}
+          ) : null}
+        </div>
       </Card>
     </main>
   )

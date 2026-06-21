@@ -36,10 +36,11 @@ export function ConfirmDialog({
             closeOnEscape={!isPending}
             withCloseButton={!isPending}
             classNames={{
-                content: 'border border-[var(--border)] bg-[var(--surface)] text-[var(--text)]',
-                header: 'bg-[var(--surface)] text-[var(--text)]',
-                title: 'text-lg font-bold',
-                body: 'space-y-4',
+                content: '!border !border-[var(--border)] !bg-[var(--surface)] !text-[var(--text)]',
+                header: '!bg-[var(--surface)] !text-[var(--text)]',
+                title: 'text-lg font-bold !text-[var(--text)]',
+                body: 'space-y-4 !text-[var(--text)]',
+                close: '!text-[var(--muted)] hover:!bg-[var(--surface-2)] hover:!text-[var(--text)]',
             }}
         >
             <div className="text-sm text-[var(--muted)]">{children}</div>

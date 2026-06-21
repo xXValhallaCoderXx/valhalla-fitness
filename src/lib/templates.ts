@@ -143,6 +143,24 @@ export function expandPlannedSession(program: ProgramInstance, scheduledDate: st
   return expandHealthy531Session(program, scheduledDate)
 }
 
+export function programForNextUncompletedSession(
+  program: ProgramInstance,
+  completedPlannedSessionIds: Iterable<string>,
+  scheduledDate: string,
+) {
+  const completedIds = new Set(completedPlannedSessionIds)
+  if (!completedIds.size) return program
+
+  let nextProgram = program
+  for (let attempts = 0; attempts < 64; attempts += 1) {
+    const plannedSession = expandPlannedSession(nextProgram, scheduledDate)
+    if (!completedIds.has(plannedSession.id)) return nextProgram
+    nextProgram = { ...nextProgram, currentWeekIndex: nextProgram.currentWeekIndex + 1 }
+  }
+
+  return nextProgram
+}
+
 function expandHealthy531Session(program: ProgramInstance, scheduledDate: string): PlannedSession {
   const day = healthyDays[program.currentWeekIndex % healthyDays.length]
   const weekIndex = program.currentWeekIndex % 4

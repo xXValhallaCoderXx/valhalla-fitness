@@ -15,15 +15,34 @@ const variantConfig: Record<
     ButtonVariant,
     Pick<MantineButtonProps, 'color' | 'variant'> & { className?: string }
 > = {
-    primary: { color: 'action', variant: 'filled' },
+    primary: {
+        color: 'action',
+        variant: 'filled',
+        className: '!bg-[var(--action)] !text-white shadow-sm hover:!bg-[var(--action-hover)]',
+    },
     secondary: {
         color: 'neutral',
         variant: 'light',
-        className: 'border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)]',
+        className:
+            '!border !border-[var(--border)] !bg-[var(--surface-2)] !text-[var(--text)] hover:!bg-[var(--surface-3)]',
     },
-    danger: { color: 'danger', variant: 'light', className: 'border border-red-900/40' },
-    success: { color: 'success', variant: 'light', className: 'border border-emerald-700/40' },
-    ghost: { color: 'neutral', variant: 'subtle', className: 'text-[var(--muted)] hover:text-[var(--text)]' },
+    danger: {
+        color: 'danger',
+        variant: 'light',
+        className:
+            '!border !border-[var(--danger-border)] !bg-[var(--danger-soft)] !text-[var(--danger-text)] hover:!bg-[var(--danger-soft)]',
+    },
+    success: {
+        color: 'success',
+        variant: 'light',
+        className:
+            '!border !border-[var(--success-border)] !bg-[var(--success-soft)] !text-[var(--success-text)] hover:!bg-[var(--success-soft)]',
+    },
+    ghost: {
+        color: 'neutral',
+        variant: 'subtle',
+        className: '!bg-transparent !text-[var(--muted)] hover:!bg-[var(--surface-2)] hover:!text-[var(--text)]',
+    },
 }
 
 export function Button({ className, variant = 'primary', ...props }: ButtonProps) {
@@ -32,7 +51,7 @@ export function Button({ className, variant = 'primary', ...props }: ButtonProps
     return (
         <MantineButton
             className={cn(
-                'inline-flex min-h-10 items-center justify-center gap-2 text-sm font-bold transition active:scale-[0.99]',
+                'inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] px-3 text-sm font-extrabold transition active:scale-[0.99]',
                 config.className,
                 className,
             )}

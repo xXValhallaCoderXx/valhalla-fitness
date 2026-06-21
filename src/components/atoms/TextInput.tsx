@@ -9,7 +9,7 @@ export function TextInput({ className, ...props }: TextInputProps) {
         <MantineTextInput
             classNames={{
                 input: cn(
-                    'min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--action)]',
+                    'min-h-11 w-full rounded-[var(--radius-control)] !border !border-[var(--border)] !bg-[var(--surface-2)] px-3 text-sm font-medium !text-[var(--text)] outline-none transition placeholder:!text-[var(--muted)] focus:!border-[var(--action)]',
                     className,
                 ),
             }}

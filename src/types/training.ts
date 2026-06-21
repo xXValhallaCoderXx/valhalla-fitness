@@ -137,6 +137,7 @@ export type TodayPayload = {
   activeProgram: ProgramInstance | null
   plannedSession: PlannedSession | null
   activeSession: WorkoutSession | null
+  completedSession: WorkoutSession | null
   pendingDecisions: ProgressionDecision[]
 }
 

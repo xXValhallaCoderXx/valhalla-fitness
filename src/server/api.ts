@@ -12,7 +12,7 @@ import type {
   Unit,
   WorkoutSession,
 } from '~/types/training'
-import { defaultAnchors, expandPlannedSession, templateCatalog } from '~/lib/templates'
+import { defaultAnchors, expandPlannedSession, programForNextUncompletedSession, templateCatalog } from '~/lib/templates'
 import {
   evaluate531TmBand,
   evaluateAccessoryDoubleProgression,
@@ -128,18 +128,31 @@ async function getPendingDecisionsInternal(programInstanceId?: string) {
   }))
 }
 
+async function updateProgramCurrentWeekIndex(supabase: any, userId: string, program: ProgramInstance) {
+  const { error } = await supabase
+    .from('program_instances')
+    .update({ current_week_index: program.currentWeekIndex })
+    .eq('id', program.id)
+    .eq('user_id', userId)
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+}
+
 async function getTodayInternal(): Promise<TodayPayload> {
-  const activeProgram = await getActiveProgramInternal()
+  let activeProgram = await getActiveProgramInternal()
   if (!activeProgram) {
     return {
       activeProgram: null,
       plannedSession: null,
       activeSession: null,
+      completedSession: null,
       pendingDecisions: [],
     }
   }
 
   const { supabase, user } = await requireUser()
+  const scheduledDate = new Date().toISOString().slice(0, 10)
   const { data: activeSessionRow, error } = await supabase
     .from('workout_sessions')
     .select('*')
@@ -151,14 +164,39 @@ async function getTodayInternal(): Promise<TodayPayload> {
     .maybeSingle()
   if (error) throw new Error(error.message)
 
-  const plannedSession = expandPlannedSession(activeProgram, new Date().toISOString().slice(0, 10))
+  const { data: completedSessionRows, error: completedSessionError } = await supabase
+    .from('workout_sessions')
+    .select('id, planned_session_id')
+    .eq('user_id', user.id)
+    .eq('program_instance_id', activeProgram.id)
+    .eq('status', 'completed')
+    .eq('scheduled_date', scheduledDate)
+    .order('completed_at', { ascending: false })
+  if (completedSessionError) throw new Error(completedSessionError.message)
+
   const activeSession = activeSessionRow ? await getSessionInternal(activeSessionRow.id) : null
+  const completedSessionRow = completedSessionRows?.[0]
+  const completedSession = completedSessionRow ? await getSessionInternal(completedSessionRow.id) : null
+  if (!activeSession) {
+    const nextProgram = programForNextUncompletedSession(
+      activeProgram,
+      (completedSessionRows ?? []).map((row: any) => row.planned_session_id),
+      scheduledDate,
+    )
+    if (nextProgram.currentWeekIndex !== activeProgram.currentWeekIndex) {
+      await updateProgramCurrentWeekIndex(supabase, user.id, nextProgram)
+      activeProgram = nextProgram
+    }
+  }
+
+  const plannedSession = expandPlannedSession(activeProgram, scheduledDate)
   const pendingDecisions = await getPendingDecisionsInternal(activeProgram.id)
 
   return {
     activeProgram,
     plannedSession,
     activeSession,
+    completedSession,
     pendingDecisions,
   }
 }
@@ -620,6 +658,11 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
       .select('id')
       .single()
     if (finishError) throw new Error(finishError.message)
+
+    await updateProgramCurrentWeekIndex(supabase, user.id, {
+      ...activeProgram,
+      currentWeekIndex: activeProgram.currentWeekIndex + 1,
+    })
 
     for (const decision of decisions) {
       const { error: decisionError } = await supabase.from('progression_decisions').insert({

@@ -52,6 +52,19 @@ const danger: MantineColorsTuple = [
     '#450a0a',
 ]
 
+const accent: MantineColorsTuple = [
+    '#eef2ff',
+    '#e0e7ff',
+    '#c7d2fe',
+    '#a5b4fc',
+    '#818cf8',
+    '#6366f1',
+    '#4f46e5',
+    '#4338ca',
+    '#3730a3',
+    '#1e1b4b',
+]
+
 const neutral: MantineColorsTuple = [
     '#f9fafb',
     '#f3f4f6',
@@ -68,7 +81,7 @@ const neutral: MantineColorsTuple = [
 export const mantineTheme = createTheme({
     primaryColor: 'action',
     primaryShade: { light: 6, dark: 5 },
-    defaultRadius: 'md',
+    defaultRadius: 'lg',
     cursorType: 'pointer',
     fontFamily:
         'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -79,35 +92,60 @@ export const mantineTheme = createTheme({
     },
     colors: {
         action,
+        accent,
         success,
         warning,
         danger,
         neutral,
     },
+    black: '#0f0f11',
+    white: '#ffffff',
+    fontSizes: {
+        xs: '0.6875rem',
+        sm: '0.8125rem',
+        md: '0.875rem',
+        lg: '1rem',
+        xl: '1.125rem',
+    },
+    spacing: {
+        xs: '0.5rem',
+        sm: '0.75rem',
+        md: '1rem',
+        lg: '1.25rem',
+        xl: '1.5rem',
+    },
     components: {
         Button: {
             defaultProps: {
-                radius: 'md',
+                radius: 'lg',
                 size: 'sm',
+            },
+        },
+        Badge: {
+            defaultProps: {
+                radius: 'sm',
+                size: 'xs',
+                variant: 'light',
             },
         },
         Card: {
             defaultProps: {
-                radius: 'md',
+                radius: 'xl',
                 padding: 'md',
             },
         },
         TextInput: {
             defaultProps: {
-                radius: 'md',
+                radius: 'xl',
             },
         },
         Modal: {
             defaultProps: {
                 centered: true,
-                radius: 'md',
+                radius: 'xl',
                 overlayProps: {
                     backgroundOpacity: 0.7,
+                    blur: 3,
                 },
             },
         },
