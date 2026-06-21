@@ -246,6 +246,9 @@ importers:
       react-dom:
         specifier: 19.0.0
         version: 19.0.0(react@19.0.0)
+      srvx:
+        specifier: 0.11.17
+        version: 0.11.17
       tailwind-merge:
         specifier: 3.6.0
         version: 3.6.0
@@ -283,9 +286,6 @@ importers:
       jsdom:
         specifier: 27.2.0
         version: 27.2.0
-      srvx:
-        specifier: 0.8.0
-        version: 0.8.0
       supabase:
         specifier: ^2.107.0
         version: 2.107.0
@@ -1513,9 +1513,6 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  cookie-es@2.0.1:
-    resolution: {integrity: sha512-aVf4A4hI2w70LnF7GG+7xDQUkliwiXWXFvTjkip4+b64ygDQ2sJPRSKFDHbxn8o0xu9QzPkMuuiWIXyFSE2slA==}
-
   cookie-es@3.1.1:
     resolution: {integrity: sha512-UaXxwISYJPTr9hwQxMFYZ7kNhSXboMXP+Z3TRX6f1/NyaGPfuNUZOWP1pUEb75B2HjfklIYLVRfWiFZJyC6Npg==}
 
@@ -2117,10 +2114,6 @@ packages:
     resolution: {integrity: sha512-43yM4luKfCJamyCMhrUeHUPOrf8TdZe7kN8s5zayZCH5OeprYqi49Aso5ZvHXR4aB+DHaRNO/diNFgZSMNG8Xw==}
     engines: {node: '>=20.16.0'}
     hasBin: true
-
-  srvx@0.8.0:
-    resolution: {integrity: sha512-pZNni9zfG1Leld6CgHMy5WXCWVgqFpoFtNX4jk9jhHSxAWCNTDonjyFP/RHAjvRbJw1FR6cQFj87Vn6nA/EhYw==}
-    engines: {node: '>=20.16.0'}
 
   stackback@0.0.2:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
@@ -3542,8 +3535,6 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  cookie-es@2.0.1: {}
-
   cookie-es@3.1.1: {}
 
   cookie@1.1.1: {}
@@ -4124,10 +4115,6 @@ snapshots:
   source-map@0.7.6: {}
 
   srvx@0.11.17: {}
-
-  srvx@0.8.0:
-    dependencies:
-      cookie-es: 2.0.1
 
   stackback@0.0.2: {}
 

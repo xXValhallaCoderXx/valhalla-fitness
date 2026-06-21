@@ -5,6 +5,9 @@
   "sideEffects": false,
   "type": "module",
   "packageManager": "pnpm@11.5.3",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build && tsc --noEmit",
@@ -30,6 +33,7 @@
     "lucide-react": "1.21.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
+    "srvx": "0.11.17",
     "tailwind-merge": "3.6.0",
     "zod": "4.4.3"
   },
@@ -44,7 +48,6 @@
     "eslint": "9.39.1",
     "eslint-plugin-react-hooks": "7.0.1",
     "jsdom": "27.2.0",
-    "srvx": "0.8.0",
     "supabase": "^2.107.0",
     "tailwindcss": "4.3.1",
     "typescript": "6.0.3",
