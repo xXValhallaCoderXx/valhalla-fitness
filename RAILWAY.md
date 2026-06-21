@@ -1,15 +1,21 @@
 # Railway Deployment
 
-This app is configured to deploy as a small TanStack Start Node service on Railway.
+This app follows the TanStack Start Railway guidance: use the Nitro Vite plugin, push the repo to GitHub, and let Railway's Nixpacks detection deploy the app from the normal package scripts.
 
-## Railway settings
+## Package scripts
 
-- Builder: Nixpacks
-- Build command: `pnpm build`
-- Start command: `pnpm start`
-- Healthcheck path: `/today`
+Railway should detect these automatically:
 
-These are also captured in `railway.json`, so Railway should pick them up automatically after the repo is connected.
+```sh
+pnpm build
+pnpm start
+```
+
+The production start script runs Nitro's Node output:
+
+```sh
+node .output/server/index.mjs
+```
 
 ## Required variables
 
@@ -21,7 +27,7 @@ SUPABASE_ANON_KEY=your-supabase-anon-key
 APP_ORIGIN=https://your-railway-domain.up.railway.app
 ```
 
-The app is pinned to Node 22 with `engines.node` and `.node-version`. If Railway ever selects Node 24 or newer, add this Railway service variable as an extra override:
+The app is pinned to Node 22 with `engines.node` and `.node-version`. This keeps Railway away from Node 24/Corepack combinations that can fail before the app build starts. If Railway still selects Node 24 or newer, add this Railway service variable as an extra override:
 
 ```sh
 NIXPACKS_NODE_VERSION=22
@@ -52,4 +58,4 @@ pnpm build
 pnpm start
 ```
 
-Railway provides the `PORT` environment variable at runtime; the existing `srvx` start command is expected to bind to it automatically.
+Railway provides the `PORT` environment variable at runtime, and Nitro's Node server reads it automatically.
