@@ -78,6 +78,28 @@ export const exchangeCodeForSessionFn = createServerFn({ method: 'POST' })
     return error ? { ok: false, message: error.message } : { ok: true }
   })
 
+export const verifyEmailOtpFn = createServerFn({ method: 'POST' })
+  .validator((data: { tokenHash: string; type: string }) => data)
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient()
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: data.tokenHash,
+      type: data.type,
+    })
+    return error ? { ok: false, message: error.message } : { ok: true }
+  })
+
+export const setSessionFromTokensFn = createServerFn({ method: 'POST' })
+  .validator((data: { accessToken: string; refreshToken: string }) => data)
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient()
+    const { error } = await supabase.auth.setSession({
+      access_token: data.accessToken,
+      refresh_token: data.refreshToken,
+    })
+    return error ? { ok: false, message: error.message } : { ok: true }
+  })
+
 export const signOutFn = createServerFn({ method: 'POST' }).handler(async () => {
   const supabase = getSupabaseServerClient()
   const { error } = await supabase.auth.signOut()
