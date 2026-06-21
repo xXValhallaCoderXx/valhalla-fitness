@@ -36,11 +36,15 @@ V1 intentionally excludes pain gating, shoulder-specific logic, readiness automa
 
 The LLM and equipment features should be designed as future modules that consume structured program, movement, equipment, and history data. They should not be required for the core tracker to work.
 
+V1 UI must not expose inactive future modules as if they are usable features. Pain/injury gating, AI substitution, readiness automation, calendar export, and third-party export may be mentioned only as future or unavailable areas, not as selectable workout actions.
+
 ## 4. Starting Programs
 
 Seed V1 with the user's healthy 5/3/1 FSL plan and the official prefabricated Bromley templates from `Base Strength`.
 
 Do not seed a custom program named "Bromley Base Strength comeback template: Base, Transition, Peak." That was a useful analysis structure, but it is not one of Bromley's named prefabricated templates.
+
+Template UI labels must come from canonical template metadata, not designer placeholder copy. Source badges, days per week, progression labels, and short descriptions must match this spec so Healthy 5/3/1 is not mislabeled as Bromley and Bromley template details do not drift between screens.
 
 ### 4.1 Healthy 5/3/1 FSL
 
@@ -573,6 +577,8 @@ type SubstitutionLog = {
 };
 ```
 
+The V1 substitution reason UI must map directly to this enum. Do not add a `pain` or `injury` reason in V1; pain-specific handling belongs to the future pain-gating module.
+
 Future LLM substitution suggestions should use:
 
 - Movement category.
@@ -823,6 +829,8 @@ Validation rules:
 - Show icons for repeated actions such as copy, timer, swap, complete, and history.
 - Text must not overflow on small screens.
 - The user should never need to open the full program spec mid-workout to know what to do.
+- Mobile dark mode is an acceptable primary design direction for V1 if contrast remains high and the light theme remains supported.
+- Bottom navigation and sticky actions must leave safe padding so set rows, recommendation actions, and form controls are never hidden behind device chrome.
 
 ## 15. First Implementation Slice
 

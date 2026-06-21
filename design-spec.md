@@ -16,11 +16,17 @@ The design should make the user feel:
 
 Primary source spec: `final-app-spec.md`.
 
+Designer exports and Figma screens are references for direction and interaction patterns. When they conflict with `final-app-spec.md`, product facts and V1 scope in the app spec win.
+
+Use the neutral product name "Mobile Strength Tracker" in this spec until branding is final. Designer placeholder names such as Designmate, Variantify, and Designflex should not appear in final handoff screens.
+
 ## 2. Product Personality
 
 The app should feel calm, dense, and practical.
 
 Use a visual language closer to a focused training cockpit than a lifestyle wellness app. Avoid large marketing heroes, motivational quotes, oversized empty cards, or decorative gradients. The gym context is noisy and time-pressured; the UI should be quiet and clear.
+
+Mobile dark mode is the primary V1 visual direction because the reviewed mobile screens work well for gym use. Light mode remains required as a secondary theme and must meet the same accessibility and layout standards.
 
 Design principles:
 
@@ -208,7 +214,7 @@ Layout:
 Template row/card content:
 
 - Program name.
-- Source badge, such as "Healthy 5/3/1" or "Bromley".
+- Canonical source badge, such as "Healthy 5/3/1" or "Bromley".
 - Days per week.
 - Primary progression style.
 - Short description.
@@ -228,6 +234,7 @@ Design notes:
 - Use repeated cards or rows.
 - Do not make this feel like an app store.
 - Avoid decorative imagery. The user is choosing a tool, not shopping for inspiration.
+- Template facts must be sourced from `final-app-spec.md`. Do not label Healthy 5/3/1 as Bromley, do not invent day counts, and do not reuse progression copy across unrelated templates.
 
 ## 6.3 Program Setup
 
@@ -302,6 +309,7 @@ Design notes:
 - Main action should be visible above the fold.
 - Use compact status chips for block/wave/week.
 - Show previous top set near today's top set.
+- Include compact context cards for this week, up next, and active program progress when space allows. On mobile, these are secondary to the start/resume action and current session card.
 - Avoid explanatory prose.
 
 ## 6.5 Live Session Screen
@@ -317,6 +325,7 @@ Persistent elements:
 
 Movement list behavior:
 
+- Use a movement rail or compact movement list so the user can see completed, current, and upcoming work without losing the active set.
 - Current movement expanded.
 - Completed movements collapsed.
 - Upcoming movements compact.
@@ -350,9 +359,12 @@ Design notes:
   - Load: -5, -2.5, +2.5, +5 kg.
   - Reps: -1, +1.
   - RIR: 0, 1, 2, 3, 4+.
+- Include quick chips and steppers close to the active set row without hiding target values.
+- Keep rest timer, finish, plate math, swap, and history actions visible but visually secondary to logging.
 - Keep the set row height stable after completion.
 - Do not hide target values after logging actual values.
 - Completed sets should be clearly marked but still readable.
+- Mobile set rows must not collide with bottom navigation or safe-area chrome.
 
 ## 6.6 Main Lift Card
 
@@ -458,7 +470,9 @@ Reason: equipment missing
 Design notes:
 
 - Preserve trust by making the substitution explicit.
+- Show a planned-vs-performed preview before confirmation, and state that both movements will be recorded.
 - Do not pretend the movement is unchanged.
+- V1 reason options are limited to equipment/crowding, preference, fatigue, and other. Do not include pain/injury as a reason until the future pain-gating module exists.
 - Future AI suggestion area can be added later, but not in V1 unless implemented.
 
 ## 6.9 Finish Session Summary
@@ -497,6 +511,7 @@ Design notes:
 - Recommendations must feel reviewable.
 - Use "recommendation" language, not command language.
 - Do not auto-accept changes.
+- Every recommendation card must support Accept, Dismiss, and Later.
 
 ## 6.10 Program Screen
 
@@ -710,6 +725,12 @@ Good references:
 - Field tool.
 - Lightweight dashboard.
 
+Primary mobile theme:
+
+- Use a dark, high-contrast operational interface for V1 mobile screens.
+- Use light mode as a complete secondary theme, not an afterthought.
+- Desktop can lean light by default if dense review workflows remain readable.
+
 Avoid:
 
 - Lifestyle wellness aesthetic.
@@ -864,6 +885,13 @@ Also design:
 
 Desktop should not become a different product. It is the same app with more room.
 
+Layout quality requirements:
+
+- No text overflow, clipped labels, or overlapping navigation.
+- Bottom navigation and sticky actions must leave safe bottom padding.
+- Collapsed movement cards must remain readable at 375px width.
+- Program timeline labels, template filters, and tab labels must not wrap into vertical text.
+
 ## 13. Designer Deliverables
 
 Create designs for:
@@ -884,12 +912,16 @@ Create designs for:
 
 Include:
 
-- Mobile light mode.
-- Mobile dark mode, if time allows.
+- Mobile dark mode as the primary V1 theme.
+- Mobile light mode as a secondary theme with the same accessibility standards.
 - Component states for set rows.
+- Start and resume states for Today.
+- Main lift expanded, accessory expanded, completed, missed target, edited, back-off, and AMRAP/top-set states.
 - Empty states.
 - Loading states.
 - Offline/sync states.
+- Sync failure states.
+- Final text/content pass against `final-app-spec.md`.
 
 ## 14. Acceptance Criteria For Design
 
@@ -903,4 +935,34 @@ The design is successful if:
 - Substitutions are explicit and trust-preserving.
 - Progression recommendations are visible but reviewable.
 - The UI remains readable on a small phone.
+- Text, navigation, controls, and sticky actions do not overlap at 375px mobile width or desktop review width.
+- Template cards match canonical program metadata from `final-app-spec.md`.
+- Recommendation cards include Accept, Dismiss, and Later.
+- Excluded features are absent or clearly marked future/unavailable.
 - The app feels like a serious training tool, not a lifestyle landing page.
+
+## 15. Feedback On Reviewed Designer Exports
+
+Keep these directions:
+
+- Today screen structure: current workout, top-set history, accessory preview, progression alert, this-week/up-next context, and active program progress.
+- Live Session structure: movement rail, active set row, quick load/reps adjustments, RIR chips, timer, finish button, plate math, swap, and history actions.
+- Substitution sheet: explicit planned-vs-performed preview and history-preserving copy.
+- Session Summary: completed work, main lift highlights, accessory outcomes, and reviewable progression actions.
+- Program, History, and Settings IA: timeline, anchors, movement trends, substitution visibility, equipment profile, and sync status.
+
+Change before final handoff:
+
+- Replace placeholder product names with neutral "Mobile Strength Tracker" naming until brand is final.
+- Fix program facts: Healthy 5/3/1 is not Bromley; remove autoregulated-jump copy from Healthy 5/3/1; correct Bromley day counts and labels.
+- Remove `Pain / injury` from V1 substitution reasons.
+- Add or confirm `Later` wherever progression recommendations appear.
+- Fix visible layout bugs: vertical desktop nav labels, desktop summary header collision, garbled mobile collapsed movement card, Program Week 4 wrapping, and bottom-nav/content overlap.
+
+Save for later:
+
+- Rich desktop-only layouts, CSV export UI, deeper charting, provider sign-in polish, and advanced equipment-driven substitution filters.
+
+Do not add for V1:
+
+- Pain/injury workflows, readiness automation, AI-forward coaching language, autonomous workout mutation, lifestyle/marketing presentation, or app-store-style template browsing.
