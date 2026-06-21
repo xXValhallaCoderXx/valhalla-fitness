@@ -21,6 +21,12 @@ SUPABASE_ANON_KEY=your-supabase-anon-key
 APP_ORIGIN=https://your-railway-domain.up.railway.app
 ```
 
+The app is pinned to Node 22 with `engines.node` and `.node-version`. If Railway ever selects Node 24 or newer, add this Railway service variable as an extra override:
+
+```sh
+NIXPACKS_NODE_VERSION=22
+```
+
 `APP_ORIGIN` must match the public Railway URL because password reset and magic-link auth callbacks use it to generate `/auth/callback` redirect URLs.
 
 ## Supabase auth URLs
