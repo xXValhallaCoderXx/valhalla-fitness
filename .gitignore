@@ -4,7 +4,16 @@ dist
 out
 .turbo
 .vercel
+test-results
+playwright-report
 .env
 .env.*
 !.env.example
 !.env.*.example
+
+# Supabase CLI local state (linked project ref, version pins, pooler URL, etc.)
+supabase/.branches/
+supabase/.temp/
+
+references
+dev-assets
