@@ -1,8 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { getCookies, setCookie } from '@tanstack/react-start/server'
 
-function firstUsableEnvValue(...values: Array<string | undefined>) {
-  return values.map((value) => value?.trim()).find((value): value is string => Boolean(value))
+function getEnvValue(name: string) {
+  const value = process.env[name]?.trim()
+  return value || undefined
 }
 
 function isHttpUrl(value: string) {
@@ -15,11 +16,11 @@ function isHttpUrl(value: string) {
 }
 
 function getRawSupabaseUrl() {
-  return firstUsableEnvValue(process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL)
+  return getEnvValue('SUPABASE_URL')
 }
 
 function getRawSupabaseAnonKey() {
-  return firstUsableEnvValue(process.env.SUPABASE_ANON_KEY, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  return getEnvValue('SUPABASE_ANON_KEY')
 }
 
 export function hasSupabaseEnv() {
