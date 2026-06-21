@@ -4,7 +4,7 @@ import { Flag } from 'lucide-react'
 import { useState } from 'react'
 import { sessionQueryOptions } from '~/lib/query-options'
 import { finishSessionFn } from '~/server/api'
-import { Button, Page } from '~/components/ui'
+import { Button, Page, showToast } from '~/components/ui'
 import {
   IncompleteMainWarning,
   MovementCard,
@@ -30,6 +30,9 @@ function SessionRoute() {
 
   const finishMutation = useMutation({
     mutationFn: () => finishSessionFn({ data: { sessionId, notes } }),
+    onError: (error) => {
+      showToast(error instanceof Error ? error.message : 'Failed to finish session')
+    },
     onSuccess: async (summary) => {
       router.options.context.queryClient.setQueryData(['summary', sessionId], summary)
       router.options.context.queryClient.setQueryData(['session', sessionId], summary.session)

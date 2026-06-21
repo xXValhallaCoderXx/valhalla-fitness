@@ -536,7 +536,7 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
     const { supabase, user } = await requireUser()
     const decisions = buildDecisions(session, activeProgram)
 
-    await supabase
+    const { error: updateError } = await supabase
       .from('workout_sessions')
       .update({
         status: 'completed',
@@ -545,9 +545,10 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
       })
       .eq('id', data.sessionId)
       .eq('user_id', user.id)
+    if (updateError) throw new Error(updateError.message)
 
     for (const decision of decisions) {
-      await supabase.from('progression_decisions').insert({
+      const { error: insertError } = await supabase.from('progression_decisions').insert({
         user_id: user.id,
         program_instance_id: activeProgram.id,
         movement_id: decision.movementId,
@@ -556,9 +557,10 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
         status: 'pending',
         input_summary: decision.inputSummary,
         recommendation: decision.recommendation,
-        previous_anchor: decision.previousAnchor,
-        recommended_anchor: decision.recommendedAnchor,
+        previous_anchor: decision.previousAnchor ?? null,
+        recommended_anchor: decision.recommendedAnchor ?? null,
       })
+      if (insertError) throw new Error(insertError.message)
     }
 
     const completedSession = await getSessionInternal(data.sessionId)
