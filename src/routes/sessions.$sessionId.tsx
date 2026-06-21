@@ -11,7 +11,7 @@ import {
   NotesBox,
   SessionProgress,
   SyncPill,
-} from '~/components/workout'
+} from '~/features/workout/components'
 
 export const Route = createFileRoute('/sessions/$sessionId')({
   loader: async ({ context, params }) => {

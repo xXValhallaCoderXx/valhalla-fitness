@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { MantineProvider } from '@mantine/core'
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import {
@@ -10,6 +11,7 @@ import {
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { fetchUserFn, type AuthUser } from '~/server/auth'
 import { AppShell } from '~/components/AppShell'
+import { mantineTheme } from '~/styles/mantine-theme'
 import appCss from '~/styles/app.css?url'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -55,9 +57,11 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       </head>
       <body>
         <QueryClientProvider client={queryClient}>
-          <AppShell user={user}>{children}</AppShell>
-          <ReactQueryDevtools buttonPosition="bottom-left" initialIsOpen={false} />
-          <TanStackRouterDevtools position="bottom-right" />
+          <MantineProvider theme={mantineTheme} defaultColorScheme="dark">
+            <AppShell user={user}>{children}</AppShell>
+            <ReactQueryDevtools buttonPosition="bottom-left" initialIsOpen={false} />
+            <TanStackRouterDevtools position="bottom-right" />
+          </MantineProvider>
         </QueryClientProvider>
         <Scripts />
       </body>

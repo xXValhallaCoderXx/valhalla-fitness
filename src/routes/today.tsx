@@ -4,7 +4,7 @@ import { ArrowRight, Play, RotateCw } from 'lucide-react'
 import { todayQueryOptions } from '~/lib/query-options'
 import { startSessionFn } from '~/server/api'
 import { Button, Card, Chip, EmptyState, Page, PageHeader } from '~/components/ui'
-import { SessionProgress, SyncPill } from '~/components/workout'
+import { SessionProgress, SyncPill } from '~/features/workout/components'
 
 export const Route = createFileRoute('/today')({
   loader: async ({ context }) => {
