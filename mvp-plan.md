@@ -365,8 +365,8 @@ Seeded and read-only for normal users.
 
 ### Environment Variables
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` for seed/migration scripts only.
 
 Never expose the service-role key to client bundles.

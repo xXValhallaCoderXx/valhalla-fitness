@@ -1,5 +1,7 @@
 export type Unit = 'kg' | 'lb'
 
+export type ThemePreference = 'system' | 'dark' | 'light'
+
 export type MovementRole = 'main' | 'variation' | 'accessory' | 'warmup' | 'event'
 
 export type SyncState = 'synced' | 'saving' | 'offline' | 'syncFailed'
@@ -12,6 +14,17 @@ export type Movement = {
   variationOf?: string | null
   defaultUnit: Unit
   isCompetition: boolean
+}
+
+export type UserProfile = {
+  id: string
+  email: string | null
+  displayName?: string | null
+  units: Unit
+  rounding: number
+  autoStartTimer: boolean
+  equipmentProfile: string[]
+  themePreference: ThemePreference
 }
 
 export type ProgramTemplateSummary = {
@@ -137,6 +150,7 @@ export type TodayPayload = {
   activeProgram: ProgramInstance | null
   plannedSession: PlannedSession | null
   activeSession: WorkoutSession | null
+  completedSession: WorkoutSession | null
   pendingDecisions: ProgressionDecision[]
 }
 
@@ -147,4 +161,52 @@ export type SessionSummary = {
   topSets: SetLog[]
   accessoryOutcomes: string[]
   decisions: ProgressionDecision[]
+}
+
+export type RecentHistoryEntry = {
+  id: string
+  title: string
+  completedAt?: string | null
+  scheduledDate: string
+  programTitle?: string | null
+  weekLabel?: string | null
+  hardness?: PlannedSession['hardness'] | null
+  estimatedMinutes?: number | null
+  movementCount: number
+  completedSetCount: number
+  plannedSetCount: number
+}
+
+export type MovementHistorySet = Pick<
+  SetLog,
+  | 'id'
+  | 'setIndex'
+  | 'targetLoad'
+  | 'targetReps'
+  | 'targetRepMin'
+  | 'targetRepMax'
+  | 'targetRir'
+  | 'actualLoad'
+  | 'actualReps'
+  | 'actualRir'
+  | 'completed'
+  | 'isTopSet'
+  | 'isAmrap'
+  | 'isBackoff'
+>
+
+export type MovementHistoryEntry = {
+  id: string
+  sessionId: string
+  sessionTitle: string
+  programTitle?: string | null
+  scheduledDate: string
+  completedAt?: string | null
+  units?: Unit | null
+  plannedMovementId: string
+  performedMovementId: string
+  performedMovementName: string
+  role: MovementRole
+  targetSummary: string
+  sets: MovementHistorySet[]
 }

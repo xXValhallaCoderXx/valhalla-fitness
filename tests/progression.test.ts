@@ -49,9 +49,17 @@ describe('progression engine', () => {
   })
 
   it('evaluates Bullmastiff plus-set jumps', () => {
-    const decision = evaluateBullmastiffPlusSet({ actualReps: 9 }, 6, 200, 2.5, 'squat')
+    const decision = evaluateBullmastiffPlusSet({ actualReps: 9, actualRir: 2 }, 6, 200, 2.5, 'squat')
     expect(decision.recommendedAnchor).toBe(205)
-    expect(decision.inputSummary).toContain('9 reps')
+    expect(decision.inputSummary).toContain('9 reps at RIR 2')
+    expect(decision.recommendation).toContain('3 extra reps')
+  })
+
+  it('keeps Bullmastiff load unchanged when RIR is high but no extra reps were logged', () => {
+    const decision = evaluateBullmastiffPlusSet({ actualReps: 6, actualRir: 4 }, 6, 200, 2.5, 'squat')
+    expect(decision.recommendedAnchor).toBe(200)
+    expect(decision.inputSummary).toContain('6 reps at RIR 4')
+    expect(decision.recommendation).toContain('no extra reps')
   })
 
   it('evaluates accessory double progression', () => {

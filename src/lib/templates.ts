@@ -29,9 +29,9 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     source: 'bromley_base_strength',
     sourceLabel: 'Bromley',
     description:
-      'Main lifts, variations, and bodybuilding work with autoregulated plus-set jumps.',
+      '18-week upper/lower structure with base and peak phases, autoregulated plus sets, variations, and bodybuilding accessories.',
     daysPerWeek: 4,
-    progressionLabel: 'Plus-set wave',
+    progressionLabel: '18-week plus-set waves',
     complexity: 'Advanced',
     tags: ['bromley', 'base', 'high volume'],
     available: true,
@@ -94,28 +94,32 @@ const bullmastiffDays = [
     id: 'bull-squat',
     title: 'Bullmastiff Squat',
     mainMovementId: 'squat',
-    variationMovementId: 'romanian_deadlift',
+    baseVariationMovementId: 'front_squat',
+    peakVariationMovementId: 'pause_squat',
     accessories: ['leg_press', 'hamstring_curl'],
   },
   {
     id: 'bull-bench',
     title: 'Bullmastiff Bench',
     mainMovementId: 'bench_press',
-    variationMovementId: 'incline_dumbbell_press',
+    baseVariationMovementId: 'close_grip_bench_press',
+    peakVariationMovementId: 'board_press',
     accessories: ['chest_supported_row', 'triceps_pressdown'],
   },
   {
     id: 'bull-deadlift',
     title: 'Bullmastiff Deadlift',
     mainMovementId: 'deadlift',
-    variationMovementId: 'romanian_deadlift',
+    baseVariationMovementId: 'stiff_leg_deadlift',
+    peakVariationMovementId: 'low_trap_bar_deadlift',
     accessories: ['back_extension', 'cable_crunch'],
   },
   {
     id: 'bull-press',
     title: 'Bullmastiff Overhead Press',
     mainMovementId: 'overhead_press',
-    variationMovementId: 'bench_press',
+    baseVariationMovementId: 'behind_neck_press',
+    peakVariationMovementId: 'seated_pin_press',
     accessories: ['lat_pulldown', 'face_pull'],
   },
 ]
@@ -143,9 +147,28 @@ export function expandPlannedSession(program: ProgramInstance, scheduledDate: st
   return expandHealthy531Session(program, scheduledDate)
 }
 
+export function programForNextUncompletedSession(
+  program: ProgramInstance,
+  completedPlannedSessionIds: Iterable<string>,
+  scheduledDate: string,
+) {
+  const completedIds = new Set(completedPlannedSessionIds)
+  if (!completedIds.size) return program
+
+  let nextProgram = program
+  for (let attempts = 0; attempts < 64; attempts += 1) {
+    const plannedSession = expandPlannedSession(nextProgram, scheduledDate)
+    if (!completedIds.has(plannedSession.id)) return nextProgram
+    nextProgram = { ...nextProgram, currentWeekIndex: nextProgram.currentWeekIndex + 1 }
+  }
+
+  return nextProgram
+}
+
 function expandHealthy531Session(program: ProgramInstance, scheduledDate: string): PlannedSession {
   const day = healthyDays[program.currentWeekIndex % healthyDays.length]
-  const weekIndex = program.currentWeekIndex % 4
+  const programmeWeekIndex = Math.floor(program.currentWeekIndex / healthyDays.length)
+  const weekIndex = programmeWeekIndex % 4
   const anchor = anchorFor(program.anchors, day.mainMovementId, 100)
   const mainSets = compute531FslSets(anchor, weekIndex, program.rounding).map((set) => ({
     ...set,
@@ -216,56 +239,67 @@ function expandHealthy531Session(program: ProgramInstance, scheduledDate: string
 }
 
 function expandBullmastiffSession(program: ProgramInstance, scheduledDate: string): PlannedSession {
-  const day = bullmastiffDays[program.currentWeekIndex % bullmastiffDays.length]
-  const waveWeek = program.currentWeekIndex % 3
+  const dayIndex = program.currentWeekIndex % bullmastiffDays.length
+  const day = bullmastiffDays[dayIndex]
+  const programmeWeekIndex = Math.floor(program.currentWeekIndex / bullmastiffDays.length)
+  const cycleWeekIndex = programmeWeekIndex % 18
+  const isPeak = cycleWeekIndex >= 9
+  const phaseWeekIndex = cycleWeekIndex % 9
+  const waveIndex = Math.floor(phaseWeekIndex / 3)
+  const weekInWave = phaseWeekIndex % 3
   const anchor = anchorFor(program.anchors, day.mainMovementId, 100)
-  const baselineReps = [6, 4, 2][waveWeek]
-  const percent = [0.65, 0.72, 0.78][waveWeek]
+  const baselineReps = isPeak ? [3, 2, 1][waveIndex] : [6, 5, 4][waveIndex]
+  const percent = isPeak ? [0.85, 0.88, 0.92][waveIndex] : [0.7, 0.75, 0.8][waveIndex]
+  const mainSetCount = isPeak ? [5, 3, 1][weekInWave] : 4
   const mainLoad = mround(anchor * percent, program.rounding)
-  const mainSets = Array.from({ length: 4 }, (_, index) => ({
+  const mainSets = Array.from({ length: mainSetCount }, (_, index) => ({
     id: `bull-main-${index + 1}`,
     setIndex: index + 1,
     targetLoad: mainLoad,
     targetReps: baselineReps,
-    targetRir: index === 3 ? 0 : 2,
-    isTopSet: index === 3,
-    isAmrap: index === 3,
+    targetRir: index === mainSetCount - 1 ? 0 : 2,
+    isTopSet: index === mainSetCount - 1,
+    isAmrap: index === mainSetCount - 1,
     completed: false,
     actualLoad: mainLoad,
     actualReps: baselineReps,
-    label: index === 3 ? `${baselineReps}+` : `${baselineReps}`,
+    label: index === mainSetCount - 1 ? `${baselineReps}+` : `${baselineReps}`,
   }))
 
-  const variationLoad = mround(anchor * 0.55, program.rounding)
+  const variationMovementId = isPeak ? day.peakVariationMovementId : day.baseVariationMovementId
+  const variationPercent = isPeak ? [0.75, 0.8, 0.85][waveIndex] : [0.6, 0.65, 0.7][waveIndex]
+  const variationSetCount = isPeak ? [4, 3, 2][weekInWave] : [3, 4, 5][weekInWave]
+  const variationReps = isPeak ? [6, 5, 4][waveIndex] : [12, 10, 8][waveIndex]
+  const variationLoad = mround(anchor * variationPercent, program.rounding)
   const variation: MovementSlot = {
-    id: `slot-${day.variationMovementId}`,
-    movementId: day.variationMovementId,
-    movementName: getMovementName(day.variationMovementId),
+    id: `slot-${variationMovementId}`,
+    movementId: variationMovementId,
+    movementName: getMovementName(variationMovementId),
     role: 'variation',
     orderIndex: 2,
-    targetSummary: 'Step-loaded variation work',
-    sets: Array.from({ length: waveWeek + 3 }, (_, index) => ({
-      id: `${day.variationMovementId}-${index + 1}`,
+    targetSummary: `${variationSetCount} sets x ${variationReps} @ ${Math.round(variationPercent * 100)}%`,
+    sets: Array.from({ length: variationSetCount }, (_, index) => ({
+      id: `${variationMovementId}-${index + 1}`,
       setIndex: index + 1,
       targetLoad: variationLoad,
-      targetReps: 8,
-      targetRir: 3,
+      targetReps: variationReps,
+      targetRir: isPeak ? 3 : 6,
       completed: false,
       actualLoad: variationLoad,
-      actualReps: 8,
-      label: '8',
+      actualReps: variationReps,
+      label: `${variationReps}`,
     })),
-    previous: { movementId: day.variationMovementId, label: 'Last time: no prior log yet' },
+    previous: { movementId: variationMovementId, label: 'Last time: no prior log yet' },
   }
 
   return {
-    id: `${day.id}-w${waveWeek + 1}`,
+    id: `${day.id}-w${cycleWeekIndex + 1}`,
     title: day.title,
     programTitle: program.title,
     templateId: program.templateId,
     weekIndex: program.currentWeekIndex,
-    weekLabel: `Wave Week ${waveWeek + 1}`,
-    hardness: waveWeek === 2 ? 'Hard' : waveWeek === 1 ? 'Medium' : 'Light',
+    weekLabel: `${isPeak ? 'Peak' : 'Base'} Wave ${waveIndex + 1} · Week ${weekInWave + 1}`,
+    hardness: weekInWave === 2 ? 'Hard' : weekInWave === 1 ? 'Medium' : 'Light',
     scheduledDate,
     estimatedMinutes: 80,
     units: program.units,

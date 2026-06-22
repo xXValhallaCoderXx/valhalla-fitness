@@ -31,18 +31,24 @@ export const signInWithPasswordFn = createServerFn({ method: 'POST' })
       email: data.email,
       password: data.password,
     })
-    return error ? { ok: false, message: error.message } : { ok: true }
+    return error ? ({ ok: false, message: error.message } as const) : ({ ok: true } as const)
   })
 
 export const signUpWithPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string; password: string }) => data)
   .handler(async ({ data }) => {
     const supabase = getSupabaseServerClient()
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
     })
-    return error ? { ok: false, message: error.message } : { ok: true }
+    return error
+      ? ({ ok: false, message: error.message } as const)
+      : ({
+          ok: true,
+          signedIn: Boolean(signUpData.session),
+          needsEmailConfirmation: !signUpData.session,
+        } as const)
   })
 
 export const sendMagicLinkFn = createServerFn({ method: 'POST' })
@@ -56,7 +62,7 @@ export const sendMagicLinkFn = createServerFn({ method: 'POST' })
         emailRedirectTo: `${origin}/auth/callback`,
       },
     })
-    return error ? { ok: false, message: error.message } : { ok: true }
+    return error ? ({ ok: false, message: error.message } as const) : ({ ok: true } as const)
   })
 
 export const resetPasswordFn = createServerFn({ method: 'POST' })
@@ -67,7 +73,7 @@ export const resetPasswordFn = createServerFn({ method: 'POST' })
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
       redirectTo: `${origin}/auth/callback`,
     })
-    return error ? { ok: false, message: error.message } : { ok: true }
+    return error ? ({ ok: false, message: error.message } as const) : ({ ok: true } as const)
   })
 
 export const exchangeCodeForSessionFn = createServerFn({ method: 'POST' })
@@ -75,7 +81,7 @@ export const exchangeCodeForSessionFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const supabase = getSupabaseServerClient()
     const { error } = await supabase.auth.exchangeCodeForSession(data.code)
-    return error ? { ok: false, message: error.message } : { ok: true }
+    return error ? ({ ok: false, message: error.message } as const) : ({ ok: true } as const)
   })
 
 export const verifyEmailOtpFn = createServerFn({ method: 'POST' })
@@ -86,7 +92,7 @@ export const verifyEmailOtpFn = createServerFn({ method: 'POST' })
       token_hash: data.tokenHash,
       type: data.type,
     })
-    return error ? { ok: false, message: error.message } : { ok: true }
+    return error ? ({ ok: false, message: error.message } as const) : ({ ok: true } as const)
   })
 
 export const setSessionFromTokensFn = createServerFn({ method: 'POST' })
@@ -97,11 +103,11 @@ export const setSessionFromTokensFn = createServerFn({ method: 'POST' })
       access_token: data.accessToken,
       refresh_token: data.refreshToken,
     })
-    return error ? { ok: false, message: error.message } : { ok: true }
+    return error ? ({ ok: false, message: error.message } as const) : ({ ok: true } as const)
   })
 
 export const signOutFn = createServerFn({ method: 'POST' }).handler(async () => {
   const supabase = getSupabaseServerClient()
   const { error } = await supabase.auth.signOut()
-  return error ? { ok: false, message: error.message } : { ok: true }
+  return error ? ({ ok: false, message: error.message } as const) : ({ ok: true } as const)
 })

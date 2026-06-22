@@ -1,19 +1,12 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import {
-  CalendarDays,
-  Dumbbell,
-  History,
-  Layers3,
-  Settings,
-  UserCircle,
-} from 'lucide-react'
+import { CalendarDays, Dumbbell, History, Layers3, ListChecks, Settings, UserCircle } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { AuthUser } from '~/server/auth'
 import { cn } from '~/lib/cn'
 
 const navItems = [
   { to: '/today', label: 'Today', icon: CalendarDays },
-  { to: '/program', label: 'Program', icon: Dumbbell },
+  { to: '/program', label: 'Program', icon: ListChecks },
   { to: '/history', label: 'History', icon: History },
   { to: '/templates', label: 'Templates', icon: Layers3 },
   { to: '/settings', label: 'Settings', icon: Settings },
@@ -28,21 +21,21 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
   return (
     <div className="min-h-screen bg-[var(--bg)] pb-20 text-[var(--text)] md:pb-0">
       <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[color:var(--surface)/0.96] backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+        <div className="mx-auto flex h-12 max-w-[920px] items-center justify-between px-4 md:px-5">
           <Link to="/today" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--action)] text-white">
-              <Dumbbell size={16} />
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--brand-mark)] text-[var(--brand-mark-text)]">
+              <Dumbbell size={12} />
             </span>
-            <span className="text-sm font-bold tracking-tight">Mobile Strength Tracker</span>
+            <span className="text-sm font-extrabold tracking-tight">Valhalla Fitness</span>
           </Link>
-          <nav className="hidden items-center gap-5 md:flex">
+          <nav className="hidden items-center gap-5 text-xs font-semibold md:flex">
             {navItems.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  'relative py-5 text-xs font-semibold text-[var(--muted)]',
-                  pathname.startsWith(item.to) && 'text-[var(--text)]',
+                  'relative py-4 text-[var(--muted)] transition hover:text-[var(--text)]',
+                  pathname.startsWith(item.to) && 'text-[var(--action)]',
                 )}
               >
                 {item.label}
@@ -53,7 +46,8 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
             ))}
           </nav>
           <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-            <span className="hidden rounded-full border border-[var(--border)] px-2 py-1 sm:inline">
+            <span className="hidden items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1 font-semibold sm:flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" aria-hidden="true" />
               Synced
             </span>
             <UserCircle size={24} />
@@ -72,11 +66,12 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  'flex min-w-0 flex-col items-center justify-center gap-1 text-[9px] font-semibold',
+                  'relative flex min-w-0 flex-col items-center justify-center gap-0.5 text-[9px] font-semibold',
                   active ? 'text-[var(--action)]' : 'text-[var(--muted)]',
                 )}
                 aria-label={item.label}
               >
+                {active ? <span className="absolute top-0 h-0.5 w-6 rounded-b-full bg-[var(--action)]" /> : null}
                 <Icon size={18} />
                 <span className="truncate">{item.label}</span>
               </Link>

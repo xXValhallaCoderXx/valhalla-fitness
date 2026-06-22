@@ -1,17 +1,22 @@
 import { createServerFn } from '@tanstack/react-start'
 import type {
   AnchorInput,
+  MovementHistoryEntry,
+  MovementSlot,
   PlannedSession,
   ProgramInstance,
   ProgramTemplateSummary,
+  RecentHistoryEntry,
   ProgressionDecision,
   SessionSummary,
   SetLog,
   TodayPayload,
+  ThemePreference,
   Unit,
+  UserProfile,
   WorkoutSession,
 } from '~/types/training'
-import { defaultAnchors, expandPlannedSession, templateCatalog } from '~/lib/templates'
+import { defaultAnchors, expandPlannedSession, programForNextUncompletedSession, templateCatalog } from '~/lib/templates'
 import {
   evaluate531TmBand,
   evaluateAccessoryDoubleProgression,
@@ -36,7 +41,7 @@ async function ensureProfile() {
   if (profile) return profile
   const { data, error } = await supabase
     .from('profiles')
-    .insert({ id: user.id, email, units: 'kg', rounding: 2.5 })
+    .insert({ id: user.id, email, units: 'kg', rounding: 2.5, theme_preference: 'system' })
     .select('*')
     .single()
   if (error) throw new Error(error.message)
@@ -127,18 +132,31 @@ async function getPendingDecisionsInternal(programInstanceId?: string) {
   }))
 }
 
+async function updateProgramCurrentWeekIndex(supabase: any, userId: string, program: ProgramInstance) {
+  const { error } = await supabase
+    .from('program_instances')
+    .update({ current_week_index: program.currentWeekIndex })
+    .eq('id', program.id)
+    .eq('user_id', userId)
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+}
+
 async function getTodayInternal(): Promise<TodayPayload> {
-  const activeProgram = await getActiveProgramInternal()
+  let activeProgram = await getActiveProgramInternal()
   if (!activeProgram) {
     return {
       activeProgram: null,
       plannedSession: null,
       activeSession: null,
+      completedSession: null,
       pendingDecisions: [],
     }
   }
 
   const { supabase, user } = await requireUser()
+  const scheduledDate = new Date().toISOString().slice(0, 10)
   const { data: activeSessionRow, error } = await supabase
     .from('workout_sessions')
     .select('*')
@@ -150,14 +168,39 @@ async function getTodayInternal(): Promise<TodayPayload> {
     .maybeSingle()
   if (error) throw new Error(error.message)
 
-  const plannedSession = expandPlannedSession(activeProgram, new Date().toISOString().slice(0, 10))
+  const { data: completedSessionRows, error: completedSessionError } = await supabase
+    .from('workout_sessions')
+    .select('id, planned_session_id')
+    .eq('user_id', user.id)
+    .eq('program_instance_id', activeProgram.id)
+    .eq('status', 'completed')
+    .eq('scheduled_date', scheduledDate)
+    .order('completed_at', { ascending: false })
+  if (completedSessionError) throw new Error(completedSessionError.message)
+
   const activeSession = activeSessionRow ? await getSessionInternal(activeSessionRow.id) : null
+  const completedSessionRow = completedSessionRows?.[0]
+  const completedSession = completedSessionRow ? await getSessionInternal(completedSessionRow.id) : null
+  if (!activeSession) {
+    const nextProgram = programForNextUncompletedSession(
+      activeProgram,
+      (completedSessionRows ?? []).map((row: any) => row.planned_session_id),
+      scheduledDate,
+    )
+    if (nextProgram.currentWeekIndex !== activeProgram.currentWeekIndex) {
+      await updateProgramCurrentWeekIndex(supabase, user.id, nextProgram)
+      activeProgram = nextProgram
+    }
+  }
+
+  const plannedSession = expandPlannedSession(activeProgram, scheduledDate)
   const pendingDecisions = await getPendingDecisionsInternal(activeProgram.id)
 
   return {
     activeProgram,
     plannedSession,
     activeSession,
+    completedSession,
     pendingDecisions,
   }
 }
@@ -238,7 +281,7 @@ async function getSessionInternal(sessionId: string): Promise<WorkoutSession> {
   }
 }
 
-export const getMeFn = createServerFn({ method: 'GET' }).handler(async () => {
+export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promise<UserProfile | null> => {
   if (!hasSupabaseEnv()) return null
   let profile
   try {
@@ -255,11 +298,20 @@ export const getMeFn = createServerFn({ method: 'GET' }).handler(async () => {
     rounding: Number(profile.rounding),
     autoStartTimer: profile.auto_start_timer,
     equipmentProfile: profile.equipment_profile ?? [],
+    themePreference: (profile.theme_preference ?? 'system') as ThemePreference,
   }
 })
 
 export const updateSettingsFn = createServerFn({ method: 'POST' })
-  .validator((data: { units: Unit; rounding: number; autoStartTimer: boolean; equipmentProfile: string[] }) => data)
+  .validator(
+    (data: {
+      units: Unit
+      rounding: number
+      autoStartTimer: boolean
+      equipmentProfile: string[]
+      themePreference: ThemePreference
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const { supabase, user } = await requireUser()
     const { error } = await supabase
@@ -269,6 +321,7 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
         rounding: data.rounding,
         auto_start_timer: data.autoStartTimer,
         equipment_profile: data.equipmentProfile,
+        theme_preference: data.themePreference,
       })
       .eq('id', user.id)
     if (error) throw new Error(error.message)
@@ -296,6 +349,7 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       units: Unit
       rounding: number
       anchors: AnchorInput[]
+      replaceActiveProgram?: boolean
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -311,6 +365,35 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       .order('created_at', { ascending: false })
       .limit(1)
     if (versionError) throw new Error(versionError.message)
+
+    const { data: activePrograms, error: activeProgramError } = await supabase
+      .from('program_instances')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+    if (activeProgramError) throw new Error(activeProgramError.message)
+
+    const { data: activeSessions, error: activeSessionError } = await supabase
+      .from('workout_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'in_progress')
+    if (activeSessionError) throw new Error(activeSessionError.message)
+
+    const activeProgramIds = (activePrograms ?? []).map((program: any) => program.id as string)
+    const activeSessionIds = (activeSessions ?? []).map((session: any) => session.id as string)
+    if ((activeProgramIds.length || activeSessionIds.length) && !data.replaceActiveProgram) {
+      throw new Error('Active program in progress')
+    }
+
+    if (activeSessionIds.length) {
+      const { error: abandonError } = await supabase
+        .from('workout_sessions')
+        .update({ status: 'skipped' })
+        .eq('user_id', user.id)
+        .in('id', activeSessionIds)
+      if (abandonError) throw new Error(abandonError.message)
+    }
 
     await supabase
       .from('program_instances')
@@ -437,6 +520,20 @@ export const upsertSetLogFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const { supabase, user } = await requireUser()
+    const { data: sessionRow, error: sessionError } = await supabase
+      .from('workout_sessions')
+      .select('status')
+      .eq('id', data.sessionId)
+      .eq('user_id', user.id)
+      .single()
+    if (sessionError) throw new Error(sessionError.message)
+    if (sessionRow.status === 'completed') {
+      throw new Error('This session is already finished. Completed sessions cannot be edited.')
+    }
+    if (sessionRow.status !== 'in_progress') {
+      throw new Error('Only in-progress sessions can be edited.')
+    }
+
     const { error } = await supabase
       .from('set_logs')
       .update({
@@ -451,6 +548,8 @@ export const upsertSetLogFn = createServerFn({ method: 'POST' })
       .eq('user_id', user.id)
       .eq('exercise_log_id', data.exerciseLogId)
       .eq('set_index', data.setIndex)
+      .select('id')
+      .single()
     if (error) throw new Error(error.message)
     return getSessionInternal(data.sessionId)
   })
@@ -488,28 +587,50 @@ export const substituteMovementFn = createServerFn({ method: 'POST' })
     return getSessionInternal(data.sessionId)
   })
 
+function hasNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function hasCompletedReps(set: SetLog) {
+  return set.completed && hasNumber(set.actualReps)
+}
+
+function hasCompletedRepsAndRir(set: SetLog) {
+  return hasCompletedReps(set) && hasNumber(set.actualRir)
+}
+
+function hasCompleteAccessoryInputs(movement: MovementSlot) {
+  return movement.sets.length > 0 && movement.sets.every(hasCompletedRepsAndRir)
+}
+
+function accessoryOutcome(movement: MovementSlot) {
+  if (!hasCompleteAccessoryInputs(movement)) return 'Incomplete data - no recommendation'
+  return evaluateAccessoryDoubleProgression(
+    movement.sets,
+    movement.sets[0]?.targetRepMin ?? 8,
+    movement.sets[0]?.targetRepMax ?? 12,
+    movement.sets[0]?.targetRir ?? 2,
+  )
+}
+
 function buildDecisions(session: WorkoutSession, activeProgram: ProgramInstance) {
   const decisions: ProgressionDecision[] = []
   for (const movement of session.movements) {
     if (movement.role === 'main') {
-      const topSet = movement.sets.find((set) => set.isTopSet || set.isAmrap)
       const anchor = activeProgram.anchors.find((item) => item.movementId === movement.movementId)
-      if (topSet && anchor && session.templateId === 'bromley-bullmastiff') {
+      const topSetWithReps = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedReps(set))
+      const topSetWithRir = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedRepsAndRir(set))
+      if (topSetWithReps && anchor && session.templateId === 'bromley-bullmastiff') {
         decisions.push(
-          evaluateBullmastiffPlusSet(topSet, topSet.targetReps ?? 1, anchor.value, activeProgram.rounding, movement.movementId),
+          evaluateBullmastiffPlusSet(topSetWithReps, topSetWithReps.targetReps ?? 1, anchor.value, activeProgram.rounding, movement.movementId),
         )
       }
-      if (topSet && anchor && session.templateId === 'healthy-531-fsl') {
-        decisions.push(evaluate531TmBand([topSet], anchor.value, activeProgram.rounding, movement.movementId))
+      if (topSetWithRir && anchor && session.templateId === 'healthy-531-fsl') {
+        decisions.push(evaluate531TmBand([topSetWithRir], anchor.value, activeProgram.rounding, movement.movementId))
       }
     }
-    if (movement.role === 'accessory') {
-      const outcome = evaluateAccessoryDoubleProgression(
-        movement.sets,
-        movement.sets[0]?.targetRepMin ?? 8,
-        movement.sets[0]?.targetRepMax ?? 12,
-        movement.sets[0]?.targetRir ?? 2,
-      )
+    if (movement.role === 'accessory' && hasCompleteAccessoryInputs(movement)) {
+      const outcome = accessoryOutcome(movement)
       if (outcome === 'Add load next time') {
         decisions.push({
           id: `pending-accessory-${movement.movementId}`,
@@ -533,10 +654,12 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
     const activeProgram = await getActiveProgramInternal()
     if (!activeProgram) throw new Error('No active program')
     const session = await getSessionInternal(data.sessionId)
+    if (session.status === 'completed') throw new Error('Session is already finished')
+    if (session.status !== 'in_progress') throw new Error('Only in-progress sessions can be finished')
     const { supabase, user } = await requireUser()
     const decisions = buildDecisions(session, activeProgram)
 
-    await supabase
+    const { error: finishError } = await supabase
       .from('workout_sessions')
       .update({
         status: 'completed',
@@ -545,9 +668,18 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
       })
       .eq('id', data.sessionId)
       .eq('user_id', user.id)
+      .eq('status', 'in_progress')
+      .select('id')
+      .single()
+    if (finishError) throw new Error(finishError.message)
+
+    await updateProgramCurrentWeekIndex(supabase, user.id, {
+      ...activeProgram,
+      currentWeekIndex: activeProgram.currentWeekIndex + 1,
+    })
 
     for (const decision of decisions) {
-      await supabase.from('progression_decisions').insert({
+      const { error: decisionError } = await supabase.from('progression_decisions').insert({
         user_id: user.id,
         program_instance_id: activeProgram.id,
         movement_id: decision.movementId,
@@ -559,6 +691,7 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
         previous_anchor: decision.previousAnchor,
         recommended_anchor: decision.recommendedAnchor,
       })
+      if (decisionError) throw new Error(decisionError.message)
     }
 
     const completedSession = await getSessionInternal(data.sessionId)
@@ -570,7 +703,7 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
       topSets: sets.filter((set) => set.isTopSet || set.isAmrap),
       accessoryOutcomes: completedSession.movements
         .filter((movement) => movement.role === 'accessory')
-        .map((movement) => `${movement.movementName}: ${evaluateAccessoryDoubleProgression(movement.sets, movement.sets[0]?.targetRepMin ?? 8, movement.sets[0]?.targetRepMax ?? 12, movement.sets[0]?.targetRir ?? 2)}`),
+        .map((movement) => `${movement.movementName}: ${accessoryOutcome(movement)}`),
       decisions,
     }
   })
@@ -596,17 +729,20 @@ export const resolveProgressionDecisionFn = createServerFn({ method: 'POST' })
     if (updateError) throw new Error(updateError.message)
 
     if (data.action === 'accepted' && decision.recommended_anchor !== null) {
-      await supabase
+      const { error: anchorError } = await supabase
         .from('program_anchors')
         .update({ value: decision.recommended_anchor })
         .eq('user_id', user.id)
         .eq('program_instance_id', decision.program_instance_id)
         .eq('movement_id', decision.movement_id)
+        .select('id')
+        .single()
+      if (anchorError) throw new Error(anchorError.message)
     }
     return getPendingDecisionsInternal(decision.program_instance_id)
   })
 
-export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(async () => {
+export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(async (): Promise<RecentHistoryEntry[]> => {
   const { supabase, user } = await requireUser()
   const { data, error } = await supabase
     .from('workout_sessions')
@@ -616,26 +752,141 @@ export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(asyn
     .order('completed_at', { ascending: false })
     .limit(20)
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row: any) => ({
-    id: row.id,
-    title: row.prescription_snapshot?.title ?? row.planned_session_id,
-    completedAt: row.completed_at,
-    scheduledDate: row.scheduled_date,
-    programTitle: row.prescription_snapshot?.programTitle,
-  }))
+  const rows = data ?? []
+  const sessionIds = rows.map((row: any) => row.id as string)
+  const { data: exercises, error: exerciseError } = sessionIds.length
+    ? await supabase
+        .from('exercise_logs')
+        .select('id, session_id')
+        .eq('user_id', user.id)
+        .in('session_id', sessionIds)
+    : { data: [], error: null }
+  if (exerciseError) throw new Error(exerciseError.message)
+
+  const exerciseToSessionId = new Map((exercises ?? []).map((exercise: any) => [exercise.id, exercise.session_id as string]))
+  const exerciseIds = Array.from(exerciseToSessionId.keys())
+  const { data: sets, error: setError } = exerciseIds.length
+    ? await supabase
+        .from('set_logs')
+        .select('exercise_log_id, completed')
+        .eq('user_id', user.id)
+        .in('exercise_log_id', exerciseIds)
+    : { data: [], error: null }
+  if (setError) throw new Error(setError.message)
+
+  const completedSetsBySessionId = new Map<string, number>()
+  const loggedSetsBySessionId = new Map<string, number>()
+  for (const set of sets ?? []) {
+    const sessionId = exerciseToSessionId.get(set.exercise_log_id)
+    if (!sessionId) continue
+    loggedSetsBySessionId.set(sessionId, (loggedSetsBySessionId.get(sessionId) ?? 0) + 1)
+    if (set.completed) {
+      completedSetsBySessionId.set(sessionId, (completedSetsBySessionId.get(sessionId) ?? 0) + 1)
+    }
+  }
+
+  return rows.map((row: any): RecentHistoryEntry => {
+    const snapshot = row.prescription_snapshot as PlannedSession | null
+    const plannedSetCount = snapshot?.movements.reduce((total, movement) => total + movement.sets.length, 0) ?? 0
+    return {
+      id: row.id,
+      title: snapshot?.title ?? row.planned_session_id,
+      completedAt: row.completed_at,
+      scheduledDate: row.scheduled_date,
+      programTitle: snapshot?.programTitle ?? null,
+      weekLabel: snapshot?.weekLabel ?? null,
+      hardness: snapshot?.hardness ?? null,
+      estimatedMinutes: snapshot?.estimatedMinutes ?? null,
+      movementCount: snapshot?.movements.length ?? 0,
+      completedSetCount: completedSetsBySessionId.get(row.id) ?? 0,
+      plannedSetCount: loggedSetsBySessionId.get(row.id) ?? plannedSetCount,
+    }
+  })
 })
 
 export const getMovementHistoryFn = createServerFn({ method: 'GET' })
   .validator((data: { movementId: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<MovementHistoryEntry[]> => {
     const { supabase, user } = await requireUser()
     const { data: exercises, error } = await supabase
       .from('exercise_logs')
-      .select('id, session_id, planned_movement_id, performed_movement_id, role, target_summary')
+      .select('id, session_id, planned_movement_id, performed_movement_id, role, target_summary, created_at')
       .eq('user_id', user.id)
       .or(`planned_movement_id.eq.${data.movementId},performed_movement_id.eq.${data.movementId}`)
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(80)
     if (error) throw new Error(error.message)
-    return exercises ?? []
+
+    const exerciseRows = exercises ?? []
+    const exerciseIds = exerciseRows.map((exercise: any) => exercise.id as string)
+    const sessionIds = Array.from(new Set(exerciseRows.map((exercise: any) => exercise.session_id as string)))
+    if (!exerciseIds.length || !sessionIds.length) return []
+
+    const { data: sessions, error: sessionError } = await supabase
+      .from('workout_sessions')
+      .select('id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot')
+      .eq('user_id', user.id)
+      .eq('status', 'completed')
+      .in('id', sessionIds)
+    if (sessionError) throw new Error(sessionError.message)
+
+    const { data: setRows, error: setError } = await supabase
+      .from('set_logs')
+      .select('id, exercise_log_id, set_index, target_load, target_reps, target_rep_min, target_rep_max, target_rir, actual_load, actual_reps, actual_rir, completed, is_top_set, is_amrap, is_backoff')
+      .eq('user_id', user.id)
+      .in('exercise_log_id', exerciseIds)
+      .order('set_index', { ascending: true })
+    if (setError) throw new Error(setError.message)
+
+    const sessionsById = new Map((sessions ?? []).map((session: any) => [session.id, session]))
+    const setsByExerciseId = new Map<string, any[]>()
+    for (const set of setRows ?? []) {
+      const sets = setsByExerciseId.get(set.exercise_log_id) ?? []
+      sets.push(set)
+      setsByExerciseId.set(set.exercise_log_id, sets)
+    }
+
+    return exerciseRows
+      .map((exercise: any): MovementHistoryEntry | null => {
+        const session = sessionsById.get(exercise.session_id)
+        if (!session) return null
+        const snapshot = session.prescription_snapshot as PlannedSession | null
+        return {
+          id: exercise.id,
+          sessionId: session.id,
+          sessionTitle: snapshot?.title ?? session.planned_session_id,
+          programTitle: snapshot?.programTitle ?? null,
+          scheduledDate: session.scheduled_date,
+          completedAt: session.completed_at,
+          units: snapshot?.units ?? null,
+          plannedMovementId: exercise.planned_movement_id,
+          performedMovementId: exercise.performed_movement_id,
+          performedMovementName: getMovementName(exercise.performed_movement_id),
+          role: exercise.role,
+          targetSummary: exercise.target_summary,
+          sets: (setsByExerciseId.get(exercise.id) ?? []).map((set: any) => ({
+            id: set.id,
+            setIndex: set.set_index,
+            targetLoad: set.target_load === null ? null : Number(set.target_load),
+            targetReps: set.target_reps,
+            targetRepMin: set.target_rep_min,
+            targetRepMax: set.target_rep_max,
+            targetRir: set.target_rir === null ? null : Number(set.target_rir),
+            actualLoad: set.actual_load === null ? null : Number(set.actual_load),
+            actualReps: set.actual_reps,
+            actualRir: set.actual_rir === null ? null : Number(set.actual_rir),
+            completed: set.completed,
+            isTopSet: set.is_top_set,
+            isAmrap: set.is_amrap,
+            isBackoff: set.is_backoff,
+          })),
+        }
+      })
+      .filter((entry): entry is MovementHistoryEntry => entry !== null)
+      .sort((left, right) => {
+        const leftDate = left.completedAt ?? left.scheduledDate
+        const rightDate = right.completedAt ?? right.scheduledDate
+        return rightDate.localeCompare(leftDate)
+      })
+      .slice(0, 12)
   })

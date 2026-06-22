@@ -2,6 +2,7 @@ import { queryOptions } from '@tanstack/react-query'
 import {
   getActiveProgramFn,
   getMeFn,
+  getMovementHistoryFn,
   getRecentHistoryFn,
   getSessionFn,
   getTodayFn,
@@ -42,4 +43,10 @@ export const recentHistoryQueryOptions = () =>
   queryOptions({
     queryKey: ['history', 'recent'],
     queryFn: () => getRecentHistoryFn(),
+  })
+
+export const movementHistoryQueryOptions = (movementId: string) =>
+  queryOptions({
+    queryKey: ['history', 'movement', movementId],
+    queryFn: () => getMovementHistoryFn({ data: { movementId } }),
   })
