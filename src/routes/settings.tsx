@@ -245,7 +245,7 @@ function AuthedSettings() {
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {equipmentOptions.map((item) => (
                   <label key={item} className="flex items-center justify-between rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-                    <span className="text-sm font-semibold">{item.replaceAll('_', ' ')}</span>
+                    <span className="text-sm font-semibold">{formatEquipmentLabel(item)}</span>
                     <input
                       className="h-4 w-4 accent-[var(--mantine-primary-color-filled)]"
                       type="checkbox"
@@ -312,4 +312,11 @@ function sameStringSet(left: string[], right: string[]) {
   const normalizedLeft = [...left].sort()
   const normalizedRight = [...right].sort()
   return normalizedLeft.every((value, index) => value === normalizedRight[index])
+}
+
+function formatEquipmentLabel(value: string) {
+  return value
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }

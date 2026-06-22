@@ -256,3 +256,167 @@ export type MovementHistoryEntry = {
   targetSummary: string
   sets: MovementHistorySet[]
 }
+
+export type BodyRegionId =
+  | 'chest'
+  | 'shoulders'
+  | 'triceps'
+  | 'upper_back'
+  | 'biceps'
+  | 'core'
+  | 'quads'
+  | 'hamstrings'
+  | 'glutes'
+  | 'calves'
+
+export type BodyLoadTier = 'fresh' | 'low' | 'moderate' | 'high'
+
+export type BodyLoadRegion = {
+  regionId: BodyRegionId
+  label: string
+  score: number
+  impactPercent: number
+  tier: BodyLoadTier
+  recentSetCount: number
+  lastTrainedAt?: string | null
+  movementNames: string[]
+}
+
+export type BodyLoadSummary = {
+  generatedAt: string
+  windowDays: number
+  freshRegionCount: number
+  regions: BodyLoadRegion[]
+  topRegions: BodyLoadRegion[]
+}
+
+export type HistoryBestSet = {
+  id: string
+  movementId: string
+  movementName: string
+  role: MovementRole
+  type: 'top_set' | 'amrap' | 'accessory' | 'volume'
+  load?: number | null
+  reps?: number | null
+  rir?: number | null
+  e1rm?: number | null
+  volume?: number | null
+  sessionId: string
+  sessionTitle: string
+  performedAt?: string | null
+  units?: Unit | null
+}
+
+export type HistoryMovementSummary = {
+  movementId: string
+  movementName: string
+  category: string
+  lastPerformedAt?: string | null
+  totalCompletedSets: number
+  totalVolume: number
+  substitutionCount: number
+  bestSet?: HistoryBestSet | null
+}
+
+export type HistoryWeeklyVolume = {
+  weekStart: string
+  weekLabel: string
+  volume: number
+  completedSets: number
+  sessionCount: number
+}
+
+export type HistorySubstitutionSummary = {
+  id: string
+  sessionId: string
+  sessionTitle: string
+  plannedMovementId: string
+  plannedMovementName: string
+  performedMovementId: string
+  performedMovementName: string
+  reason: SubstitutionReason
+  note?: string | null
+  performedAt?: string | null
+}
+
+export type HistoryDashboard = {
+  overview: {
+    completedSessions: number
+    loggedSets: number
+    completedVolume: number
+    uniqueMovements: number
+    latestTrainingDate?: string | null
+    units?: Unit | null
+  }
+  bodyLoad: BodyLoadSummary
+  bestSets: HistoryBestSet[]
+  movementSummaries: HistoryMovementSummary[]
+  weeklyVolume: HistoryWeeklyVolume[]
+  substitutions: HistorySubstitutionSummary[]
+  recentSessions: RecentHistoryEntry[]
+}
+
+export type ProgramRecentSessionSummary = {
+  id: string
+  title: string
+  completedAt?: string | null
+  scheduledDate: string
+  weekLabel?: string | null
+  completedSetCount: number
+  plannedSetCount: number
+  topSetHighlights: string[]
+}
+
+export type ProgramAnchorOverview = {
+  movementId: string
+  movementName: string
+  value: number
+  units: Unit
+  pendingDecision?: ProgressionDecision | null
+  lastAcceptedDecision?: ProgressionDecision | null
+}
+
+export type ProgramAccessoryPlan = {
+  sessionTitle: string
+  slots: Array<{
+    slotId: string
+    movementId: string
+    movementName: string
+    role: MovementRole
+    targetSummary: string
+    replacedMovementName?: string | null
+  }>
+}
+
+export type ProgramOverview = {
+  activeProgram: ProgramInstance | null
+  position: {
+    phaseKey: string
+    phaseLabel: string
+    waveLabel?: string | null
+    weekLabel: string
+    weekSummary: string
+    focus: string
+    hardness: PlannedSession['hardness']
+    weekNumber: number
+    totalWeeks: number
+    sessionNumber: number
+    daysPerWeek: number
+    progressPercent: number
+  } | null
+  nextSession: {
+    title: string
+    scheduledDate: string
+    mainMovementName: string
+    keyPrescription: string
+    variationCount: number
+    accessoryCount: number
+    status: 'planned' | 'in_progress' | 'completed'
+    href: string
+  } | null
+  recentSessions: ProgramRecentSessionSummary[]
+  anchors: ProgramAnchorOverview[]
+  accessoryPlan: ProgramAccessoryPlan[]
+  bodyLoad: BodyLoadSummary
+  pendingDecisions: ProgressionDecision[]
+}

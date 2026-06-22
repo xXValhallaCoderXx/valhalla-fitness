@@ -3,7 +3,7 @@ import { Badge, Button, Card, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { Check, Lock, Search } from 'lucide-react'
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { shouldConfirmProgramStart } from '~/lib/program-switch'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { getMovementName } from '~/lib/movements'
@@ -67,6 +67,7 @@ function AuthedTemplates({
   const [showSwitchConfirm, setShowSwitchConfirm] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const activeSessionId = today.activeSession?.sessionId
+  const activeTemplateId = today.activeProgram?.templateId ?? null
 
   const filtered = useMemo(() => {
     return templates.filter((template) => {
@@ -78,6 +79,10 @@ function AuthedTemplates({
       return matchesFilter && haystack.includes(query.toLowerCase())
     })
   }, [filter, query, templates])
+  const activeTemplate = activeTemplateId ? filtered.find((template) => template.id === activeTemplateId) ?? null : null
+  const availableTemplates = activeTemplateId
+    ? filtered.filter((template) => template.id !== activeTemplateId)
+    : filtered
 
   const startMutation = useMutation({
     mutationFn: (input: { replaceActiveProgram?: boolean }) => {
@@ -214,13 +219,30 @@ function AuthedTemplates({
 
       <p className="mb-3 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">Showing {filtered.length} programs</p>
 
-      <div
-        className="grid items-stretch gap-4 md:gap-5"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 22rem), 1fr))' }}
-      >
-        {filtered.map((template) => (
-          <TemplateCard key={template.id} template={template} onStart={() => selectTemplate(template)} />
-        ))}
+      <div className="space-y-6">
+        {activeTemplate ? (
+          <section>
+            <p className="vf-section-label mb-3">Active</p>
+            <TemplateGrid>
+              <TemplateCard template={activeTemplate} isActive onStart={() => selectTemplate(activeTemplate)} />
+            </TemplateGrid>
+          </section>
+        ) : null}
+
+        <section>
+          <p className="vf-section-label mb-3">{activeTemplate ? 'Available' : 'Programs'}</p>
+          {availableTemplates.length ? (
+            <TemplateGrid>
+              {availableTemplates.map((template) => (
+                <TemplateCard key={template.id} template={template} onStart={() => selectTemplate(template)} />
+              ))}
+            </TemplateGrid>
+          ) : (
+            <EmptyState title={activeTemplate ? 'No other matching programs' : 'No matching programs'}>
+              Adjust the search or filter to see more templates.
+            </EmptyState>
+          )}
+        </section>
       </div>
 
       {selected && showSetup ? (
@@ -366,16 +388,19 @@ function AuthedTemplates({
 
 function TemplateCard({
   template,
+  isActive = false,
   onStart,
 }: {
   template: ProgramTemplateSummary
+  isActive?: boolean
   onStart: () => void
 }) {
   return (
-    <Card className="group flex min-h-[16rem] flex-col gap-4 p-4 vf-card-hover">
+    <Card className={`group flex min-h-[16rem] flex-col gap-4 p-4 vf-card-hover ${isActive ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)]' : ''}`}>
       <div className="flex flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Badge color={template.sourceLabel === 'Bromley' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
+          {isActive ? <Badge color="success">Active</Badge> : null}
           <span className="text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">{template.daysPerWeek} days/wk</span>
           <Badge color="action" className="normal-case sm:ml-auto">
             {template.progressionLabel}
@@ -396,7 +421,12 @@ function TemplateCard({
           ))}
         </div>
       </div>
-      {template.available ? (
+      {isActive ? (
+        <Button color="success" variant="light" disabled>
+          <Check size={16} />
+          Active Program
+        </Button>
+      ) : template.available ? (
         <Button className="w-full" onClick={onStart}>
           <Check size={16} />
           Start Program
@@ -408,5 +438,16 @@ function TemplateCard({
         </Button>
       )}
     </Card>
+  )
+}
+
+function TemplateGrid({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="grid items-stretch gap-4 md:gap-5"
+      style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 22rem), 1fr))' }}
+    >
+      {children}
+    </div>
   )
 }

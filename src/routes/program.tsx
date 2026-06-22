@@ -1,23 +1,20 @@
 import { Badge, Button, Card, Tooltip } from '@mantine/core'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
-import { createFileRoute } from '@tanstack/react-router'
-import { Check, Clock3, Info, X } from 'lucide-react'
-import { useState } from 'react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { Activity, ArrowRight, CalendarDays, Check, Clock3, Dumbbell, Info, ListChecks, Target, X } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
-import { activeProgramQueryOptions, todayQueryOptions } from '~/lib/query-options'
+import { programOverviewQueryOptions } from '~/lib/query-options'
 import { buildProgramTimeline, type ProgramTimelineModel } from '~/lib/program-timeline'
-import { templateCatalog } from '~/lib/templates'
 import { resolveProgressionDecisionFn } from '~/server/api'
+import type { BodyLoadRegion, ProgramOverview } from '~/types/training'
 import { EmptyState, Page, PageHeader } from '~/components/ui'
 
 export const Route = createFileRoute('/program')({
   loader: async ({ context }) => {
     if ((context as any).user) {
-      await Promise.all([
-        context.queryClient.ensureQueryData(activeProgramQueryOptions()),
-        context.queryClient.ensureQueryData(todayQueryOptions()),
-      ])
+      await context.queryClient.ensureQueryData(programOverviewQueryOptions())
     }
   },
   component: ProgramRoute,
@@ -37,8 +34,7 @@ function ProgramRoute() {
 
 function AuthedProgram() {
   const queryClient = useQueryClient()
-  const { data: program } = useSuspenseQuery(activeProgramQueryOptions())
-  const { data: today } = useSuspenseQuery(todayQueryOptions())
+  const { data: overview } = useSuspenseQuery(programOverviewQueryOptions())
   const mutation = useMutation({
     mutationFn: (data: { decisionId: string; action: 'accepted' | 'dismissed' | 'pending' }) =>
       resolveProgressionDecisionFn({ data }),
@@ -46,6 +42,7 @@ function AuthedProgram() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
         queryClient.invalidateQueries({ queryKey: ['today'] }),
+        queryClient.invalidateQueries({ queryKey: ['programOverview'] }),
       ])
       notifications.show({ color: 'success', title: 'Progression updated', message: 'Your decision was saved.' })
     },
@@ -58,6 +55,7 @@ function AuthedProgram() {
     },
   })
 
+  const program = overview.activeProgram
   if (!program) {
     return (
       <Page>
@@ -67,51 +65,30 @@ function AuthedProgram() {
   }
 
   const timeline = buildProgramTimeline(program, program.templateDefinition)
-  const template = templateCatalog.find((item) => item.id === program.templateId)
-  const programmeDetail = getProgrammeDetail(program.templateId)
 
   return (
     <Page>
       <PageHeader
         title={program.title}
         eyebrow="Program"
-        actions={<Badge color="action">Week {timeline.currentWeekIndex + 1} of {timeline.totalWeeks}</Badge>}
+        actions={<Badge color="action">Week {overview.position?.weekNumber ?? timeline.currentWeekIndex + 1} of {timeline.totalWeeks}</Badge>}
       >
-        <span className="block">{template?.description ?? 'Structured training plan with reviewable progression.'}</span>
+        <span className="block">{overview.position?.weekSummary ?? timeline.description}</span>
         <span className="mt-1 block text-[11px] font-semibold text-[var(--mantine-color-dimmed)] md:text-xs">
-          Current position: week {timeline.currentWeekIndex + 1} · session {timeline.currentSessionInWeek + 1} of {timeline.daysPerWeek}
+          Current position: {overview.position?.phaseLabel ?? 'Current phase'} · session {overview.position?.sessionNumber ?? timeline.currentSessionInWeek + 1} of {timeline.daysPerWeek}
         </span>
       </PageHeader>
 
-      <Card className="mb-4 p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="vf-section-label">Program overview</h2>
-              <InfoHint label="About this program">
-                This is the active template driving your planned sessions, weekly structure, anchor calculations, and progression recommendations.
-              </InfoHint>
-            </div>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[var(--mantine-color-dimmed)]">{programmeDetail}</p>
-          </div>
-          <div className="flex flex-wrap gap-1.5 md:max-w-xs md:justify-end">
-            {template ? <Badge color={template.sourceLabel === 'Bromley' ? 'warning' : 'action'}>{template.sourceLabel}</Badge> : null}
-            {template ? <Badge>{template.daysPerWeek} days/wk</Badge> : null}
-            <Badge>{timeline.totalWeeks} weeks</Badge>
-            {template ? <Badge color="action" className="normal-case">{template.progressionLabel}</Badge> : null}
-            {template ? <Badge>{template.complexity}</Badge> : null}
-          </div>
-        </div>
-      </Card>
+      <ProgramSummaryGrid overview={overview} timeline={timeline} />
 
-      {today.pendingDecisions.length ? (
+      {overview.pendingDecisions.length ? (
         <Card className="mb-4 border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="vf-section-label text-[var(--vf-warning-text)]">Pending Decision</p>
-              <p className="mt-1 text-sm font-semibold">Review {today.pendingDecisions[0]?.movementName} progression before the next block.</p>
+              <p className="mt-1 text-sm font-semibold">Review {overview.pendingDecisions[0]?.movementName} progression before the next block.</p>
             </div>
-            <Badge color="warning">{today.pendingDecisions.length} pending</Badge>
+            <Badge color="warning">{overview.pendingDecisions.length} pending</Badge>
           </div>
         </Card>
       ) : null}
@@ -134,14 +111,14 @@ function AuthedProgram() {
               <Badge>{program.units}</Badge>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              {program.anchors.map((anchor) => (
+              {overview.anchors.map((anchor) => (
                 <div key={anchor.movementId} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-                  <p className="text-xs text-[var(--mantine-color-dimmed)]">{anchor.movementId.replaceAll('_', ' ')}</p>
+                  <p className="text-xs text-[var(--mantine-color-dimmed)]">{anchor.movementName}</p>
                   <p className="mt-1 text-lg font-bold">
-                    {anchor.value} <span className="text-xs text-[var(--mantine-color-dimmed)]">{program.units}</span>
+                    {formatNumber(anchor.value)} <span className="text-xs text-[var(--mantine-color-dimmed)]">{anchor.units}</span>
                   </p>
                   <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
-                    {anchor.anchorType.replaceAll('_', ' ')}
+                    {anchor.pendingDecision ? 'pending review' : anchor.lastAcceptedDecision ? 'last change saved' : 'training max'}
                   </p>
                 </div>
               ))}
@@ -156,9 +133,9 @@ function AuthedProgram() {
               </InfoHint>
             </div>
             <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">Reviewable recommendations from logged training.</p>
-            {today.pendingDecisions.length ? (
+            {overview.pendingDecisions.length ? (
               <div className="mt-3 space-y-3">
-                {today.pendingDecisions.map((decision) => (
+                {overview.pendingDecisions.map((decision) => (
                   <div key={decision.id} className="rounded-lg border border-[var(--vf-warning-border)] bg-[var(--vf-surface-2)] p-3">
                     <p className="font-bold">{decision.movementName}</p>
                     <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{formatRuleId(decision.ruleId)}</p>
@@ -185,6 +162,10 @@ function AuthedProgram() {
               <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">No pending recommendations.</p>
             )}
           </Card>
+
+          <RecentProgramSessions overview={overview} />
+
+          <AccessoryPlan overview={overview} />
         </div>
       </div>
     </Page>
@@ -195,14 +176,216 @@ function formatRuleId(ruleId: string) {
   return ruleId.replaceAll('_', ' ')
 }
 
-function getProgrammeDetail(templateId: string) {
-  if (templateId === 'healthy-531-fsl') {
-    return 'Healthy 5/3/1 FSL uses training-max anchors to calculate weekly percentage work, plus First Set Last back-off sets and accessories. Logged top-set reps and RIR feed reviewable training-max decisions.'
-  }
-  if (templateId === 'bromley-bullmastiff') {
-    return 'Bullmastiff runs an 18-week base-to-peak structure built from three-week plus-set waves. It does not prescribe a fixed standalone deload week in the app fixture; recovery comes from resetting the starting weight and rep range at the start of each new wave.'
-  }
-  return 'This programme controls your planned sessions, load calculations, and reviewable progression recommendations.'
+function ProgramSummaryGrid({
+  overview,
+  timeline,
+}: {
+  overview: ProgramOverview
+  timeline: ProgramTimelineModel
+}) {
+  const position = overview.position
+  const nextSession = overview.nextSession
+  const topRegions = overview.bodyLoad.topRegions.slice(0, 3)
+
+  return (
+    <div className="mb-4 grid gap-4 lg:grid-cols-[1.1fr_1fr_0.9fr]">
+      <Card className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="vf-section-label">Current position</h2>
+              <InfoHint label="Current position">
+                This is derived from the active template definition and the program's current session index.
+              </InfoHint>
+            </div>
+            <h3 className="mt-2 text-lg font-extrabold">{position?.phaseLabel ?? 'Current phase'}</h3>
+            <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">{position?.weekLabel ?? timeline.weeks[timeline.currentWeekIndex]?.subtitle}</p>
+          </div>
+          <Badge color={hardnessColor(position?.hardness)}>{position?.hardness ?? 'Current'}</Badge>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <SummaryMetric icon={<CalendarDays size={14} />} label="Week" value={`${position?.weekNumber ?? timeline.currentWeekIndex + 1}/${timeline.totalWeeks}`} />
+          <SummaryMetric icon={<ListChecks size={14} />} label="Session" value={`${position?.sessionNumber ?? timeline.currentSessionInWeek + 1}/${timeline.daysPerWeek}`} />
+          <SummaryMetric icon={<Target size={14} />} label="Progress" value={`${position?.progressPercent ?? 0}%`} />
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--vf-surface-inset)]">
+          <div className="h-full rounded-full bg-[var(--mantine-primary-color-filled)]" style={{ width: `${Math.min(100, Math.max(0, position?.progressPercent ?? 0))}%` }} />
+        </div>
+        <p className="mt-3 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">{position?.focus}</p>
+      </Card>
+
+      <Card className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="vf-section-label">Next session</h2>
+            <h3 className="mt-2 truncate text-lg font-extrabold">{nextSession?.title ?? 'No session queued'}</h3>
+            <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">{nextSession?.mainMovementName ?? 'Start a program to queue work.'}</p>
+          </div>
+          <Badge color={nextSession?.status === 'in_progress' ? 'warning' : nextSession?.status === 'completed' ? 'success' : 'action'}>
+            {nextSession?.status.replaceAll('_', ' ') ?? 'planned'}
+          </Badge>
+        </div>
+        <div className="mt-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+          <p className="text-xs font-extrabold text-[var(--mantine-color-dimmed)]">Key work</p>
+          <p className="mt-1 text-sm font-bold">{nextSession?.keyPrescription ?? 'No prescription'}</p>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <SummaryMetric icon={<Dumbbell size={14} />} label="Variations" value={nextSession?.variationCount ?? 0} />
+          <SummaryMetric icon={<ListChecks size={14} />} label="Accessories" value={nextSession?.accessoryCount ?? 0} />
+        </div>
+        {nextSession ? (
+          <Link to={nextSession.href}>
+            <Button className="mt-3 w-full" variant="light">
+              <ArrowRight size={14} />
+              Open session
+            </Button>
+          </Link>
+        ) : null}
+      </Card>
+
+      <Card className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="vf-section-label">Body load</h2>
+            <p className="mt-2 text-lg font-extrabold">{overview.bodyLoad.freshRegionCount} fresh regions</p>
+          </div>
+          <Activity size={18} className="text-[var(--vf-action-text)]" />
+        </div>
+        <div className="mt-3 space-y-2">
+          {topRegions.length ? topRegions.map((region) => (
+            <BodyLoadMiniRow key={region.regionId} region={region} />
+          )) : (
+            <p className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 text-sm text-[var(--mantine-color-dimmed)]">No recent completed sets.</p>
+          )}
+        </div>
+        <Link to="/history">
+          <Button className="mt-3 w-full" variant="default">
+            <Activity size={14} />
+            History
+          </Button>
+        </Link>
+      </Card>
+    </div>
+  )
+}
+
+function RecentProgramSessions({ overview }: { overview: ProgramOverview }) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="vf-section-label">Recent program sessions</h2>
+        <Badge>{overview.recentSessions.length}</Badge>
+      </div>
+      {overview.recentSessions.length ? (
+        <div className="mt-3 space-y-2">
+          {overview.recentSessions.map((session) => (
+            <div key={session.id} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-extrabold">{session.title}</p>
+                  <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">{session.weekLabel ?? 'Completed session'}</p>
+                </div>
+                <Badge color="success">{session.completedSetCount}/{session.plannedSetCount}</Badge>
+              </div>
+              {session.topSetHighlights.length ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {session.topSetHighlights.map((highlight) => (
+                    <span key={highlight} className="rounded-md border border-[var(--vf-accent-border)] bg-[var(--vf-accent-soft)] px-2 py-1 text-[10px] font-bold text-[var(--vf-accent-text)]">
+                      {highlight}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-[var(--mantine-color-dimmed)]">No top-set highlight.</p>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">No completed sessions for this program yet.</p>
+      )}
+    </Card>
+  )
+}
+
+function AccessoryPlan({ overview }: { overview: ProgramOverview }) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="vf-section-label">Accessory plan</h2>
+        <Badge>{overview.accessoryPlan.reduce((total, day) => total + day.slots.length, 0)} slots</Badge>
+      </div>
+      {overview.accessoryPlan.length ? (
+        <div className="mt-3 space-y-3">
+          {overview.accessoryPlan.map((day) => (
+            <div key={day.sessionTitle} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+              <p className="text-sm font-extrabold">{day.sessionTitle}</p>
+              <div className="mt-2 space-y-1.5">
+                {day.slots.length ? day.slots.map((slot) => (
+                  <div key={slot.slotId} className="rounded-md bg-[var(--mantine-color-default)] px-2 py-1.5">
+                    <p className="truncate text-xs font-bold">{slot.movementName}</p>
+                    <p className="truncate text-[10px] text-[var(--mantine-color-dimmed)]">{slot.targetSummary}</p>
+                    {slot.replacedMovementName ? (
+                      <p className="mt-1 text-[10px] font-semibold text-[var(--vf-warning-text)]">Replaces {slot.replacedMovementName}</p>
+                    ) : null}
+                  </div>
+                )) : (
+                  <p className="text-xs text-[var(--mantine-color-dimmed)]">No accessory slots.</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">No accessory plan available.</p>
+      )}
+    </Card>
+  )
+}
+
+function SummaryMetric({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[var(--mantine-color-dimmed)]">{icon}</span>
+        <span className="text-sm font-black">{value}</span>
+      </div>
+      <p className="mt-1 text-[10px] font-bold text-[var(--mantine-color-dimmed)]">{label}</p>
+    </div>
+  )
+}
+
+function BodyLoadMiniRow({ region }: { region: BodyLoadRegion }) {
+  return (
+    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-xs font-extrabold">{region.label}</p>
+        <span className="text-xs font-black">{region.impactPercent}%</span>
+      </div>
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--vf-surface-inset)]">
+        <div className={bodyLoadBarClass(region.tier)} style={{ width: `${region.impactPercent}%` }} />
+      </div>
+    </div>
+  )
+}
+
+function bodyLoadBarClass(tier: BodyLoadRegion['tier']) {
+  const base = 'h-full rounded-full '
+  if (tier === 'high') return `${base}bg-[var(--vf-danger-text)]`
+  if (tier === 'moderate') return `${base}bg-[var(--vf-warning-text)]`
+  if (tier === 'low') return `${base}bg-[var(--vf-action-text)]`
+  return `${base}bg-[var(--mantine-color-dimmed)]`
+}
+
+function hardnessColor(hardness?: string | null) {
+  if (hardness === 'Hard') return 'danger'
+  if (hardness === 'Medium') return 'warning'
+  if (hardness === 'Light') return 'success'
+  return 'neutral'
+}
+
+function formatNumber(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }
 
 function ProgramTimeline({
