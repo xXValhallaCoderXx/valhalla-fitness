@@ -232,6 +232,9 @@ function AuthedToday() {
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{movement.movementName}</p>
                   <p className="text-xs text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
+                  {movement.previous?.label ? (
+                    <p className="mt-0.5 text-[10px] text-[var(--mantine-color-dimmed)]">{movement.previous.label}</p>
+                  ) : null}
                 </div>
                 <Badge>{movement.role}</Badge>
               </div>

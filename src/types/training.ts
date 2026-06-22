@@ -1,3 +1,5 @@
+import type { TemplateDefinition } from '~/lib/template-engine'
+
 export type Unit = 'kg' | 'lb'
 
 export type ThemePreference = 'system' | 'dark' | 'light'
@@ -26,7 +28,6 @@ export type UserProfile = {
   displayName?: string | null
   units: Unit
   rounding: number
-  autoStartTimer: boolean
   equipmentProfile: string[]
   themePreference: ThemePreference
 }
@@ -62,6 +63,7 @@ export type ProgramInstance = {
   currentWeekIndex: number
   anchors: AnchorInput[]
   movementOverrides?: ProgramMovementOverride[]
+  templateDefinition?: TemplateDefinition
 }
 
 export type SetTarget = {
@@ -173,6 +175,8 @@ export type PreviousComparable = {
   reps?: number | null
   rir?: number | null
   performedAt?: string | null
+  e1rm?: number | null
+  setType?: 'top_set' | 'amrap' | 'backoff' | 'best_set' | 'accessory'
 }
 
 export type ProgressionDecision = {

@@ -65,7 +65,6 @@ function AuthedSettings() {
   const { data: me } = useSuspenseQuery(meQueryOptions())
   const [units, setUnits] = useState<Unit>(me?.units ?? 'kg')
   const [rounding, setRounding] = useState(me?.rounding ?? 2.5)
-  const [autoStartTimer, setAutoStartTimer] = useState(Boolean(me?.autoStartTimer ?? true))
   const [equipmentProfile, setEquipmentProfile] = useState<string[]>(me?.equipmentProfile ?? [])
   const [themePreference, setThemePreference] = useState<ThemePreference>(me?.themePreference ?? 'system')
 
@@ -74,10 +73,9 @@ function AuthedSettings() {
       Boolean(me) &&
       (units !== me?.units ||
         rounding !== me?.rounding ||
-        autoStartTimer !== Boolean(me?.autoStartTimer ?? true) ||
         themePreference !== (me?.themePreference ?? 'system') ||
         !sameStringSet(equipmentProfile, me?.equipmentProfile ?? [])),
-    [autoStartTimer, equipmentProfile, me, rounding, themePreference, units],
+    [equipmentProfile, me, rounding, themePreference, units],
   )
 
   useEffect(() => {
@@ -93,7 +91,6 @@ function AuthedSettings() {
         data: {
           units,
           rounding,
-          autoStartTimer,
           equipmentProfile,
           themePreference,
         },
@@ -103,7 +100,6 @@ function AuthedSettings() {
       if (next) {
         setUnits(next.units)
         setRounding(next.rounding)
-        setAutoStartTimer(Boolean(next.autoStartTimer))
         setEquipmentProfile(next.equipmentProfile)
         setThemePreference(next.themePreference)
       }
@@ -122,7 +118,6 @@ function AuthedSettings() {
     if (!me) return
     setUnits(me.units)
     setRounding(me.rounding)
-    setAutoStartTimer(Boolean(me.autoStartTimer))
     setEquipmentProfile(me.equipmentProfile ?? [])
     setThemePreference(me.themePreference ?? 'system')
   }
@@ -238,13 +233,6 @@ function AuthedSettings() {
                   <TextInput type="number" value={rounding} onChange={(event) => setRounding(Number(event.target.value))} />
                 </label>
               </div>
-              <label className="flex items-center justify-between rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-                <span>
-                  <span className="block text-sm font-semibold">Auto-start rest timer</span>
-                  <span className="text-xs text-[var(--mantine-color-dimmed)]">Starts after each completed set.</span>
-                </span>
-                <input className="h-5 w-5 accent-[var(--mantine-primary-color-filled)]" type="checkbox" checked={autoStartTimer} onChange={(event) => setAutoStartTimer(event.target.checked)} />
-              </label>
             </Card>
           </section>
 

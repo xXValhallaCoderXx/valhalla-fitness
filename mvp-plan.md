@@ -105,7 +105,7 @@ The data model should leave clean module boundaries for these, but the MVP UI sh
 - DB migrations: Supabase CLI migrations committed to the repo.
 - Client data: RTK Query for app data fetching, mutations, cache invalidation, and optimistic updates.
 - Client DB/cache: IndexedDB for active workout drafts and pending mutation queues.
-- Local UI state: Redux slices or colocated React state for ephemeral UI state such as active set controls, timers, sheets, and filters.
+- Local UI state: Redux slices or colocated React state for ephemeral UI state such as active set controls, sheets, and filters.
 - Validation: Zod schemas shared between UI and server/database adapters.
 - Progression engine: pure TypeScript module with no Supabase dependency.
 - Testing: Vitest for engine tests, Playwright for key flows, Supabase local dev for RLS tests.
@@ -484,7 +484,7 @@ Source: `3-Keepfit - Live Session.html`
 
 MVP requirements:
 
-- Session header, progress, timer, finish.
+- Session header, progress, and finish.
 - Movement rail/list.
 - Current movement expanded.
 - Stable set rows.
@@ -542,7 +542,6 @@ MVP requirements:
 - Account.
 - Units and rounding.
 - Equipment profile.
-- Auto-start rest timer preference.
 - Sync status.
 - Future modules shown only as unavailable/future, if shown at all.
 
@@ -668,7 +667,7 @@ Tasks:
 - Implement optimistic RTK Query cache patches for set edits and completed-state changes.
 - Implement rollback or sync-failed state when a set mutation is rejected.
 - Add quick increments for load and reps.
-- Add rest timer controls.
+- Defer rest timer controls until a real timer feature is implemented.
 - Add previous comparable performance lookup.
 - Add local active-session draft cache.
 - Add pending mutation queue in IndexedDB for offline or failed set mutations.

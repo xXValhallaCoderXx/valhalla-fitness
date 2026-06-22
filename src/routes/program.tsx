@@ -66,7 +66,7 @@ function AuthedProgram() {
     )
   }
 
-  const timeline = buildProgramTimeline(program)
+  const timeline = buildProgramTimeline(program, program.templateDefinition)
   const template = templateCatalog.find((item) => item.id === program.templateId)
   const programmeDetail = getProgrammeDetail(program.templateId)
 

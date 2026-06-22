@@ -24,9 +24,17 @@ import type {
 } from '~/types/training'
 import { defaultAnchors, expandPlannedSession, programForNextUncompletedSession, templateCatalog } from '~/lib/templates'
 import {
+  parseTemplateDefinition,
+  validateRequiredAnchors,
+  validateTemplateDefinition,
+  type TemplateDefinition,
+} from '~/lib/template-engine'
+import {
+  e1rm,
   evaluate531TmBand,
   evaluateAccessoryDoubleProgression,
   evaluateBullmastiffPlusSet,
+  mround,
 } from '~/lib/progression'
 import { buildMovementSwapOptions, defaultMovementReplacementRules, getMovementName, movementCatalog } from '~/lib/movements'
 import { getSupabaseServerClient, hasSupabaseEnv } from './supabase'
@@ -54,7 +62,7 @@ async function ensureProfile() {
   return data
 }
 
-function mapTemplateRow(row: any): ProgramTemplateSummary {
+function mapTemplateRow(row: any, available = true): ProgramTemplateSummary {
   return {
     id: row.id,
     name: row.name,
@@ -65,7 +73,7 @@ function mapTemplateRow(row: any): ProgramTemplateSummary {
     progressionLabel: row.progression_label,
     complexity: row.complexity,
     tags: row.tags ?? [],
-    available: row.id === 'healthy-531-fsl' || row.id === 'bromley-bullmastiff',
+    available,
   }
 }
 
@@ -73,6 +81,44 @@ function templateVersionIdFromRows(rows: any[]) {
   const version = rows[0]
   if (!version?.id) throw new Error('Template version missing')
   return version.id as string
+}
+
+function templateDefinitionFromRows(rows: any[]) {
+  const version = rows[0]
+  if (!version?.definition) throw new Error('Template definition missing')
+  return parseTemplateDefinition(version.definition)
+}
+
+async function getPinnedTemplateDefinition(
+  supabase: any,
+  templateVersionId: string,
+  templateId: string,
+): Promise<TemplateDefinition> {
+  const { data, error } = await supabase
+    .from('program_template_versions')
+    .select('id, template_id, definition')
+    .eq('id', templateVersionId)
+    .eq('template_id', templateId)
+    .single()
+  if (error) throw new Error(error.message)
+  return parseTemplateDefinition(data.definition)
+}
+
+async function getLatestTemplateVersion(
+  supabase: any,
+  templateId: string,
+): Promise<{ id: string; definition: TemplateDefinition }> {
+  const { data, error } = await supabase
+    .from('program_template_versions')
+    .select('id, definition')
+    .eq('template_id', templateId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+  if (error) throw new Error(error.message)
+  return {
+    id: templateVersionIdFromRows(data ?? []),
+    definition: templateDefinitionFromRows(data ?? []),
+  }
 }
 
 function mapProgramMovementOverride(row: any): ProgramMovementOverride {
@@ -160,6 +206,12 @@ async function getActiveProgramInternal(): Promise<ProgramInstance | null> {
     .order('created_at', { ascending: true })
   if (overrideError) throw new Error(overrideError.message)
 
+  const templateDefinition = await getPinnedTemplateDefinition(
+    supabase,
+    instance.template_version_id,
+    instance.template_id,
+  )
+
   return {
     id: instance.id,
     templateId: instance.template_id,
@@ -176,6 +228,7 @@ async function getActiveProgramInternal(): Promise<ProgramInstance | null> {
       value: Number(anchor.value),
     })),
     movementOverrides: (movementOverrides ?? []).map(mapProgramMovementOverride),
+    templateDefinition,
   }
 }
 
@@ -228,6 +281,8 @@ async function getTodayInternal(): Promise<TodayPayload> {
   }
 
   const { supabase, user } = await requireUser()
+  const templateDefinition = activeProgram.templateDefinition
+  if (!templateDefinition) throw new Error('Active program template definition missing')
   const scheduledDate = new Date().toISOString().slice(0, 10)
   const { data: activeSessionRow, error } = await supabase
     .from('workout_sessions')
@@ -258,6 +313,7 @@ async function getTodayInternal(): Promise<TodayPayload> {
       activeProgram,
       (completedSessionRows ?? []).map((row: any) => row.planned_session_id),
       scheduledDate,
+      templateDefinition,
     )
     if (nextProgram.currentWeekIndex !== activeProgram.currentWeekIndex) {
       await updateProgramCurrentWeekIndex(supabase, user.id, nextProgram)
@@ -265,7 +321,13 @@ async function getTodayInternal(): Promise<TodayPayload> {
     }
   }
 
-  const plannedSession = expandPlannedSession(activeProgram, scheduledDate)
+  const barePlannedSession = expandPlannedSession(activeProgram, scheduledDate, templateDefinition)
+  const plannedSession = expandPlannedSession(
+    activeProgram,
+    scheduledDate,
+    templateDefinition,
+    await getPreviousComparablesBySlotId(supabase, user.id, barePlannedSession),
+  )
   const pendingDecisions = await getPendingDecisionsInternal(activeProgram.id)
 
   return {
@@ -275,6 +337,217 @@ async function getTodayInternal(): Promise<TodayPayload> {
     completedSession,
     pendingDecisions,
   }
+}
+
+type ComparableCandidate = {
+  slotId: string
+  plannedMovementId: string
+  performedMovementId: string
+  role: MovementSlot['role']
+  completedAt?: string | null
+  scheduledDate: string
+  templateId?: string | null
+  sets: SetLog[]
+}
+
+type ComparableSessionRow = {
+  id: string
+  completed_at?: string | null
+  scheduled_date: string
+  prescription_snapshot?: PlannedSession | null
+}
+
+async function getPreviousComparablesBySlotId(
+  supabase: any,
+  userId: string,
+  plannedSession: PlannedSession,
+): Promise<Record<string, MovementSlot['previous']>> {
+  const movementIds = new Set(
+    plannedSession.movements.flatMap((movement) => [
+      movement.movementId,
+      movement.performedMovementId ?? movement.movementId,
+    ]),
+  )
+  if (!movementIds.size) return {}
+
+  const { data: exerciseRows, error: exerciseError } = await supabase
+    .from('exercise_logs')
+    .select('id, session_id, slot_id, planned_movement_id, performed_movement_id, role, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(400)
+  if (exerciseError) throw new Error(exerciseError.message)
+
+  const relevantExerciseRows = (exerciseRows ?? []).filter(
+    (exercise: any) =>
+      movementIds.has(exercise.planned_movement_id) ||
+      movementIds.has(exercise.performed_movement_id),
+  )
+  const exerciseIds = relevantExerciseRows.map((exercise: any) => exercise.id as string)
+  const sessionIds = Array.from(new Set(relevantExerciseRows.map((exercise: any) => exercise.session_id as string)))
+  if (!exerciseIds.length || !sessionIds.length) return {}
+
+  const { data: sessionRows, error: sessionError } = await supabase
+    .from('workout_sessions')
+    .select('id, status, completed_at, scheduled_date, prescription_snapshot')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .in('id', sessionIds)
+  if (sessionError) throw new Error(sessionError.message)
+
+  const completedSessionsById = new Map<string, ComparableSessionRow>(
+    (sessionRows ?? []).map((session: any) => [session.id, session as ComparableSessionRow]),
+  )
+  const completedExerciseRows = relevantExerciseRows.filter((exercise: any) => completedSessionsById.has(exercise.session_id))
+  if (!completedExerciseRows.length) return {}
+
+  const { data: setRows, error: setError } = await supabase
+    .from('set_logs')
+    .select('id, exercise_log_id, set_index, target_load, target_reps, target_rep_min, target_rep_max, target_rir, target_rpe, actual_load, actual_reps, actual_rir, actual_rpe, completed, is_top_set, is_amrap, is_backoff')
+    .eq('user_id', userId)
+    .in('exercise_log_id', completedExerciseRows.map((exercise: any) => exercise.id))
+    .order('set_index', { ascending: true })
+  if (setError) throw new Error(setError.message)
+
+  const setsByExerciseId = new Map<string, SetLog[]>()
+  for (const row of setRows ?? []) {
+    const sets = setsByExerciseId.get(row.exercise_log_id) ?? []
+    sets.push({
+      id: row.id,
+      exerciseLogId: row.exercise_log_id,
+      setIndex: row.set_index,
+      targetLoad: row.target_load === null ? null : Number(row.target_load),
+      targetReps: row.target_reps,
+      targetRepMin: row.target_rep_min,
+      targetRepMax: row.target_rep_max,
+      targetRir: row.target_rir === null ? null : Number(row.target_rir),
+      targetRpe: row.target_rpe === null ? null : Number(row.target_rpe),
+      actualLoad: row.actual_load === null ? null : Number(row.actual_load),
+      actualReps: row.actual_reps,
+      actualRir: row.actual_rir === null ? null : Number(row.actual_rir),
+      actualRpe: row.actual_rpe === null ? null : Number(row.actual_rpe),
+      completed: row.completed,
+      isTopSet: row.is_top_set,
+      isAmrap: row.is_amrap,
+      isBackoff: row.is_backoff,
+    })
+    setsByExerciseId.set(row.exercise_log_id, sets)
+  }
+
+  const candidates: ComparableCandidate[] = completedExerciseRows.map((exercise: any): ComparableCandidate => {
+    const session = completedSessionsById.get(exercise.session_id)
+    const snapshot = session?.prescription_snapshot as PlannedSession | null
+    return {
+      slotId: exercise.slot_id,
+      plannedMovementId: exercise.planned_movement_id,
+      performedMovementId: exercise.performed_movement_id,
+      role: exercise.role,
+      completedAt: session?.completed_at,
+      scheduledDate: session?.scheduled_date ?? plannedSession.scheduledDate,
+      templateId: snapshot?.templateId ?? null,
+      sets: setsByExerciseId.get(exercise.id) ?? [],
+    }
+  })
+
+  const result: Record<string, MovementSlot['previous']> = {}
+  for (const movement of plannedSession.movements) {
+    const slotId = movement.slotId ?? movement.id
+    const ranked: Array<{ candidate: ComparableCandidate; score: number }> = candidates
+      .map((candidate) => ({
+        candidate,
+        score: scoreComparableCandidate(plannedSession, movement, candidate),
+      }))
+      .filter((item) => item.score > 0)
+      .sort((left, right) => {
+        if (right.score !== left.score) return right.score - left.score
+        return comparableDate(right.candidate).localeCompare(comparableDate(left.candidate))
+      })
+    const best = ranked[0]?.candidate
+    const comparable = best ? comparableFromCandidate(movement, best, plannedSession.units) : null
+    if (comparable) result[slotId] = comparable
+  }
+  return result
+}
+
+function scoreComparableCandidate(
+  plannedSession: PlannedSession,
+  movement: MovementSlot,
+  candidate: ComparableCandidate,
+) {
+  let score = 0
+  const performedMovementId = movement.performedMovementId ?? movement.movementId
+  if (candidate.performedMovementId === performedMovementId) score += 100
+  if (candidate.plannedMovementId === movement.movementId) score += 80
+  if (candidate.role === movement.role) score += 20
+  if (candidate.templateId === plannedSession.templateId) score += 8
+  if (candidate.slotId === (movement.slotId ?? movement.id)) score += 12
+  return score
+}
+
+function comparableFromCandidate(
+  movement: MovementSlot,
+  candidate: ComparableCandidate,
+  units: Unit,
+): MovementSlot['previous'] {
+  const completedSets = candidate.sets.filter((set) => set.completed && hasNumber(set.actualReps))
+  if (!completedSets.length) return null
+  const set = movement.role === 'main' ? bestMainComparableSet(completedSets) : bestAccessoryComparableSet(completedSets)
+  if (!set) return null
+
+  const load = set.actualLoad ?? set.targetLoad ?? null
+  const reps = set.actualReps ?? set.targetReps ?? null
+  const estimatedMax = hasNumber(load) && hasNumber(reps) ? mround(e1rm(load, reps, set.actualRir ?? 0), 0.5) : null
+  const label =
+    movement.role === 'main'
+      ? `Last comparable: ${formatComparableSet(set, units)}${estimatedMax ? ` · e1RM ${formatNumber(estimatedMax)} ${units}` : ''} · ${formatComparableDate(comparableDate(candidate))}`
+      : `Last time: ${formatComparableSet(set, units)} · ${formatComparableDate(comparableDate(candidate))}`
+
+  return {
+    movementId: candidate.performedMovementId,
+    label,
+    load,
+    reps,
+    rir: set.actualRir ?? null,
+    performedAt: candidate.completedAt ?? candidate.scheduledDate,
+    e1rm: estimatedMax,
+    setType: set.isAmrap ? 'amrap' : set.isTopSet ? 'top_set' : set.isBackoff ? 'backoff' : movement.role === 'accessory' ? 'accessory' : 'best_set',
+  }
+}
+
+function bestMainComparableSet(sets: SetLog[]) {
+  const topSets = sets.filter((set) => set.isTopSet || set.isAmrap)
+  const pool = topSets.length ? topSets : sets
+  return [...pool].sort((left, right) => setScore(right) - setScore(left))[0] ?? null
+}
+
+function bestAccessoryComparableSet(sets: SetLog[]) {
+  return [...sets].sort((left, right) => setScore(right) - setScore(left))[0] ?? null
+}
+
+function setScore(set: SetLog) {
+  const load = set.actualLoad ?? set.targetLoad ?? 0
+  const reps = set.actualReps ?? set.targetReps ?? 0
+  return load > 0 ? e1rm(load, reps, set.actualRir ?? 0) : reps
+}
+
+function comparableDate(candidate: ComparableCandidate) {
+  return candidate.completedAt ?? candidate.scheduledDate
+}
+
+function formatComparableSet(set: SetLog, units: Unit) {
+  const load = set.actualLoad ?? set.targetLoad
+  const reps = set.actualReps ?? set.targetReps
+  const rir = typeof set.actualRir === 'number' ? ` @ RIR ${set.actualRir}` : ''
+  const loadText = typeof load === 'number' ? `${formatNumber(load)} ${units}` : 'bodyweight'
+  return `${loadText} x ${reps ?? '-'}${set.isAmrap ? '+' : ''}${rir}`
+}
+
+function formatComparableDate(value: string) {
+  return value.slice(0, 10)
+}
+
+function formatNumber(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }
 
 async function getSessionInternal(sessionId: string): Promise<WorkoutSession> {
@@ -370,7 +643,6 @@ export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promi
     displayName: profile.display_name,
     units: profile.units as Unit,
     rounding: Number(profile.rounding),
-    autoStartTimer: profile.auto_start_timer,
     equipmentProfile: profile.equipment_profile ?? [],
     themePreference: (profile.theme_preference ?? 'system') as ThemePreference,
   }
@@ -381,7 +653,6 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
     (data: {
       units: Unit
       rounding: number
-      autoStartTimer: boolean
       equipmentProfile: string[]
       themePreference: ThemePreference
     }) => data,
@@ -393,7 +664,6 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
       .update({
         units: data.units,
         rounding: data.rounding,
-        auto_start_timer: data.autoStartTimer,
         equipment_profile: data.equipmentProfile,
         theme_preference: data.themePreference,
       })
@@ -410,7 +680,22 @@ export const listTemplatesFn = createServerFn({ method: 'GET' }).handler(async (
     .select('*')
     .order('name', { ascending: true })
   if (error || !data?.length) return templateCatalog
-  const seeded = data.map(mapTemplateRow)
+
+  const { data: versions, error: versionError } = await supabase
+    .from('program_template_versions')
+    .select('template_id, definition, created_at')
+    .order('created_at', { ascending: false })
+  if (versionError) throw new Error(versionError.message)
+
+  const latestByTemplateId = new Map<string, any>()
+  for (const version of versions ?? []) {
+    if (!latestByTemplateId.has(version.template_id)) latestByTemplateId.set(version.template_id, version)
+  }
+
+  const seeded = data.map((row: any) => {
+    const validation = validateTemplateDefinition(latestByTemplateId.get(row.id)?.definition)
+    return mapTemplateRow(row, validation.ok)
+  })
   const missing = templateCatalog.filter((template) => !seeded.some((row) => row.id === template.id))
   return [...seeded, ...missing]
 })
@@ -429,16 +714,18 @@ export const startProgramFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const profile = await ensureProfile()
     const { supabase, user } = await requireUser()
-    const template = templateCatalog.find((item) => item.id === data.templateId)
-    if (!template?.available) throw new Error('Template is not available yet')
+    const { data: templateRow, error: templateError } = await supabase
+      .from('program_templates')
+      .select('*')
+      .eq('id', data.templateId)
+      .eq('is_active', true)
+      .single()
+    if (templateError) throw new Error(templateError.message)
 
-    const { data: versions, error: versionError } = await supabase
-      .from('program_template_versions')
-      .select('id')
-      .eq('template_id', data.templateId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-    if (versionError) throw new Error(versionError.message)
+    const template = mapTemplateRow(templateRow)
+    const templateVersion = await getLatestTemplateVersion(supabase, data.templateId)
+    const anchors = data.anchors.length ? data.anchors : defaultAnchors(data.units)
+    validateRequiredAnchors(templateVersion.definition, anchors)
 
     const { data: activePrograms, error: activeProgramError } = await supabase
       .from('program_instances')
@@ -480,18 +767,17 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       .insert({
         user_id: user.id,
         template_id: data.templateId,
-        template_version_id: templateVersionIdFromRows(versions ?? []),
+        template_version_id: templateVersion.id,
         title: data.title || template.name,
         units: data.units ?? profile.units,
         rounding: data.rounding ?? Number(profile.rounding),
-        current_block_id: data.templateId === 'healthy-531-fsl' ? 'cycle' : 'base',
+        current_block_id: templateVersion.definition.weeks[0]?.phaseKey ?? null,
         current_week_index: 0,
       })
       .select('*')
       .single()
     if (error) throw new Error(error.message)
 
-    const anchors = data.anchors.length ? data.anchors : defaultAnchors(data.units)
     const { error: anchorError } = await supabase.from('program_anchors').insert(
       anchors.map((anchor) => ({
         user_id: user.id,
