@@ -63,7 +63,7 @@ export function LiveSessionFrame({
   const completedMovements = session.movements.filter(isMovementComplete).length
 
   return (
-    <div className="-mx-3 -my-4 min-h-[calc(100vh-3.5rem)] bg-[var(--mantine-color-body)] text-[var(--mantine-color-text)] md:mx-auto md:my-0 md:min-h-0 md:max-w-[1180px] md:rounded-xl md:border md:border-[var(--mantine-color-default-border)] md:bg-[var(--mantine-color-default)] md:shadow-[var(--vf-shadow-panel)]">
+    <div className="-mx-3 -my-4 min-h-[calc(100dvh-3.5rem)] bg-[var(--mantine-color-body)] text-[var(--mantine-color-text)] md:mx-auto md:my-0 md:min-h-0 md:max-w-[1180px] md:rounded-xl md:border md:border-[var(--mantine-color-default-border)] md:bg-[var(--mantine-color-default)] md:shadow-[var(--vf-shadow-panel)]">
       <SessionContextBar
         session={session}
         progress={progress}
@@ -131,7 +131,7 @@ function SessionContextBar({
   onFinish: () => void
 }) {
   return (
-    <div className="sticky top-12 z-20 border-b border-[var(--mantine-color-default-border)] bg-[color:var(--mantine-color-default)/0.95] px-4 py-2.5 backdrop-blur md:static md:px-5">
+    <div className="sticky top-[calc(3rem+env(safe-area-inset-top))] z-20 border-b border-[var(--mantine-color-default-border)] bg-[color:var(--mantine-color-default)/0.95] px-4 py-2.5 backdrop-blur md:static md:px-5">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="mb-1 flex items-center gap-1.5 md:hidden">

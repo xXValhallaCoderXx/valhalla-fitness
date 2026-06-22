@@ -20,7 +20,13 @@ body {
 
 body {
   accent-color: var(--mantine-primary-color-filled);
+  min-height: 100dvh;
   text-rendering: optimizeLegibility;
+}
+
+#root,
+#app {
+  min-height: 100dvh;
 }
 
 button,
