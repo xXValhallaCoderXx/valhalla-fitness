@@ -13,6 +13,8 @@
     "build": "vite build && tsc --noEmit",
     "preview": "vite preview",
     "start": "node .output/server/index.mjs",
+    "db:migrate": "supabase db push --db-url \"$SUPABASE_DB_URL\" --yes",
+    "db:migrate:dry-run": "supabase db push --db-url \"$SUPABASE_DB_URL\" --dry-run",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
