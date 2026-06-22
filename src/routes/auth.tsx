@@ -189,6 +189,7 @@ function AuthForm() {
             </label>
           ) : null}
             <Button
+              type="submit"
               className="w-full py-3"
               disabled={
                 authMethod === 'magic'

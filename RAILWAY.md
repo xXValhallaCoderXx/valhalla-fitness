@@ -59,3 +59,5 @@ pnpm start
 ```
 
 Railway provides the `PORT` environment variable at runtime, and Nitro's Node server reads it automatically.
+
+Supabase studio: http://127.0.0.1:54323
