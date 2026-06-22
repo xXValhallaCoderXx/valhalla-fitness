@@ -1,6 +1,5 @@
-import { Box, Text, Title } from '@mantine/core'
+import { Box, Card, Text, Title } from '@mantine/core'
 import type { ReactNode } from 'react'
-import { Card } from '~/components/atoms'
 
 export function EmptyState({
     title,
@@ -16,7 +15,7 @@ export function EmptyState({
             <Title order={2} className="text-lg font-extrabold">
                 {title}
             </Title>
-            <Text component="p" className="mt-2 max-w-md text-sm text-[var(--muted)]">
+            <Text component="p" size="sm" c="dimmed" className="mt-2 max-w-md">
                 {children}
             </Text>
             {action ? <Box className="mt-5">{action}</Box> : null}

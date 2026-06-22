@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { Button, Card, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { Outlet, createFileRoute, useRouter, useRouterState } from '@tanstack/react-router'
 import { Dumbbell, KeyRound, Link as LinkIcon, Mail } from 'lucide-react'
@@ -10,7 +11,6 @@ import {
   signUpWithPasswordFn,
 } from '~/server/auth'
 import { getApiErrorMessage } from '~/lib/api-error'
-import { Button, Card, TextInput } from '~/components/ui'
 
 export const Route = createFileRoute('/auth')({
   component: AuthRoute,
@@ -107,24 +107,24 @@ function AuthForm() {
           : 'Create account'
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--bg)] px-4 py-8 text-[var(--text)]">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--mantine-color-body)] px-4 py-8 text-[var(--mantine-color-text)]">
       <Card className="w-full max-w-[520px] overflow-hidden p-0">
-        <div className="hidden h-12 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-5 md:flex">
+        <div className="hidden h-12 items-center justify-between border-b border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-5 md:flex">
           <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--brand-mark)] text-[var(--brand-mark-text)]">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--vf-brand-mark)] text-[var(--vf-brand-mark-text)]">
               <Dumbbell size={12} />
             </div>
             <span className="text-sm font-extrabold tracking-tight">Valhalla Fitness</span>
           </div>
-          <span className="text-xs font-medium text-[var(--muted)]">Sign in to continue</span>
+          <span className="text-xs font-medium text-[var(--mantine-color-dimmed)]">Sign in to continue</span>
         </div>
-        <div className="bg-[var(--bg)] p-6 md:p-8">
+        <div className="bg-[var(--mantine-color-body)] p-6 md:p-8">
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--action)] shadow-sm md:h-14 md:w-14 md:bg-[var(--brand-mark)] md:text-[var(--brand-mark-text)]">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-primary-color-filled)] shadow-sm md:h-14 md:w-14 md:bg-[var(--vf-brand-mark)] md:text-[var(--vf-brand-mark-text)]">
               <Dumbbell size={24} />
             </div>
             <h1 className="text-[22px] font-extrabold tracking-tight md:text-xl">Welcome back</h1>
-            <p className="mt-1 text-xs font-medium text-[var(--muted)]">Sign in to your Valhalla Fitness account.</p>
+            <p className="mt-1 text-xs font-medium text-[var(--mantine-color-dimmed)]">Sign in to your Valhalla Fitness account.</p>
           </div>
 
           <form
@@ -138,11 +138,11 @@ function AuthForm() {
               }
             }}
           >
-            <div className="grid grid-cols-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
+            <div className="grid grid-cols-2 rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-1">
               <button
                 type="button"
                 className={`rounded-lg px-3 py-2 text-sm font-bold ${
-                  authMethod === 'password' ? 'bg-[var(--action)] text-white' : 'text-[var(--muted)]'
+                  authMethod === 'password' ? 'bg-[var(--mantine-primary-color-filled)] text-white' : 'text-[var(--mantine-color-dimmed)]'
                 }`}
                 onClick={() => {
                   setAuthMethod('password')
@@ -154,7 +154,7 @@ function AuthForm() {
               <button
                 type="button"
                 className={`rounded-lg px-3 py-2 text-sm font-bold ${
-                  authMethod === 'magic' ? 'bg-[var(--action)] text-white' : 'text-[var(--muted)]'
+                  authMethod === 'magic' ? 'bg-[var(--mantine-primary-color-filled)] text-white' : 'text-[var(--mantine-color-dimmed)]'
                 }`}
                 onClick={() => {
                   setAuthMethod('magic')
@@ -165,7 +165,7 @@ function AuthForm() {
               </button>
             </div>
             <label className="grid gap-1">
-              <span className="text-xs font-bold uppercase text-[var(--muted)]">Email</span>
+              <span className="text-xs font-bold uppercase text-[var(--mantine-color-dimmed)]">Email</span>
               <TextInput
                 type="email"
                 autoComplete="email"
@@ -177,7 +177,7 @@ function AuthForm() {
             </label>
             {authMethod === 'password' ? (
             <label className="grid gap-1">
-              <span className="text-xs font-bold uppercase text-[var(--muted)]">Password</span>
+              <span className="text-xs font-bold uppercase text-[var(--mantine-color-dimmed)]">Password</span>
               <TextInput
                 type="password"
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
@@ -207,7 +207,7 @@ function AuthForm() {
             <Button
               type="button"
               className="mt-3 w-full"
-              variant="secondary"
+              variant="default"
               disabled={!email || resetMutation.isPending}
               onClick={() => resetMutation.mutate()}
             >
@@ -216,7 +216,7 @@ function AuthForm() {
             </Button>
             <button
               type="button"
-              className="mt-4 w-full text-center text-sm font-semibold text-[var(--action)]"
+              className="mt-4 w-full text-center text-sm font-semibold text-[var(--mantine-primary-color-filled)]"
               onClick={() => {
                 setMode(mode === 'login' ? 'signup' : 'login')
                 setMessage(null)
@@ -231,7 +231,7 @@ function AuthForm() {
           <Button
             type="button"
             className="mt-3 w-full"
-            variant="secondary"
+            variant="default"
             disabled={!email || resetMutation.isPending}
             onClick={() => resetMutation.mutate()}
           >
@@ -247,7 +247,7 @@ function AuthForm() {
                 ? 'border-red-500/30 bg-red-500/10 text-red-200'
                 : message.tone === 'success'
                   ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
-                  : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)]'
+                  : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]'
             }`}
             role={message.tone === 'danger' ? 'alert' : 'status'}
           >

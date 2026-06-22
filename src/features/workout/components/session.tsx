@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ActionIcon, Badge, Button, Card, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { Calculator, Check, ChevronDown, History, RefreshCw, Repeat2, Timer, X } from 'lucide-react'
 import { useId, useState } from 'react'
-import { Button, Card, Chip, TextInput } from '~/components/atoms'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { patchSetInSession, sessionCompletion, type SetPatch } from '~/lib/session-cache'
 import { upsertSetLogFn } from '~/server/api'
@@ -11,7 +11,7 @@ import type { MovementSlot, SetLog, WorkoutSession } from '~/types/training'
 export function SyncPill({ state }: { state?: string }) {
     const label = state === 'syncFailed' ? 'Sync failed' : state === 'saving' ? 'Saving' : 'Synced'
     const tone = state === 'syncFailed' ? 'danger' : state === 'saving' ? 'warning' : 'success'
-    return <Chip tone={tone}>{label}</Chip>
+    return <Badge color={tone}>{label}</Badge>
 }
 
 export function MovementCard({
@@ -40,42 +40,42 @@ export function MovementCard({
                     onClick={onToggle}
                 >
                     <ChevronDown
-                        className={`mt-1 shrink-0 text-[var(--muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                        className={`mt-1 shrink-0 text-[var(--mantine-color-dimmed)] transition-transform ${isOpen ? 'rotate-180' : ''}`}
                         size={16}
                     />
                     <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                             <h2 className="truncate text-base font-bold">{movement.movementName}</h2>
-                            <Chip tone={movement.role === 'main' ? 'action' : 'neutral'}>{movement.role}</Chip>
-                            <Chip tone={completedSets === totalSets ? 'success' : 'warning'}>
+                            <Badge color={movement.role === 'main' ? 'action' : 'neutral'}>{movement.role}</Badge>
+                            <Badge color={completedSets === totalSets ? 'success' : 'warning'}>
                                 {completedSets}/{totalSets} sets
-                            </Chip>
+                            </Badge>
                         </div>
                         {movement.performedMovementId && movement.performedMovementId !== movement.movementId ? (
-                            <p className="mt-1 text-xs text-[var(--warning)]">
+                            <p className="mt-1 text-xs text-[var(--mantine-color-warning-filled)]">
                                 Performed as {movement.performedMovementName}
                             </p>
                         ) : null}
-                        <p className="mt-1 text-xs text-[var(--muted)]">{movement.targetSummary}</p>
+                        <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
                         {movement.previous ? (
-                            <p className="mt-1 text-xs text-[var(--muted)]">{movement.previous.label}</p>
+                            <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{movement.previous.label}</p>
                         ) : null}
                     </div>
                 </button>
                 <div className="flex shrink-0 items-center gap-1">
-                    <Button variant="ghost" className="h-9 w-9 px-0" title="Plate math">
+                    <ActionIcon size="lg" title="Plate math" aria-label="Plate math">
                         <Calculator size={16} />
-                    </Button>
-                    <Button variant="ghost" className="h-9 w-9 px-0" title="Swap movement">
+                    </ActionIcon>
+                    <ActionIcon size="lg" title="Swap movement" aria-label="Swap movement">
                         <Repeat2 size={16} />
-                    </Button>
-                    <Button variant="ghost" className="h-9 w-9 px-0" title="History">
+                    </ActionIcon>
+                    <ActionIcon size="lg" title="History" aria-label="History">
                         <History size={16} />
-                    </Button>
+                    </ActionIcon>
                 </div>
             </div>
             {isOpen ? (
-                <div id={contentId} className="space-y-2 border-t border-[var(--border)] p-3">
+                <div id={contentId} className="space-y-2 border-t border-[var(--mantine-color-default-border)] p-3">
                     {movement.sets.map((set) => (
                         <SetRow key={`${movement.id}-${set.setIndex}`} session={session} movement={movement} set={set} />
                     ))}
@@ -180,17 +180,17 @@ function SetRow({
     const actionLabel = saveFailed ? 'Retry' : set.completed ? 'Edit' : 'Complete'
 
     return (
-        <div className={`grid grid-cols-[2rem_1fr_auto] items-center gap-2 rounded-lg border p-2 ${saveFailed ? 'border-red-500/40 bg-red-500/10' : set.completed ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-[var(--border)] bg-[var(--surface-2)]'}`}>
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--surface)] text-xs font-bold">
+        <div className={`grid grid-cols-[2rem_1fr_auto] items-center gap-2 rounded-lg border p-2 ${saveFailed ? 'border-red-500/40 bg-red-500/10' : set.completed ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)]'}`}>
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--mantine-color-default)] text-xs font-bold">
                 {set.setIndex}
             </div>
             <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--mantine-color-dimmed)]">
                     <span>
                         Target {set.targetLoad ?? '-'} x {set.targetReps ?? `${set.targetRepMin}-${set.targetRepMax}`}
                     </span>
-                    {set.isTopSet ? <Chip tone="warning">Top set</Chip> : null}
-                    {set.isBackoff ? <Chip>Back-off</Chip> : null}
+                    {set.isTopSet ? <Badge color="warning">Top set</Badge> : null}
+                    {set.isBackoff ? <Badge>Back-off</Badge> : null}
                     <SetSyncStatus state={set.syncState} />
                     {set.completed ? <span className="font-semibold text-emerald-300">Locked</span> : null}
                 </div>
@@ -217,7 +217,8 @@ function SetRow({
                 </div>
             </div>
             <Button
-                variant={saveFailed ? 'danger' : set.completed ? 'success' : 'secondary'}
+                color={saveFailed ? 'danger' : set.completed ? 'success' : undefined}
+                variant={saveFailed || set.completed ? 'light' : 'default'}
                 className="h-10 min-w-24 px-3"
                 disabled={isSaving}
                 onClick={complete}
@@ -254,11 +255,11 @@ function NumberField({
 }) {
     return (
         <label className="grid gap-1">
-            <span className="text-[9px] font-bold uppercase text-[var(--muted)]">{label}</span>
-            <div className="grid grid-cols-[1.7rem_1fr_1.7rem] overflow-hidden rounded-md border border-[var(--border)]">
+            <span className="text-[9px] font-bold uppercase text-[var(--mantine-color-dimmed)]">{label}</span>
+            <div className="grid grid-cols-[1.7rem_1fr_1.7rem] overflow-hidden rounded-md border border-[var(--mantine-color-default-border)]">
                 <button
                     type="button"
-                    className="bg-[var(--surface)] text-[var(--muted)]"
+                    className="bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)]"
                     disabled={disabled}
                     onClick={() => onChange(Number(value) - step)}
                 >
@@ -266,14 +267,14 @@ function NumberField({
                 </button>
                 <input
                     type="number"
-                    className="min-w-0 bg-[var(--surface-2)] px-1 py-1 text-center text-xs font-bold outline-none disabled:text-[var(--muted)]"
+                    className="min-w-0 bg-[var(--vf-surface-2)] px-1 py-1 text-center text-xs font-bold outline-none disabled:text-[var(--mantine-color-dimmed)]"
                     value={Number.isFinite(value) ? value : 0}
                     disabled={disabled}
                     onChange={(event) => onChange(Number(event.target.value))}
                 />
                 <button
                     type="button"
-                    className="bg-[var(--surface)] text-[var(--muted)]"
+                    className="bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)]"
                     disabled={disabled}
                     onClick={() => onChange(Number(value) + step)}
                 >
@@ -295,15 +296,15 @@ function RirSelector({
 }) {
     return (
         <div>
-            <span className="text-[9px] font-bold uppercase text-[var(--muted)]">RIR</span>
+            <span className="text-[9px] font-bold uppercase text-[var(--mantine-color-dimmed)]">RIR</span>
             <div className="mt-1 grid grid-cols-5 gap-1">
                 {[0, 1, 2, 3, 4].map((item) => (
                     <button
                         key={item}
                         type="button"
                         className={`rounded-md border px-1 py-1 text-[10px] font-bold ${value === item
-                                ? 'border-[var(--action)] bg-[var(--action)] text-white'
-                                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]'
+                                ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-primary-color-filled)] text-white'
+                                : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)]'
                             }`}
                         disabled={disabled}
                         onClick={() => onChange(item)}
@@ -320,14 +321,14 @@ export function SessionProgress({ session }: { session: WorkoutSession }) {
     const progress = sessionCompletion(session)
     return (
         <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs text-[var(--muted)]">
+            <div className="flex items-center justify-between text-xs text-[var(--mantine-color-dimmed)]">
                 <span>
                     {progress.completed} of {progress.total} sets
                 </span>
                 <span>{progress.percent}%</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]">
-                <div className="h-full rounded-full bg-[var(--action)]" style={{ width: `${progress.percent}%` }} />
+            <div className="h-1.5 overflow-hidden rounded-full bg-[var(--vf-surface-2)]">
+                <div className="h-full rounded-full bg-[var(--mantine-primary-color-filled)]" style={{ width: `${progress.percent}%` }} />
             </div>
         </div>
     )
@@ -349,7 +350,7 @@ export function IncompleteMainWarning({ session }: { session: WorkoutSession }) 
 export function NotesBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     return (
         <label className="grid gap-1">
-            <span className="text-[10px] font-bold uppercase text-[var(--muted)]">Session notes</span>
+            <span className="text-[10px] font-bold uppercase text-[var(--mantine-color-dimmed)]">Session notes</span>
             <TextInput value={value} onChange={(event) => onChange(event.target.value)} placeholder="Optional notes" />
         </label>
     )

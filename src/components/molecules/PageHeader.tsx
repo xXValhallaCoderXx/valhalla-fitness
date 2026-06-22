@@ -23,7 +23,11 @@ export function PageHeader({
                 <Title order={1} className="text-[18px] font-extrabold leading-tight tracking-tight md:text-lg">
                     {title}
                 </Title>
-                {children ? <Box className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--muted)] md:text-sm">{children}</Box> : null}
+                {children ? (
+                    <Text component="div" size="sm" c="dimmed" className="mt-1 max-w-2xl leading-relaxed">
+                        {children}
+                    </Text>
+                ) : null}
             </Box>
             {actions ? <Box className="flex items-center gap-2">{actions}</Box> : null}
         </Box>

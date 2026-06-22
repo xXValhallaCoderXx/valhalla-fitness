@@ -1,4 +1,4 @@
-import { Modal } from '@mantine/core'
+import { Badge, Card, Modal } from '@mantine/core'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { ChevronRight, Dumbbell, ListChecks, Trophy } from 'lucide-react'
@@ -8,7 +8,7 @@ import { cn } from '~/lib/cn'
 import { formatCompactDate, formatFullDate, formatRelativeTime } from '~/lib/dates'
 import { recentHistoryQueryOptions, sessionQueryOptions } from '~/lib/query-options'
 import type { RecentHistoryEntry, SetLog, WorkoutSession } from '~/types/training'
-import { Card, Chip, EmptyState, Page, PageHeader } from '~/components/ui'
+import { EmptyState, Page, PageHeader } from '~/components/ui'
 
 export const Route = createFileRoute('/history')({
   loader: async ({ context }) => {
@@ -50,17 +50,17 @@ function AuthedHistory() {
       <div className="mb-4 grid grid-cols-3 gap-2 md:gap-3">
         <Card className="p-3 text-center">
           <p className="text-lg font-extrabold md:text-xl">{completedCount}</p>
-          <p className="text-[10px] text-[var(--muted)]">Sessions</p>
+          <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Sessions</p>
         </Card>
         <Card className="p-3 text-center">
           <p className="truncate text-lg font-extrabold md:text-xl">
             {latestSession ? formatRelativeTime(latestSession.completedAt ?? latestSession.scheduledDate) : '—'}
           </p>
-          <p className="text-[10px] text-[var(--muted)]">Latest</p>
+          <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Latest</p>
         </Card>
         <Card className="p-3 text-center">
-          <p className="text-lg font-extrabold text-[var(--success-text)] md:text-xl">{completedSetCount}</p>
-          <p className="text-[10px] text-[var(--muted)]">Logged sets</p>
+          <p className="text-lg font-extrabold text-[var(--vf-success-text)] md:text-xl">{completedSetCount}</p>
+          <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Logged sets</p>
         </Card>
       </div>
 
@@ -97,31 +97,31 @@ function RecentWorkoutCard({ session, onOpen }: { session: RecentHistoryEntry; o
   return (
     <button
       type="button"
-      className="vf-card-hover rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 text-left text-[var(--text)] shadow-[var(--shadow-card)] transition hover:border-[var(--action-border)]"
+      className="vf-card-hover rounded-[var(--mantine-radius-xl)] border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-4 text-left text-[var(--mantine-color-text)] shadow-[var(--vf-shadow-card)] transition hover:border-[var(--vf-action-border)]"
       onClick={onOpen}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-2)] text-[var(--action)]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-primary-color-filled)]">
             {session.completedAt ? <Trophy size={16} /> : <Dumbbell size={16} />}
           </div>
           <div className="min-w-0">
             <p className="truncate font-extrabold">{session.title}</p>
-            <p className="mt-0.5 text-xs text-[var(--muted)]">{session.programTitle ?? 'Training session'}</p>
+            <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">{session.programTitle ?? 'Training session'}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {session.weekLabel ? <Chip>{session.weekLabel}</Chip> : null}
-              {session.hardness ? <Chip tone={session.hardness === 'Hard' ? 'danger' : 'neutral'}>{session.hardness}</Chip> : null}
-              <Chip>{session.movementCount} movements</Chip>
-              <Chip>{session.completedSetCount}/{session.plannedSetCount} sets</Chip>
+              {session.weekLabel ? <Badge>{session.weekLabel}</Badge> : null}
+              {session.hardness ? <Badge color={session.hardness === 'Hard' ? 'danger' : 'neutral'}>{session.hardness}</Badge> : null}
+              <Badge>{session.movementCount} movements</Badge>
+              <Badge>{session.completedSetCount}/{session.plannedSetCount} sets</Badge>
             </div>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <div className="text-right">
-            <p className="text-[11px] font-extrabold text-[var(--text)]">{formatCompactDate(date)}</p>
-            <p className="text-[10px] font-semibold text-[var(--muted)]">{formatRelativeTime(date)}</p>
+            <p className="text-[11px] font-extrabold text-[var(--mantine-color-text)]">{formatCompactDate(date)}</p>
+            <p className="text-[10px] font-semibold text-[var(--mantine-color-dimmed)]">{formatRelativeTime(date)}</p>
           </div>
-          <ChevronRight size={16} className="text-[var(--muted)]" />
+          <ChevronRight size={16} className="text-[var(--mantine-color-dimmed)]" />
         </div>
       </div>
     </button>
@@ -155,11 +155,11 @@ function WorkoutSummaryModal({
       title="Workout summary"
       size="lg"
       classNames={{
-        content: '!flex !max-h-[90dvh] !flex-col !overflow-hidden !border !border-[var(--border)] !bg-[var(--surface)] !text-[var(--text)]',
-        header: '!bg-[var(--surface)] !text-[var(--text)]',
-        title: 'text-lg font-bold !text-[var(--text)]',
-        body: '!min-h-0 !flex-1 !overflow-hidden !text-[var(--text)]',
-        close: '!text-[var(--muted)] hover:!bg-[var(--surface-2)] hover:!text-[var(--text)]',
+        content: '!flex !max-h-[90dvh] !flex-col !overflow-hidden !border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+        header: '!bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+        title: 'text-lg font-bold !text-[var(--mantine-color-text)]',
+        body: '!min-h-0 !flex-1 !overflow-hidden !text-[var(--mantine-color-text)]',
+        close: '!text-[var(--mantine-color-dimmed)] hover:!bg-[var(--vf-surface-2)] hover:!text-[var(--mantine-color-text)]',
       }}
     >
       {isLoading ? (
@@ -168,18 +168,18 @@ function WorkoutSummaryModal({
         <HistoryModalStatus tone="danger">{getApiErrorMessage(error, 'Unable to load workout summary')}</HistoryModalStatus>
       ) : session ? (
         <div className="grid max-h-[calc(90dvh-6rem)] min-h-0 grid-rows-[auto_auto_auto_minmax(0,1fr)] gap-4">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
+          <div className="rounded-2xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="vf-section-label">{session.programTitle}</p>
                 <h2 className="mt-1 text-xl font-extrabold">{session.title}</h2>
-                <p className="mt-1 text-sm text-[var(--muted)]">
+                <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">
                   {session.weekLabel} · {session.hardness} · {session.estimatedMinutes} min
                 </p>
               </div>
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-right">
+              <div className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-3 py-2 text-right">
                 <p className="text-sm font-extrabold">{formatFullDate(date)}</p>
-                <p className="text-xs text-[var(--muted)]">{formatRelativeTime(date)}</p>
+                <p className="text-xs text-[var(--mantine-color-dimmed)]">{formatRelativeTime(date)}</p>
               </div>
             </div>
           </div>
@@ -209,9 +209,9 @@ function WorkoutSummaryModal({
             ))}
 
             {session.notes ? (
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+              <div className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
                 <h3 className="vf-section-label mb-1">Notes</h3>
-                <p className="text-sm text-[var(--muted)]">{session.notes}</p>
+                <p className="text-sm text-[var(--mantine-color-dimmed)]">{session.notes}</p>
               </div>
             ) : null}
           </div>
@@ -228,13 +228,13 @@ function WorkoutMovementSummary({ session, movement }: { session: WorkoutSession
   const displaySets = completedSets.length ? completedSets : movement.sets
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+    <div className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-extrabold">{movement.movementName}</p>
-          <p className="mt-0.5 text-xs text-[var(--muted)]">{movement.targetSummary}</p>
+          <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
         </div>
-        <Chip tone={movement.role === 'main' ? 'action' : 'neutral'}>{movement.role}</Chip>
+        <Badge color={movement.role === 'main' ? 'action' : 'neutral'}>{movement.role}</Badge>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {displaySets.map((set) => (
@@ -245,8 +245,8 @@ function WorkoutMovementSummary({ session, movement }: { session: WorkoutSession
               set.isTopSet || set.isAmrap
                 ? 'border-purple-500/30 bg-purple-500/10 text-purple-300 md:text-purple-700'
                 : set.completed
-                  ? 'border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-text)]'
-                  : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]',
+                  ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)] text-[var(--vf-success-text)]'
+                  : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)]',
             )}
           >
             {set.setIndex}: {formatSetLog(set, session.units)}
@@ -259,19 +259,19 @@ function WorkoutMovementSummary({ session, movement }: { session: WorkoutSession
 
 function SummaryMetric({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3 text-center">
-      <div className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--surface)] text-[var(--action)]">
+    <div className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 text-center">
+      <div className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--mantine-color-default)] text-[var(--mantine-primary-color-filled)]">
         {icon}
       </div>
       <p className="text-lg font-extrabold">{value}</p>
-      <p className="text-[10px] text-[var(--muted)]">{label}</p>
+      <p className="text-[10px] text-[var(--mantine-color-dimmed)]">{label}</p>
     </div>
   )
 }
 
 function HistoryModalStatus({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'danger' }) {
   return (
-    <p className={cn('rounded-xl border p-3 text-sm', tone === 'danger' ? 'border-red-500/30 bg-red-500/10 text-red-200 md:text-red-700' : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)]')}>
+    <p className={cn('rounded-xl border p-3 text-sm', tone === 'danger' ? 'border-red-500/30 bg-red-500/10 text-red-200 md:text-red-700' : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]')}>
       {children}
     </p>
   )

@@ -4,7 +4,7 @@ Feature folders hold domain-specific UI and client-side behavior that is larger 
 
 Shared UI follows a small atomic-design split:
 
-- `src/components/atoms/` — reusable Mantine-backed primitives such as buttons, cards, inputs, and chips.
+- Mantine components are imported directly from `@mantine/core`; local components should only wrap app-specific composition.
 - `src/components/molecules/` — reusable non-domain compositions such as page headers, empty states, and confirm dialogs.
 - `src/features/{feature}/components/` — larger, stateful, or domain-specific UI that would traditionally be called organisms.
 

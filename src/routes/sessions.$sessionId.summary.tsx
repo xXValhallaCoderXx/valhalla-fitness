@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { Badge, Button, Card } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Check, CheckCircle2, Clock3, X } from 'lucide-react'
@@ -6,7 +7,7 @@ import { getApiErrorMessage } from '~/lib/api-error'
 import { sessionQueryOptions } from '~/lib/query-options'
 import { resolveProgressionDecisionFn } from '~/server/api'
 import type { SessionSummary } from '~/types/training'
-import { Button, Card, Chip, Page, PageHeader } from '~/components/ui'
+import { Page, PageHeader } from '~/components/ui'
 
 export const Route = createFileRoute('/sessions/$sessionId/summary')({
   loader: async ({ context, params }) => {
@@ -60,20 +61,20 @@ function SummaryRoute() {
         eyebrow={session.title}
         actions={
           <div className="flex items-center gap-2">
-            <Chip>{session.estimatedMinutes} min</Chip>
-            <Chip tone="success">Completed</Chip>
+            <Badge>{session.estimatedMinutes} min</Badge>
+            <Badge color="success">Completed</Badge>
           </div>
         }
       >
         {completedSets.length} of {sets.length} sets completed.
       </PageHeader>
 
-      <Card className="mb-4 !border-[var(--success-border)] !bg-[var(--success-soft)]">
+      <Card className="mb-4 !border-[var(--vf-success-border)] !bg-[var(--vf-success-soft)]">
         <div className="flex items-start gap-3">
-          <CheckCircle2 className="mt-0.5 shrink-0 text-[var(--success-text)]" size={20} />
+          <CheckCircle2 className="mt-0.5 shrink-0 text-[var(--vf-success-text)]" size={20} />
           <div>
             <h2 className="text-sm font-extrabold">All logged work saved</h2>
-            <p className="mt-0.5 text-xs text-[var(--muted)]">Review completed work and any progression actions before heading back to Today.</p>
+            <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">Review completed work and any progression actions before heading back to Today.</p>
           </div>
         </div>
       </Card>
@@ -82,15 +83,15 @@ function SummaryRoute() {
         <Card className="grid grid-cols-3 gap-3 text-center">
           <div>
             <p className="text-2xl font-extrabold">{session.movements.length}</p>
-            <p className="text-xs text-[var(--muted)]">Movements</p>
+            <p className="text-xs text-[var(--mantine-color-dimmed)]">Movements</p>
           </div>
           <div>
             <p className="text-2xl font-extrabold">{sets.length}</p>
-            <p className="text-xs text-[var(--muted)]">Sets</p>
+            <p className="text-xs text-[var(--mantine-color-dimmed)]">Sets</p>
           </div>
           <div>
-            <p className="text-2xl font-extrabold text-[var(--warning-text)]">{summary?.decisions.length ?? 0}</p>
-            <p className="text-xs text-[var(--muted)]">Decisions</p>
+            <p className="text-2xl font-extrabold text-[var(--vf-warning-text)]">{summary?.decisions.length ?? 0}</p>
+            <p className="text-xs text-[var(--mantine-color-dimmed)]">Decisions</p>
           </div>
         </Card>
 
@@ -99,26 +100,26 @@ function SummaryRoute() {
           {summary?.decisions.length ? (
             <div className="mt-3 space-y-3">
               {summary.decisions.map((decision) => (
-                <div key={decision.id} className="rounded-xl border border-[var(--warning-border)] bg-[var(--surface-2)] p-3">
+                <div key={decision.id} className="rounded-xl border border-[var(--vf-warning-border)] bg-[var(--vf-surface-2)] p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="font-bold">{decision.movementName}</p>
-                      <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">{formatRuleId(decision.ruleId)}</p>
-                      <p className="mt-1 text-xs text-[var(--muted)]">{decision.inputSummary}</p>
+                      <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{formatRuleId(decision.ruleId)}</p>
+                      <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{decision.inputSummary}</p>
                       <p className="mt-1 text-sm font-semibold">{decision.recommendation}</p>
                     </div>
-                    <Chip tone="warning">Pending</Chip>
+                    <Badge color="warning">Pending</Badge>
                   </div>
                   <div className="mt-3 grid grid-cols-3 gap-2">
-                    <Button variant="success" disabled={decisionMutation.isPending} onClick={() => decisionMutation.mutate({ decisionId: decision.id, action: 'accepted' })}>
+                    <Button color="success" variant="light" disabled={decisionMutation.isPending} onClick={() => decisionMutation.mutate({ decisionId: decision.id, action: 'accepted' })}>
                       <Check size={15} />
                       Accept
                     </Button>
-                    <Button variant="secondary" disabled={decisionMutation.isPending} onClick={() => decisionMutation.mutate({ decisionId: decision.id, action: 'pending' })}>
+                    <Button variant="default" disabled={decisionMutation.isPending} onClick={() => decisionMutation.mutate({ decisionId: decision.id, action: 'pending' })}>
                       <Clock3 size={15} />
                       Later
                     </Button>
-                    <Button variant="danger" disabled={decisionMutation.isPending} onClick={() => decisionMutation.mutate({ decisionId: decision.id, action: 'dismissed' })}>
+                    <Button color="danger" variant="light" disabled={decisionMutation.isPending} onClick={() => decisionMutation.mutate({ decisionId: decision.id, action: 'dismissed' })}>
                       <X size={15} />
                       Dismiss
                     </Button>
@@ -127,7 +128,7 @@ function SummaryRoute() {
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-sm text-[var(--muted)]">No recommendation was generated yet.</p>
+            <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">No recommendation was generated yet.</p>
           )}
         </Card>
       </div>
@@ -136,12 +137,12 @@ function SummaryRoute() {
         <h2 className="vf-section-label">Completed Work</h2>
         <div className="mt-3 grid gap-2">
           {session.movements.map((movement) => (
-            <div key={movement.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+            <div key={movement.id} className="flex items-center justify-between rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
               <div>
                 <p className="font-semibold">{movement.movementName}</p>
-                <p className="text-xs text-[var(--muted)]">{movement.targetSummary}</p>
+                <p className="text-xs text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
               </div>
-              <Chip>{movement.sets.filter((set) => set.completed).length}/{movement.sets.length}</Chip>
+              <Badge>{movement.sets.filter((set) => set.completed).length}/{movement.sets.length}</Badge>
             </div>
           ))}
         </div>

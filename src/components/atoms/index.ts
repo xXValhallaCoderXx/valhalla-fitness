@@ -1,8 +1,0 @@
-export { Button } from './Button'
-export type { ButtonProps, ButtonVariant } from './Button'
-export { Card } from './Card'
-export type { CardProps } from './Card'
-export { Chip } from './Chip'
-export type { ChipProps, ChipTone } from './Chip'
-export { TextInput } from './TextInput'
-export type { TextInputProps } from './TextInput'
