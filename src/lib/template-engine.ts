@@ -3,12 +3,14 @@ import type {
   AnchorInput,
   MovementRole,
   MovementSlot,
+  ProgramAccessoryAddition,
   PlannedSession,
   ProgramInstance,
   ProgramMovementOverride,
   SetLog,
   Unit,
 } from '~/types/training'
+import { accessoryProgressionRuleId } from './accessories'
 import { getMovementName } from './movements'
 import { mround } from './progression'
 
@@ -230,6 +232,7 @@ export function expandSessionFromTemplateDefinition(
       role: slot.role,
       orderIndex: index + 1,
       targetSummary: slot.targetSummary ?? prescription.targetSummary,
+      progressionRuleId: prescription.progressionRuleId ?? null,
       sets: prescription.sets.map((set, setIndex) =>
         expandSet(set, setIndex, {
           anchors: program.anchors,
@@ -241,9 +244,27 @@ export function expandSessionFromTemplateDefinition(
       previous: previousBySlotId[slotId] ?? null,
     }
   })
+  const additions = (program.accessoryAdditions ?? [])
+    .filter((addition) => {
+      if (addition.sessionId !== session.id) return false
+      if (addition.effectiveFromWeekIndex > program.currentWeekIndex) return false
+      return addition.phaseKey === '*' || addition.phaseKey === week.phaseKey
+    })
+    .sort((left, right) => left.orderIndex - right.orderIndex)
+    .map((addition, additionIndex) =>
+      expandAccessoryAddition(addition, {
+        session,
+        week,
+        additionIndex,
+        baseOrderIndex: session.slots.length,
+        program,
+        previousBySlotId,
+      }),
+    )
 
   return {
     id: `${session.id}-w${programmeWeekIndex + 1}`,
+    templateSessionId: session.id,
     title: session.title,
     programTitle: program.title,
     templateId: program.templateId,
@@ -256,7 +277,7 @@ export function expandSessionFromTemplateDefinition(
     estimatedMinutes: session.estimatedMinutes,
     units: program.units,
     rounding: program.rounding,
-    movements,
+    movements: [...movements, ...additions],
   }
 }
 
@@ -413,11 +434,77 @@ function applyMovementOverride(
   const override = overrides.find(
     (item) =>
       item.slotId === slotId &&
-      item.phaseKey === phaseKey &&
+      (item.phaseKey === phaseKey || item.phaseKey === '*') &&
       item.role === role &&
       item.effectiveFromWeekIndex <= currentWeekIndex,
   )
   return override?.replacementMovementId ?? movementId
+}
+
+function expandAccessoryAddition(
+  addition: ProgramAccessoryAddition,
+  {
+    session,
+    week,
+    additionIndex,
+    baseOrderIndex,
+    program,
+    previousBySlotId,
+  }: {
+    session: TemplateDefinition['sessions'][number]
+    week: TemplateDefinition['weeks'][number]
+    additionIndex: number
+    baseOrderIndex: number
+    program: ProgramInstance
+    previousBySlotId: Record<string, MovementSlot['previous']>
+  },
+): MovementSlot {
+  const sourceSlot = addition.sourceSlotId
+    ? session.slots.find((slot) => slot.id === addition.sourceSlotId)
+    : null
+  const prescription = week.prescriptions[addition.prescriptionId]
+  if (!addition.sets?.length && !prescription) throw new Error(`Missing ${addition.prescriptionId} prescription`)
+  const slotId = `slot-${session.id}-${addition.slotId}`
+  const anchorMovementId = sourceSlot?.anchorMovementId ?? addition.movementId
+  const sets = addition.sets?.length
+    ? expandManualAccessorySets(addition.sets)
+    : prescription!.sets.map((set, setIndex) =>
+        expandSet(set, setIndex, {
+          anchors: program.anchors,
+          anchorMovementId,
+          rounding: program.rounding,
+          units: program.units,
+        }),
+      )
+
+  return {
+    id: slotId,
+    slotId,
+    phaseKey: week.phaseKey,
+    movementId: addition.movementId,
+    movementName: getMovementName(addition.movementId),
+    role: 'accessory',
+    orderIndex: baseOrderIndex + additionIndex + 1,
+    targetSummary: addition.targetSummary ?? prescription?.targetSummary ?? 'Accessory work',
+    progressionRuleId: accessoryProgressionRuleId(addition.progressionMethod ?? 'history_only'),
+    progressionMethod: addition.progressionMethod ?? 'history_only',
+    sets,
+    previous: previousBySlotId[slotId] ?? null,
+    notes: addition.note ?? null,
+    isAdded: true,
+    addedScope: 'phase_slot',
+  }
+}
+
+function expandManualAccessorySets(sets: ProgramAccessoryAddition['sets']): SetLog[] {
+  return (sets ?? []).map((set, index) => ({
+    ...set,
+    id: set.id ?? `set-${index + 1}`,
+    setIndex: set.setIndex ?? index + 1,
+    completed: false,
+    actualLoad: set.targetLoad ?? null,
+    actualReps: set.targetReps ?? set.targetRepMin ?? null,
+  }))
 }
 
 function positiveModulo(value: number, divisor: number) {

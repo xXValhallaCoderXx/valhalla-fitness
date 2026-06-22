@@ -7,18 +7,26 @@ import {
   ChevronDown,
   Dumbbell,
   History,
+  Info,
   Plus,
   RefreshCw,
   Repeat2,
 } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
+import { accessoryProgressionOptions, parseAccessoryRepTarget } from '~/lib/accessories'
 import { cn } from '~/lib/cn'
 import { formatCompactDate, formatRelativeTime } from '~/lib/dates'
-import { movementHistoryQueryOptions, movementSwapOptionsQueryOptions } from '~/lib/query-options'
+import {
+  accessoryMovementOptionsQueryOptions,
+  movementHistoryQueryOptions,
+  movementSwapOptionsQueryOptions,
+} from '~/lib/query-options'
 import { patchMovementInSession, patchSetInSession, sessionCompletion, type SetPatch } from '~/lib/session-cache'
-import { substituteMovementFn, upsertSetLogFn } from '~/server/api'
+import { addExerciseSetFn, addSessionAccessoryFn, substituteMovementFn, upsertSetLogFn } from '~/server/api'
 import type {
+  AccessoryMovementOption,
+  AccessoryProgressionMethod,
   MovementHistoryEntry,
   MovementHistorySet,
   MovementSlot,
@@ -61,6 +69,7 @@ export function LiveSessionFrame({
   const selectedMovement = session.movements.find((movement) => movement.id === activeMovementId) ?? session.movements[0]
   const selectedMovementId = selectedMovement?.id ?? activeMovementId
   const completedMovements = session.movements.filter(isMovementComplete).length
+  const [addAccessoryOpen, setAddAccessoryOpen] = useState(false)
 
   return (
     <div className="-mx-3 -my-4 min-h-[calc(100dvh-3.5rem)] bg-[var(--mantine-color-body)] text-[var(--mantine-color-text)] md:mx-auto md:my-0 md:min-h-0 md:max-w-[1180px] md:rounded-xl md:border md:border-[var(--mantine-color-default-border)] md:bg-[var(--mantine-color-default)] md:shadow-[var(--vf-shadow-panel)]">
@@ -108,9 +117,24 @@ export function LiveSessionFrame({
             )
           })}
 
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-3 text-sm font-extrabold text-[var(--mantine-color-dimmed)] transition hover:border-[var(--vf-action-border)] hover:bg-[var(--vf-surface-2)] hover:text-[var(--mantine-color-text)]"
+            onClick={() => setAddAccessoryOpen(true)}
+          >
+            <Plus size={16} />
+            Add accessory
+          </button>
+
           <LiveNotesBox value={notes} onChange={onNotesChange} />
         </main>
       </div>
+      <AddAccessoryModal
+        open={addAccessoryOpen}
+        session={session}
+        onClose={() => setAddAccessoryOpen(false)}
+        onAdded={(movementId) => onSelectMovement(movementId)}
+      />
     </div>
   )
 }
@@ -227,6 +251,7 @@ function LiveMovementCard({
   movementNumber: number
   onSelect: () => void
 }) {
+  const queryClient = useQueryClient()
   const topSet = getTopSet(movement)
   const firstIncompleteIndex = movement.sets.find((set) => !set.completed)?.setIndex
   const [selectedSetIndex, setSelectedSetIndex] = useState(
@@ -235,6 +260,33 @@ function LiveMovementCard({
   const [historyOpen, setHistoryOpen] = useState(false)
   const [swapOpen, setSwapOpen] = useState(false)
   const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<Record<number, number | undefined>>({})
+  const addSetMutation = useMutation({
+    mutationKey: ['addExerciseSet', session.sessionId, movement.id],
+    mutationFn: () =>
+      addExerciseSetFn({
+        data: {
+          sessionId: session.sessionId,
+          exerciseLogId: movement.id,
+          clientMutationId: crypto.randomUUID(),
+        },
+      }),
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Set not added',
+        message: getApiErrorMessage(error, 'Unable to add another set.'),
+      })
+    },
+    onSuccess: (nextSession) => {
+      const nextMovement = nextSession.movements.find((item) => item.id === movement.id)
+      queryClient.setQueryData(['session', session.sessionId], nextSession)
+      queryClient.setQueryData(['today'], (current: any) =>
+        current ? { ...current, activeSession: nextSession } : current,
+      )
+      const nextSetIndex = nextMovement?.sets.at(-1)?.setIndex
+      if (nextSetIndex) setSelectedSetIndex(nextSetIndex)
+    },
+  })
 
   const carryRirToNextSet = (setIndex: number, value: number) => {
     const nextSet = movement.sets.find((candidate) => candidate.setIndex > setIndex && !candidate.completed)
@@ -330,11 +382,13 @@ function LiveMovementCard({
 
       <button
         type="button"
-        className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--mantine-color-default-border)] py-2 text-[10px] font-bold text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--vf-surface-2)] md:mx-0 md:mb-0 md:mt-3 md:w-full md:rounded-lg md:bg-[var(--vf-surface-2)] md:py-1.5 md:text-[11px] md:hover:bg-[var(--vf-surface-3)]"
-        title="Manual add-set support is coming soon"
+        className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--mantine-color-default-border)] py-2 text-[10px] font-bold text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--vf-surface-2)] disabled:cursor-not-allowed disabled:opacity-45 md:mx-0 md:mb-0 md:mt-3 md:w-full md:rounded-lg md:bg-[var(--vf-surface-2)] md:py-1.5 md:text-[11px] md:hover:bg-[var(--vf-surface-3)]"
+        title={movement.role === 'accessory' ? 'Add another accessory set' : 'Extra sets can only be added to accessories'}
+        disabled={movement.role !== 'accessory' || addSetMutation.isPending}
+        onClick={() => addSetMutation.mutate()}
       >
         <Plus size={12} />
-        Add set
+        {addSetMutation.isPending ? 'Adding set...' : 'Add set'}
       </button>
     </article>
   )
@@ -737,6 +791,385 @@ function RolePill({ role, subtle = false }: { role: MovementSlot['role']; subtle
   )
 }
 
+function AddAccessoryModal({
+  open,
+  session,
+  onClose,
+  onAdded,
+}: {
+  open: boolean
+  session: WorkoutSession
+  onClose: () => void
+  onAdded: (movementId: string) => void
+}) {
+  const queryClient = useQueryClient()
+  const [search, setSearch] = useState('')
+  const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null)
+  const [progressionMethod, setProgressionMethod] = useState<AccessoryProgressionMethod>('history_only')
+  const [methodHelpOpen, setMethodHelpOpen] = useState(false)
+  const [repMin, setRepMin] = useState('8')
+  const [repMax, setRepMax] = useState('12')
+  const [scope, setScope] = useState<SwapScope>('session')
+  const [note, setNote] = useState('')
+
+  const optionsQuery = useQuery({
+    ...accessoryMovementOptionsQueryOptions(),
+    enabled: open,
+  })
+  const options = useMemo(() => optionsQuery.data ?? [], [optionsQuery.data])
+  const filteredOptions = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    if (!query) return options
+    return options.filter((option) => {
+      const equipment = option.equipment.join(' ').toLowerCase()
+      return (
+        option.movementName.toLowerCase().includes(query) ||
+        option.category.toLowerCase().includes(query) ||
+        equipment.includes(query)
+      )
+    })
+  }, [options, search])
+  const visibleSelectedMovementId = filteredOptions.some((option) => option.movementId === selectedMovementId)
+    ? selectedMovementId
+    : null
+  const effectiveSelectedMovementId = visibleSelectedMovementId ?? filteredOptions[0]?.movementId ?? options[0]?.movementId ?? null
+  const selectedOption = options.find((option) => option.movementId === effectiveSelectedMovementId) ?? null
+  const phaseLabel = phaseScopeLabel(session)
+  const repTargetInput = buildAccessoryRepTargetInput(repMin, repMax)
+  const parsedRepTarget = repTargetInput.error ? null : parseAccessoryRepTarget(repTargetInput.value)
+
+  const mutation = useMutation({
+    mutationKey: ['addSessionAccessory', session.sessionId],
+    mutationFn: (input: {
+      movement: AccessoryMovementOption
+      progressionMethod: AccessoryProgressionMethod
+      repTarget: string
+      scope: SwapScope
+      note?: string
+      clientMutationId: string
+    }) =>
+      addSessionAccessoryFn({
+        data: {
+          sessionId: session.sessionId,
+          movementId: input.movement.movementId,
+          progressionMethod: input.progressionMethod,
+          repTarget: input.repTarget,
+          scope: input.scope,
+          note: input.note,
+          clientMutationId: input.clientMutationId,
+        },
+      }),
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Accessory not added',
+        message: getApiErrorMessage(error, 'Unable to add this accessory.'),
+      })
+    },
+    onSuccess: async (nextSession, input) => {
+      const previousIds = new Set(session.movements.map((movement) => movement.id))
+      const addedMovement =
+        nextSession.movements.find((movement) => movement.isAdded && !previousIds.has(movement.id)) ??
+        nextSession.movements.at(-1)
+      queryClient.setQueryData(['session', session.sessionId], nextSession)
+      queryClient.setQueryData(['today'], (current: any) =>
+        current ? { ...current, activeSession: nextSession } : current,
+      )
+      if (input.scope === 'phase_slot') {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['today'] }),
+          queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
+          queryClient.invalidateQueries({ queryKey: ['programOverview'] }),
+        ])
+      }
+      notifications.show({
+        color: 'success',
+        title: 'Accessory added',
+        message: input.scope === 'phase_slot' ? `Added for ${phaseLabel.toLowerCase()}.` : 'Added to this session.',
+      })
+      if (addedMovement) onAdded(addedMovement.id)
+      onClose()
+    },
+  })
+
+  const submit = () => {
+    if (!selectedOption || !parsedRepTarget || mutation.isPending) return
+    mutation.mutate({
+      movement: selectedOption,
+      progressionMethod,
+      repTarget: repTargetInput.value,
+      scope,
+      note: note.trim() || undefined,
+      clientMutationId: crypto.randomUUID(),
+    })
+  }
+
+  return (
+    <Modal
+      opened={open}
+      onClose={() => {
+        if (!mutation.isPending) onClose()
+      }}
+      title="Add accessory"
+      size="lg"
+      closeOnClickOutside={!mutation.isPending}
+      closeOnEscape={!mutation.isPending}
+      withCloseButton={!mutation.isPending}
+      classNames={{
+        inner: '!items-end sm:!items-center',
+        content: '!mb-0 !max-h-[96dvh] !w-full !overflow-hidden !rounded-b-none !border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)] sm:!mb-auto sm:!max-w-[56rem] sm:!rounded-lg',
+        header: '!min-h-0 !bg-[var(--mantine-color-default)] !px-3 !py-2 !text-[var(--mantine-color-text)] sm:!px-4',
+        title: 'text-base font-bold !text-[var(--mantine-color-text)] sm:text-lg',
+        body: '!max-h-[calc(96dvh-3.25rem)] !overflow-y-auto !p-3 !text-[var(--mantine-color-text)] sm:!p-4',
+        close: '!text-[var(--mantine-color-dimmed)] hover:!bg-[var(--vf-surface-2)] hover:!text-[var(--mantine-color-text)]',
+      }}
+    >
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+        <div className="min-h-0 space-y-2">
+          <TextInput
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search accessory movements"
+            classNames={{
+              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)] !text-[var(--mantine-color-text)]',
+            }}
+          />
+
+          {optionsQuery.isPending ? (
+            <HistoryStatus>Loading accessory movements...</HistoryStatus>
+          ) : optionsQuery.isError ? (
+            <HistoryStatus tone="danger">{getApiErrorMessage(optionsQuery.error, 'Unable to load accessories')}</HistoryStatus>
+          ) : filteredOptions.length ? (
+            <div className="max-h-[30dvh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-[42dvh] lg:max-h-[30rem]">
+              {filteredOptions.map((option) => (
+                <AccessoryOptionRow
+                  key={option.movementId}
+                  option={option}
+                  selected={option.movementId === effectiveSelectedMovementId}
+                  onSelect={() => setSelectedMovementId(option.movementId)}
+                />
+              ))}
+            </div>
+          ) : (
+            <HistoryStatus>No matching accessory movements found.</HistoryStatus>
+          )}
+        </div>
+
+        <div className="space-y-2.5 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-2.5 sm:p-3">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="vf-section-label">Progression</p>
+              <button
+                type="button"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--vf-surface-2)] hover:text-[var(--mantine-color-text)]"
+                aria-label="Explain progression methods"
+                aria-pressed={methodHelpOpen}
+                title="Explain progression methods"
+                onClick={() => setMethodHelpOpen((value) => !value)}
+              >
+                <Info size={13} />
+              </button>
+            </div>
+          </div>
+          <Select
+            label="Method"
+            data={accessoryProgressionOptions}
+            value={progressionMethod}
+            onChange={(value) => setProgressionMethod((value ?? 'history_only') as AccessoryProgressionMethod)}
+            allowDeselect={false}
+            disabled={mutation.isPending}
+            classNames={{
+              label: '!text-[var(--mantine-color-dimmed)] !text-xs !font-bold',
+              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+              dropdown: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)]',
+              option: '!text-[var(--mantine-color-text)] hover:!bg-[var(--vf-surface-2)]',
+            }}
+          />
+          {methodHelpOpen || progressionMethod === 'double_progression' ? <ProgressionMethodInfo /> : null}
+          <div>
+            <p className="mb-1 text-xs font-bold text-[var(--mantine-color-dimmed)]">Reps</p>
+            <div className="grid grid-cols-2 gap-2">
+              <TextInput
+                aria-label="Minimum reps"
+                value={repMin}
+                onChange={(event) => setRepMin(sanitizeRepInput(event.target.value))}
+                placeholder="8"
+                inputMode="numeric"
+                maxLength={3}
+                disabled={mutation.isPending}
+                classNames={{
+                  input: cn(
+                    '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+                    repTargetInput.error && '!border-[var(--vf-danger-border)]',
+                  ),
+                }}
+              />
+              <TextInput
+                aria-label="Maximum reps"
+                value={repMax}
+                onChange={(event) => setRepMax(sanitizeRepInput(event.target.value))}
+                placeholder="12"
+                inputMode="numeric"
+                maxLength={3}
+                disabled={mutation.isPending}
+                classNames={{
+                  input: cn(
+                    '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+                    repTargetInput.error && '!border-[var(--vf-danger-border)]',
+                  ),
+                }}
+              />
+            </div>
+            {repTargetInput.error ? (
+              <p className="mt-1 text-[11px] font-semibold text-[var(--vf-danger-text)]">{repTargetInput.error}</p>
+            ) : null}
+          </div>
+          <AccessoryGuidance />
+          <TextInput
+            label="Note"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Optional"
+            disabled={mutation.isPending}
+            classNames={{
+              label: '!text-[var(--mantine-color-dimmed)] !text-xs !font-bold',
+              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+            }}
+          />
+          <Checkbox
+            checked={scope === 'phase_slot'}
+            disabled={mutation.isPending}
+            onChange={(event) => setScope(event.currentTarget.checked ? 'phase_slot' : 'session')}
+            label={phaseLabel}
+            classNames={{
+              label: '!text-xs !font-semibold !text-[var(--mantine-color-text)] sm:!text-sm',
+              input: '!border-[var(--mantine-color-default-border)]',
+            }}
+          />
+          <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-2.5">
+            <p className="text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Selected</p>
+            <p className="mt-1 text-sm font-extrabold">{selectedOption?.movementName ?? 'No movement selected'}</p>
+            <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
+              {parsedRepTarget?.label ?? 'No reps'} reps · {progressionMethod === 'double_progression' ? 'Double progression' : 'History only'} · {scope === 'phase_slot' ? phaseLabel : 'This session only'}
+            </p>
+          </div>
+          <div className="sticky bottom-0 -mx-2.5 -mb-2.5 grid grid-cols-2 gap-2 border-t border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-2.5 pt-2 sm:-mx-3 sm:-mb-3 sm:p-3 lg:static lg:mx-0 lg:mb-0 lg:border-t-0 lg:bg-transparent lg:p-0 lg:pt-1">
+            <button
+              type="button"
+              className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-2 text-sm font-bold text-[var(--mantine-color-text)] transition hover:bg-[var(--vf-surface-2)] disabled:opacity-60"
+              disabled={mutation.isPending}
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-[var(--mantine-primary-color-filled)] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[var(--mantine-primary-color-filled-hover)] disabled:opacity-60"
+              disabled={!selectedOption || !parsedRepTarget || mutation.isPending}
+              onClick={submit}
+            >
+              {mutation.isPending ? 'Adding...' : 'Add'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function AccessoryOptionRow({
+  option,
+  selected,
+  onSelect,
+}: {
+  option: AccessoryMovementOption
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        'w-full rounded-lg border p-2.5 text-left transition',
+        selected
+          ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--vf-action-soft)]'
+          : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] hover:border-[var(--vf-action-border)]',
+      )}
+      onClick={onSelect}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[13px] font-extrabold leading-tight text-[var(--mantine-color-text)]">{option.movementName}</p>
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-semibold leading-none text-[var(--mantine-color-dimmed)]">
+              {formatCategoryLabel(option.category)}
+            </span>
+            {option.equipment.map((item) => (
+              <span
+                key={item}
+                className="rounded border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-1.5 py-0.5 text-[9px] font-semibold leading-none text-[var(--mantine-color-dimmed)]"
+              >
+                {formatEquipmentLabel(item)}
+              </span>
+            ))}
+          </div>
+        </div>
+        <span className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+          {option.defaultUnit}
+        </span>
+      </div>
+    </button>
+  )
+}
+
+function ProgressionMethodInfo() {
+  return (
+    <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2.5 py-2 text-[11px] leading-snug text-[var(--mantine-color-dimmed)]">
+      <span className="font-bold text-[var(--mantine-color-text)]">Double progression</span> keeps the load the same until all sets reach the max reps at the target RIR, then suggests adding load next time. None only records history.
+    </div>
+  )
+}
+
+function AccessoryGuidance() {
+  return (
+    <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2.5 py-2 text-[11px] leading-snug text-[var(--mantine-color-dimmed)]">
+      <div className="flex items-center gap-1.5 font-bold text-[var(--mantine-color-text)]">
+        <Info size={13} />
+        Accessory rep targets
+      </div>
+      <p className="mt-1">Most accessories sit around 8-20 reps. Use 6-10 for heavier close variations, and 12-30 for isolation or pump work.</p>
+    </div>
+  )
+}
+
+function sanitizeRepInput(value: string) {
+  return value.replace(/\D/g, '').slice(0, 3)
+}
+
+function buildAccessoryRepTargetInput(repMin: string, repMax: string) {
+  const minInput = repMin.trim()
+  const maxInput = repMax.trim()
+  if (!minInput && !maxInput) return { value: '', error: 'Enter a rep target.' }
+  const min = Number(minInput || maxInput)
+  const max = Number(maxInput || minInput)
+  if (!validRepBound(min) || !validRepBound(max)) return { value: '', error: 'Use reps from 1 to 100.' }
+  if (max < min) return { value: '', error: 'Max reps should be at least min reps.' }
+  return {
+    value: min === max ? String(min) : `${min}-${max}`,
+  }
+}
+
+function validRepBound(value: number) {
+  return Number.isInteger(value) && value > 0 && value <= 100
+}
+
+function phaseScopeLabel(session: WorkoutSession) {
+  const phaseKey = session.movements.find((movement) => movement.phaseKey)?.phaseKey
+  if (phaseKey === 'cycle') return 'Rest of this cycle'
+  if (phaseKey) return `Rest of ${phaseKey} phase`
+  return 'Rest of this phase'
+}
+
 const substitutionReasons: { value: SubstitutionReason; label: string }[] = [
   { value: 'equipment_missing', label: 'Equipment taken' },
   { value: 'crowded_gym', label: 'Crowded gym' },
@@ -784,6 +1217,7 @@ function MovementSwapModal({
   const selectedOption = options.find((option) => option.movementId === effectiveSelectedMovementId) ?? null
   const canUsePhaseScope = Boolean(selectedOption?.allowedScopes.includes('phase_slot'))
   const effectiveScope: SwapScope = scope === 'phase_slot' && canUsePhaseScope ? 'phase_slot' : 'session'
+  const phaseLabel = phaseScopeLabel(session)
 
   const mutation = useMutation({
     mutationKey: ['substituteMovement', session.sessionId, movement.id],
@@ -841,7 +1275,7 @@ function MovementSwapModal({
       notifications.show({
         color: 'success',
         title: 'Movement swapped',
-        message: input.scope === 'phase_slot' ? 'This slot will use the replacement for the rest of this phase.' : 'This session was updated.',
+        message: input.scope === 'phase_slot' ? `This slot will use the selection for ${phaseLabel.toLowerCase()}.` : 'This session was updated.',
       })
       onClose()
     },
@@ -960,7 +1394,7 @@ function MovementSwapModal({
             checked={effectiveScope === 'phase_slot'}
             disabled={!canUsePhaseScope || mutation.isPending}
             onChange={(event) => setScope(event.currentTarget.checked ? 'phase_slot' : 'session')}
-            label="Use for this slot for the rest of the phase"
+            label={`Use for this slot for ${phaseLabel.toLowerCase()}`}
             classNames={{
               label: '!text-sm !font-semibold !text-[var(--mantine-color-text)]',
               input: '!border-[var(--mantine-color-default-border)]',
@@ -970,7 +1404,7 @@ function MovementSwapModal({
             <p className="text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Selected</p>
             <p className="mt-1 text-sm font-extrabold">{selectedOption?.movementName ?? 'No movement selected'}</p>
             <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
-              {effectiveScope === 'phase_slot' ? 'Phase slot replacement' : 'This session only'}
+              {effectiveScope === 'phase_slot' ? phaseLabel : 'This session only'}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 pt-1">
@@ -1025,7 +1459,7 @@ function SwapOptionRow({
           </p>
         </div>
         <span className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
-          {option.source === 'rule' ? 'Suggested' : 'Related'}
+          {swapOptionSourceLabel(option.source)}
         </span>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1040,6 +1474,11 @@ function SwapOptionRow({
       </div>
     </button>
   )
+}
+
+function swapOptionSourceLabel(source: MovementSwapOption['source']) {
+  if (source === 'default') return 'Default'
+  return source === 'rule' ? 'Suggested' : 'Related'
 }
 
 function MovementHistoryModal({ open, movement, onClose }: { open: boolean; movement: MovementSlot; onClose: () => void }) {
@@ -1255,6 +1694,10 @@ function roundToStep(value: number, step: number) {
 
 function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
+}
+
+function formatCategoryLabel(value: string) {
+  return formatEquipmentLabel(value)
 }
 
 function formatEquipmentLabel(value: string) {

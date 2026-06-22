@@ -15,6 +15,8 @@ const program: ProgramInstance = {
   units: 'kg',
   rounding: 2.5,
   currentWeekIndex: 1,
+  customizationStatus: 'default',
+  customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
   anchors: [
     { movementId: 'squat', anchorType: 'training_max', value: 165 },
     { movementId: 'bench_press', anchorType: 'training_max', value: 110 },

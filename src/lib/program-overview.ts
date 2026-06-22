@@ -121,10 +121,11 @@ function buildAccessoryPlan(program: ProgramInstance): ProgramAccessoryPlan[] {
           const override = (program.movementOverrides ?? []).find(
             (item) =>
               item.slotId === (movement.slotId ?? movement.id) &&
-              item.phaseKey === movement.phaseKey &&
+              (item.phaseKey === movement.phaseKey || item.phaseKey === '*') &&
               item.role === movement.role &&
               item.replacementMovementId === movement.movementId,
           )
+          const isAdded = Boolean(movement.isAdded)
           return {
             slotId: movement.slotId ?? movement.id,
             movementId: movement.movementId,
@@ -132,6 +133,7 @@ function buildAccessoryPlan(program: ProgramInstance): ProgramAccessoryPlan[] {
             role: movement.role,
             targetSummary: movement.targetSummary,
             replacedMovementName: override ? getMovementName(override.originalMovementId) : null,
+            isAdded,
           }
         }),
     }

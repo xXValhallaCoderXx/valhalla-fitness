@@ -21,6 +21,7 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     name: 'Healthy 5/3/1 FSL',
     source: 'healthy_531',
     sourceLabel: 'Healthy 5/3/1',
+    origin: 'system_default',
     description:
       '4-week 5/3/1 training-max progression with First Set Last supplemental work and structured accessories.',
     daysPerWeek: 4,
@@ -34,6 +35,7 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     name: 'Bromley Bullmastiff',
     source: 'bromley_base_strength',
     sourceLabel: 'Bromley',
+    origin: 'coach_authored',
     description:
       '18-week upper/lower Bullmastiff structure with base and peak phases, autoregulated plus sets, variations, and bodybuilding accessories.',
     daysPerWeek: 4,
@@ -47,6 +49,7 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     name: 'Bromley 70s Powerlifter',
     source: 'bromley_base_strength',
     sourceLabel: 'Bromley',
+    origin: 'coach_authored',
     description: '18-week upper/lower plan with volumizing waves, intensifying waves, variations, and bodybuilding layers.',
     daysPerWeek: 4,
     progressionLabel: 'Base-to-peak waves',
@@ -59,6 +62,7 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     name: 'Bromley Volume/Intensity',
     source: 'bromley_base_strength',
     sourceLabel: 'Bromley',
+    origin: 'coach_authored',
     description: 'Three-day whole-body split alternating a 3-week volume wave with a 3-week top-set wave.',
     daysPerWeek: 3,
     progressionLabel: 'Alternating volume/intensity waves',

@@ -12,6 +12,8 @@ const activeProgram: ProgramInstance = {
   units: 'kg',
   rounding: 2.5,
   currentWeekIndex: 0,
+  customizationStatus: 'default',
+  customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
   anchors: [],
 }
 

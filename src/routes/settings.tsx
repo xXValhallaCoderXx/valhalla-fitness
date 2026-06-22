@@ -140,7 +140,7 @@ function AuthedSettings() {
   return (
     <Page>
       <PageHeader title="Settings" eyebrow="Account" actions={<Badge color="success">Synced</Badge>}>
-        Units, rounding, equipment profile, and sync preferences.
+        Programme defaults, equipment profile, and sync preferences.
       </PageHeader>
 
       {hasPendingChanges ? (
@@ -186,7 +186,7 @@ function AuthedSettings() {
           <section id="preferences" className="scroll-mt-24">
             <div className="mb-2">
               <h2 className="text-sm font-extrabold">Preferences</h2>
-              <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Units, rounding, and session defaults.</p>
+              <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Units and rounding are reused when you start a new programme.</p>
             </div>
             <Card className="space-y-3 p-4">
               <div>

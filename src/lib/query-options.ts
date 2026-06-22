@@ -4,10 +4,12 @@ import {
   getHistoryDashboardFn,
   getMeFn,
   getMovementHistoryFn,
+  getProgramSetupOptionsFn,
   getProgramOverviewFn,
   getRecentHistoryFn,
   getSessionFn,
   getTodayFn,
+  listAccessoryMovementOptionsFn,
   listMovementSwapOptionsFn,
   listTemplatesFn,
 } from '~/server/api'
@@ -22,6 +24,12 @@ export const templatesQueryOptions = () =>
   queryOptions({
     queryKey: ['templates'],
     queryFn: () => listTemplatesFn(),
+  })
+
+export const programSetupOptionsQueryOptions = (templateId: string) =>
+  queryOptions({
+    queryKey: ['programSetupOptions', templateId],
+    queryFn: () => getProgramSetupOptionsFn({ data: { templateId } }),
   })
 
 export const activeProgramQueryOptions = () =>
@@ -70,4 +78,10 @@ export const movementSwapOptionsQueryOptions = (sessionId: string, exerciseLogId
   queryOptions({
     queryKey: ['movementSwapOptions', sessionId, exerciseLogId],
     queryFn: () => listMovementSwapOptionsFn({ data: { sessionId, exerciseLogId } }),
+  })
+
+export const accessoryMovementOptionsQueryOptions = () =>
+  queryOptions({
+    queryKey: ['accessoryMovementOptions'],
+    queryFn: () => listAccessoryMovementOptionsFn(),
   })

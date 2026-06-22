@@ -25,4 +25,16 @@ describe('movement swap options', () => {
     expect(options.every((option) => option.source === 'catalog')).toBe(true)
     expect(options.every((option) => option.allowedScopes.join(',') === 'session')).toBe(true)
   })
+
+  it('orders curated accessory suggestions before related catalog fallbacks', () => {
+    const options = buildMovementSwapOptions({
+      movementId: 'leg_press',
+      role: 'accessory',
+    })
+    const firstRelatedIndex = options.findIndex((option) => option.source === 'catalog')
+    const lastSuggestedIndex = options.map((option) => option.source).lastIndexOf('rule')
+
+    expect(options[0]?.source).toBe('rule')
+    expect(firstRelatedIndex).toBeGreaterThan(lastSuggestedIndex)
+  })
 })

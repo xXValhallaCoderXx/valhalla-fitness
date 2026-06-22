@@ -10,7 +10,13 @@ export type SyncState = 'synced' | 'saving' | 'offline' | 'syncFailed'
 
 export type SwapScope = 'session' | 'phase_slot'
 
+export type AccessoryProgressionMethod = 'history_only' | 'double_progression'
+
 export type SubstitutionReason = 'equipment_missing' | 'crowded_gym' | 'preference' | 'fatigue' | 'other'
+
+export type ProgramTemplateOrigin = 'system_default' | 'coach_authored' | 'user_created'
+
+export type ProgramCustomizationStatus = 'default' | 'customized'
 
 export type Movement = {
   id: string
@@ -37,6 +43,7 @@ export type ProgramTemplateSummary = {
   name: string
   source: 'healthy_531' | 'bromley_base_strength' | 'custom_import'
   sourceLabel: string
+  origin: ProgramTemplateOrigin
   description: string
   daysPerWeek: number
   progressionLabel: string
@@ -61,8 +68,11 @@ export type ProgramInstance = {
   units: Unit
   rounding: number
   currentWeekIndex: number
+  customizationStatus: ProgramCustomizationStatus
+  customizationSummary: ProgramCustomizationSummary
   anchors: AnchorInput[]
   movementOverrides?: ProgramMovementOverride[]
+  accessoryAdditions?: ProgramAccessoryAddition[]
   templateDefinition?: TemplateDefinition
 }
 
@@ -104,9 +114,13 @@ export type MovementSlot = {
   role: MovementRole
   orderIndex: number
   targetSummary: string
+  progressionRuleId?: string | null
+  progressionMethod?: AccessoryProgressionMethod | null
   sets: SetLog[]
   previous?: PreviousComparable | null
   notes?: string | null
+  isAdded?: boolean
+  addedScope?: SwapScope
 }
 
 export type ProgramMovementOverride = {
@@ -118,6 +132,43 @@ export type ProgramMovementOverride = {
   originalMovementId: string
   replacementMovementId: string
   effectiveFromWeekIndex: number
+}
+
+export type ProgramAccessoryAddition = {
+  id?: string
+  programInstanceId?: string
+  sessionId: string
+  slotId: string
+  phaseKey: string
+  movementId: string
+  prescriptionId: string
+  sourceSlotId?: string | null
+  targetSummary?: string | null
+  sets?: SetTarget[]
+  note?: string | null
+  progressionMethod?: AccessoryProgressionMethod | null
+  effectiveFromWeekIndex: number
+  orderIndex: number
+}
+
+export type ProgramCustomizationSummary = {
+  movementOverrideCount: number
+  accessoryAdditionCount: number
+}
+
+export type ProgramStartMovementOverrideInput = {
+  slotId: string
+  phaseKey: string
+  role: Extract<MovementRole, 'variation' | 'accessory'>
+  originalMovementId: string
+  replacementMovementId: string
+}
+
+export type ProgramStartAccessoryAdditionInput = {
+  sessionId: string
+  sourceSlotId: string
+  movementId: string
+  phaseKey?: string
 }
 
 export type MovementReplacementRule = {
@@ -139,13 +190,64 @@ export type MovementSwapOption = {
   category: string
   equipment: string[]
   relationshipLabel: string
-  source: 'rule' | 'catalog'
+  source: 'rule' | 'catalog' | 'default'
   ruleId?: string
   allowedScopes: SwapScope[]
 }
 
+export type AccessoryMovementOption = {
+  movementId: string
+  movementName: string
+  category: string
+  equipment: string[]
+  defaultUnit: Unit
+}
+
+export type ProgramSetupSlotOption = {
+  sessionId: string
+  sessionTitle: string
+  slotId: string
+  templateSlotId: string
+  phaseKey: string
+  phaseLabel: string
+  role: Extract<MovementRole, 'variation' | 'accessory'>
+  defaultMovementId: string
+  defaultMovementName: string
+  prescriptionId: string
+  targetSummary: string
+  replacementOptions: MovementSwapOption[]
+}
+
+export type ProgramSetupAccessoryPrescriptionOption = {
+  sourceSlotId: string
+  label: string
+  prescriptionId: string
+  targetSummary: string
+}
+
+export type ProgramSetupSessionOption = {
+  id: string
+  title: string
+  slots: ProgramSetupSlotOption[]
+  accessoryPrescriptions: ProgramSetupAccessoryPrescriptionOption[]
+}
+
+export type ProgramSetupOptions = {
+  templateId: string
+  templateName: string
+  origin: ProgramTemplateOrigin
+  sessions: ProgramSetupSessionOption[]
+  accessoryCatalog: Array<{
+    movementId: string
+    movementName: string
+    category: string
+    equipment: string[]
+  }>
+}
+
 export type PlannedSession = {
   id: string
+  templateSessionId?: string
   title: string
   programTitle: string
   templateId: string
@@ -385,6 +487,7 @@ export type ProgramAccessoryPlan = {
     role: MovementRole
     targetSummary: string
     replacedMovementName?: string | null
+    isAdded?: boolean
   }>
 }
 
