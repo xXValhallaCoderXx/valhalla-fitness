@@ -24,15 +24,7 @@ Use these files as the current product/design source of truth:
 - `design-spec.md`
 - `references/base-strength-by-bromley.md`
 - `references/Ultimate-workout-plan-old.md`
-- `dev-assets/sample-pages/1-Fitsync - Template Library.html`
-- `dev-assets/sample-pages/2-Fittrack - Daily Fitness Overv.html`
-- `dev-assets/sample-pages/3-Keepfit - Live Session.html`
-- `dev-assets/sample-pages/4-Fitsync 2 - Substitution Sheet.html`
-- `dev-assets/sample-pages/5-Keepfit - Program Overview.html`
-- `dev-assets/sample-pages/6-Fitsync 2 - History Overview.html`
-- `dev-assets/sample-pages/7-Fitflow - Account Settings.html`
-- `dev-assets/sample-pages/8-Fitsync 2 - Sign In.html`
-- `dev-assets/sample-pages/9-Fitflow - Session Summary.html`
+- `dev-assets/sample-pages` reference exports for template library, today, live session, substitutions, program overview, history, account settings, sign in, and session summary.
 - Updated Figma screens, assumed to match or supersede the latest `dev-assets` exports.
 
 When there is conflict:
@@ -40,7 +32,7 @@ When there is conflict:
 1. This MVP plan controls release sequencing.
 2. `final-app-spec.md` controls program facts and progression behavior.
 3. `design-spec.md` and Figma/dev-assets control UI structure and interaction patterns.
-4. Placeholder names in exports such as Fitsync, Fitflow, Fittrack, and Keepfit are not product facts.
+4. Placeholder names in exports are not product facts.
 
 ## 3. MVP Scope
 
@@ -105,7 +97,7 @@ The data model should leave clean module boundaries for these, but the MVP UI sh
 - DB migrations: Supabase CLI migrations committed to the repo.
 - Client data: RTK Query for app data fetching, mutations, cache invalidation, and optimistic updates.
 - Client DB/cache: IndexedDB for active workout drafts and pending mutation queues.
-- Local UI state: Redux slices or colocated React state for ephemeral UI state such as active set controls, timers, sheets, and filters.
+- Local UI state: Redux slices or colocated React state for ephemeral UI state such as active set controls, sheets, and filters.
 - Validation: Zod schemas shared between UI and server/database adapters.
 - Progression engine: pure TypeScript module with no Supabase dependency.
 - Testing: Vitest for engine tests, Playwright for key flows, Supabase local dev for RLS tests.
@@ -429,7 +421,7 @@ Accessories:
 
 ### Sign In
 
-Source: `8-Fitsync 2 - Sign In.html`
+Source: sign-in sample-page export.
 
 MVP requirements:
 
@@ -441,7 +433,7 @@ MVP requirements:
 
 ### Templates
 
-Source: `1-Fitsync - Template Library.html`
+Source: template-library sample-page export.
 
 MVP requirements:
 
@@ -466,7 +458,7 @@ MVP requirements:
 
 ### Today
 
-Source: `2-Fittrack - Daily Fitness Overv.html`
+Source: daily overview sample-page export.
 
 MVP requirements:
 
@@ -480,11 +472,11 @@ MVP requirements:
 
 ### Live Session
 
-Source: `3-Keepfit - Live Session.html`
+Source: live-session sample-page export.
 
 MVP requirements:
 
-- Session header, progress, timer, finish.
+- Session header, progress, and finish.
 - Movement rail/list.
 - Current movement expanded.
 - Stable set rows.
@@ -497,7 +489,7 @@ MVP requirements:
 
 ### Substitution Sheet
 
-Source: `4-Fitsync 2 - Substitution Sheet.html`
+Source: substitution-sheet sample-page export.
 
 MVP requirements:
 
@@ -510,7 +502,7 @@ MVP requirements:
 
 ### Program Overview
 
-Source: `5-Keepfit - Program Overview.html`
+Source: program-overview sample-page export.
 
 MVP requirements:
 
@@ -523,7 +515,7 @@ MVP requirements:
 
 ### History
 
-Source: `6-Fitsync 2 - History Overview.html`
+Source: history-overview sample-page export.
 
 MVP requirements:
 
@@ -535,20 +527,19 @@ MVP requirements:
 
 ### Settings
 
-Source: `7-Fitflow - Account Settings.html`
+Source: account-settings sample-page export.
 
 MVP requirements:
 
 - Account.
 - Units and rounding.
 - Equipment profile.
-- Auto-start rest timer preference.
 - Sync status.
 - Future modules shown only as unavailable/future, if shown at all.
 
 ### Finish Session Summary
 
-Source: `9-Fitflow - Session Summary.html`
+Source: session-summary sample-page export.
 
 MVP requirements:
 
@@ -668,7 +659,7 @@ Tasks:
 - Implement optimistic RTK Query cache patches for set edits and completed-state changes.
 - Implement rollback or sync-failed state when a set mutation is rejected.
 - Add quick increments for load and reps.
-- Add rest timer controls.
+- Defer rest timer controls until a real timer feature is implemented.
 - Add previous comparable performance lookup.
 - Add local active-session draft cache.
 - Add pending mutation queue in IndexedDB for offline or failed set mutations.

@@ -48,7 +48,7 @@ function SessionRoute() {
       notifications.show({
         color: 'success',
         title: 'Session finished',
-        message: `${summary.completedSets} of ${summary.totalSets} sets completed.`,
+        message: `${summary.completedSets} of ${summary.totalSets} sets completed. Your next session is ready.`,
       })
       queryClient.setQueryData(['summary', sessionId], summary)
       queryClient.setQueryData(['session', sessionId], summary.session)

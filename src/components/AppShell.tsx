@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { CalendarDays, Dumbbell, History, Layers3, ListChecks, Settings, UserCircle } from 'lucide-react'
+import { CalendarDays, CheckCircle2, Dumbbell, History, Layers3, ListChecks, Settings, UserCircle } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { AuthUser } from '~/server/auth'
 import { cn } from '~/lib/cn'
@@ -19,44 +19,43 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
   if (isAuth) return <>{children}</>
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] pb-20 text-[var(--text)] md:pb-0">
-      <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[color:var(--surface)/0.96] backdrop-blur">
-        <div className="mx-auto flex h-12 max-w-[920px] items-center justify-between px-4 md:px-5">
-          <Link to="/today" className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--brand-mark)] text-[var(--brand-mark-text)]">
-              <Dumbbell size={12} />
+    <div className="min-h-screen bg-[var(--mantine-color-body)] pb-[calc(4rem+env(safe-area-inset-bottom))] text-[var(--mantine-color-text)] md:pb-0">
+      <header className="sticky top-0 z-30 border-b border-[var(--mantine-color-default-border)] bg-[color:var(--mantine-color-default)/0.94] backdrop-blur-md">
+        <div className="mx-auto grid h-12 max-w-[1180px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 md:px-5">
+          <Link to="/today" className="flex min-w-0 items-center gap-2 justify-self-start">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--vf-brand-mark)] text-[var(--vf-brand-mark-text)]">
+              <Dumbbell size={14} />
             </span>
-            <span className="text-sm font-extrabold tracking-tight">Valhalla Fitness</span>
+            <span className="truncate text-sm font-extrabold">Sheetless</span>
           </Link>
-          <nav className="hidden items-center gap-5 text-xs font-semibold md:flex">
+          <nav className="hidden items-center justify-center gap-1 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-1 text-xs font-semibold shadow-[var(--vf-shadow-card)] md:flex">
             {navItems.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  'relative py-4 text-[var(--muted)] transition hover:text-[var(--text)]',
-                  pathname.startsWith(item.to) && 'text-[var(--action)]',
+                  'rounded-md px-3 py-1.5 text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--mantine-color-default)] hover:text-[var(--mantine-color-text)]',
+                  pathname.startsWith(item.to) && 'bg-[var(--mantine-color-default)] text-[var(--vf-action-text)] shadow-[var(--vf-shadow-card)]',
                 )}
               >
                 {item.label}
-                {pathname.startsWith(item.to) ? (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded bg-[var(--action)]" />
-                ) : null}
               </Link>
             ))}
           </nav>
-          <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-            <span className="hidden items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1 font-semibold sm:flex">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" aria-hidden="true" />
+          <div className="flex min-w-0 items-center justify-end gap-2 text-xs text-[var(--mantine-color-dimmed)]">
+            <span className="hidden items-center gap-1.5 rounded-md border border-[var(--vf-success-border)] bg-[var(--vf-success-soft)] px-2 py-1 font-bold text-[var(--vf-success-text)] sm:flex">
+              <CheckCircle2 size={12} />
               Synced
             </span>
-            <UserCircle size={24} />
-            <span className="hidden max-w-40 truncate md:inline">{user?.email ?? 'Guest'}</span>
+            <span className="flex min-w-0 items-center gap-1.5 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-2 py-1">
+              <UserCircle size={16} />
+              <span className="hidden max-w-44 truncate lg:inline">{user?.email ?? 'Guest'}</span>
+            </span>
           </div>
         </div>
       </header>
       {children}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[var(--surface)] px-2 pb-[env(safe-area-inset-bottom)] md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--mantine-color-default-border)] bg-[color:var(--mantine-color-default)/0.96] px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_36px_rgb(0_0_0/0.12)] backdrop-blur md:hidden">
         <div className="grid h-16 grid-cols-5">
           {navItems.map((item) => {
             const Icon = item.icon
@@ -66,12 +65,12 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  'relative flex min-w-0 flex-col items-center justify-center gap-0.5 text-[9px] font-semibold',
-                  active ? 'text-[var(--action)]' : 'text-[var(--muted)]',
+                  'relative flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-md text-[9px] font-bold',
+                  active ? 'text-[var(--vf-action-text)]' : 'text-[var(--mantine-color-dimmed)]',
                 )}
                 aria-label={item.label}
               >
-                {active ? <span className="absolute top-0 h-0.5 w-6 rounded-b-full bg-[var(--action)]" /> : null}
+                {active ? <span className="absolute top-1 h-0.5 w-6 rounded-b-full bg-[var(--mantine-primary-color-filled)]" /> : null}
                 <Icon size={18} />
                 <span className="truncate">{item.label}</span>
               </Link>

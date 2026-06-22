@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { Button, Card, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { Outlet, createFileRoute, useRouter, useRouterState } from '@tanstack/react-router'
 import { Dumbbell, KeyRound, Link as LinkIcon, Mail } from 'lucide-react'
@@ -10,7 +11,6 @@ import {
   signUpWithPasswordFn,
 } from '~/server/auth'
 import { getApiErrorMessage } from '~/lib/api-error'
-import { Button, Card, TextInput } from '~/components/ui'
 
 export const Route = createFileRoute('/auth')({
   component: AuthRoute,
@@ -107,155 +107,171 @@ function AuthForm() {
           : 'Create account'
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--bg)] px-4 py-8 text-[var(--text)]">
-      <Card className="w-full max-w-[520px] overflow-hidden p-0">
-        <div className="hidden h-12 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-5 md:flex">
-          <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--brand-mark)] text-[var(--brand-mark-text)]">
-              <Dumbbell size={12} />
-            </div>
-            <span className="text-sm font-extrabold tracking-tight">Valhalla Fitness</span>
-          </div>
-          <span className="text-xs font-medium text-[var(--muted)]">Sign in to continue</span>
+    <main className="grid min-h-screen bg-[var(--mantine-color-body)] text-[var(--mantine-color-text)] md:grid-cols-[minmax(18rem,0.9fr)_minmax(28rem,1.1fr)]">
+      <section className="hidden border-r border-[var(--mantine-color-default-border)] bg-[var(--vf-bg-elevated)] p-8 md:flex md:flex-col md:justify-between">
+        <div className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--vf-brand-mark)] text-[var(--vf-brand-mark-text)]">
+            <Dumbbell size={16} />
+          </span>
+          <span className="text-sm font-extrabold">Sheetless</span>
         </div>
-        <div className="bg-[var(--bg)] p-6 md:p-8">
-          <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--action)] shadow-sm md:h-14 md:w-14 md:bg-[var(--brand-mark)] md:text-[var(--brand-mark-text)]">
-              <Dumbbell size={24} />
+        <div className="max-w-sm">
+          <p className="vf-section-label">Training cockpit</p>
+          <h2 className="mt-2 text-3xl font-extrabold leading-tight">Planned work, fast logging, clear progression.</h2>
+          <div className="mt-5 grid grid-cols-3 gap-2">
+            <div className="vf-stat">
+              <p className="vf-stat-value">5</p>
+              <p className="vf-stat-label">Core routes</p>
             </div>
-            <h1 className="text-[22px] font-extrabold tracking-tight md:text-xl">Welcome back</h1>
-            <p className="mt-1 text-xs font-medium text-[var(--muted)]">Sign in to your Valhalla Fitness account.</p>
+            <div className="vf-stat">
+              <p className="vf-stat-value">RIR</p>
+              <p className="vf-stat-label">Logged sets</p>
+            </div>
+            <div className="vf-stat">
+              <p className="vf-stat-value">TM</p>
+              <p className="vf-stat-label">Decisions</p>
+            </div>
           </div>
+        </div>
+        <p className="text-xs font-semibold text-[var(--mantine-color-dimmed)]">Supabase account required for synced workouts.</p>
+      </section>
 
-          <form
-            className="space-y-3"
-            onSubmit={(event) => {
-              event.preventDefault()
-              if (authMethod === 'magic') {
-                magicMutation.mutate()
-              } else {
-                passwordMutation.mutate()
-              }
-            }}
-          >
-            <div className="grid grid-cols-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
-              <button
-                type="button"
-                className={`rounded-lg px-3 py-2 text-sm font-bold ${
-                  authMethod === 'password' ? 'bg-[var(--action)] text-white' : 'text-[var(--muted)]'
-                }`}
-                onClick={() => {
-                  setAuthMethod('password')
-                  setMessage(null)
-                }}
-              >
-                Password
-              </button>
-              <button
-                type="button"
-                className={`rounded-lg px-3 py-2 text-sm font-bold ${
-                  authMethod === 'magic' ? 'bg-[var(--action)] text-white' : 'text-[var(--muted)]'
-                }`}
-                onClick={() => {
-                  setAuthMethod('magic')
-                  setMessage(null)
-                }}
-              >
-                Magic link
-              </button>
+      <section className="flex min-h-screen items-center justify-center px-3 py-6 md:px-8">
+        <Card className="w-full max-w-[30rem] overflow-hidden p-0 shadow-[var(--vf-shadow-panel)]">
+          <div className="flex items-center justify-between border-b border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-3 md:hidden">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--vf-brand-mark)] text-[var(--vf-brand-mark-text)]">
+                <Dumbbell size={14} />
+              </span>
+              <span className="text-sm font-extrabold">Sheetless</span>
             </div>
-            <label className="grid gap-1">
-              <span className="text-xs font-bold uppercase text-[var(--muted)]">Email</span>
-              <TextInput
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="name@example.com"
-                required
-              />
-            </label>
-            {authMethod === 'password' ? (
-            <label className="grid gap-1">
-              <span className="text-xs font-bold uppercase text-[var(--muted)]">Password</span>
-              <TextInput
-                type="password"
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Password"
-                required
-              />
-            </label>
-          ) : null}
-            <Button
-              type="submit"
-              className="w-full py-3"
-              disabled={
-                authMethod === 'magic'
-                  ? !email || magicMutation.isPending
-                  : !email || !password || passwordMutation.isPending
-              }
-            >
-              {authMethod === 'magic' ? <Mail size={16} /> : <KeyRound size={16} />}
-              {submitLabel}
-            </Button>
-          </form>
+            <span className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]" aria-hidden="true">
+              <KeyRound size={14} />
+            </span>
+          </div>
+          <div className="p-5 md:p-6">
+            <div className="mb-5">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--vf-action-text)]">
+                <Dumbbell size={22} />
+              </div>
+              <h1 className="text-[1.35rem] font-extrabold leading-tight">Welcome back</h1>
+              <p className="mt-1 text-sm font-medium text-[var(--mantine-color-dimmed)]">Sign in to your Sheetless account.</p>
+            </div>
 
-          {authMethod === 'password' ? (
-          <>
+            <form
+              className="space-y-3"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (authMethod === 'magic') {
+                  magicMutation.mutate()
+                } else {
+                  passwordMutation.mutate()
+                }
+              }}
+            >
+              <div className="grid grid-cols-2 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-1">
+                <button
+                  type="button"
+                  className="rounded-md px-3 py-2 text-sm font-extrabold text-[var(--mantine-color-dimmed)] transition data-[active=true]:bg-[var(--mantine-color-default)] data-[active=true]:text-[var(--vf-action-text)] data-[active=true]:shadow-[var(--vf-shadow-card)]"
+                  data-active={authMethod === 'password'}
+                  onClick={() => {
+                    setAuthMethod('password')
+                    setMessage(null)
+                  }}
+                >
+                  Password
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md px-3 py-2 text-sm font-extrabold text-[var(--mantine-color-dimmed)] transition data-[active=true]:bg-[var(--mantine-color-default)] data-[active=true]:text-[var(--vf-action-text)] data-[active=true]:shadow-[var(--vf-shadow-card)]"
+                  data-active={authMethod === 'magic'}
+                  onClick={() => {
+                    setAuthMethod('magic')
+                    setMessage(null)
+                  }}
+                >
+                  Magic link
+                </button>
+              </div>
+              <label className="grid gap-1">
+                <span className="vf-section-label">Email</span>
+                <TextInput
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="name@example.com"
+                  required
+                />
+              </label>
+              {authMethod === 'password' ? (
+                <label className="grid gap-1">
+                  <span className="vf-section-label">Password</span>
+                  <TextInput
+                    type="password"
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Password"
+                    required
+                  />
+                </label>
+              ) : null}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={
+                  authMethod === 'magic'
+                    ? !email || magicMutation.isPending
+                    : !email || !password || passwordMutation.isPending
+                }
+              >
+                {authMethod === 'magic' ? <Mail size={16} /> : <KeyRound size={16} />}
+                {submitLabel}
+              </Button>
+            </form>
+
             <Button
               type="button"
-              className="mt-3 w-full"
-              variant="secondary"
+              className="mt-2 w-full"
+              variant="default"
               disabled={!email || resetMutation.isPending}
               onClick={() => resetMutation.mutate()}
             >
               <LinkIcon size={15} />
               {resetMutation.isPending ? 'Sending reset...' : 'Reset password'}
             </Button>
-            <button
-              type="button"
-              className="mt-4 w-full text-center text-sm font-semibold text-[var(--action)]"
-              onClick={() => {
-                setMode(mode === 'login' ? 'signup' : 'login')
-                setMessage(null)
-              }}
-            >
-              {mode === 'login' ? 'Create an account' : 'Already have an account? Log in'}
-            </button>
-          </>
-          ) : null}
 
-          {authMethod === 'magic' ? (
-          <Button
-            type="button"
-            className="mt-3 w-full"
-            variant="secondary"
-            disabled={!email || resetMutation.isPending}
-            onClick={() => resetMutation.mutate()}
-          >
-            <LinkIcon size={15} />
-            {resetMutation.isPending ? 'Sending reset...' : 'Reset password'}
-          </Button>
-          ) : null}
+            {authMethod === 'password' ? (
+              <button
+                type="button"
+                className="mt-4 w-full rounded-md py-1.5 text-center text-sm font-bold text-[var(--vf-action-text)] transition hover:bg-[var(--vf-action-soft)]"
+                onClick={() => {
+                  setMode(mode === 'login' ? 'signup' : 'login')
+                  setMessage(null)
+                }}
+              >
+                {mode === 'login' ? 'Create an account' : 'Already have an account? Log in'}
+              </button>
+            ) : null}
 
-          {message ? (
-          <p
-            className={`mt-4 rounded-lg border p-3 text-sm ${
-              message.tone === 'danger'
-                ? 'border-red-500/30 bg-red-500/10 text-red-200'
-                : message.tone === 'success'
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
-                  : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)]'
-            }`}
-            role={message.tone === 'danger' ? 'alert' : 'status'}
-          >
-            {message.text}
-          </p>
-          ) : null}
-        </div>
-      </Card>
+            {message ? (
+              <p
+                className={`mt-4 rounded-lg border p-3 text-sm font-semibold ${
+                  message.tone === 'danger'
+                    ? 'border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] text-[var(--vf-danger-text)]'
+                    : message.tone === 'success'
+                      ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)] text-[var(--vf-success-text)]'
+                      : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]'
+                }`}
+                role={message.tone === 'danger' ? 'alert' : 'status'}
+              >
+                {message.text}
+              </p>
+            ) : null}
+          </div>
+        </Card>
+      </section>
     </main>
   )
 }

@@ -4,7 +4,7 @@ import { cn } from '~/lib/cn'
 
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
     return (
-        <Box component="main" className={cn('mx-auto w-full max-w-[920px] px-4 py-4 md:px-6 md:py-6', className)}>
+        <Box component="main" className={cn('mx-auto w-full max-w-[1180px] px-3 py-4 md:px-5 md:py-5 lg:px-6', className)}>
             {children}
         </Box>
     )

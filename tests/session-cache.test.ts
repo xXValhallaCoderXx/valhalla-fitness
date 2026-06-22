@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { patchSetInSession, sessionCompletion } from '../src/lib/session-cache'
+import { patchMovementInSession, patchSetInSession, sessionCompletion } from '../src/lib/session-cache'
 import type { WorkoutSession } from '../src/types/training'
 
 const session: WorkoutSession = {
@@ -60,5 +60,17 @@ describe('session cache helpers', () => {
       completed: true,
     })
     expect(sessionCompletion(next)).toEqual({ completed: 1, total: 1, percent: 100 })
+  })
+
+  it('patches a performed movement without changing logged sets', () => {
+    const next = patchMovementInSession(session, {
+      exerciseLogId: 'exercise-1',
+      performedMovementId: 'romanian_deadlift',
+      performedMovementName: 'Romanian Deadlift',
+    })
+
+    expect(next.movements[0].movementName).toBe('Deadlift')
+    expect(next.movements[0].performedMovementName).toBe('Romanian Deadlift')
+    expect(next.movements[0].sets).toBe(session.movements[0].sets)
   })
 })

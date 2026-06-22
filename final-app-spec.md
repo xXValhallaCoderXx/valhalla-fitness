@@ -444,7 +444,6 @@ For each movement slot, show:
 - Previous comparable performance.
 - Target sets.
 - Actual set inputs.
-- Rest timer.
 - Notes.
 - Progression impact.
 
@@ -826,7 +825,7 @@ Validation rules:
 - Make set logging possible with one hand.
 - Use segmented controls for RPE/RIR when possible.
 - Use steppers or quick chips for common load jumps.
-- Show icons for repeated actions such as copy, timer, swap, complete, and history.
+- Show icons for repeated actions such as copy, swap, complete, and history.
 - Text must not overflow on small screens.
 - The user should never need to open the full program spec mid-workout to know what to do.
 - Mobile dark mode is an acceptable primary design direction for V1 if contrast remains high and the light theme remains supported.

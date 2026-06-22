@@ -1,6 +1,7 @@
-import { Modal } from '@mantine/core'
+import { Button, Modal, Text, type ButtonProps } from '@mantine/core'
 import type { ReactNode } from 'react'
-import { Button, type ButtonVariant } from '~/components/atoms'
+
+type ConfirmVariant = 'primary' | 'danger' | 'success'
 
 export function ConfirmDialog({
     open,
@@ -18,7 +19,7 @@ export function ConfirmDialog({
     children: ReactNode
     confirmLabel?: string
     cancelLabel?: string
-    confirmVariant?: ButtonVariant
+    confirmVariant?: ConfirmVariant
     isPending?: boolean
     onConfirm: () => void
     onCancel: () => void
@@ -26,6 +27,7 @@ export function ConfirmDialog({
     const close = () => {
         if (!isPending) onCancel()
     }
+    const confirmButtonProps = getConfirmButtonProps(confirmVariant)
 
     return (
         <Modal
@@ -35,23 +37,26 @@ export function ConfirmDialog({
             closeOnClickOutside={!isPending}
             closeOnEscape={!isPending}
             withCloseButton={!isPending}
-            classNames={{
-                content: '!border !border-[var(--border)] !bg-[var(--surface)] !text-[var(--text)]',
-                header: '!bg-[var(--surface)] !text-[var(--text)]',
-                title: 'text-lg font-bold !text-[var(--text)]',
-                body: 'space-y-4 !text-[var(--text)]',
-                close: '!text-[var(--muted)] hover:!bg-[var(--surface-2)] hover:!text-[var(--text)]',
-            }}
         >
-            <div className="text-sm text-[var(--muted)]">{children}</div>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <Button variant="secondary" disabled={isPending} onClick={onCancel}>
-                    {cancelLabel}
-                </Button>
-                <Button variant={confirmVariant} disabled={isPending} onClick={onConfirm}>
-                    {isPending ? 'Starting…' : confirmLabel}
-                </Button>
+            <div className="space-y-4">
+                <Text component="div" size="sm" c="dimmed">
+                    {children}
+                </Text>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <Button variant="default" disabled={isPending} onClick={onCancel}>
+                        {cancelLabel}
+                    </Button>
+                    <Button {...confirmButtonProps} disabled={isPending} onClick={onConfirm}>
+                        {isPending ? 'Working...' : confirmLabel}
+                    </Button>
+                </div>
             </div>
         </Modal>
     )
+}
+
+function getConfirmButtonProps(variant: ConfirmVariant): Pick<ButtonProps, 'color' | 'variant'> {
+    if (variant === 'danger') return { color: 'danger', variant: 'light' }
+    if (variant === 'success') return { color: 'success', variant: 'light' }
+    return { color: 'action', variant: 'filled' }
 }

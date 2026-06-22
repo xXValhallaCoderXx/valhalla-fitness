@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { MantineProvider } from '@mantine/core'
+import { ColorSchemeScript, MantineProvider, type MantineColorSchemeManager } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import { QueryClientProvider, useQuery, type QueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
@@ -15,8 +15,16 @@ import { getMeFn } from '~/server/api'
 import { meQueryOptions } from '~/lib/query-options'
 import type { ThemePreference, UserProfile } from '~/types/training'
 import { AppShell } from '~/components/AppShell'
-import { mantineTheme } from '~/styles/mantine-theme'
+import { mantineCssVariablesResolver, mantineTheme } from '~/styles/mantine-theme'
 import appCss from '~/styles/app.css?url'
+
+const profileColorSchemeManager: MantineColorSchemeManager = {
+  get: (defaultValue) => defaultValue,
+  set: () => {},
+  subscribe: () => {},
+  unsubscribe: () => {},
+  clear: () => {},
+}
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   beforeLoad: async () => {
@@ -29,7 +37,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       {
-        title: 'Valhalla Fitness',
+        title: 'Sheetless',
       },
       {
         name: 'description',
@@ -55,11 +63,15 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
     user: AuthUser | null
     me: UserProfile | null
   }
-  const initialTheme = resolveInitialTheme(me?.themePreference ?? 'system')
+  const initialThemePreference = me?.themePreference ?? 'system'
 
   return (
-    <html lang="en" data-theme={initialTheme}>
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <ColorSchemeScript
+          defaultColorScheme={toMantineColorScheme(initialThemePreference)}
+          forceColorScheme={toForcedColorScheme(initialThemePreference)}
+        />
         <HeadContent />
       </head>
       <body>
@@ -85,7 +97,7 @@ function ThemedAppShell({
     enabled: Boolean(user),
     initialData: initialMe ?? undefined,
   })
-  const resolvedTheme = useResolvedTheme(previewThemePreference ?? me?.themePreference ?? 'system')
+  const themePreference = previewThemePreference ?? me?.themePreference ?? 'system'
 
   useEffect(() => {
     const handlePreview = (event: Event) => {
@@ -93,42 +105,36 @@ function ThemedAppShell({
       setPreviewThemePreference(preference)
     }
     const handlePreviewClear = () => setPreviewThemePreference(null)
-    window.addEventListener('valhalla-theme-preview', handlePreview)
-    window.addEventListener('valhalla-theme-preview-clear', handlePreviewClear)
+    window.addEventListener('sheetless-theme-preview', handlePreview)
+    window.addEventListener('sheetless-theme-preview-clear', handlePreviewClear)
     return () => {
-      window.removeEventListener('valhalla-theme-preview', handlePreview)
-      window.removeEventListener('valhalla-theme-preview-clear', handlePreviewClear)
+      window.removeEventListener('sheetless-theme-preview', handlePreview)
+      window.removeEventListener('sheetless-theme-preview-clear', handlePreviewClear)
     }
   }, [])
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = resolvedTheme
-  }, [resolvedTheme])
-
   return (
-    <MantineProvider theme={mantineTheme} defaultColorScheme={resolvedTheme} forceColorScheme={resolvedTheme}>
+    <MantineProvider
+      theme={mantineTheme}
+      colorSchemeManager={profileColorSchemeManager}
+      cssVariablesResolver={mantineCssVariablesResolver}
+      defaultColorScheme={toMantineColorScheme(themePreference)}
+      forceColorScheme={toForcedColorScheme(themePreference)}
+    >
       <AppShell user={user}>{children}</AppShell>
       <Notifications position="top-right" limit={4} />
-      <ReactQueryDevtools buttonPosition="bottom-left" initialIsOpen={false} />
-      <TanStackRouterDevtools position="bottom-right" />
+      <div className="hidden md:block">
+        <ReactQueryDevtools buttonPosition="bottom-left" initialIsOpen={false} />
+        <TanStackRouterDevtools position="bottom-right" />
+      </div>
     </MantineProvider>
   )
 }
 
-function useResolvedTheme(preference: ThemePreference) {
-  const [systemTheme, setSystemTheme] = useState<'dark' | 'light'>('dark')
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: light)')
-    const updateSystemTheme = () => setSystemTheme(mediaQuery.matches ? 'light' : 'dark')
-    updateSystemTheme()
-    mediaQuery.addEventListener('change', updateSystemTheme)
-    return () => mediaQuery.removeEventListener('change', updateSystemTheme)
-  }, [])
-
-  return preference === 'system' ? systemTheme : preference
+function toMantineColorScheme(preference: ThemePreference) {
+  return preference === 'system' ? 'auto' : preference
 }
 
-function resolveInitialTheme(preference: ThemePreference) {
-  return preference === 'light' ? 'light' : 'dark'
+function toForcedColorScheme(preference: ThemePreference) {
+  return preference === 'system' ? undefined : preference
 }

@@ -1,4 +1,4 @@
-import { Modal } from '@mantine/core'
+import { Checkbox, Modal, Select, TextInput } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import {
@@ -11,15 +11,23 @@ import {
   RefreshCw,
   Repeat2,
 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
-import { TextInput } from '~/components/atoms'
+import { useMemo, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { cn } from '~/lib/cn'
 import { formatCompactDate, formatRelativeTime } from '~/lib/dates'
-import { movementHistoryQueryOptions } from '~/lib/query-options'
-import { patchSetInSession, sessionCompletion, type SetPatch } from '~/lib/session-cache'
-import { upsertSetLogFn } from '~/server/api'
-import type { MovementHistoryEntry, MovementHistorySet, MovementSlot, SetLog, WorkoutSession } from '~/types/training'
+import { movementHistoryQueryOptions, movementSwapOptionsQueryOptions } from '~/lib/query-options'
+import { patchMovementInSession, patchSetInSession, sessionCompletion, type SetPatch } from '~/lib/session-cache'
+import { substituteMovementFn, upsertSetLogFn } from '~/server/api'
+import type {
+  MovementHistoryEntry,
+  MovementHistorySet,
+  MovementSlot,
+  MovementSwapOption,
+  SetLog,
+  SubstitutionReason,
+  SwapScope,
+  WorkoutSession,
+} from '~/types/training'
 import { SyncPill } from './session'
 
 const SET_GRID_CLASS = 'grid grid-cols-[1.15rem_minmax(3.75rem,1fr)_minmax(3rem,0.75fr)_minmax(4.75rem,1fr)_2.25rem] sm:grid-cols-[1.25rem_minmax(4.5rem,7.75rem)_minmax(3.25rem,6.5rem)_minmax(5rem,6.5rem)_2.25rem] md:grid-cols-[1.5rem_minmax(4.75rem,1fr)_minmax(4rem,0.8fr)_minmax(5.5rem,1fr)_minmax(7.5rem,1.35fr)_2.25rem]'
@@ -55,7 +63,7 @@ export function LiveSessionFrame({
   const completedMovements = session.movements.filter(isMovementComplete).length
 
   return (
-    <div className="-mx-4 -my-5 min-h-[calc(100vh-3.5rem)] bg-[#0F0F11] text-[#F2F2F3] md:mx-auto md:my-0 md:min-h-0 md:max-w-[920px] md:rounded-2xl md:border md:border-[#E5E7EB] md:bg-white md:text-[#111827] md:shadow-[0_24px_70px_rgba(15,23,42,0.24)]">
+    <div className="-mx-3 -my-4 min-h-[calc(100vh-3.5rem)] bg-[var(--mantine-color-body)] text-[var(--mantine-color-text)] md:mx-auto md:my-0 md:min-h-0 md:max-w-[1180px] md:rounded-xl md:border md:border-[var(--mantine-color-default-border)] md:bg-[var(--mantine-color-default)] md:shadow-[var(--vf-shadow-panel)]">
       <SessionContextBar
         session={session}
         progress={progress}
@@ -65,21 +73,21 @@ export function LiveSessionFrame({
         onFinish={onFinish}
       />
 
-      <div className="h-1 bg-[#242428] md:bg-[#F4F5F7]" aria-hidden="true">
+      <div className="h-1 bg-[var(--vf-surface-2)]" aria-hidden="true">
         <div
-          className="h-full bg-[#4F8EF7] transition-all md:bg-[#2563EB]"
+          className="h-full bg-[var(--mantine-primary-color-filled)] transition-all"
           style={{ width: `${progress.percent}%` }}
         />
       </div>
 
-      <div className="md:flex md:min-h-[560px]">
+      <div className="md:flex md:min-h-[600px]">
         <MovementRail
           session={session}
           activeMovementId={selectedMovementId}
           onSelectMovement={onSelectMovement}
         />
 
-        <main className="no-scrollbar flex-1 space-y-2.5 overflow-y-auto px-3 py-3 pb-24 md:max-h-[calc(100vh-12rem)] md:space-y-3 md:bg-[#F4F5F7] md:p-4 md:pb-4">
+        <main className="no-scrollbar flex-1 space-y-2.5 overflow-y-auto px-3 py-3 pb-24 md:max-h-[calc(100vh-12rem)] md:space-y-3 md:bg-[var(--vf-bg-elevated)] md:p-4 md:pb-4">
           {finishBlockedReason ? (
             <StatusPanel tone="warning">{finishBlockedReason}</StatusPanel>
           ) : null}
@@ -123,21 +131,21 @@ function SessionContextBar({
   onFinish: () => void
 }) {
   return (
-    <div className="sticky top-12 z-20 border-b border-[#2E2E34] bg-[#1A1A1E]/95 px-4 py-2.5 backdrop-blur md:static md:border-[#E5E7EB] md:bg-white md:px-5">
+    <div className="sticky top-12 z-20 border-b border-[var(--mantine-color-default-border)] bg-[color:var(--mantine-color-default)/0.95] px-4 py-2.5 backdrop-blur md:static md:px-5">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="mb-1 flex items-center gap-1.5 md:hidden">
-            <div className="flex h-5 w-5 items-center justify-center rounded-md bg-white text-[#0F0F11]">
+            <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--vf-brand-mark)] text-[var(--vf-brand-mark-text)]">
               <Dumbbell size={11} />
             </div>
-            <span className="text-xs font-bold tracking-tight text-[#F2F2F3]">Valhalla Fitness</span>
+            <span className="text-xs font-bold tracking-tight text-[var(--mantine-color-text)]">Sheetless</span>
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <div>
-              <h1 className="truncate text-[11px] font-extrabold leading-tight text-[#F2F2F3] md:text-sm md:text-[#111827]">
+              <h1 className="truncate text-[11px] font-extrabold leading-tight text-[var(--mantine-color-text)] md:text-sm">
                 {session.title}
               </h1>
-              <p className="mt-0.5 text-[9px] text-[#9A9AA6] md:text-xs md:text-[#6B7280]">
+              <p className="mt-0.5 text-[9px] text-[var(--mantine-color-dimmed)] md:text-xs">
                 {completedMovements} of {session.movements.length} movements · {progress.completed} of {progress.total} sets
               </p>
             </div>
@@ -153,7 +161,7 @@ function SessionContextBar({
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            className="rounded-lg bg-[#4F8EF7] px-2.5 py-1.5 text-[10px] font-extrabold text-white transition hover:bg-[#3d7de4] disabled:opacity-50 md:bg-[#2563EB] md:px-3 md:text-xs md:hover:bg-[#1d4ed8]"
+            className="rounded-lg bg-[var(--mantine-primary-color-filled)] px-2.5 py-1.5 text-[10px] font-extrabold text-white transition hover:bg-[var(--mantine-primary-color-filled-hover)] disabled:opacity-50 md:px-3 md:text-xs"
             disabled={finishDisabled}
             onClick={onFinish}
           >
@@ -175,8 +183,8 @@ function MovementRail({
   onSelectMovement: (movementId: string) => void
 }) {
   return (
-    <aside className="hidden w-48 shrink-0 flex-col border-r border-[#E5E7EB] bg-[#F4F5F7] px-2 py-3 md:flex">
-      <p className="mb-2 px-2 text-[10px] font-extrabold uppercase tracking-wider text-[#6B7280]">Movements</p>
+    <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--mantine-color-default-border)] bg-[var(--vf-bg-elevated)] px-2 py-3 md:flex">
+      <p className="mb-2 px-2 text-[10px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)]">Movements</p>
       <div className="space-y-0.5">
         {session.movements.map((movement) => {
           const complete = isMovementComplete(movement)
@@ -188,8 +196,8 @@ function MovementRail({
               className={cn(
                 'flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition',
                 active
-                  ? 'border border-[#2563EB] bg-blue-50 text-[#2563EB]'
-                  : 'text-[#6B7280] hover:bg-white',
+                  ? 'border border-[var(--mantine-primary-color-filled)] bg-[var(--vf-action-soft)] text-[var(--vf-action-text)]'
+                  : 'text-[var(--mantine-color-dimmed)] hover:bg-[var(--mantine-color-default)]',
                 complete && !active && 'opacity-55',
               )}
               onClick={() => onSelectMovement(movement.id)}
@@ -225,6 +233,7 @@ function LiveMovementCard({
     firstIncompleteIndex ?? movement.sets[0]?.setIndex ?? 1,
   )
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [swapOpen, setSwapOpen] = useState(false)
   const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<Record<number, number | undefined>>({})
 
   const carryRirToNextSet = (setIndex: number, value: number) => {
@@ -238,48 +247,54 @@ function LiveMovementCard({
   }
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-[#4F8EF7] bg-[#1A1A1E] md:rounded-xl md:border-2 md:border-[#2563EB] md:bg-white md:p-4 md:shadow-sm">
-      <div className="border-b border-[#2E2E34] px-4 pb-3 pt-4 md:border-0 md:p-0">
+    <article className="overflow-hidden rounded-xl border border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-color-default)] md:border-2 md:p-4 md:shadow-[var(--vf-shadow-card)]">
+      <div className="border-b border-[var(--mantine-color-default-border)] px-4 pb-3 pt-4 md:border-0 md:p-0">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2 md:justify-start md:gap-4">
           <div className="min-w-0">
             <div className="mb-0.5 flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-[15px] font-extrabold text-[#F2F2F3] md:text-base md:text-[#111827]">
+              <h2 className="truncate text-[15px] font-extrabold text-[var(--mantine-color-text)] md:text-base">
                 {movement.movementName}
               </h2>
               <RolePill role={movement.role} />
             </div>
-            <p className="text-[10px] text-[#9A9AA6] md:text-xs md:text-[#6B7280]">
+            <p className="text-[10px] text-[var(--mantine-color-dimmed)] md:text-xs">
               {movement.targetSummary} · {session.programTitle}
             </p>
             {movement.performedMovementId && movement.performedMovementId !== movement.movementId ? (
-              <p className="mt-1 text-[10px] font-semibold text-amber-300 md:text-amber-600">
+              <p className="mt-1 text-[10px] font-semibold text-[var(--vf-warning-text)]">
                 Performed as {movement.performedMovementName}
               </p>
             ) : null}
           </div>
           <div className="flex gap-1.5 md:pt-0.5">
             <ToolButton title="Plate math" icon={<Calculator size={13} />} label="Plates" />
-            <ToolButton title="Swap movement" icon={<Repeat2 size={13} />} label="Swap" />
+            <ToolButton
+              title={movement.role === 'main' ? 'Main lifts cannot be swapped' : 'Swap movement'}
+              icon={<Repeat2 size={13} />}
+              label="Swap"
+              disabled={movement.role === 'main'}
+              onClick={() => setSwapOpen(true)}
+            />
             <ToolButton title="Movement history" icon={<History size={13} />} label="History" onClick={() => setHistoryOpen(true)} />
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2E2E34] bg-[#242428] px-3 py-2 md:mb-3 md:rounded-lg md:border-[#E5E7EB] md:bg-[#F4F5F7] md:px-3 md:py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2 md:mb-3 md:px-3 md:py-2.5">
           <MetricBlock label="Top set today" value={topSet ? formatSetTarget(topSet, session.units) : 'No top set'} />
-          <div className="hidden h-7 w-px bg-[#2E2E34] md:block md:bg-[#E5E7EB]" aria-hidden="true" />
+          <div className="hidden h-7 w-px bg-[var(--mantine-color-default-border)] md:block" aria-hidden="true" />
           <MetricBlock
             label="Last comparable"
             value={movement.previous?.label ?? 'No previous comparable'}
             align="right"
           />
-          <div className="w-full border-t border-[#2E2E34] pt-2 text-[10px] leading-relaxed text-[#9A9AA6] md:border-[#E5E7EB] md:text-[#6B7280]">
-            <span className="font-bold text-[#F2F2F3] md:text-[#111827]">Progression hint:</span>{' '}
+          <div className="w-full border-t border-[var(--mantine-color-default-border)] pt-2 text-[10px] leading-relaxed text-[var(--mantine-color-dimmed)]">
+            <span className="font-bold text-[var(--mantine-color-text)]">Progression hint:</span>{' '}
             {getProgressionHint(movement, topSet)}
           </div>
         </div>
       </div>
 
-      <div className={cn(SET_GRID_CLASS, 'justify-stretch px-4 pb-1 pt-2.5 text-center text-[8px] font-extrabold uppercase tracking-wider text-[#9A9AA6] sm:justify-center md:justify-stretch md:gap-2 md:px-1 md:pt-0 md:text-[9px] md:text-[#6B7280]')}>
+      <div className={cn(SET_GRID_CLASS, 'justify-stretch px-4 pb-1 pt-2.5 text-center text-[8px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)] sm:justify-center md:justify-stretch md:gap-2 md:px-1 md:pt-0 md:text-[9px]')}>
         <span>#</span>
         <span>{session.units}</span>
         <span>Reps</span>
@@ -304,10 +319,18 @@ function LiveMovementCard({
       </div>
 
       <MovementHistoryModal open={historyOpen} movement={movement} onClose={() => setHistoryOpen(false)} />
+      {swapOpen ? (
+        <MovementSwapModal
+          open={swapOpen}
+          session={session}
+          movement={movement}
+          onClose={() => setSwapOpen(false)}
+        />
+      ) : null}
 
       <button
         type="button"
-        className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#2E2E34] py-2 text-[10px] font-bold text-[#9A9AA6] transition hover:bg-[#242428] md:mx-0 md:mb-0 md:mt-3 md:w-full md:rounded-lg md:border-[#E5E7EB] md:bg-[#F4F5F7] md:py-1.5 md:text-[11px] md:text-[#6B7280] md:hover:bg-white"
+        className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--mantine-color-default-border)] py-2 text-[10px] font-bold text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--vf-surface-2)] md:mx-0 md:mb-0 md:mt-3 md:w-full md:rounded-lg md:bg-[var(--vf-surface-2)] md:py-1.5 md:text-[11px] md:hover:bg-[var(--vf-surface-3)]"
         title="Manual add-set support is coming soon"
       >
         <Plus size={12} />
@@ -334,7 +357,7 @@ function CollapsedMovementCard({
     <button
       type="button"
       className={cn(
-        'flex w-full items-center justify-between gap-3 rounded-2xl border border-[#2E2E34] bg-[#1A1A1E] px-4 py-3 text-left transition hover:border-[#4F8EF7] md:rounded-xl md:border-[#E5E7EB] md:bg-white md:shadow-sm md:hover:border-gray-300',
+        'flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-3 text-left text-[var(--mantine-color-text)] transition hover:border-[var(--vf-action-border)] md:shadow-[var(--vf-shadow-card)]',
         complete && 'opacity-55',
       )}
       onClick={onSelect}
@@ -342,21 +365,21 @@ function CollapsedMovementCard({
       <div className="min-w-0">
         <div className="mb-0.5 flex flex-wrap items-center gap-2">
           <MovementNumberBadge number={movementNumber} complete={complete} />
-          <h3 className={cn('truncate text-sm font-extrabold text-[#F2F2F3] md:text-[#111827]', complete && 'line-through')}>
+          <h3 className={cn('truncate text-sm font-extrabold text-[var(--mantine-color-text)]', complete && 'line-through')}>
             {movement.movementName}
           </h3>
           <RolePill role={movement.role} subtle />
         </div>
-        <p className="pl-7 text-[10px] text-[#9A9AA6] md:text-xs md:text-[#6B7280]">
+        <p className="pl-7 text-[10px] text-[var(--mantine-color-dimmed)] md:text-xs">
           {totalSets} sets · {movement.targetSummary}
           {movement.previous?.label ? <span className="hidden sm:inline"> · {movement.previous.label}</span> : null}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <span className="text-[10px] font-bold text-[#9A9AA6] md:text-[#6B7280]">
+        <span className="text-[10px] font-bold text-[var(--mantine-color-dimmed)]">
           {completedSets}/{totalSets}
         </span>
-        <ChevronDown className="-rotate-90 text-[#9A9AA6]" size={14} />
+        <ChevronDown className="-rotate-90 text-[var(--mantine-color-dimmed)]" size={14} />
       </div>
     </button>
   )
@@ -480,10 +503,10 @@ function LiveSetRow({
       tabIndex={0}
       className={cn(
         'rounded-xl border px-4 py-2 transition md:rounded-lg md:px-1 md:py-1.5',
-        rowState === 'complete' && 'border-[#2E2E34] bg-[#242428] opacity-65 md:border-[#E5E7EB] md:bg-[#F4F5F7]',
-        rowState === 'current' && 'border-[#4F8EF7] bg-[#242428] md:border-[#2563EB] md:bg-blue-50',
-        rowState === 'future' && 'border-dashed border-[#2E2E34] md:border-[#E5E7EB] md:bg-white',
-        rowState === 'failed' && 'border-red-500/50 bg-red-500/10',
+        rowState === 'complete' && 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] opacity-65',
+        rowState === 'current' && 'border-[var(--mantine-primary-color-filled)] bg-[var(--vf-action-soft)]',
+        rowState === 'future' && 'border-dashed border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)]',
+        rowState === 'failed' && 'border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)]',
       )}
       onClick={(event) => {
         const target = event.target as HTMLElement
@@ -498,7 +521,7 @@ function LiveSetRow({
       }}
     >
       <div className={cn(SET_GRID_CLASS, 'items-center justify-stretch gap-1.5 sm:justify-center sm:gap-2 md:justify-stretch md:gap-2')}>
-        <div className={cn('text-center text-[9px] font-extrabold text-[#9A9AA6]', rowState === 'current' && 'text-[#4F8EF7] md:text-[#2563EB]')}>
+        <div className={cn('text-center text-[9px] font-extrabold text-[var(--mantine-color-dimmed)]', rowState === 'current' && 'text-[var(--vf-action-text)]')}>
           {set.setIndex}
         </div>
 
@@ -517,9 +540,9 @@ function LiveSetRow({
           onChange={(value) => setDraft((current) => ({ ...current, actualReps: value }))}
         />
 
-        <div className="hidden text-center text-[10px] text-[#9A9AA6] md:block md:text-[#6B7280]">
+        <div className="hidden text-center text-[10px] text-[var(--mantine-color-dimmed)] md:block">
           {set.isTopSet || set.isAmrap ? (
-            <span className="rounded bg-purple-500/10 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-purple-400 md:text-purple-600">
+            <span className="rounded bg-[var(--vf-accent-soft)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-accent-filled)]">
               Top
             </span>
           ) : set.isBackoff ? (
@@ -547,8 +570,8 @@ function LiveSetRow({
             set.completed
               ? 'border-green-600 bg-green-600 text-white'
               : saveFailed
-                ? 'border-red-500/40 bg-red-500/10 text-red-200'
-                : 'border-[#2E2E34] bg-[#1A1A1E] text-[#9A9AA6] hover:border-[#4F8EF7] md:border-[#E5E7EB] md:bg-white md:text-[#6B7280] md:hover:bg-[#F4F5F7]',
+                ? 'border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] text-[var(--vf-danger-text)]'
+                : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)] hover:border-[var(--vf-action-border)] hover:bg-[var(--vf-surface-2)]',
           )}
           disabled={isSaving}
           onClick={() => {
@@ -563,7 +586,7 @@ function LiveSetRow({
       </div>
 
       {isSelected && !set.completed ? (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-7 text-[9px] text-[#9A9AA6] md:gap-2 md:pl-8 md:text-[#6B7280]">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-7 text-[9px] text-[var(--mantine-color-dimmed)] md:gap-2 md:pl-8">
           <span>load</span>
           {[-5, -session.rounding, session.rounding, 5].map((delta) => (
             <QuickAdjustButton key={`load-${delta}`} onClick={() => adjustLoad(delta)}>
@@ -596,8 +619,8 @@ function SetValueInput({
     <input
       type="number"
       className={cn(
-        'live-session-input w-full rounded-lg border border-[#2E2E34] bg-[#1A1A1E] py-1.5 text-center text-sm font-bold text-[#F2F2F3] outline-none transition md:border-[#E5E7EB] md:bg-white md:px-2 md:py-1 md:text-[#111827]',
-        muted && 'font-semibold text-[#9A9AA6] md:text-[#6B7280]',
+        'live-session-input w-full rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] py-1.5 text-center text-sm font-bold text-[var(--mantine-color-text)] outline-none transition md:px-2 md:py-1',
+        muted && 'font-semibold text-[var(--mantine-color-dimmed)]',
       )}
       value={Number.isFinite(value) ? value : 0}
       disabled={disabled}
@@ -631,8 +654,8 @@ function RirSegmentedControl({
             className={cn(
               'flex-1 rounded-md border py-1 text-[8px] font-extrabold transition md:text-[9px]',
               selected
-                ? 'border-[#4F8EF7] bg-[#4F8EF7] text-white md:border-[#2563EB] md:bg-[#2563EB]'
-                : 'border-[#2E2E34] bg-[#1A1A1E] text-[#9A9AA6] hover:border-[#4F8EF7] md:border-[#E5E7EB] md:bg-white md:text-[#6B7280] md:hover:bg-[#F4F5F7]',
+                ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-primary-color-filled)] text-white'
+                : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)] hover:border-[var(--vf-action-border)] hover:bg-[var(--vf-surface-2)]',
               muted && !selected && 'opacity-80',
             )}
             disabled={disabled}
@@ -651,15 +674,17 @@ function RirSegmentedControl({
 
 function LiveNotesBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
-    <label className="grid gap-1 rounded-2xl border border-[#2E2E34] bg-[#1A1A1E] p-4 md:rounded-xl md:border-[#E5E7EB] md:bg-white">
-      <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#9A9AA6] md:text-[#6B7280]">
+    <label className="grid gap-1 rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-4">
+      <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)]">
         Session notes
       </span>
       <TextInput
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder="Optional notes"
-        className="border-[#2E2E34] bg-[#242428] text-[#F2F2F3] md:border-[#E5E7EB] md:bg-[#F4F5F7] md:text-[#111827]"
+        classNames={{
+          input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)] !text-[var(--mantine-color-text)]',
+        }}
       />
     </label>
   )
@@ -670,8 +695,8 @@ function StatusPanel({ tone, children }: { tone: 'warning' | 'danger'; children:
     <p
       className={cn(
         'rounded-2xl border p-3 text-xs md:rounded-xl',
-        tone === 'warning' && 'border-amber-500/30 bg-amber-500/10 text-amber-200 md:text-amber-700',
-        tone === 'danger' && 'border-red-500/30 bg-red-500/10 text-red-200 md:text-red-700',
+        tone === 'warning' && 'border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] text-[var(--vf-warning-text)]',
+        tone === 'danger' && 'border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] text-[var(--vf-danger-text)]',
       )}
       role={tone === 'danger' ? 'alert' : 'status'}
     >
@@ -686,8 +711,8 @@ function MetaPill({ children, tone = 'neutral' }: { children: ReactNode; tone?: 
       className={cn(
         'rounded-full border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider',
         tone === 'danger'
-          ? 'border-red-100 bg-red-50 text-[#EF4444]'
-          : 'border-[#E5E7EB] bg-[#F4F5F7] text-[#6B7280]',
+          ? 'border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] text-[var(--vf-danger-text)]'
+          : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]',
       )}
     >
       {children}
@@ -696,12 +721,12 @@ function MetaPill({ children, tone = 'neutral' }: { children: ReactNode; tone?: 
 }
 
 function RolePill({ role, subtle = false }: { role: MovementSlot['role']; subtle?: boolean }) {
-  const roleColor = role === 'main' ? 'text-purple-300 md:text-purple-600' : 'text-[#9A9AA6] md:text-[#6B7280]'
-  const roleBg = role === 'main' ? 'bg-purple-900/30 md:bg-purple-50' : 'bg-[#242428] md:bg-[#F4F5F7]'
+  const roleColor = role === 'main' ? 'text-[var(--mantine-color-accent-filled)]' : 'text-[var(--mantine-color-dimmed)]'
+  const roleBg = role === 'main' ? 'bg-[var(--vf-accent-soft)]' : 'bg-[var(--vf-surface-2)]'
   return (
     <span
       className={cn(
-        'rounded border border-[#2E2E34] px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wider md:border-[#E5E7EB] md:text-[9px]',
+        'rounded border border-[var(--mantine-color-default-border)] px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wider md:text-[9px]',
         roleColor,
         roleBg,
         subtle && 'opacity-90',
@@ -709,6 +734,311 @@ function RolePill({ role, subtle = false }: { role: MovementSlot['role']; subtle
     >
       {role}
     </span>
+  )
+}
+
+const substitutionReasons: { value: SubstitutionReason; label: string }[] = [
+  { value: 'equipment_missing', label: 'Equipment taken' },
+  { value: 'crowded_gym', label: 'Crowded gym' },
+  { value: 'fatigue', label: 'Fatigue' },
+  { value: 'preference', label: 'Variety' },
+  { value: 'other', label: 'Other' },
+]
+
+function MovementSwapModal({
+  open,
+  session,
+  movement,
+  onClose,
+}: {
+  open: boolean
+  session: WorkoutSession
+  movement: MovementSlot
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [search, setSearch] = useState('')
+  const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null)
+  const [reason, setReason] = useState<SubstitutionReason>('equipment_missing')
+  const [scope, setScope] = useState<SwapScope>('session')
+  const [note, setNote] = useState('')
+
+  const optionsQuery = useQuery({
+    ...movementSwapOptionsQueryOptions(session.sessionId, movement.id),
+    enabled: open && movement.role !== 'main',
+  })
+  const options = useMemo(() => optionsQuery.data ?? [], [optionsQuery.data])
+  const filteredOptions = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    if (!query) return options
+    return options.filter((option) => {
+      const equipment = option.equipment.join(' ').toLowerCase()
+      return (
+        option.movementName.toLowerCase().includes(query) ||
+        option.category.toLowerCase().includes(query) ||
+        equipment.includes(query)
+      )
+    })
+  }, [options, search])
+  const effectiveSelectedMovementId = selectedMovementId ?? options[0]?.movementId ?? null
+  const selectedOption = options.find((option) => option.movementId === effectiveSelectedMovementId) ?? null
+  const canUsePhaseScope = Boolean(selectedOption?.allowedScopes.includes('phase_slot'))
+  const effectiveScope: SwapScope = scope === 'phase_slot' && canUsePhaseScope ? 'phase_slot' : 'session'
+
+  const mutation = useMutation({
+    mutationKey: ['substituteMovement', session.sessionId, movement.id],
+    mutationFn: (input: {
+      option: MovementSwapOption
+      reason: SubstitutionReason
+      note?: string
+      scope: SwapScope
+    }) =>
+      substituteMovementFn({
+        data: {
+          sessionId: session.sessionId,
+          exerciseLogId: movement.id,
+          performedMovementId: input.option.movementId,
+          reason: input.reason,
+          note: input.note,
+          scope: input.scope,
+        },
+      }),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: ['session', session.sessionId] })
+      const previous = queryClient.getQueryData<WorkoutSession>(['session', session.sessionId])
+      if (previous) {
+        queryClient.setQueryData(
+          ['session', session.sessionId],
+          patchMovementInSession(previous, {
+            exerciseLogId: movement.id,
+            performedMovementId: input.option.movementId,
+            performedMovementName: input.option.movementName,
+          }),
+        )
+      }
+      return { previous }
+    },
+    onError: (error, _input, context) => {
+      if (context?.previous) queryClient.setQueryData(['session', session.sessionId], context.previous)
+      notifications.show({
+        color: 'danger',
+        title: 'Movement not swapped',
+        message: getApiErrorMessage(error, 'Unable to swap this movement.'),
+      })
+    },
+    onSuccess: async (nextSession, input) => {
+      queryClient.setQueryData(['session', session.sessionId], nextSession)
+      queryClient.setQueryData(['today'], (current: any) =>
+        current ? { ...current, activeSession: nextSession } : current,
+      )
+      await queryClient.invalidateQueries({ queryKey: ['movementSwapOptions', session.sessionId, movement.id] })
+      if (input.scope === 'phase_slot') {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['today'] }),
+          queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
+        ])
+      }
+      notifications.show({
+        color: 'success',
+        title: 'Movement swapped',
+        message: input.scope === 'phase_slot' ? 'This slot will use the replacement for the rest of this phase.' : 'This session was updated.',
+      })
+      onClose()
+    },
+  })
+
+  const submit = () => {
+    if (!selectedOption || mutation.isPending) return
+    mutation.mutate({
+      option: selectedOption,
+      reason,
+      note: note.trim() || undefined,
+      scope: effectiveScope,
+    })
+  }
+
+  return (
+    <Modal
+      opened={open}
+      onClose={() => {
+        if (!mutation.isPending) onClose()
+      }}
+      title="Swap movement"
+      size="lg"
+      closeOnClickOutside={!mutation.isPending}
+      closeOnEscape={!mutation.isPending}
+      withCloseButton={!mutation.isPending}
+      classNames={{
+        inner: '!items-end sm:!items-center',
+        content: '!mb-0 !max-h-[92dvh] !w-full !overflow-hidden !rounded-b-none !border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)] sm:!mb-auto sm:!max-w-[60rem] sm:!rounded-lg',
+        header: '!bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+        title: 'text-lg font-bold !text-[var(--mantine-color-text)]',
+        body: '!max-h-[calc(92dvh-4rem)] !overflow-y-auto !text-[var(--mantine-color-text)]',
+        close: '!text-[var(--mantine-color-dimmed)] hover:!bg-[var(--vf-surface-2)] hover:!text-[var(--mantine-color-text)]',
+      }}
+    >
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+        <div className="min-h-0 space-y-3">
+          <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)]">
+              Planned
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-base font-extrabold">{movement.movementName}</p>
+              <RolePill role={movement.role} subtle />
+            </div>
+            {movement.performedMovementId && movement.performedMovementId !== movement.movementId ? (
+              <p className="mt-2 text-xs font-semibold text-[var(--vf-warning-text)]">
+                Currently performed as {movement.performedMovementName}
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
+          </div>
+
+          <TextInput
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search alternatives"
+            classNames={{
+              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)] !text-[var(--mantine-color-text)]',
+            }}
+          />
+
+          {optionsQuery.isPending ? (
+            <HistoryStatus>Loading suggested movements...</HistoryStatus>
+          ) : optionsQuery.isError ? (
+            <HistoryStatus tone="danger">{getApiErrorMessage(optionsQuery.error, 'Unable to load movement options')}</HistoryStatus>
+          ) : filteredOptions.length ? (
+            <div className="max-h-[38dvh] space-y-2 overflow-y-auto pr-1 lg:max-h-[28rem]">
+              {filteredOptions.map((option) => (
+                <SwapOptionRow
+                  key={option.movementId}
+                  option={option}
+                  selected={option.movementId === effectiveSelectedMovementId}
+                  onSelect={() => setSelectedMovementId(option.movementId)}
+                />
+              ))}
+            </div>
+          ) : (
+            <HistoryStatus>No matching movements found.</HistoryStatus>
+          )}
+        </div>
+
+        <div className="space-y-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+          <div>
+            <p className="vf-section-label">Swap details</p>
+            <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
+              Choose why this movement is changing and whether the choice applies only now or to this phase slot.
+            </p>
+          </div>
+          <Select
+            label="Reason"
+            data={substitutionReasons}
+            value={reason}
+            onChange={(value) => setReason((value ?? 'equipment_missing') as SubstitutionReason)}
+            allowDeselect={false}
+            disabled={mutation.isPending}
+            classNames={{
+              label: '!text-[var(--mantine-color-dimmed)] !text-xs !font-bold',
+              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+              dropdown: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)]',
+              option: '!text-[var(--mantine-color-text)] hover:!bg-[var(--vf-surface-2)]',
+            }}
+          />
+          <TextInput
+            label="Note"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Optional"
+            disabled={mutation.isPending}
+            classNames={{
+              label: '!text-[var(--mantine-color-dimmed)] !text-xs !font-bold',
+              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+            }}
+          />
+          <Checkbox
+            checked={effectiveScope === 'phase_slot'}
+            disabled={!canUsePhaseScope || mutation.isPending}
+            onChange={(event) => setScope(event.currentTarget.checked ? 'phase_slot' : 'session')}
+            label="Use for this slot for the rest of the phase"
+            classNames={{
+              label: '!text-sm !font-semibold !text-[var(--mantine-color-text)]',
+              input: '!border-[var(--mantine-color-default-border)]',
+            }}
+          />
+          <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Selected</p>
+            <p className="mt-1 text-sm font-extrabold">{selectedOption?.movementName ?? 'No movement selected'}</p>
+            <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
+              {effectiveScope === 'phase_slot' ? 'Phase slot replacement' : 'This session only'}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-2 text-sm font-bold text-[var(--mantine-color-text)] transition hover:bg-[var(--vf-surface-2)] disabled:opacity-60"
+              disabled={mutation.isPending}
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-[var(--mantine-primary-color-filled)] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[var(--mantine-primary-color-filled-hover)] disabled:opacity-60"
+              disabled={!selectedOption || mutation.isPending}
+              onClick={submit}
+            >
+              {mutation.isPending ? 'Swapping...' : 'Swap'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function SwapOptionRow({
+  option,
+  selected,
+  onSelect,
+}: {
+  option: MovementSwapOption
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        'w-full rounded-xl border p-3 text-left transition',
+        selected
+          ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--vf-action-soft)]'
+          : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] hover:border-[var(--vf-action-border)]',
+      )}
+      onClick={onSelect}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-extrabold text-[var(--mantine-color-text)]">{option.movementName}</p>
+          <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
+            {option.relationshipLabel} · {option.category}
+          </p>
+        </div>
+        <span className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+          {option.source === 'rule' ? 'Suggested' : 'Related'}
+        </span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {option.equipment.map((item) => (
+          <span
+            key={item}
+            className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--mantine-color-dimmed)]"
+          >
+            {formatEquipmentLabel(item)}
+          </span>
+        ))}
+      </div>
+    </button>
   )
 }
 
@@ -727,15 +1057,15 @@ function MovementHistoryModal({ open, movement, onClose }: { open: boolean; move
       title={`${movement.movementName} history`}
       size="lg"
       classNames={{
-        content: '!border !border-[var(--border)] !bg-[var(--surface)] !text-[var(--text)]',
-        header: '!bg-[var(--surface)] !text-[var(--text)]',
-        title: 'text-lg font-bold !text-[var(--text)]',
-        body: '!text-[var(--text)]',
-        close: '!text-[var(--muted)] hover:!bg-[var(--surface-2)] hover:!text-[var(--text)]',
+        content: '!border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+        header: '!bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+        title: 'text-lg font-bold !text-[var(--mantine-color-text)]',
+        body: '!text-[var(--mantine-color-text)]',
+        close: '!text-[var(--mantine-color-dimmed)] hover:!bg-[var(--vf-surface-2)] hover:!text-[var(--mantine-color-text)]',
       }}
     >
       <div className="space-y-3">
-        <p className="text-sm text-[var(--muted)]">
+        <p className="text-sm text-[var(--mantine-color-dimmed)]">
           Recent completed logs for this movement, including sessions from any program.
         </p>
 
@@ -763,17 +1093,17 @@ function MovementHistoryCard({ entry }: { entry: MovementHistoryEntry }) {
   const date = entry.completedAt ?? entry.scheduledDate
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+    <div className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-extrabold">{entry.sessionTitle}</p>
-          <p className="mt-0.5 text-xs text-[var(--muted)]">
+          <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
             {entry.programTitle ?? 'Training session'} · {entry.targetSummary}
           </p>
         </div>
-        <span className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-right">
-          <span className="block text-[10px] font-extrabold uppercase tracking-wide text-[var(--muted)]">{formatCompactDate(date)}</span>
-          <span className="block text-[10px] font-semibold text-[var(--muted)]">{formatRelativeTime(date)}</span>
+        <span className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2 py-1 text-right">
+          <span className="block text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{formatCompactDate(date)}</span>
+          <span className="block text-[10px] font-semibold text-[var(--mantine-color-dimmed)]">{formatRelativeTime(date)}</span>
         </span>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -783,8 +1113,8 @@ function MovementHistoryCard({ entry }: { entry: MovementHistoryEntry }) {
             className={cn(
               'rounded-lg border px-2 py-1 text-[11px] font-bold',
               set.isTopSet || set.isAmrap
-                ? 'border-purple-500/30 bg-purple-500/10 text-purple-300 md:text-purple-700'
-                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text)]',
+                ? 'border-[var(--vf-accent-border)] bg-[var(--vf-accent-soft)] text-[var(--mantine-color-accent-filled)]'
+                : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-text)]',
             )}
           >
             {set.setIndex}: {formatHistorySet(set, entry.units ?? undefined)}
@@ -797,19 +1127,32 @@ function MovementHistoryCard({ entry }: { entry: MovementHistoryEntry }) {
 
 function HistoryStatus({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'danger' }) {
   return (
-    <p className={cn('rounded-xl border p-3 text-sm', tone === 'danger' ? 'border-red-500/30 bg-red-500/10 text-red-200 md:text-red-700' : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)]')}>
+    <p className={cn('rounded-xl border p-3 text-sm', tone === 'danger' ? 'border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] text-[var(--vf-danger-text)]' : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]')}>
       {children}
     </p>
   )
 }
 
-function ToolButton({ title, icon, label, onClick }: { title: string; icon: ReactNode; label: string; onClick?: () => void }) {
+function ToolButton({
+  title,
+  icon,
+  label,
+  onClick,
+  disabled = false,
+}: {
+  title: string
+  icon: ReactNode
+  label: string
+  onClick?: () => void
+  disabled?: boolean
+}) {
   return (
     <button
       type="button"
-      className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#2E2E34] bg-[#242428] text-[#9A9AA6] transition hover:border-[#4F8EF7] md:h-7 md:w-auto md:gap-1 md:rounded-lg md:border-[#E5E7EB] md:bg-[#F4F5F7] md:px-2 md:text-[11px] md:font-semibold md:text-[#6B7280] md:hover:bg-white md:hover:text-[#111827]"
+      className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)] transition hover:border-[var(--vf-action-border)] hover:bg-[var(--vf-surface-3)] hover:text-[var(--mantine-color-text)] disabled:cursor-not-allowed disabled:opacity-45 md:h-7 md:w-auto md:gap-1 md:rounded-lg md:px-2 md:text-[11px] md:font-semibold"
       title={title}
       aria-label={title}
+      disabled={disabled}
       onClick={onClick}
     >
       {icon}
@@ -821,10 +1164,10 @@ function ToolButton({ title, icon, label, onClick }: { title: string; icon: Reac
 function MetricBlock({ label, value, align = 'left' }: { label: string; value: string; align?: 'left' | 'right' }) {
   return (
     <div className={cn(align === 'right' && 'text-right')}>
-      <p className="text-[8px] font-extrabold uppercase tracking-wider text-[#9A9AA6] md:text-[9px] md:text-[#6B7280]">
+      <p className="text-[8px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)] md:text-[9px]">
         {label}
       </p>
-      <p className="mt-0.5 text-[11px] font-bold text-[#F2F2F3] md:text-sm md:text-[#111827]">{value}</p>
+      <p className="mt-0.5 text-[11px] font-bold text-[var(--mantine-color-text)] md:text-sm">{value}</p>
     </div>
   )
 }
@@ -850,8 +1193,8 @@ function MovementNumberBadge({
       className={cn(
         'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-extrabold',
         active
-          ? 'bg-[#4F8EF7] text-white md:bg-[#2563EB]'
-          : 'bg-[#2E2E34] text-[#9A9AA6] md:bg-[#E5E7EB] md:text-[#6B7280]',
+          ? 'bg-[var(--mantine-primary-color-filled)] text-white'
+          : 'bg-[var(--vf-surface-3)] text-[var(--mantine-color-dimmed)]',
       )}
     >
       {number}
@@ -863,7 +1206,7 @@ function QuickAdjustButton({ children, onClick }: { children: ReactNode; onClick
   return (
     <button
       type="button"
-      className="rounded-lg border border-[#2E2E34] bg-[#1A1A1E] px-1.5 py-1 text-[9px] font-bold text-[#9A9AA6] transition hover:border-[#4F8EF7] md:rounded-md md:border-[#E5E7EB] md:bg-white md:px-2 md:py-0.5 md:text-[10px] md:text-[#6B7280] md:hover:bg-[#F4F5F7]"
+      className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-1.5 py-1 text-[9px] font-bold text-[var(--mantine-color-dimmed)] transition hover:border-[var(--vf-action-border)] hover:bg-[var(--vf-surface-2)] md:rounded-md md:px-2 md:py-0.5 md:text-[10px]"
       onClick={onClick}
     >
       {children}
@@ -912,4 +1255,11 @@ function roundToStep(value: number, step: number) {
 
 function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
+}
+
+function formatEquipmentLabel(value: string) {
+  return value
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }

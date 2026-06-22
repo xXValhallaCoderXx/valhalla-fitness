@@ -17,7 +17,7 @@ class WorkoutLocalDb extends Dexie {
   queuedMutations!: Table<QueuedMutation, number>
 
   constructor() {
-    super('workout-comeback')
+    super('sheetless')
     this.version(1).stores({
       activeSessions: 'sessionId, status, updatedAt',
       queuedMutations: '++id, clientMutationId, sessionId, kind, createdAt',

@@ -42,6 +42,29 @@ export function patchSetInSession(session: WorkoutSession, patch: SetPatch): Wor
   }
 }
 
+export function patchMovementInSession(
+  session: WorkoutSession,
+  patch: {
+    exerciseLogId: string
+    performedMovementId: string
+    performedMovementName: string
+    syncState?: WorkoutSession['syncState']
+  },
+): WorkoutSession {
+  return {
+    ...session,
+    syncState: patch.syncState === 'syncFailed' ? 'syncFailed' : session.syncState,
+    movements: session.movements.map((movement) => {
+      if (movement.id !== patch.exerciseLogId) return movement
+      return {
+        ...movement,
+        performedMovementId: patch.performedMovementId,
+        performedMovementName: patch.performedMovementName,
+      }
+    }),
+  }
+}
+
 export function sessionCompletion(session: WorkoutSession) {
   const sets = session.movements.flatMap((movement) => movement.sets)
   const completed = sets.filter((set) => set.completed).length

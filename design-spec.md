@@ -360,7 +360,7 @@ Design notes:
   - Reps: -1, +1.
   - RIR: 0, 1, 2, 3, 4+.
 - Include quick chips and steppers close to the active set row without hiding target values.
-- Keep rest timer, finish, plate math, swap, and history actions visible but visually secondary to logging.
+- Keep finish, plate math, swap, and history actions visible but visually secondary to logging.
 - Keep the set row height stable after completion.
 - Do not hide target values after logging actual values.
 - Completed sets should be clearly marked but still readable.
@@ -946,7 +946,7 @@ The design is successful if:
 Keep these directions:
 
 - Today screen structure: current workout, top-set history, accessory preview, progression alert, this-week/up-next context, and active program progress.
-- Live Session structure: movement rail, active set row, quick load/reps adjustments, RIR chips, timer, finish button, plate math, swap, and history actions.
+- Live Session structure: movement rail, active set row, quick load/reps adjustments, RIR chips, finish button, plate math, swap, and history actions.
 - Substitution sheet: explicit planned-vs-performed preview and history-preserving copy.
 - Session Summary: completed work, main lift highlights, accessory outcomes, and reviewable progression actions.
 - Program, History, and Settings IA: timeline, anchors, movement trends, substitution visibility, equipment profile, and sync status.

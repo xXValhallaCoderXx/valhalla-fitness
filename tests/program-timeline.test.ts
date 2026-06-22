@@ -10,9 +10,9 @@ describe('program timeline model', () => {
     expect(timeline.currentSessionInWeek).toBe(0)
     expect(timeline.weeks[1]?.sessions).toHaveLength(4)
     expect(timeline.weeks[1]?.sessions[0]).toMatchObject({
-      title: 'Squat',
-      mainPrescription: '70%x3 · 80%x3 · 90%x3+',
-      variationMovement: 'FSL supplemental work',
+      title: 'Squat + Lower Accessories',
+      mainPrescription: '70%x3 · 80%x3 · 90%x3+ · FSL 5x5',
+      variationMovement: '3 accessories',
     })
   })
 
@@ -22,11 +22,11 @@ describe('program timeline model', () => {
     expect(timeline.totalWeeks).toBe(18)
     expect(timeline.currentWeekIndex).toBe(9)
     expect(timeline.currentSessionInWeek).toBe(0)
-    expect(timeline.weeks[8]?.summary).toContain('Next week starts a new wave: 5x3+ around 85%.')
+    expect(timeline.weeks[8]?.summary).toContain('4x4+ main work around 80%')
     expect(timeline.weeks[9]?.subtitle).toBe('Peak phase · Wave 1, week 1')
     expect(timeline.weeks[9]?.sessions[0]).toMatchObject({
-      title: 'Squat',
-      mainPrescription: '5x3+ @ 85%',
+      title: 'Bullmastiff Squat',
+      mainPrescription: '5 sets x 3+ @ 85%',
       variationMovement: 'Pause Squat',
     })
   })
@@ -34,5 +34,7 @@ describe('program timeline model', () => {
   it('selects the correct timeline builder from the active template id', () => {
     expect(buildProgramTimeline({ templateId: 'bromley-bullmastiff', currentWeekIndex: 0 }).totalWeeks).toBe(18)
     expect(buildProgramTimeline({ templateId: 'healthy-531-fsl', currentWeekIndex: 0 }).totalWeeks).toBe(4)
+    expect(buildProgramTimeline({ templateId: 'bromley-70s-powerlifter', currentWeekIndex: 0 }).totalWeeks).toBe(18)
+    expect(buildProgramTimeline({ templateId: 'bromley-volume-intensity', currentWeekIndex: 0 }).totalWeeks).toBe(6)
   })
 })

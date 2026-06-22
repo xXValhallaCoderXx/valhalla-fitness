@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { Button, Card } from '@mantine/core'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import {
@@ -6,7 +7,6 @@ import {
   setSessionFromTokensFn,
   verifyEmailOtpFn,
 } from '~/server/auth'
-import { Button, Card } from '~/components/ui'
 
 type CallbackInput =
   | { kind: 'code'; code: string }
@@ -95,7 +95,7 @@ function AuthCallback() {
     <main className="flex min-h-screen items-center justify-center px-4">
       <Card className="max-w-md">
         <h1 className="text-lg font-bold">Auth callback</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">{message}</p>
+        <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">{message}</p>
         {callbackError || (mutation.data && !mutation.data.ok) ? (
           <Button className="mt-4" onClick={() => router.navigate({ to: '/auth' })}>
             Back to sign in

@@ -1,11 +1,14 @@
 import { queryOptions } from '@tanstack/react-query'
 import {
   getActiveProgramFn,
+  getHistoryDashboardFn,
   getMeFn,
   getMovementHistoryFn,
+  getProgramOverviewFn,
   getRecentHistoryFn,
   getSessionFn,
   getTodayFn,
+  listMovementSwapOptionsFn,
   listTemplatesFn,
 } from '~/server/api'
 
@@ -45,8 +48,26 @@ export const recentHistoryQueryOptions = () =>
     queryFn: () => getRecentHistoryFn(),
   })
 
+export const historyDashboardQueryOptions = () =>
+  queryOptions({
+    queryKey: ['history', 'dashboard'],
+    queryFn: () => getHistoryDashboardFn(),
+  })
+
+export const programOverviewQueryOptions = () =>
+  queryOptions({
+    queryKey: ['programOverview'],
+    queryFn: () => getProgramOverviewFn(),
+  })
+
 export const movementHistoryQueryOptions = (movementId: string) =>
   queryOptions({
     queryKey: ['history', 'movement', movementId],
     queryFn: () => getMovementHistoryFn({ data: { movementId } }),
+  })
+
+export const movementSwapOptionsQueryOptions = (sessionId: string, exerciseLogId: string) =>
+  queryOptions({
+    queryKey: ['movementSwapOptions', sessionId, exerciseLogId],
+    queryFn: () => listMovementSwapOptionsFn({ data: { sessionId, exerciseLogId } }),
   })

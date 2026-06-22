@@ -1,5 +1,5 @@
 {
-  "name": "workout-comeback",
+  "name": "sheetless",
   "version": "0.1.0",
   "private": true,
   "sideEffects": false,
@@ -13,6 +13,7 @@
     "build": "vite build && tsc --noEmit",
     "preview": "vite preview",
     "start": "node .output/server/index.mjs",
+    "db:migrate:local": "supabase db push --local --yes",
     "db:migrate": "supabase db push --db-url \"$SUPABASE_DB_URL\" --yes",
     "db:migrate:dry-run": "supabase db push --db-url \"$SUPABASE_DB_URL\" --dry-run",
     "typecheck": "tsc --noEmit",

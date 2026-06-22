@@ -1,8 +1,9 @@
 import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
+import { Badge, Button, Card, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { Check, Lock, Search } from 'lucide-react'
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { shouldConfirmProgramStart } from '~/lib/program-switch'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { getMovementName } from '~/lib/movements'
@@ -10,7 +11,7 @@ import { defaultAnchors } from '~/lib/templates'
 import { meQueryOptions, templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
 import { startProgramFn } from '~/server/api'
 import type { AnchorInput, ProgramTemplateSummary, Unit } from '~/types/training'
-import { Button, Card, Chip, ConfirmDialog, EmptyState, Page, PageHeader, TextInput } from '~/components/ui'
+import { ConfirmDialog, EmptyState, Page, PageHeader } from '~/components/ui'
 
 export const Route = createFileRoute('/templates')({
   loader: async ({ context }) => {
@@ -66,6 +67,7 @@ function AuthedTemplates({
   const [showSwitchConfirm, setShowSwitchConfirm] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const activeSessionId = today.activeSession?.sessionId
+  const activeTemplateId = today.activeProgram?.templateId ?? null
 
   const filtered = useMemo(() => {
     return templates.filter((template) => {
@@ -77,6 +79,10 @@ function AuthedTemplates({
       return matchesFilter && haystack.includes(query.toLowerCase())
     })
   }, [filter, query, templates])
+  const activeTemplate = activeTemplateId ? filtered.find((template) => template.id === activeTemplateId) ?? null : null
+  const availableTemplates = activeTemplateId
+    ? filtered.filter((template) => template.id !== activeTemplateId)
+    : filtered
 
   const startMutation = useMutation({
     mutationFn: (input: { replaceActiveProgram?: boolean }) => {
@@ -177,8 +183,8 @@ function AuthedTemplates({
       <PageHeader
         title="Choose a program"
         actions={
-          <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--muted)] shadow-[var(--shadow-card)]">
-            <span className="font-extrabold text-[var(--text)]">{templates.length}</span> programs available
+          <span className="vf-chip">
+            <span className="font-extrabold text-[var(--mantine-color-text)]">{templates.length}</span> programs available
           </span>
         }
       >
@@ -186,10 +192,9 @@ function AuthedTemplates({
       </PageHeader>
 
       <div className="mb-5 space-y-3 md:mb-6">
-        <div className="relative max-w-4xl">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
+        <div className="max-w-4xl">
           <TextInput
-            className="pl-9"
+            leftSection={<Search size={16} />}
             placeholder="Search programs"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -199,10 +204,10 @@ function AuthedTemplates({
           {['All', '5/3/1', 'Bromley', 'Base', 'Peak', 'High volume', 'Low volume'].map((item) => (
             <button
               key={item}
-              className={`min-h-9 whitespace-nowrap rounded-full border px-3.5 py-2 text-xs font-bold transition ${
+              className={`min-h-8 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-bold transition ${
                 filter === item
-                  ? 'border-[var(--action)] bg-[var(--action)] text-white'
-                  : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:border-[var(--action-border)] hover:text-[var(--text)]'
+                  ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-primary-color-filled)] text-white'
+                  : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)] hover:border-[var(--vf-action-border)] hover:text-[var(--mantine-color-text)]'
               }`}
               onClick={() => setFilter(item)}
             >
@@ -212,15 +217,32 @@ function AuthedTemplates({
         </div>
       </div>
 
-      <p className="mb-3 text-[11px] font-semibold text-[var(--muted)]">Showing {filtered.length} programs</p>
+      <p className="mb-3 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">Showing {filtered.length} programs</p>
 
-      <div
-        className="grid items-stretch gap-4 md:gap-5"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 22rem), 1fr))' }}
-      >
-        {filtered.map((template) => (
-          <TemplateCard key={template.id} template={template} onStart={() => selectTemplate(template)} />
-        ))}
+      <div className="space-y-6">
+        {activeTemplate ? (
+          <section>
+            <p className="vf-section-label mb-3">Active</p>
+            <TemplateGrid>
+              <TemplateCard template={activeTemplate} isActive onStart={() => selectTemplate(activeTemplate)} />
+            </TemplateGrid>
+          </section>
+        ) : null}
+
+        <section>
+          <p className="vf-section-label mb-3">{activeTemplate ? 'Available' : 'Programs'}</p>
+          {availableTemplates.length ? (
+            <TemplateGrid>
+              {availableTemplates.map((template) => (
+                <TemplateCard key={template.id} template={template} onStart={() => selectTemplate(template)} />
+              ))}
+            </TemplateGrid>
+          ) : (
+            <EmptyState title={activeTemplate ? 'No other matching programs' : 'No matching programs'}>
+              Adjust the search or filter to see more templates.
+            </EmptyState>
+          )}
+        </section>
       </div>
 
       {selected && showSetup ? (
@@ -237,24 +259,24 @@ function AuthedTemplates({
             className="w-full max-w-lg"
             onClick={(event) => event.stopPropagation()}
           >
-            <Card>
+            <Card className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 id={setupTitleId} className="text-lg font-bold">
                     {selected.name}
                   </h2>
-                  <p className="mt-1 text-sm text-[var(--muted)]">Set units, rounding, and starting anchors.</p>
+                  <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">Set units, rounding, and starting anchors.</p>
                 </div>
-                <Button variant="ghost" onClick={closeSetup}>
+                <Button color="neutral" variant="subtle" onClick={closeSetup}>
                   Close
                 </Button>
               </div>
               <div className="mt-4 grid gap-3">
                 <div className="grid grid-cols-2 gap-2">
                   <label className="grid gap-1">
-                    <span className="text-xs font-bold uppercase text-[var(--muted)]">Units</span>
+                    <span className="text-xs font-bold uppercase text-[var(--mantine-color-dimmed)]">Units</span>
                     <select
-                      className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3"
+                      className="min-h-10 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3"
                       value={units}
                       onChange={(event) => {
                         const next = event.target.value as Unit
@@ -267,7 +289,7 @@ function AuthedTemplates({
                     </select>
                   </label>
                   <label className="grid gap-1">
-                    <span className="text-xs font-bold uppercase text-[var(--muted)]">Rounding</span>
+                    <span className="text-xs font-bold uppercase text-[var(--mantine-color-dimmed)]">Rounding</span>
                     <TextInput
                       type="number"
                       value={rounding}
@@ -278,24 +300,24 @@ function AuthedTemplates({
                 <div className="grid gap-2">
                   <div>
                     <p className="vf-section-label">Starting anchors</p>
-                    <p className="mt-1 text-xs text-[var(--muted)]">
+                    <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
                       Enter the training max used to calculate the first block of prescribed loads.
                     </p>
                   </div>
                   {anchors.map((anchor) => (
                     <label
                       key={anchor.movementId}
-                      className="grid gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3 sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-center"
+                      className="grid gap-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-center"
                     >
                       <span className="min-w-0">
-                        <span className="block text-sm font-extrabold text-[var(--text)]">{getMovementName(anchor.movementId)}</span>
-                        <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                        <span className="block text-sm font-extrabold text-[var(--mantine-color-text)]">{getMovementName(anchor.movementId)}</span>
+                        <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
                           {anchor.anchorType.replaceAll('_', ' ')}
                         </span>
                       </span>
                       <span className="relative block">
                         <TextInput
-                          className="pr-12 text-right"
+                          classNames={{ input: 'pr-12 text-right' }}
                           type="number"
                           value={anchor.value}
                           onChange={(event) =>
@@ -308,7 +330,7 @@ function AuthedTemplates({
                             )
                           }
                         />
-                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--muted)]">
+                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--mantine-color-dimmed)]">
                           {units}
                         </span>
                       </span>
@@ -320,7 +342,7 @@ function AuthedTemplates({
                 Start program
               </Button>
               {startError ? (
-                <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+                <p className="mt-3 rounded-lg border border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] p-3 text-sm text-[var(--vf-danger-text)]">
                   {startError}
                 </p>
               ) : null}
@@ -342,14 +364,14 @@ function AuthedTemplates({
             {today.activeProgram ? (
               <>
                 You already have{' '}
-                <span className="font-semibold text-[var(--text)]">{today.activeProgram.title}</span> active.
+                <span className="font-semibold text-[var(--mantine-color-text)]">{today.activeProgram.title}</span> active.
               </>
             ) : (
               'You already have an active program.'
             )}
           </p>
           <p>
-            Starting <span className="font-semibold text-[var(--text)]">{selected?.name ?? 'a new program'}</span>{' '}
+            Starting <span className="font-semibold text-[var(--mantine-color-text)]">{selected?.name ?? 'a new program'}</span>{' '}
             will archive the current program and make this your new active program.
           </p>
           {today.activeSession ? (
@@ -366,47 +388,66 @@ function AuthedTemplates({
 
 function TemplateCard({
   template,
+  isActive = false,
   onStart,
 }: {
   template: ProgramTemplateSummary
+  isActive?: boolean
   onStart: () => void
 }) {
   return (
-    <Card className="group flex min-h-[18rem] flex-col gap-5 p-4 vf-card-hover md:p-5">
+    <Card className={`group flex min-h-[16rem] flex-col gap-4 p-4 vf-card-hover ${isActive ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)]' : ''}`}>
       <div className="flex flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Chip tone={template.sourceLabel === 'Bromley' ? 'warning' : 'action'}>{template.sourceLabel}</Chip>
-          <span className="text-[11px] font-semibold text-[var(--muted)]">{template.daysPerWeek} days/wk</span>
-          <Chip tone="action" className="normal-case sm:ml-auto">
+          <Badge color={template.sourceLabel === 'Bromley' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
+          {isActive ? <Badge color="success">Active</Badge> : null}
+          <span className="text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">{template.daysPerWeek} days/wk</span>
+          <Badge color="action" className="normal-case sm:ml-auto">
             {template.progressionLabel}
-          </Chip>
+          </Badge>
         </div>
 
         <div>
           <h2 className="text-lg font-extrabold leading-tight tracking-tight md:text-xl">{template.name}</h2>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">{template.description}</p>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--mantine-color-dimmed)]">{template.description}</p>
         </div>
 
-        <div className="mt-auto flex flex-wrap gap-1.5 text-[10px] text-[var(--muted)]">
-          <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 font-semibold">{template.complexity}</span>
+        <div className="mt-auto flex flex-wrap gap-1.5 text-[10px] text-[var(--mantine-color-dimmed)]">
+          <span className="rounded-md bg-[var(--vf-surface-2)] px-1.5 py-0.5 font-semibold">{template.complexity}</span>
           {template.tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 font-semibold">
+            <span key={tag} className="rounded-md bg-[var(--vf-surface-2)] px-1.5 py-0.5 font-semibold">
               {tag}
             </span>
           ))}
         </div>
       </div>
-      {template.available ? (
+      {isActive ? (
+        <Button color="success" variant="light" disabled>
+          <Check size={16} />
+          Active Program
+        </Button>
+      ) : template.available ? (
         <Button className="w-full" onClick={onStart}>
           <Check size={16} />
           Start Program
         </Button>
       ) : (
-        <Button variant="secondary" disabled>
+        <Button variant="default" disabled>
           <Lock size={16} />
           Not yet
         </Button>
       )}
     </Card>
+  )
+}
+
+function TemplateGrid({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="grid items-stretch gap-4 md:gap-5"
+      style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 22rem), 1fr))' }}
+    >
+      {children}
+    </div>
   )
 }
