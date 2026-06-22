@@ -1,7 +1,10 @@
-import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { notifications } from '@mantine/notifications'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Check, CheckCircle2, Clock3, X } from 'lucide-react'
+import { getApiErrorMessage } from '~/lib/api-error'
 import { sessionQueryOptions } from '~/lib/query-options'
+import { resolveProgressionDecisionFn } from '~/server/api'
 import type { SessionSummary } from '~/types/training'
 import { Button, Card, Chip, Page, PageHeader } from '~/components/ui'
 
@@ -21,6 +24,34 @@ function SummaryRoute() {
   const sets = session.movements.flatMap((movement) => movement.sets)
   const completedSets = sets.filter((set) => set.completed)
   const summary = queryClient.getQueryData<SessionSummary>(['summary', sessionId])
+  const decisionMutation = useMutation({
+    mutationFn: (data: { decisionId: string; action: 'accepted' | 'dismissed' | 'pending' }) =>
+      resolveProgressionDecisionFn({ data }),
+    onSuccess: async (_pendingDecisions, variables) => {
+      if (variables.action !== 'pending') {
+        queryClient.setQueryData<SessionSummary>(['summary', sessionId], (current) =>
+          current
+            ? {
+                ...current,
+                decisions: current.decisions.filter((decision) => decision.id !== variables.decisionId),
+              }
+            : current,
+        )
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
+        queryClient.invalidateQueries({ queryKey: ['today'] }),
+      ])
+      notifications.show({ color: 'success', title: 'Progression updated', message: 'Your decision was saved.' })
+    },
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Could not save decision',
+        message: getApiErrorMessage(error, 'Unable to save progression decision'),
+      })
+    },
+  })
 
   return (
     <Page>
@@ -72,20 +103,22 @@ function SummaryRoute() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="font-bold">{decision.movementName}</p>
-                      <p className="mt-1 text-sm text-[var(--muted)]">{decision.recommendation}</p>
+                      <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">{formatRuleId(decision.ruleId)}</p>
+                      <p className="mt-1 text-xs text-[var(--muted)]">{decision.inputSummary}</p>
+                      <p className="mt-1 text-sm font-semibold">{decision.recommendation}</p>
                     </div>
                     <Chip tone="warning">Pending</Chip>
                   </div>
                   <div className="mt-3 grid grid-cols-3 gap-2">
-                    <Button variant="success">
+                    <Button variant="success" disabled={decisionMutation.isPending} onClick={() => decisionMutation.mutate({ decisionId: decision.id, action: 'accepted' })}>
                       <Check size={15} />
                       Accept
                     </Button>
-                    <Button variant="secondary">
+                    <Button variant="secondary" disabled={decisionMutation.isPending} onClick={() => decisionMutation.mutate({ decisionId: decision.id, action: 'pending' })}>
                       <Clock3 size={15} />
                       Later
                     </Button>
-                    <Button variant="danger">
+                    <Button variant="danger" disabled={decisionMutation.isPending} onClick={() => decisionMutation.mutate({ decisionId: decision.id, action: 'dismissed' })}>
                       <X size={15} />
                       Dismiss
                     </Button>
@@ -121,4 +154,8 @@ function SummaryRoute() {
       </div>
     </Page>
   )
+}
+
+function formatRuleId(ruleId: string) {
+  return ruleId.replaceAll('_', ' ')
 }

@@ -1,15 +1,19 @@
 import { createServerFn } from '@tanstack/react-start'
 import type {
   AnchorInput,
+  MovementHistoryEntry,
   MovementSlot,
   PlannedSession,
   ProgramInstance,
   ProgramTemplateSummary,
+  RecentHistoryEntry,
   ProgressionDecision,
   SessionSummary,
   SetLog,
   TodayPayload,
+  ThemePreference,
   Unit,
+  UserProfile,
   WorkoutSession,
 } from '~/types/training'
 import { defaultAnchors, expandPlannedSession, programForNextUncompletedSession, templateCatalog } from '~/lib/templates'
@@ -37,7 +41,7 @@ async function ensureProfile() {
   if (profile) return profile
   const { data, error } = await supabase
     .from('profiles')
-    .insert({ id: user.id, email, units: 'kg', rounding: 2.5 })
+    .insert({ id: user.id, email, units: 'kg', rounding: 2.5, theme_preference: 'system' })
     .select('*')
     .single()
   if (error) throw new Error(error.message)
@@ -277,7 +281,7 @@ async function getSessionInternal(sessionId: string): Promise<WorkoutSession> {
   }
 }
 
-export const getMeFn = createServerFn({ method: 'GET' }).handler(async () => {
+export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promise<UserProfile | null> => {
   if (!hasSupabaseEnv()) return null
   let profile
   try {
@@ -294,11 +298,20 @@ export const getMeFn = createServerFn({ method: 'GET' }).handler(async () => {
     rounding: Number(profile.rounding),
     autoStartTimer: profile.auto_start_timer,
     equipmentProfile: profile.equipment_profile ?? [],
+    themePreference: (profile.theme_preference ?? 'system') as ThemePreference,
   }
 })
 
 export const updateSettingsFn = createServerFn({ method: 'POST' })
-  .validator((data: { units: Unit; rounding: number; autoStartTimer: boolean; equipmentProfile: string[] }) => data)
+  .validator(
+    (data: {
+      units: Unit
+      rounding: number
+      autoStartTimer: boolean
+      equipmentProfile: string[]
+      themePreference: ThemePreference
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const { supabase, user } = await requireUser()
     const { error } = await supabase
@@ -308,6 +321,7 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
         rounding: data.rounding,
         auto_start_timer: data.autoStartTimer,
         equipment_profile: data.equipmentProfile,
+        theme_preference: data.themePreference,
       })
       .eq('id', user.id)
     if (error) throw new Error(error.message)
@@ -715,17 +729,20 @@ export const resolveProgressionDecisionFn = createServerFn({ method: 'POST' })
     if (updateError) throw new Error(updateError.message)
 
     if (data.action === 'accepted' && decision.recommended_anchor !== null) {
-      await supabase
+      const { error: anchorError } = await supabase
         .from('program_anchors')
         .update({ value: decision.recommended_anchor })
         .eq('user_id', user.id)
         .eq('program_instance_id', decision.program_instance_id)
         .eq('movement_id', decision.movement_id)
+        .select('id')
+        .single()
+      if (anchorError) throw new Error(anchorError.message)
     }
     return getPendingDecisionsInternal(decision.program_instance_id)
   })
 
-export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(async () => {
+export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(async (): Promise<RecentHistoryEntry[]> => {
   const { supabase, user } = await requireUser()
   const { data, error } = await supabase
     .from('workout_sessions')
@@ -735,26 +752,141 @@ export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(asyn
     .order('completed_at', { ascending: false })
     .limit(20)
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row: any) => ({
-    id: row.id,
-    title: row.prescription_snapshot?.title ?? row.planned_session_id,
-    completedAt: row.completed_at,
-    scheduledDate: row.scheduled_date,
-    programTitle: row.prescription_snapshot?.programTitle,
-  }))
+  const rows = data ?? []
+  const sessionIds = rows.map((row: any) => row.id as string)
+  const { data: exercises, error: exerciseError } = sessionIds.length
+    ? await supabase
+        .from('exercise_logs')
+        .select('id, session_id')
+        .eq('user_id', user.id)
+        .in('session_id', sessionIds)
+    : { data: [], error: null }
+  if (exerciseError) throw new Error(exerciseError.message)
+
+  const exerciseToSessionId = new Map((exercises ?? []).map((exercise: any) => [exercise.id, exercise.session_id as string]))
+  const exerciseIds = Array.from(exerciseToSessionId.keys())
+  const { data: sets, error: setError } = exerciseIds.length
+    ? await supabase
+        .from('set_logs')
+        .select('exercise_log_id, completed')
+        .eq('user_id', user.id)
+        .in('exercise_log_id', exerciseIds)
+    : { data: [], error: null }
+  if (setError) throw new Error(setError.message)
+
+  const completedSetsBySessionId = new Map<string, number>()
+  const loggedSetsBySessionId = new Map<string, number>()
+  for (const set of sets ?? []) {
+    const sessionId = exerciseToSessionId.get(set.exercise_log_id)
+    if (!sessionId) continue
+    loggedSetsBySessionId.set(sessionId, (loggedSetsBySessionId.get(sessionId) ?? 0) + 1)
+    if (set.completed) {
+      completedSetsBySessionId.set(sessionId, (completedSetsBySessionId.get(sessionId) ?? 0) + 1)
+    }
+  }
+
+  return rows.map((row: any): RecentHistoryEntry => {
+    const snapshot = row.prescription_snapshot as PlannedSession | null
+    const plannedSetCount = snapshot?.movements.reduce((total, movement) => total + movement.sets.length, 0) ?? 0
+    return {
+      id: row.id,
+      title: snapshot?.title ?? row.planned_session_id,
+      completedAt: row.completed_at,
+      scheduledDate: row.scheduled_date,
+      programTitle: snapshot?.programTitle ?? null,
+      weekLabel: snapshot?.weekLabel ?? null,
+      hardness: snapshot?.hardness ?? null,
+      estimatedMinutes: snapshot?.estimatedMinutes ?? null,
+      movementCount: snapshot?.movements.length ?? 0,
+      completedSetCount: completedSetsBySessionId.get(row.id) ?? 0,
+      plannedSetCount: loggedSetsBySessionId.get(row.id) ?? plannedSetCount,
+    }
+  })
 })
 
 export const getMovementHistoryFn = createServerFn({ method: 'GET' })
   .validator((data: { movementId: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<MovementHistoryEntry[]> => {
     const { supabase, user } = await requireUser()
     const { data: exercises, error } = await supabase
       .from('exercise_logs')
-      .select('id, session_id, planned_movement_id, performed_movement_id, role, target_summary')
+      .select('id, session_id, planned_movement_id, performed_movement_id, role, target_summary, created_at')
       .eq('user_id', user.id)
       .or(`planned_movement_id.eq.${data.movementId},performed_movement_id.eq.${data.movementId}`)
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(80)
     if (error) throw new Error(error.message)
-    return exercises ?? []
+
+    const exerciseRows = exercises ?? []
+    const exerciseIds = exerciseRows.map((exercise: any) => exercise.id as string)
+    const sessionIds = Array.from(new Set(exerciseRows.map((exercise: any) => exercise.session_id as string)))
+    if (!exerciseIds.length || !sessionIds.length) return []
+
+    const { data: sessions, error: sessionError } = await supabase
+      .from('workout_sessions')
+      .select('id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot')
+      .eq('user_id', user.id)
+      .eq('status', 'completed')
+      .in('id', sessionIds)
+    if (sessionError) throw new Error(sessionError.message)
+
+    const { data: setRows, error: setError } = await supabase
+      .from('set_logs')
+      .select('id, exercise_log_id, set_index, target_load, target_reps, target_rep_min, target_rep_max, target_rir, actual_load, actual_reps, actual_rir, completed, is_top_set, is_amrap, is_backoff')
+      .eq('user_id', user.id)
+      .in('exercise_log_id', exerciseIds)
+      .order('set_index', { ascending: true })
+    if (setError) throw new Error(setError.message)
+
+    const sessionsById = new Map((sessions ?? []).map((session: any) => [session.id, session]))
+    const setsByExerciseId = new Map<string, any[]>()
+    for (const set of setRows ?? []) {
+      const sets = setsByExerciseId.get(set.exercise_log_id) ?? []
+      sets.push(set)
+      setsByExerciseId.set(set.exercise_log_id, sets)
+    }
+
+    return exerciseRows
+      .map((exercise: any): MovementHistoryEntry | null => {
+        const session = sessionsById.get(exercise.session_id)
+        if (!session) return null
+        const snapshot = session.prescription_snapshot as PlannedSession | null
+        return {
+          id: exercise.id,
+          sessionId: session.id,
+          sessionTitle: snapshot?.title ?? session.planned_session_id,
+          programTitle: snapshot?.programTitle ?? null,
+          scheduledDate: session.scheduled_date,
+          completedAt: session.completed_at,
+          units: snapshot?.units ?? null,
+          plannedMovementId: exercise.planned_movement_id,
+          performedMovementId: exercise.performed_movement_id,
+          performedMovementName: getMovementName(exercise.performed_movement_id),
+          role: exercise.role,
+          targetSummary: exercise.target_summary,
+          sets: (setsByExerciseId.get(exercise.id) ?? []).map((set: any) => ({
+            id: set.id,
+            setIndex: set.set_index,
+            targetLoad: set.target_load === null ? null : Number(set.target_load),
+            targetReps: set.target_reps,
+            targetRepMin: set.target_rep_min,
+            targetRepMax: set.target_rep_max,
+            targetRir: set.target_rir === null ? null : Number(set.target_rir),
+            actualLoad: set.actual_load === null ? null : Number(set.actual_load),
+            actualReps: set.actual_reps,
+            actualRir: set.actual_rir === null ? null : Number(set.actual_rir),
+            completed: set.completed,
+            isTopSet: set.is_top_set,
+            isAmrap: set.is_amrap,
+            isBackoff: set.is_backoff,
+          })),
+        }
+      })
+      .filter((entry): entry is MovementHistoryEntry => entry !== null)
+      .sort((left, right) => {
+        const leftDate = left.completedAt ?? left.scheduledDate
+        const rightDate = right.completedAt ?? right.scheduledDate
+        return rightDate.localeCompare(leftDate)
+      })
+      .slice(0, 12)
   })

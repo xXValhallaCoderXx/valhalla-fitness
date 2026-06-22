@@ -1,4 +1,5 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Modal } from '@mantine/core'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import {
   Calculator,
@@ -14,9 +15,11 @@ import { useState, type ReactNode } from 'react'
 import { TextInput } from '~/components/atoms'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { cn } from '~/lib/cn'
+import { formatCompactDate, formatRelativeTime } from '~/lib/dates'
+import { movementHistoryQueryOptions } from '~/lib/query-options'
 import { patchSetInSession, sessionCompletion, type SetPatch } from '~/lib/session-cache'
 import { upsertSetLogFn } from '~/server/api'
-import type { MovementSlot, SetLog, WorkoutSession } from '~/types/training'
+import type { MovementHistoryEntry, MovementHistorySet, MovementSlot, SetLog, WorkoutSession } from '~/types/training'
 import { SyncPill } from './session'
 
 const SET_GRID_CLASS = 'grid grid-cols-[1.15rem_minmax(3.75rem,1fr)_minmax(3rem,0.75fr)_minmax(4.75rem,1fr)_2.25rem] sm:grid-cols-[1.25rem_minmax(4.5rem,7.75rem)_minmax(3.25rem,6.5rem)_minmax(5rem,6.5rem)_2.25rem] md:grid-cols-[1.5rem_minmax(4.75rem,1fr)_minmax(4rem,0.8fr)_minmax(5.5rem,1fr)_minmax(7.5rem,1.35fr)_2.25rem]'
@@ -221,6 +224,14 @@ function LiveMovementCard({
   const [selectedSetIndex, setSelectedSetIndex] = useState(
     firstIncompleteIndex ?? movement.sets[0]?.setIndex ?? 1,
   )
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<Record<number, number | undefined>>({})
+
+  const carryRirToNextSet = (setIndex: number, value: number) => {
+    const nextSet = movement.sets.find((candidate) => candidate.setIndex > setIndex && !candidate.completed)
+    if (!nextSet || typeof nextSet.actualRir === 'number') return
+    setSuggestedRirBySetIndex((current) => ({ ...current, [nextSet.setIndex]: value }))
+  }
 
   if (!isActive) {
     return <CollapsedMovementCard movement={movement} movementNumber={movementNumber} onSelect={onSelect} />
@@ -249,7 +260,7 @@ function LiveMovementCard({
           <div className="flex gap-1.5 md:pt-0.5">
             <ToolButton title="Plate math" icon={<Calculator size={13} />} label="Plates" />
             <ToolButton title="Swap movement" icon={<Repeat2 size={13} />} label="Swap" />
-            <ToolButton title="Movement history" icon={<History size={13} />} label="History" />
+            <ToolButton title="Movement history" icon={<History size={13} />} label="History" onClick={() => setHistoryOpen(true)} />
           </div>
         </div>
 
@@ -285,10 +296,14 @@ function LiveMovementCard({
             movement={movement}
             set={set}
             isSelected={set.setIndex === selectedSetIndex}
+            suggestedRir={suggestedRirBySetIndex[set.setIndex]}
             onSelect={() => setSelectedSetIndex(set.setIndex)}
+            onRirSelected={carryRirToNextSet}
           />
         ))}
       </div>
+
+      <MovementHistoryModal open={historyOpen} movement={movement} onClose={() => setHistoryOpen(false)} />
 
       <button
         type="button"
@@ -352,13 +367,17 @@ function LiveSetRow({
   movement,
   set,
   isSelected,
+  suggestedRir,
   onSelect,
+  onRirSelected,
 }: {
   session: WorkoutSession
   movement: MovementSlot
   set: SetLog
   isSelected: boolean
+  suggestedRir?: number
   onSelect: () => void
+  onRirSelected: (setIndex: number, value: number) => void
 }) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState({
@@ -366,6 +385,7 @@ function LiveSetRow({
     actualReps: set.actualReps ?? set.targetReps ?? set.targetRepMin ?? 0,
     actualRir: set.actualRir ?? undefined,
   })
+  const effectiveActualRir = draft.actualRir ?? (!set.completed && typeof set.actualRir !== 'number' ? suggestedRir : undefined)
 
   const mutation = useMutation({
     mutationKey: ['setLog', session.sessionId, movement.id, set.setIndex],
@@ -440,7 +460,7 @@ function LiveSetRow({
       setIndex: set.setIndex,
       actualLoad: Number(draft.actualLoad),
       actualReps: Number(draft.actualReps),
-      actualRir: draft.actualRir,
+      actualRir: effectiveActualRir,
       completed,
       clientMutationId: crypto.randomUUID(),
     })
@@ -510,8 +530,11 @@ function LiveSetRow({
         </div>
 
         <RirSegmentedControl
-          value={draft.actualRir}
-          onChange={(value) => setDraft((current) => ({ ...current, actualRir: value }))}
+          value={effectiveActualRir}
+          onChange={(value) => {
+            setDraft((current) => ({ ...current, actualRir: value }))
+            onRirSelected(set.setIndex, value)
+          }}
           disabled={isEditingDisabled}
           muted={set.completed || isFuture}
           onFocus={onSelect}
@@ -689,13 +712,105 @@ function RolePill({ role, subtle = false }: { role: MovementSlot['role']; subtle
   )
 }
 
-function ToolButton({ title, icon, label }: { title: string; icon: ReactNode; label: string }) {
+function MovementHistoryModal({ open, movement, onClose }: { open: boolean; movement: MovementSlot; onClose: () => void }) {
+  const movementId = movement.performedMovementId ?? movement.movementId
+  const historyQuery = useQuery({
+    ...movementHistoryQueryOptions(movementId),
+    enabled: open,
+  })
+  const entries = historyQuery.data ?? []
+
+  return (
+    <Modal
+      opened={open}
+      onClose={onClose}
+      title={`${movement.movementName} history`}
+      size="lg"
+      classNames={{
+        content: '!border !border-[var(--border)] !bg-[var(--surface)] !text-[var(--text)]',
+        header: '!bg-[var(--surface)] !text-[var(--text)]',
+        title: 'text-lg font-bold !text-[var(--text)]',
+        body: '!text-[var(--text)]',
+        close: '!text-[var(--muted)] hover:!bg-[var(--surface-2)] hover:!text-[var(--text)]',
+      }}
+    >
+      <div className="space-y-3">
+        <p className="text-sm text-[var(--muted)]">
+          Recent completed logs for this movement, including sessions from any program.
+        </p>
+
+        {historyQuery.isPending ? (
+          <HistoryStatus>Loading recent sets…</HistoryStatus>
+        ) : historyQuery.isError ? (
+          <HistoryStatus tone="danger">{getApiErrorMessage(historyQuery.error, 'Unable to load movement history')}</HistoryStatus>
+        ) : entries.length ? (
+          <div className="max-h-[26rem] space-y-2 overflow-y-auto pr-1">
+            {entries.map((entry) => (
+              <MovementHistoryCard key={entry.id} entry={entry} />
+            ))}
+          </div>
+        ) : (
+          <HistoryStatus>No completed sets for this movement yet.</HistoryStatus>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+function MovementHistoryCard({ entry }: { entry: MovementHistoryEntry }) {
+  const completedSets = entry.sets.filter((set) => set.completed)
+  const displaySets = completedSets.length ? completedSets : entry.sets
+  const date = entry.completedAt ?? entry.scheduledDate
+
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-extrabold">{entry.sessionTitle}</p>
+          <p className="mt-0.5 text-xs text-[var(--muted)]">
+            {entry.programTitle ?? 'Training session'} · {entry.targetSummary}
+          </p>
+        </div>
+        <span className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-right">
+          <span className="block text-[10px] font-extrabold uppercase tracking-wide text-[var(--muted)]">{formatCompactDate(date)}</span>
+          <span className="block text-[10px] font-semibold text-[var(--muted)]">{formatRelativeTime(date)}</span>
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {displaySets.map((set) => (
+          <span
+            key={set.id}
+            className={cn(
+              'rounded-lg border px-2 py-1 text-[11px] font-bold',
+              set.isTopSet || set.isAmrap
+                ? 'border-purple-500/30 bg-purple-500/10 text-purple-300 md:text-purple-700'
+                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text)]',
+            )}
+          >
+            {set.setIndex}: {formatHistorySet(set, entry.units ?? undefined)}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function HistoryStatus({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'danger' }) {
+  return (
+    <p className={cn('rounded-xl border p-3 text-sm', tone === 'danger' ? 'border-red-500/30 bg-red-500/10 text-red-200 md:text-red-700' : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)]')}>
+      {children}
+    </p>
+  )
+}
+
+function ToolButton({ title, icon, label, onClick }: { title: string; icon: ReactNode; label: string; onClick?: () => void }) {
   return (
     <button
       type="button"
       className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#2E2E34] bg-[#242428] text-[#9A9AA6] transition hover:border-[#4F8EF7] md:h-7 md:w-auto md:gap-1 md:rounded-lg md:border-[#E5E7EB] md:bg-[#F4F5F7] md:px-2 md:text-[11px] md:font-semibold md:text-[#6B7280] md:hover:bg-white md:hover:text-[#111827]"
       title={title}
       aria-label={title}
+      onClick={onClick}
     >
       {icon}
       <span className="hidden md:inline">{label}</span>
@@ -778,6 +893,15 @@ function formatSetTarget(set: SetLog, units?: string, includeUnit = true) {
   const loadText = load == null ? '—' : `${formatNumber(load)}${includeUnit && units ? ` ${units}` : ''}`
   const repsText = reps == null ? '—' : `${reps}${set.isAmrap ? '+' : ''}`
   return `${loadText} × ${repsText}`
+}
+
+function formatHistorySet(set: MovementHistorySet, units?: string) {
+  const load = set.actualLoad ?? set.targetLoad
+  const reps = set.actualReps ?? set.targetReps ?? (set.targetRepMin && set.targetRepMax ? `${set.targetRepMin}-${set.targetRepMax}` : set.targetRepMin)
+  const loadText = load == null ? '—' : `${formatNumber(load)}${units ? ` ${units}` : ''}`
+  const repsText = reps == null ? '—' : `${reps}${set.isAmrap ? '+' : ''}`
+  const rirText = typeof set.actualRir === 'number' ? ` @ RIR ${set.actualRir}` : ''
+  return `${loadText} × ${repsText}${rirText}`
 }
 
 function roundToStep(value: number, step: number) {

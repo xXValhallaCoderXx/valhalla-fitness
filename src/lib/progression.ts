@@ -117,13 +117,15 @@ export function evaluate531TmBand(
 }
 
 export function evaluateBullmastiffPlusSet(
-  setLog: Pick<SetLog, 'actualReps'>,
+  setLog: Pick<SetLog, 'actualReps' | 'actualRir'>,
   baselineReps: number,
   anchor: number,
   rounding: number,
   movementId: string,
 ): ProgressionDecision {
-  const extraReps = Math.max((setLog.actualReps ?? 0) - baselineReps, 0)
+  const actualReps = setLog.actualReps ?? 0
+  const hasActualRir = typeof setLog.actualRir === 'number' && Number.isFinite(setLog.actualRir)
+  const extraReps = Math.max(actualReps - baselineReps, 0)
   const jump = extraReps * anchor * 0.01
   const recommended = mround(anchor + jump, rounding)
   return {
@@ -133,11 +135,11 @@ export function evaluateBullmastiffPlusSet(
     ruleId: 'bullmastiff_plus_set',
     scope: 'wave',
     status: 'pending',
-    inputSummary: `${setLog.actualReps ?? 0} reps against a ${baselineReps}-rep baseline.`,
+    inputSummary: `${actualReps} reps${hasActualRir ? ` at RIR ${setLog.actualRir}` : ''} against a ${baselineReps}-rep baseline.`,
     recommendation:
       extraReps > 0
-        ? `Add ${mround(jump, rounding)} based on ${extraReps} extra reps.`
-        : 'Repeat the load next wave.',
+        ? `Add ${mround(jump, rounding)} based on ${extraReps} extra ${extraReps === 1 ? 'rep' : 'reps'}.`
+        : 'Repeat the load next wave; no extra reps were logged on the plus set.',
     previousAnchor: anchor,
     recommendedAnchor: recommended,
   }

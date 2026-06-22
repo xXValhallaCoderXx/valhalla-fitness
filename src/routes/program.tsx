@@ -1,9 +1,13 @@
-import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
+import { Tooltip } from '@mantine/core'
+import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute } from '@tanstack/react-router'
-import { Check, Clock3, X } from 'lucide-react'
+import { Check, Clock3, Info, X } from 'lucide-react'
+import { useState } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { activeProgramQueryOptions, todayQueryOptions } from '~/lib/query-options'
+import { buildProgramTimeline, type ProgramTimelineModel } from '~/lib/program-timeline'
+import { templateCatalog } from '~/lib/templates'
 import { resolveProgressionDecisionFn } from '~/server/api'
 import { Button, Card, Chip, EmptyState, Page, PageHeader } from '~/components/ui'
 
@@ -32,12 +36,17 @@ function ProgramRoute() {
 }
 
 function AuthedProgram() {
+  const queryClient = useQueryClient()
   const { data: program } = useSuspenseQuery(activeProgramQueryOptions())
   const { data: today } = useSuspenseQuery(todayQueryOptions())
   const mutation = useMutation({
     mutationFn: (data: { decisionId: string; action: 'accepted' | 'dismissed' | 'pending' }) =>
       resolveProgressionDecisionFn({ data }),
-    onSuccess: () => {
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
+        queryClient.invalidateQueries({ queryKey: ['today'] }),
+      ])
       notifications.show({ color: 'success', title: 'Progression updated', message: 'Your decision was saved.' })
     },
     onError: (error) => {
@@ -57,19 +66,43 @@ function AuthedProgram() {
     )
   }
 
-  const weeksInCycle = program.templateId === 'healthy-531-fsl' ? 4 : 3
-  const currentWeek = program.currentWeekIndex % weeksInCycle
-  const weekLabels = ['Opening work', 'Build', 'Heavy review', 'Deload']
+  const timeline = buildProgramTimeline(program)
+  const template = templateCatalog.find((item) => item.id === program.templateId)
+  const programmeDetail = getProgrammeDetail(program.templateId)
 
   return (
     <Page>
       <PageHeader
         title={program.title}
         eyebrow="Program"
-        actions={<Chip tone="action">Week {currentWeek + 1} of {weeksInCycle}</Chip>}
+        actions={<Chip tone="action">Week {timeline.currentWeekIndex + 1} of {timeline.totalWeeks}</Chip>}
       >
-        Current position: week {program.currentWeekIndex + 1}
+        <span className="block">{template?.description ?? 'Structured training plan with reviewable progression.'}</span>
+        <span className="mt-1 block text-[11px] font-semibold text-[var(--muted)] md:text-xs">
+          Current position: week {timeline.currentWeekIndex + 1} · session {timeline.currentSessionInWeek + 1} of {timeline.daysPerWeek}
+        </span>
       </PageHeader>
+
+      <Card className="mb-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="vf-section-label">Programme overview</h2>
+              <InfoHint label="About this programme">
+                This is the active template driving your planned sessions, weekly structure, anchor calculations, and progression recommendations.
+              </InfoHint>
+            </div>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[var(--muted)]">{programmeDetail}</p>
+          </div>
+          <div className="flex flex-wrap gap-1.5 md:max-w-xs md:justify-end">
+            {template ? <Chip tone={template.sourceLabel === 'Bromley' ? 'warning' : 'action'}>{template.sourceLabel}</Chip> : null}
+            {template ? <Chip>{template.daysPerWeek} days/wk</Chip> : null}
+            <Chip>{timeline.totalWeeks} weeks</Chip>
+            {template ? <Chip tone="action" className="normal-case">{template.progressionLabel}</Chip> : null}
+            {template ? <Chip>{template.complexity}</Chip> : null}
+          </div>
+        </div>
+      </Card>
 
       {today.pendingDecisions.length ? (
         <Card className="mb-4 !border-[var(--warning-border)] !bg-[var(--warning-soft)]">
@@ -84,55 +117,20 @@ function AuthedProgram() {
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <Card>
-          <div className="flex items-center justify-between">
-            <h2 className="vf-section-label">Timeline — Cycle</h2>
-            <Chip tone="action">{program.status}</Chip>
-          </div>
-          <div className="relative mt-4 space-y-3 before:absolute before:bottom-4 before:left-4 before:top-4 before:w-px before:bg-[var(--border)]">
-            {Array.from({ length: weeksInCycle }, (_, index) => {
-              const current = index === currentWeek
-              const complete = index < currentWeek
-              return (
-              <div key={index} className="relative z-10 flex gap-3">
-                <div className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-4 border-[var(--bg)] ${complete ? 'bg-[var(--success)] text-white' : current ? 'bg-[var(--action)] text-white shadow-sm' : 'bg-[var(--surface-2)] text-[var(--muted)]'}`}>
-                  {complete ? <Check size={12} /> : current ? <span className="h-2.5 w-2.5 rounded-full bg-white" /> : <span className="h-2 w-2 rounded-full bg-[var(--border)]" />}
-                </div>
-                <div
-                  className={`flex-1 rounded-xl border p-3 ${
-                    current
-                      ? 'border-[var(--action)] bg-[var(--action-soft)]'
-                      : complete
-                        ? 'border-[var(--border)] bg-[var(--surface)] opacity-70'
-                        : 'border-dashed border-[var(--border)] bg-transparent'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-extrabold">Week {index + 1}</p>
-                      <p className="text-xs text-[var(--muted)]">{weekLabels[index] ?? 'Training week'}</p>
-                    </div>
-                    {complete ? <Chip tone="success">Done</Chip> : current ? <Chip tone="action">Current</Chip> : <Chip>Locked</Chip>}
-                  </div>
-                  {current ? (
-                    <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border)] pt-3">
-                      {['S1', 'S2', 'S3', 'S4'].slice(0, program.templateId === 'healthy-531-fsl' ? 4 : 3).map((sessionLabel, sessionIndex) => (
-                        <span key={sessionLabel} className={`rounded-lg px-2.5 py-2 text-[11px] font-semibold ${sessionIndex === 0 ? 'bg-[var(--surface-2)] text-[var(--muted)] line-through' : sessionIndex === 1 ? 'border border-[var(--action-border)] bg-[var(--action-soft)] text-[var(--text)]' : 'text-[var(--muted)]'}`}>
-                          {sessionLabel}: {sessionIndex === 0 ? 'Squat' : sessionIndex === 1 ? 'Deadlift' : sessionIndex === 2 ? 'Bench' : 'OHP'}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            )})}
-          </div>
-        </Card>
+        <ProgramTimeline key={timeline.currentWeekIndex} timeline={timeline} status={program.status} currentSessionIndex={program.currentWeekIndex} />
 
         <div className="space-y-4">
           <Card>
-            <div className="flex items-center justify-between">
-              <h2 className="vf-section-label">Current Anchors</h2>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="vf-section-label">Current Anchors</h2>
+                  <InfoHint label="What are anchors?">
+                    Anchors are the training-max values used to calculate planned loads. When you accept a main-lift progression decision, the relevant anchor is updated for future sessions.
+                  </InfoHint>
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Training max values used for load prescriptions.</p>
+              </div>
               <Chip>{program.units}</Chip>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -142,29 +140,40 @@ function AuthedProgram() {
                   <p className="mt-1 text-lg font-bold">
                     {anchor.value} <span className="text-xs text-[var(--muted)]">{program.units}</span>
                   </p>
+                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                    {anchor.anchorType.replaceAll('_', ' ')}
+                  </p>
                 </div>
               ))}
             </div>
           </Card>
 
           <Card>
-            <h2 className="vf-section-label">Progression</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="vf-section-label">Progression</h2>
+              <InfoHint label="How progression works">
+                Progression cards are recommendations generated from completed sessions. They stay pending until you accept, dismiss, or leave them for later; accepted anchor changes update future loads.
+              </InfoHint>
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Reviewable recommendations from logged training.</p>
             {today.pendingDecisions.length ? (
               <div className="mt-3 space-y-3">
                 {today.pendingDecisions.map((decision) => (
                   <div key={decision.id} className="rounded-xl border border-[var(--warning-border)] bg-[var(--surface-2)] p-3">
                     <p className="font-bold">{decision.movementName}</p>
-                    <p className="mt-1 text-xs text-[var(--muted)]">{decision.recommendation}</p>
+                    <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">{formatRuleId(decision.ruleId)}</p>
+                    <p className="mt-1 text-xs text-[var(--muted)]">{decision.inputSummary}</p>
+                    <p className="mt-1 text-xs font-semibold">{decision.recommendation}</p>
                     <div className="mt-3 grid grid-cols-3 gap-2">
-                      <Button variant="success" onClick={() => mutation.mutate({ decisionId: decision.id, action: 'accepted' })}>
+                      <Button variant="success" disabled={mutation.isPending} onClick={() => mutation.mutate({ decisionId: decision.id, action: 'accepted' })}>
                         <Check size={14} />
                         Accept
                       </Button>
-                      <Button variant="secondary" onClick={() => mutation.mutate({ decisionId: decision.id, action: 'pending' })}>
+                      <Button variant="secondary" disabled={mutation.isPending} onClick={() => mutation.mutate({ decisionId: decision.id, action: 'pending' })}>
                         <Clock3 size={14} />
                         Later
                       </Button>
-                      <Button variant="danger" onClick={() => mutation.mutate({ decisionId: decision.id, action: 'dismissed' })}>
+                      <Button variant="danger" disabled={mutation.isPending} onClick={() => mutation.mutate({ decisionId: decision.id, action: 'dismissed' })}>
                         <X size={14} />
                         Dismiss
                       </Button>
@@ -179,5 +188,159 @@ function AuthedProgram() {
         </div>
       </div>
     </Page>
+  )
+}
+
+function formatRuleId(ruleId: string) {
+  return ruleId.replaceAll('_', ' ')
+}
+
+function getProgrammeDetail(templateId: string) {
+  if (templateId === 'healthy-531-fsl') {
+    return 'Healthy 5/3/1 FSL uses training-max anchors to calculate weekly percentage work, plus First Set Last back-off sets and accessories. Logged top-set reps and RIR feed reviewable training-max decisions.'
+  }
+  if (templateId === 'bromley-bullmastiff') {
+    return 'Bullmastiff runs an 18-week base-to-peak structure built from three-week plus-set waves. It does not prescribe a fixed standalone deload week in the app fixture; recovery comes from resetting the starting weight and rep range at the start of each new wave.'
+  }
+  return 'This programme controls your planned sessions, load calculations, and reviewable progression recommendations.'
+}
+
+function ProgramTimeline({
+  currentSessionIndex,
+  status,
+  timeline,
+}: {
+  currentSessionIndex: number
+  status: string
+  timeline: ProgramTimelineModel
+}) {
+  const [expandedWeeks, setExpandedWeeks] = useState(() => new Set([timeline.currentWeekIndex]))
+
+  const toggleWeek = (weekIndex: number) => {
+    setExpandedWeeks((current) => {
+      const next = new Set(current)
+      if (next.has(weekIndex)) {
+        next.delete(weekIndex)
+      } else {
+        next.add(weekIndex)
+      }
+      return next
+    })
+  }
+
+  return (
+    <Card>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="vf-section-label">Timeline — Programme</h2>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{timeline.description}</p>
+        </div>
+        <Chip tone="action">{status}</Chip>
+      </div>
+      <div
+        className="relative mt-4 space-y-3 overflow-y-auto pr-2 before:absolute before:bottom-4 before:left-4 before:top-4 before:w-px before:bg-[var(--border)]"
+        style={{ maxHeight: 'min(72vh, 44rem)' }}
+      >
+        {timeline.weeks.map((week) => {
+          const current = week.index === timeline.currentWeekIndex
+          const complete = week.index < timeline.currentWeekIndex
+          const expanded = expandedWeeks.has(week.index)
+          return (
+            <div key={week.index} className="relative z-10 flex gap-3">
+              <div className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-4 border-[var(--bg)] ${complete ? 'bg-[var(--success)] text-white' : current ? 'bg-[var(--action)] text-white shadow-sm' : 'bg-[var(--surface-2)] text-[var(--muted)]'}`}>
+                {complete ? <Check size={12} /> : current ? <span className="h-2.5 w-2.5 rounded-full bg-white" /> : <span className="h-2 w-2 rounded-full bg-[var(--border)]" />}
+              </div>
+              <div
+                className={`flex-1 rounded-xl border p-3 ${
+                  current
+                    ? 'border-[var(--action)] bg-[var(--action-soft)]'
+                    : complete
+                      ? 'border-[var(--border)] bg-[var(--surface)] opacity-70'
+                      : 'border-dashed border-[var(--border)] bg-transparent'
+                }`}
+              >
+                <button type="button" className="w-full text-left" onClick={() => toggleWeek(week.index)}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-extrabold">Week {week.index + 1}</p>
+                      <p className="text-xs text-[var(--muted)]">{week.subtitle}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {complete ? <Chip tone="success">Done</Chip> : current ? <Chip tone="action">Current</Chip> : <Chip>Locked</Chip>}
+                      <span className="text-xs font-bold text-[var(--muted)]">{expanded ? 'Hide' : 'Details'}</span>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">{week.summary}</p>
+                </button>
+
+                {expanded ? (
+                  <div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3">
+                    {week.sessions.map((session) => (
+                      <details
+                        key={session.label}
+                        className={`rounded-lg border bg-[var(--surface-2)] px-3 py-2 text-xs ${
+                          session.globalIndex === currentSessionIndex
+                            ? 'border-[var(--action-border)]'
+                            : session.globalIndex < currentSessionIndex
+                              ? 'border-[var(--success-border)] opacity-75'
+                              : 'border-[var(--border)]'
+                        }`}
+                      >
+                        <summary className="cursor-pointer list-none">
+                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                            <span className="font-extrabold text-[var(--text)]">{session.label}: {session.title}</span>
+                            <span className="font-semibold text-[var(--muted)]">{session.mainPrescription}</span>
+                          </div>
+                        </summary>
+                        <div className="mt-2 grid gap-2 border-t border-[var(--border)] pt-2 sm:grid-cols-3">
+                          <TimelineSessionDetail label="Main" value={`${session.mainMovement} · ${session.mainPrescription}`} />
+                          <TimelineSessionDetail label="Variation" value={`${session.variationMovement} · ${session.variationPrescription}`} />
+                          <TimelineSessionDetail label="Accessories" value={session.accessoryPrescription} />
+                        </div>
+                        <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted)]">{session.progressionNote}</p>
+                      </details>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
+
+function TimelineSessionDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-[var(--surface)] p-2">
+      <p className="text-[10px] font-extrabold uppercase tracking-wide text-[var(--muted)]">{label}</p>
+      <p className="mt-1 font-semibold text-[var(--text)]">{value}</p>
+    </div>
+  )
+}
+
+function InfoHint({ label, children }: { label: string; children: string }) {
+  return (
+    <Tooltip
+      label={children}
+      multiline
+      withArrow
+      withinPortal
+      position="top"
+      w={280}
+      classNames={{
+        tooltip: '!border !border-[var(--border)] !bg-[var(--surface)] !text-[var(--muted)] !shadow-[var(--shadow-panel)]',
+        arrow: '!border-[var(--border)] !bg-[var(--surface)]',
+      }}
+    >
+      <button
+        type="button"
+        aria-label={label}
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)] transition hover:border-[var(--action-border)] hover:text-[var(--action-text)] focus-visible:border-[var(--action)] focus-visible:outline-none"
+      >
+        <Info size={12} />
+      </button>
+    </Tooltip>
   )
 }

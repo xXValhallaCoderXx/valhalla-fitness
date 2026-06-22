@@ -51,7 +51,7 @@ export function Button({ className, variant = 'primary', ...props }: ButtonProps
     return (
         <MantineButton
             className={cn(
-                'inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] px-3 text-sm font-extrabold transition active:scale-[0.99]',
+                'inline-flex min-h-10 items-center justify-center gap-2.5 rounded-[var(--radius-control)] px-3 text-sm font-extrabold transition active:scale-[0.99]',
                 config.className,
                 className,
             )}

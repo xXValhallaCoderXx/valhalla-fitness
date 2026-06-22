@@ -2,7 +2,8 @@
 @import "@mantine/notifications/styles.css";
 @import "tailwindcss";
 
-:root {
+:root,
+:root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #0f0f11;
   --bg-elevated: #18181c;
@@ -32,48 +33,48 @@
   --info: #38bdf8;
   --brand-mark: #ffffff;
   --brand-mark-text: #0f0f11;
+  --focus-ring: rgb(79 142 247 / 0.18);
   --shadow-card: none;
   --shadow-panel: 0 30px 80px rgb(0 0 0 / 0.35);
   --radius-card: 1rem;
   --radius-control: 0.75rem;
 }
 
-@media (min-width: 768px) {
-  :root {
-    color-scheme: light;
-    --bg: #f4f5f7;
-    --bg-elevated: #f4f5f7;
-    --surface: #ffffff;
-    --surface-2: #f9fafb;
-    --surface-3: #f4f5f7;
-    --border: #e5e7eb;
-    --text: #111827;
-    --muted: #6b7280;
-    --action: #2563eb;
-    --action-hover: #1d4ed8;
-    --action-soft: rgb(37 99 235 / 0.1);
-    --action-border: rgb(37 99 235 / 0.22);
-    --action-text: #2563eb;
-    --success: #16a34a;
-    --success-soft: rgb(22 163 74 / 0.1);
-    --success-border: rgb(22 163 74 / 0.18);
-    --success-text: #16a34a;
-    --warning: #d97706;
-    --warning-soft: rgb(217 119 6 / 0.12);
-    --warning-border: rgb(217 119 6 / 0.24);
-    --warning-text: #d97706;
-    --danger: #dc2626;
-    --danger-soft: rgb(220 38 38 / 0.1);
-    --danger-border: rgb(220 38 38 / 0.18);
-    --danger-text: #dc2626;
-    --info: #0284c7;
-    --brand-mark: #111827;
-    --brand-mark-text: #ffffff;
-    --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06);
-    --shadow-panel: 0 24px 70px rgb(15 23 42 / 0.14);
-    --radius-card: 0.75rem;
-    --radius-control: 0.625rem;
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f5f7;
+  --bg-elevated: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #f9fafb;
+  --surface-3: #f4f5f7;
+  --border: #e5e7eb;
+  --text: #111827;
+  --muted: #6b7280;
+  --action: #2563eb;
+  --action-hover: #1d4ed8;
+  --action-soft: rgb(37 99 235 / 0.1);
+  --action-border: rgb(37 99 235 / 0.22);
+  --action-text: #2563eb;
+  --success: #16a34a;
+  --success-soft: rgb(22 163 74 / 0.1);
+  --success-border: rgb(22 163 74 / 0.18);
+  --success-text: #16a34a;
+  --warning: #d97706;
+  --warning-soft: rgb(217 119 6 / 0.12);
+  --warning-border: rgb(217 119 6 / 0.24);
+  --warning-text: #d97706;
+  --danger: #dc2626;
+  --danger-soft: rgb(220 38 38 / 0.1);
+  --danger-border: rgb(220 38 38 / 0.18);
+  --danger-text: #dc2626;
+  --info: #0284c7;
+  --brand-mark: #111827;
+  --brand-mark-text: #ffffff;
+  --focus-ring: rgb(37 99 235 / 0.14);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06);
+  --shadow-panel: 0 24px 70px rgb(15 23 42 / 0.14);
+  --radius-card: 0.75rem;
+  --radius-control: 0.625rem;
 }
 
 * {
@@ -156,7 +157,13 @@ input[type="number"]::-webkit-outer-spin-button {
 .mantine-Input-input:focus,
 .mantine-TextInput-input:focus {
   border-color: var(--action);
-  box-shadow: 0 0 0 2px rgb(79 142 247 / 0.18);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.mantine-Button-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
 }
 
 .mantine-Notification-root {
@@ -184,10 +191,3 @@ input[type="number"]::-webkit-outer-spin-button {
   color: var(--text) !important;
 }
 
-@media (min-width: 768px) {
-  .live-session-input:focus,
-  .mantine-Input-input:focus,
-  .mantine-TextInput-input:focus {
-    box-shadow: 0 0 0 2px rgb(37 99 235 / 0.14);
-  }
-}
