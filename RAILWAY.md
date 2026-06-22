@@ -11,6 +11,33 @@ pnpm build
 pnpm start
 ```
 
+Run database migrations as a separate pre-deploy step, not as part of `pnpm start`:
+
+```sh
+pnpm db:migrate
+```
+
+On Railway, the field may not appear until you click **Deploy** → **+ Add pre-deploy step**. Add that step and set its command to `pnpm db:migrate`. Keep the normal build and start commands as `pnpm build` and `pnpm start`.
+
+If **+ Add pre-deploy step** is not available for the service, use one of these fallbacks instead:
+
+- Preferred fallback: run `pnpm db:migrate` manually or from CI before triggering/deploying the Railway release.
+- Acceptable temporary fallback for a single-instance app: set Railway's custom start command to `pnpm db:migrate && pnpm start`, then move it back to `pnpm start` once a proper pre-deploy/CI step is available.
+- Avoid using `pnpm build && pnpm db:migrate` as the normal build command unless you explicitly want builds to mutate the remote database.
+
+Why this should not be part of the runtime start script:
+
+- Every restart or replica boot would try to run migrations again.
+- Multiple instances can race each other during deploys.
+- The app runtime would need a privileged database URL it should not otherwise use.
+- A migration failure should stop a release before new app code serves traffic.
+
+For a safe manual check before enabling the pre-deploy command, run the dry-run script with the same Railway/Supabase database URL:
+
+```sh
+pnpm db:migrate:dry-run
+```
+
 The production start script runs Nitro's Node output:
 
 ```sh
@@ -25,7 +52,12 @@ Set these in the Railway service variables:
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
 APP_ORIGIN=https://your-railway-domain.up.railway.app
+SUPABASE_DB_URL=postgresql://...
 ```
+
+`SUPABASE_DB_URL` is only for migrations. Use the Supabase Postgres connection string from the Supabase dashboard, preferably a direct connection or session-pooler connection that works from Railway. If the database password contains special characters, percent-encode it in the URL. Do not use the public `SUPABASE_URL` value here.
+
+If the remote database already has tables that were created manually, reconcile it before turning on automatic pushes; otherwise the initial migration may fail because Supabase's migration history table does not know those objects already exist. For an empty remote database, `pnpm db:migrate` should apply the committed files under `supabase/migrations/` in order.
 
 The app is pinned to Node 22 with `engines.node` and `.node-version`. This keeps Railway away from Node 24/Corepack combinations that can fail before the app build starts. If Railway still selects Node 24 or newer, add this Railway service variable as an extra override:
 
