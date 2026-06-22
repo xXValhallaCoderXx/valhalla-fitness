@@ -1,4 +1,4 @@
-import type { Movement } from '~/types/training'
+import type { Movement, MovementReplacementRule, MovementRole, MovementSwapOption } from '~/types/training'
 
 export const movementCatalog: Record<string, Movement> = {
   squat: {
@@ -114,6 +114,30 @@ export const movementCatalog: Record<string, Movement> = {
     defaultUnit: 'kg',
     isCompetition: false,
   },
+  seated_cable_row: {
+    id: 'seated_cable_row',
+    name: 'Seated Cable Row',
+    category: 'upper_back',
+    equipment: ['cable', 'machine'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  machine_row: {
+    id: 'machine_row',
+    name: 'Machine Row',
+    category: 'upper_back',
+    equipment: ['machine'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  one_arm_cable_row: {
+    id: 'one_arm_cable_row',
+    name: 'One-Arm Cable Row',
+    category: 'upper_back',
+    equipment: ['cable'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
   chest_supported_row: {
     id: 'chest_supported_row',
     name: 'Chest-Supported Row',
@@ -130,6 +154,22 @@ export const movementCatalog: Record<string, Movement> = {
     defaultUnit: 'kg',
     isCompetition: false,
   },
+  pull_up: {
+    id: 'pull_up',
+    name: 'Pull-Up',
+    category: 'upper_back',
+    equipment: ['bodyweight'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  machine_high_row: {
+    id: 'machine_high_row',
+    name: 'Machine High Row',
+    category: 'upper_back',
+    equipment: ['machine'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
   leg_press: {
     id: 'leg_press',
     name: 'Leg Press',
@@ -139,9 +179,43 @@ export const movementCatalog: Record<string, Movement> = {
     defaultUnit: 'kg',
     isCompetition: false,
   },
+  hack_squat: {
+    id: 'hack_squat',
+    name: 'Hack Squat',
+    category: 'lower',
+    equipment: ['machine'],
+    variationOf: 'squat',
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  split_squat: {
+    id: 'split_squat',
+    name: 'Split Squat',
+    category: 'lower',
+    equipment: ['dumbbells', 'bodyweight'],
+    variationOf: 'squat',
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
   hamstring_curl: {
     id: 'hamstring_curl',
     name: 'Hamstring Curl',
+    category: 'posterior_chain',
+    equipment: ['machine'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  seated_leg_curl: {
+    id: 'seated_leg_curl',
+    name: 'Seated Leg Curl',
+    category: 'posterior_chain',
+    equipment: ['machine'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  lying_leg_curl: {
+    id: 'lying_leg_curl',
+    name: 'Lying Leg Curl',
     category: 'posterior_chain',
     equipment: ['machine'],
     defaultUnit: 'kg',
@@ -155,6 +229,22 @@ export const movementCatalog: Record<string, Movement> = {
     defaultUnit: 'kg',
     isCompetition: false,
   },
+  reverse_hyperextension: {
+    id: 'reverse_hyperextension',
+    name: 'Reverse Hyperextension',
+    category: 'posterior_chain',
+    equipment: ['machine'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  glute_ham_raise: {
+    id: 'glute_ham_raise',
+    name: 'Glute-Ham Raise',
+    category: 'posterior_chain',
+    equipment: ['machine', 'bodyweight'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
   cable_crunch: {
     id: 'cable_crunch',
     name: 'Cable Crunch',
@@ -163,11 +253,36 @@ export const movementCatalog: Record<string, Movement> = {
     defaultUnit: 'kg',
     isCompetition: false,
   },
+  hanging_leg_raise: {
+    id: 'hanging_leg_raise',
+    name: 'Hanging Leg Raise',
+    category: 'core',
+    equipment: ['bodyweight'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  ab_wheel_rollout: {
+    id: 'ab_wheel_rollout',
+    name: 'Ab Wheel Rollout',
+    category: 'core',
+    equipment: ['bodyweight'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
   dumbbell_row: {
     id: 'dumbbell_row',
     name: 'Dumbbell Row',
     category: 'upper_back',
     equipment: ['dumbbells', 'bench'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  dumbbell_bench_press: {
+    id: 'dumbbell_bench_press',
+    name: 'Dumbbell Bench Press',
+    category: 'upper',
+    equipment: ['dumbbells', 'bench'],
+    variationOf: 'bench_press',
     defaultUnit: 'kg',
     isCompetition: false,
   },
@@ -180,11 +295,36 @@ export const movementCatalog: Record<string, Movement> = {
     defaultUnit: 'kg',
     isCompetition: false,
   },
+  push_up: {
+    id: 'push_up',
+    name: 'Push-Up',
+    category: 'upper',
+    equipment: ['bodyweight'],
+    variationOf: 'bench_press',
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
   triceps_pressdown: {
     id: 'triceps_pressdown',
     name: 'Triceps Pressdown',
     category: 'upper',
     equipment: ['cable'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  overhead_triceps_extension: {
+    id: 'overhead_triceps_extension',
+    name: 'Overhead Triceps Extension',
+    category: 'upper',
+    equipment: ['cable', 'dumbbells'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  skullcrusher: {
+    id: 'skullcrusher',
+    name: 'Skullcrusher',
+    category: 'upper',
+    equipment: ['barbell', 'dumbbells', 'bench'],
     defaultUnit: 'kg',
     isCompetition: false,
   },
@@ -196,6 +336,106 @@ export const movementCatalog: Record<string, Movement> = {
     defaultUnit: 'kg',
     isCompetition: false,
   },
+  rear_delt_fly: {
+    id: 'rear_delt_fly',
+    name: 'Rear Delt Fly',
+    category: 'upper_back',
+    equipment: ['dumbbells', 'machine'],
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  safety_bar_squat: {
+    id: 'safety_bar_squat',
+    name: 'Safety Bar Squat',
+    category: 'lower',
+    equipment: ['specialty_bars', 'rack', 'plates'],
+    variationOf: 'squat',
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  good_morning: {
+    id: 'good_morning',
+    name: 'Good Morning',
+    category: 'hinge',
+    equipment: ['barbell', 'rack', 'plates'],
+    variationOf: 'deadlift',
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+  seated_dumbbell_press: {
+    id: 'seated_dumbbell_press',
+    name: 'Seated Dumbbell Press',
+    category: 'upper',
+    equipment: ['dumbbells', 'bench'],
+    variationOf: 'overhead_press',
+    defaultUnit: 'kg',
+    isCompetition: false,
+  },
+}
+
+export const defaultMovementReplacementRules: MovementReplacementRule[] = [
+  accessoryRule('leg_press', 'hack_squat', 'Same squat pattern'),
+  accessoryRule('leg_press', 'split_squat', 'Unilateral lower-body option'),
+  accessoryRule('hamstring_curl', 'seated_leg_curl', 'Same movement pattern'),
+  accessoryRule('hamstring_curl', 'lying_leg_curl', 'Same movement pattern'),
+  accessoryRule('back_extension', 'reverse_hyperextension', 'Similar posterior-chain accessory'),
+  accessoryRule('back_extension', 'glute_ham_raise', 'Similar posterior-chain accessory'),
+  accessoryRule('cable_crunch', 'hanging_leg_raise', 'Core accessory'),
+  accessoryRule('cable_crunch', 'ab_wheel_rollout', 'Core accessory'),
+  accessoryRule('chest_supported_row', 'seated_cable_row', 'Similar row pattern'),
+  accessoryRule('chest_supported_row', 'machine_row', 'Similar row pattern'),
+  accessoryRule('lat_pulldown', 'pull_up', 'Vertical pull'),
+  accessoryRule('lat_pulldown', 'machine_high_row', 'Upper-back pull'),
+  accessoryRule('dumbbell_row', 'one_arm_cable_row', 'Unilateral row'),
+  accessoryRule('dumbbell_row', 'seated_cable_row', 'Similar row pattern'),
+  accessoryRule('incline_dumbbell_press', 'dumbbell_bench_press', 'Similar press'),
+  accessoryRule('incline_dumbbell_press', 'push_up', 'Low-equipment press'),
+  accessoryRule('triceps_pressdown', 'overhead_triceps_extension', 'Triceps accessory'),
+  accessoryRule('triceps_pressdown', 'skullcrusher', 'Triceps accessory'),
+  accessoryRule('face_pull', 'rear_delt_fly', 'Rear-delt accessory'),
+  accessoryRule('face_pull', 'machine_high_row', 'Upper-back accessory'),
+  variationRule('front_squat', 'pause_squat', 'Programmed squat variation'),
+  variationRule('front_squat', 'safety_bar_squat', 'Programmed squat variation'),
+  variationRule('pause_squat', 'front_squat', 'Programmed squat variation'),
+  variationRule('pause_squat', 'safety_bar_squat', 'Programmed squat variation'),
+  variationRule('close_grip_bench_press', 'board_press', 'Programmed bench variation'),
+  variationRule('close_grip_bench_press', 'dumbbell_bench_press', 'Programmed bench variation'),
+  variationRule('board_press', 'close_grip_bench_press', 'Programmed bench variation'),
+  variationRule('board_press', 'dumbbell_bench_press', 'Programmed bench variation'),
+  variationRule('romanian_deadlift', 'stiff_leg_deadlift', 'Programmed hinge variation'),
+  variationRule('romanian_deadlift', 'good_morning', 'Programmed hinge variation'),
+  variationRule('stiff_leg_deadlift', 'romanian_deadlift', 'Programmed hinge variation'),
+  variationRule('stiff_leg_deadlift', 'good_morning', 'Programmed hinge variation'),
+  variationRule('low_trap_bar_deadlift', 'stiff_leg_deadlift', 'Programmed hinge variation'),
+  variationRule('low_trap_bar_deadlift', 'romanian_deadlift', 'Programmed hinge variation'),
+  variationRule('behind_neck_press', 'seated_pin_press', 'Programmed press variation'),
+  variationRule('behind_neck_press', 'seated_dumbbell_press', 'Programmed press variation'),
+  variationRule('seated_pin_press', 'behind_neck_press', 'Programmed press variation'),
+  variationRule('seated_pin_press', 'seated_dumbbell_press', 'Programmed press variation'),
+]
+
+function accessoryRule(sourceMovementId: string, replacementMovementId: string, relationshipLabel: string): MovementReplacementRule {
+  return {
+    id: `${sourceMovementId}-${replacementMovementId}-accessory`,
+    sourceMovementId,
+    replacementMovementId,
+    role: 'accessory',
+    relationshipLabel,
+    allowSessionScope: true,
+    allowPhaseSlotScope: true,
+  }
+}
+
+function variationRule(sourceMovementId: string, replacementMovementId: string, relationshipLabel: string): MovementReplacementRule {
+  return {
+    id: `${sourceMovementId}-${replacementMovementId}-variation`,
+    sourceMovementId,
+    replacementMovementId,
+    role: 'variation',
+    relationshipLabel,
+    allowSessionScope: true,
+    allowPhaseSlotScope: true,
+  }
 }
 
 export function getMovementName(movementId: string) {
@@ -214,4 +454,94 @@ export function listMovementAlternatives(movementId: string) {
       movement.variationOf === candidate.id
     )
   })
+}
+
+export function buildMovementSwapOptions({
+  movementId,
+  role,
+  templateId,
+  phaseKey,
+  slotId,
+  rules = defaultMovementReplacementRules,
+  catalog = movementCatalog,
+}: {
+  movementId: string
+  role: MovementRole
+  templateId?: string | null
+  phaseKey?: string | null
+  slotId?: string | null
+  rules?: MovementReplacementRule[]
+  catalog?: Record<string, Movement>
+}): MovementSwapOption[] {
+  if (role === 'main') return []
+
+  const options = new Map<string, MovementSwapOption>()
+  const matchingRules = rules.filter((rule) => {
+    if (rule.sourceMovementId !== movementId) return false
+    if (rule.role && rule.role !== role) return false
+    if (rule.templateId && rule.templateId !== templateId) return false
+    if (rule.phaseKey && rule.phaseKey !== phaseKey) return false
+    if (rule.slotId && rule.slotId !== slotId) return false
+    return true
+  })
+
+  for (const rule of matchingRules) {
+    const movement = catalog[rule.replacementMovementId]
+    if (!movement || movement.id === movementId || movement.isCompetition) continue
+    const allowedScopes = [
+      rule.allowSessionScope ? 'session' as const : null,
+      rule.allowPhaseSlotScope ? 'phase_slot' as const : null,
+    ].filter((scope): scope is 'session' | 'phase_slot' => scope !== null)
+    if (!allowedScopes.length) continue
+    options.set(movement.id, {
+      movementId: movement.id,
+      movementName: movement.name,
+      category: movement.category,
+      equipment: movement.equipment,
+      relationshipLabel: rule.relationshipLabel,
+      source: 'rule',
+      ruleId: rule.id,
+      allowedScopes,
+    })
+  }
+
+  if (role === 'accessory') {
+    const movement = catalog[movementId]
+    if (!movement) return Array.from(options.values())
+    for (const candidate of listMovementAlternativesFromCatalog(movementId, catalog)) {
+      if (candidate.isCompetition || options.has(candidate.id)) continue
+      options.set(candidate.id, {
+        movementId: candidate.id,
+        movementName: candidate.name,
+        category: candidate.category,
+        equipment: candidate.equipment,
+        relationshipLabel: relationshipLabel(movement, candidate),
+        source: 'catalog',
+        allowedScopes: ['session'],
+      })
+    }
+  }
+
+  return Array.from(options.values())
+}
+
+function listMovementAlternativesFromCatalog(movementId: string, catalog: Record<string, Movement>) {
+  const movement = catalog[movementId]
+  if (!movement) return Object.values(catalog)
+  return Object.values(catalog).filter((candidate) => {
+    if (candidate.id === movementId) return false
+    return (
+      candidate.category === movement.category ||
+      candidate.variationOf === movement.variationOf ||
+      candidate.variationOf === movement.id ||
+      movement.variationOf === candidate.id
+    )
+  })
+}
+
+function relationshipLabel(movement: Movement, candidate: Movement) {
+  if (candidate.variationOf && candidate.variationOf === movement.variationOf) return 'Same main-lift family'
+  if (candidate.category === movement.category) return 'Same category'
+  if (candidate.equipment.some((item) => movement.equipment.includes(item))) return 'Shared equipment'
+  return 'Related movement'
 }

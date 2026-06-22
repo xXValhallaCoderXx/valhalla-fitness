@@ -6,6 +6,7 @@ import {
   getRecentHistoryFn,
   getSessionFn,
   getTodayFn,
+  listMovementSwapOptionsFn,
   listTemplatesFn,
 } from '~/server/api'
 
@@ -49,4 +50,10 @@ export const movementHistoryQueryOptions = (movementId: string) =>
   queryOptions({
     queryKey: ['history', 'movement', movementId],
     queryFn: () => getMovementHistoryFn({ data: { movementId } }),
+  })
+
+export const movementSwapOptionsQueryOptions = (sessionId: string, exerciseLogId: string) =>
+  queryOptions({
+    queryKey: ['movementSwapOptions', sessionId, exerciseLogId],
+    queryFn: () => listMovementSwapOptionsFn({ data: { sessionId, exerciseLogId } }),
   })

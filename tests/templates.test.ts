@@ -85,4 +85,44 @@ describe('planned session progression', () => {
     expect(nextProgram.currentWeekIndex).toBe(0)
     expect(nextSession.title).toBe('Bullmastiff Squat')
   })
+
+  it('applies future movement overrides only to the matching slot and phase', () => {
+    const baseSquat = expandPlannedSession(
+      {
+        ...program,
+        currentWeekIndex: 4,
+        movementOverrides: [
+          {
+            slotId: 'slot-bull-squat-variation',
+            phaseKey: 'base',
+            role: 'variation',
+            originalMovementId: 'front_squat',
+            replacementMovementId: 'safety_bar_squat',
+            effectiveFromWeekIndex: 1,
+          },
+        ],
+      },
+      '2026-06-21',
+    )
+    const peakSquat = expandPlannedSession(
+      {
+        ...program,
+        currentWeekIndex: 36,
+        movementOverrides: [
+          {
+            slotId: 'slot-bull-squat-variation',
+            phaseKey: 'base',
+            role: 'variation',
+            originalMovementId: 'front_squat',
+            replacementMovementId: 'safety_bar_squat',
+            effectiveFromWeekIndex: 1,
+          },
+        ],
+      },
+      '2026-06-21',
+    )
+
+    expect(baseSquat.movements[1]?.movementName).toBe('Safety Bar Squat')
+    expect(peakSquat.movements[1]?.movementName).toBe('Pause Squat')
+  })
 })

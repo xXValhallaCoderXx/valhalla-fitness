@@ -128,6 +128,30 @@ function anchorFor(anchors: AnchorInput[], movementId: string, fallback: number)
   return anchors.find((anchor) => anchor.movementId === movementId)?.value ?? fallback
 }
 
+function applyMovementOverride(
+  program: ProgramInstance,
+  {
+    slotId,
+    phaseKey,
+    role,
+    movementId,
+  }: {
+    slotId: string
+    phaseKey: string
+    role: MovementSlot['role']
+    movementId: string
+  },
+) {
+  const override = program.movementOverrides?.find(
+    (item) =>
+      item.slotId === slotId &&
+      item.phaseKey === phaseKey &&
+      item.role === role &&
+      item.effectiveFromWeekIndex <= program.currentWeekIndex,
+  )
+  return override?.replacementMovementId ?? movementId
+}
+
 export function defaultAnchors(unit: Unit = 'kg'): AnchorInput[] {
   const values =
     unit === 'kg'
@@ -167,6 +191,7 @@ export function programForNextUncompletedSession(
 
 function expandHealthy531Session(program: ProgramInstance, scheduledDate: string): PlannedSession {
   const day = healthyDays[program.currentWeekIndex % healthyDays.length]
+  const phaseKey = 'cycle'
   const programmeWeekIndex = Math.floor(program.currentWeekIndex / healthyDays.length)
   const weekIndex = programmeWeekIndex % 4
   const anchor = anchorFor(program.anchors, day.mainMovementId, 100)
@@ -179,7 +204,9 @@ function expandHealthy531Session(program: ProgramInstance, scheduledDate: string
 
   const movements: MovementSlot[] = [
     {
-      id: `slot-${day.mainMovementId}`,
+      id: `slot-${day.id}-main`,
+      slotId: `slot-${day.id}-main`,
+      phaseKey,
       movementId: day.mainMovementId,
       movementName: getMovementName(day.mainMovementId),
       role: 'main',
@@ -195,16 +222,26 @@ function expandHealthy531Session(program: ProgramInstance, scheduledDate: string
       },
     },
     ...day.accessories.map((movementId, index): MovementSlot => {
+      const role = index === 0 && movementId === 'romanian_deadlift' ? 'variation' : 'accessory'
+      const slotId = `slot-${day.id}-accessory-${index + 1}`
+      const effectiveMovementId = applyMovementOverride(program, {
+        slotId,
+        phaseKey,
+        role,
+        movementId,
+      })
       const load = accessoryDefaultLoad(program.units, index)
       return {
-        id: `slot-${movementId}`,
-        movementId,
-        movementName: getMovementName(movementId),
-        role: index === 0 && movementId === 'romanian_deadlift' ? 'variation' : 'accessory',
+        id: slotId,
+        slotId,
+        phaseKey,
+        movementId: effectiveMovementId,
+        movementName: getMovementName(effectiveMovementId),
+        role,
         orderIndex: index + 2,
         targetSummary: '4 sets x 8-12 reps @ RIR 2',
         sets: Array.from({ length: 4 }, (_, setIndex) => ({
-          id: `${movementId}-${setIndex + 1}`,
+          id: `${slotId}-${setIndex + 1}`,
           setIndex: setIndex + 1,
           targetLoad: load,
           targetRepMin: 8,
@@ -215,7 +252,7 @@ function expandHealthy531Session(program: ProgramInstance, scheduledDate: string
           label: '8-12',
         })),
         previous: {
-          movementId,
+          movementId: effectiveMovementId,
           label: 'Last time: no prior log yet',
         },
       }
@@ -244,6 +281,7 @@ function expandBullmastiffSession(program: ProgramInstance, scheduledDate: strin
   const programmeWeekIndex = Math.floor(program.currentWeekIndex / bullmastiffDays.length)
   const cycleWeekIndex = programmeWeekIndex % 18
   const isPeak = cycleWeekIndex >= 9
+  const phaseKey = isPeak ? 'peak' : 'base'
   const phaseWeekIndex = cycleWeekIndex % 9
   const waveIndex = Math.floor(phaseWeekIndex / 3)
   const weekInWave = phaseWeekIndex % 3
@@ -266,20 +304,29 @@ function expandBullmastiffSession(program: ProgramInstance, scheduledDate: strin
     label: index === mainSetCount - 1 ? `${baselineReps}+` : `${baselineReps}`,
   }))
 
-  const variationMovementId = isPeak ? day.peakVariationMovementId : day.baseVariationMovementId
+  const plannedVariationMovementId = isPeak ? day.peakVariationMovementId : day.baseVariationMovementId
+  const variationSlotId = `slot-${day.id}-variation`
+  const variationMovementId = applyMovementOverride(program, {
+    slotId: variationSlotId,
+    phaseKey,
+    role: 'variation',
+    movementId: plannedVariationMovementId,
+  })
   const variationPercent = isPeak ? [0.75, 0.8, 0.85][waveIndex] : [0.6, 0.65, 0.7][waveIndex]
   const variationSetCount = isPeak ? [4, 3, 2][weekInWave] : [3, 4, 5][weekInWave]
   const variationReps = isPeak ? [6, 5, 4][waveIndex] : [12, 10, 8][waveIndex]
   const variationLoad = mround(anchor * variationPercent, program.rounding)
   const variation: MovementSlot = {
-    id: `slot-${variationMovementId}`,
+    id: variationSlotId,
+    slotId: variationSlotId,
+    phaseKey,
     movementId: variationMovementId,
     movementName: getMovementName(variationMovementId),
     role: 'variation',
     orderIndex: 2,
     targetSummary: `${variationSetCount} sets x ${variationReps} @ ${Math.round(variationPercent * 100)}%`,
     sets: Array.from({ length: variationSetCount }, (_, index) => ({
-      id: `${variationMovementId}-${index + 1}`,
+      id: `${variationSlotId}-${index + 1}`,
       setIndex: index + 1,
       targetLoad: variationLoad,
       targetReps: variationReps,
@@ -306,7 +353,9 @@ function expandBullmastiffSession(program: ProgramInstance, scheduledDate: strin
     rounding: program.rounding,
     movements: [
       {
-        id: `slot-${day.mainMovementId}`,
+        id: `slot-${day.id}-main`,
+        slotId: `slot-${day.id}-main`,
+        phaseKey,
         movementId: day.mainMovementId,
         movementName: getMovementName(day.mainMovementId),
         role: 'main',
@@ -316,26 +365,37 @@ function expandBullmastiffSession(program: ProgramInstance, scheduledDate: strin
         previous: { movementId: day.mainMovementId, label: 'Last comparable: no prior log yet' },
       },
       variation,
-      ...day.accessories.map((movementId, index): MovementSlot => ({
-        id: `slot-${movementId}`,
-        movementId,
-        movementName: getMovementName(movementId),
-        role: 'accessory',
-        orderIndex: index + 3,
-        targetSummary: '3 sets x 10-15 reps @ RIR 2',
-        sets: Array.from({ length: 3 }, (_, setIndex) => ({
-          id: `${movementId}-${setIndex + 1}`,
-          setIndex: setIndex + 1,
-          targetLoad: accessoryDefaultLoad(program.units, index),
-          targetRepMin: 10,
-          targetRepMax: 15,
-          targetRir: 2,
-          completed: false,
-          actualLoad: accessoryDefaultLoad(program.units, index),
-          label: '10-15',
-        })),
-        previous: { movementId, label: 'Last time: no prior log yet' },
-      })),
+      ...day.accessories.map((movementId, index): MovementSlot => {
+        const slotId = `slot-${day.id}-accessory-${index + 1}`
+        const effectiveMovementId = applyMovementOverride(program, {
+          slotId,
+          phaseKey,
+          role: 'accessory',
+          movementId,
+        })
+        return {
+          id: slotId,
+          slotId,
+          phaseKey,
+          movementId: effectiveMovementId,
+          movementName: getMovementName(effectiveMovementId),
+          role: 'accessory',
+          orderIndex: index + 3,
+          targetSummary: '3 sets x 10-15 reps @ RIR 2',
+          sets: Array.from({ length: 3 }, (_, setIndex) => ({
+            id: `${slotId}-${setIndex + 1}`,
+            setIndex: setIndex + 1,
+            targetLoad: accessoryDefaultLoad(program.units, index),
+            targetRepMin: 10,
+            targetRepMax: 15,
+            targetRir: 2,
+            completed: false,
+            actualLoad: accessoryDefaultLoad(program.units, index),
+            label: '10-15',
+          })),
+          previous: { movementId: effectiveMovementId, label: 'Last time: no prior log yet' },
+        }
+      }),
     ],
   }
 }

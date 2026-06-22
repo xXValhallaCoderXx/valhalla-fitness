@@ -6,6 +6,10 @@ export type MovementRole = 'main' | 'variation' | 'accessory' | 'warmup' | 'even
 
 export type SyncState = 'synced' | 'saving' | 'offline' | 'syncFailed'
 
+export type SwapScope = 'session' | 'phase_slot'
+
+export type SubstitutionReason = 'equipment_missing' | 'crowded_gym' | 'preference' | 'fatigue' | 'other'
+
 export type Movement = {
   id: string
   name: string
@@ -57,6 +61,7 @@ export type ProgramInstance = {
   rounding: number
   currentWeekIndex: number
   anchors: AnchorInput[]
+  movementOverrides?: ProgramMovementOverride[]
 }
 
 export type SetTarget = {
@@ -88,6 +93,8 @@ export type SetLog = SetTarget & {
 
 export type MovementSlot = {
   id: string
+  slotId?: string
+  phaseKey?: string
   movementId: string
   movementName: string
   performedMovementId?: string
@@ -98,6 +105,41 @@ export type MovementSlot = {
   sets: SetLog[]
   previous?: PreviousComparable | null
   notes?: string | null
+}
+
+export type ProgramMovementOverride = {
+  id?: string
+  programInstanceId?: string
+  slotId: string
+  phaseKey: string
+  role: MovementRole
+  originalMovementId: string
+  replacementMovementId: string
+  effectiveFromWeekIndex: number
+}
+
+export type MovementReplacementRule = {
+  id: string
+  sourceMovementId: string
+  replacementMovementId: string
+  role?: MovementRole | null
+  templateId?: string | null
+  phaseKey?: string | null
+  slotId?: string | null
+  relationshipLabel: string
+  allowSessionScope: boolean
+  allowPhaseSlotScope: boolean
+}
+
+export type MovementSwapOption = {
+  movementId: string
+  movementName: string
+  category: string
+  equipment: string[]
+  relationshipLabel: string
+  source: 'rule' | 'catalog'
+  ruleId?: string
+  allowedScopes: SwapScope[]
 }
 
 export type PlannedSession = {

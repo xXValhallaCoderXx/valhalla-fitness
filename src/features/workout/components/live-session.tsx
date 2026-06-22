@@ -1,4 +1,4 @@
-import { Modal, TextInput } from '@mantine/core'
+import { Checkbox, Modal, Select, TextInput } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import {
@@ -11,14 +11,23 @@ import {
   RefreshCw,
   Repeat2,
 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { cn } from '~/lib/cn'
 import { formatCompactDate, formatRelativeTime } from '~/lib/dates'
-import { movementHistoryQueryOptions } from '~/lib/query-options'
-import { patchSetInSession, sessionCompletion, type SetPatch } from '~/lib/session-cache'
-import { upsertSetLogFn } from '~/server/api'
-import type { MovementHistoryEntry, MovementHistorySet, MovementSlot, SetLog, WorkoutSession } from '~/types/training'
+import { movementHistoryQueryOptions, movementSwapOptionsQueryOptions } from '~/lib/query-options'
+import { patchMovementInSession, patchSetInSession, sessionCompletion, type SetPatch } from '~/lib/session-cache'
+import { substituteMovementFn, upsertSetLogFn } from '~/server/api'
+import type {
+  MovementHistoryEntry,
+  MovementHistorySet,
+  MovementSlot,
+  MovementSwapOption,
+  SetLog,
+  SubstitutionReason,
+  SwapScope,
+  WorkoutSession,
+} from '~/types/training'
 import { SyncPill } from './session'
 
 const SET_GRID_CLASS = 'grid grid-cols-[1.15rem_minmax(3.75rem,1fr)_minmax(3rem,0.75fr)_minmax(4.75rem,1fr)_2.25rem] sm:grid-cols-[1.25rem_minmax(4.5rem,7.75rem)_minmax(3.25rem,6.5rem)_minmax(5rem,6.5rem)_2.25rem] md:grid-cols-[1.5rem_minmax(4.75rem,1fr)_minmax(4rem,0.8fr)_minmax(5.5rem,1fr)_minmax(7.5rem,1.35fr)_2.25rem]'
@@ -224,6 +233,7 @@ function LiveMovementCard({
     firstIncompleteIndex ?? movement.sets[0]?.setIndex ?? 1,
   )
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [swapOpen, setSwapOpen] = useState(false)
   const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<Record<number, number | undefined>>({})
 
   const carryRirToNextSet = (setIndex: number, value: number) => {
@@ -258,7 +268,13 @@ function LiveMovementCard({
           </div>
           <div className="flex gap-1.5 md:pt-0.5">
             <ToolButton title="Plate math" icon={<Calculator size={13} />} label="Plates" />
-            <ToolButton title="Swap movement" icon={<Repeat2 size={13} />} label="Swap" />
+            <ToolButton
+              title={movement.role === 'main' ? 'Main lifts cannot be swapped' : 'Swap movement'}
+              icon={<Repeat2 size={13} />}
+              label="Swap"
+              disabled={movement.role === 'main'}
+              onClick={() => setSwapOpen(true)}
+            />
             <ToolButton title="Movement history" icon={<History size={13} />} label="History" onClick={() => setHistoryOpen(true)} />
           </div>
         </div>
@@ -303,6 +319,14 @@ function LiveMovementCard({
       </div>
 
       <MovementHistoryModal open={historyOpen} movement={movement} onClose={() => setHistoryOpen(false)} />
+      {swapOpen ? (
+        <MovementSwapModal
+          open={swapOpen}
+          session={session}
+          movement={movement}
+          onClose={() => setSwapOpen(false)}
+        />
+      ) : null}
 
       <button
         type="button"
@@ -713,6 +737,297 @@ function RolePill({ role, subtle = false }: { role: MovementSlot['role']; subtle
   )
 }
 
+const substitutionReasons: { value: SubstitutionReason; label: string }[] = [
+  { value: 'equipment_missing', label: 'Equipment unavailable' },
+  { value: 'crowded_gym', label: 'Crowded gym' },
+  { value: 'preference', label: 'Preference' },
+  { value: 'fatigue', label: 'Fatigue' },
+  { value: 'other', label: 'Other' },
+]
+
+function MovementSwapModal({
+  open,
+  session,
+  movement,
+  onClose,
+}: {
+  open: boolean
+  session: WorkoutSession
+  movement: MovementSlot
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [search, setSearch] = useState('')
+  const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null)
+  const [reason, setReason] = useState<SubstitutionReason>('equipment_missing')
+  const [scope, setScope] = useState<SwapScope>('session')
+  const [note, setNote] = useState('')
+
+  const optionsQuery = useQuery({
+    ...movementSwapOptionsQueryOptions(session.sessionId, movement.id),
+    enabled: open && movement.role !== 'main',
+  })
+  const options = useMemo(() => optionsQuery.data ?? [], [optionsQuery.data])
+  const filteredOptions = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    if (!query) return options
+    return options.filter((option) => {
+      const equipment = option.equipment.join(' ').toLowerCase()
+      return (
+        option.movementName.toLowerCase().includes(query) ||
+        option.category.toLowerCase().includes(query) ||
+        equipment.includes(query)
+      )
+    })
+  }, [options, search])
+  const effectiveSelectedMovementId = selectedMovementId ?? options[0]?.movementId ?? null
+  const selectedOption = options.find((option) => option.movementId === effectiveSelectedMovementId) ?? null
+  const canUsePhaseScope = Boolean(selectedOption?.allowedScopes.includes('phase_slot'))
+  const effectiveScope: SwapScope = scope === 'phase_slot' && canUsePhaseScope ? 'phase_slot' : 'session'
+
+  const mutation = useMutation({
+    mutationKey: ['substituteMovement', session.sessionId, movement.id],
+    mutationFn: (input: {
+      option: MovementSwapOption
+      reason: SubstitutionReason
+      note?: string
+      scope: SwapScope
+    }) =>
+      substituteMovementFn({
+        data: {
+          sessionId: session.sessionId,
+          exerciseLogId: movement.id,
+          performedMovementId: input.option.movementId,
+          reason: input.reason,
+          note: input.note,
+          scope: input.scope,
+        },
+      }),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: ['session', session.sessionId] })
+      const previous = queryClient.getQueryData<WorkoutSession>(['session', session.sessionId])
+      if (previous) {
+        queryClient.setQueryData(
+          ['session', session.sessionId],
+          patchMovementInSession(previous, {
+            exerciseLogId: movement.id,
+            performedMovementId: input.option.movementId,
+            performedMovementName: input.option.movementName,
+          }),
+        )
+      }
+      return { previous }
+    },
+    onError: (error, _input, context) => {
+      if (context?.previous) queryClient.setQueryData(['session', session.sessionId], context.previous)
+      notifications.show({
+        color: 'danger',
+        title: 'Movement not swapped',
+        message: getApiErrorMessage(error, 'Unable to swap this movement.'),
+      })
+    },
+    onSuccess: async (nextSession, input) => {
+      queryClient.setQueryData(['session', session.sessionId], nextSession)
+      queryClient.setQueryData(['today'], (current: any) =>
+        current ? { ...current, activeSession: nextSession } : current,
+      )
+      await queryClient.invalidateQueries({ queryKey: ['movementSwapOptions', session.sessionId, movement.id] })
+      if (input.scope === 'phase_slot') {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['today'] }),
+          queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
+        ])
+      }
+      notifications.show({
+        color: 'success',
+        title: 'Movement swapped',
+        message: input.scope === 'phase_slot' ? 'This slot will use the replacement for the rest of this phase.' : 'This session was updated.',
+      })
+      onClose()
+    },
+  })
+
+  const submit = () => {
+    if (!selectedOption || mutation.isPending) return
+    mutation.mutate({
+      option: selectedOption,
+      reason,
+      note: note.trim() || undefined,
+      scope: effectiveScope,
+    })
+  }
+
+  return (
+    <Modal
+      opened={open}
+      onClose={() => {
+        if (!mutation.isPending) onClose()
+      }}
+      title="Swap movement"
+      size="lg"
+      closeOnClickOutside={!mutation.isPending}
+      closeOnEscape={!mutation.isPending}
+      withCloseButton={!mutation.isPending}
+      classNames={{
+        content: '!border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+        header: '!bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+        title: 'text-lg font-bold !text-[var(--mantine-color-text)]',
+        body: '!text-[var(--mantine-color-text)]',
+        close: '!text-[var(--mantine-color-dimmed)] hover:!bg-[var(--vf-surface-2)] hover:!text-[var(--mantine-color-text)]',
+      }}
+    >
+      <div className="space-y-4">
+        <div className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)]">
+            Planned
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <p className="text-base font-extrabold">{movement.movementName}</p>
+            <RolePill role={movement.role} subtle />
+          </div>
+          {movement.performedMovementId && movement.performedMovementId !== movement.movementId ? (
+            <p className="mt-2 text-xs font-semibold text-[var(--vf-warning-text)]">
+              Currently performed as {movement.performedMovementName}
+            </p>
+          ) : null}
+          <p className="mt-2 text-xs text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
+        </div>
+
+        <TextInput
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search alternatives"
+          classNames={{
+            input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)] !text-[var(--mantine-color-text)]',
+          }}
+        />
+
+        {optionsQuery.isPending ? (
+          <HistoryStatus>Loading suggested movements...</HistoryStatus>
+        ) : optionsQuery.isError ? (
+          <HistoryStatus tone="danger">{getApiErrorMessage(optionsQuery.error, 'Unable to load movement options')}</HistoryStatus>
+        ) : filteredOptions.length ? (
+          <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+            {filteredOptions.map((option) => (
+              <SwapOptionRow
+                key={option.movementId}
+                option={option}
+                selected={option.movementId === effectiveSelectedMovementId}
+                onSelect={() => setSelectedMovementId(option.movementId)}
+              />
+            ))}
+          </div>
+        ) : (
+          <HistoryStatus>No matching movements found.</HistoryStatus>
+        )}
+
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <Select
+            label="Reason"
+            data={substitutionReasons}
+            value={reason}
+            onChange={(value) => setReason((value ?? 'equipment_missing') as SubstitutionReason)}
+            allowDeselect={false}
+            disabled={mutation.isPending}
+            classNames={{
+              label: '!text-[var(--mantine-color-dimmed)] !text-xs !font-bold',
+              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)] !text-[var(--mantine-color-text)]',
+              dropdown: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)]',
+              option: '!text-[var(--mantine-color-text)] hover:!bg-[var(--vf-surface-2)]',
+            }}
+          />
+          <TextInput
+            label="Note"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Optional"
+            disabled={mutation.isPending}
+            classNames={{
+              label: '!text-[var(--mantine-color-dimmed)] !text-xs !font-bold',
+              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)] !text-[var(--mantine-color-text)]',
+            }}
+          />
+        </div>
+
+        <Checkbox
+          checked={effectiveScope === 'phase_slot'}
+          disabled={!canUsePhaseScope || mutation.isPending}
+          onChange={(event) => setScope(event.currentTarget.checked ? 'phase_slot' : 'session')}
+          label="Use for this slot for the rest of the phase"
+          classNames={{
+            label: '!text-sm !font-semibold !text-[var(--mantine-color-text)]',
+            input: '!border-[var(--mantine-color-default-border)]',
+          }}
+        />
+
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-2 text-sm font-bold text-[var(--mantine-color-text)] transition hover:bg-[var(--vf-surface-2)] disabled:opacity-60"
+            disabled={mutation.isPending}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="rounded-xl bg-[var(--mantine-primary-color-filled)] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[var(--mantine-primary-color-filled-hover)] disabled:opacity-60"
+            disabled={!selectedOption || mutation.isPending}
+            onClick={submit}
+          >
+            {mutation.isPending ? 'Swapping...' : 'Swap movement'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function SwapOptionRow({
+  option,
+  selected,
+  onSelect,
+}: {
+  option: MovementSwapOption
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        'w-full rounded-xl border p-3 text-left transition',
+        selected
+          ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--vf-action-soft)]'
+          : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] hover:border-[var(--vf-action-border)]',
+      )}
+      onClick={onSelect}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-extrabold text-[var(--mantine-color-text)]">{option.movementName}</p>
+          <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
+            {option.relationshipLabel} · {option.category}
+          </p>
+        </div>
+        <span className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+          {option.source === 'rule' ? 'Suggested' : 'Related'}
+        </span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {option.equipment.map((item) => (
+          <span
+            key={item}
+            className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--mantine-color-dimmed)]"
+          >
+            {formatEquipmentLabel(item)}
+          </span>
+        ))}
+      </div>
+    </button>
+  )
+}
+
 function MovementHistoryModal({ open, movement, onClose }: { open: boolean; movement: MovementSlot; onClose: () => void }) {
   const movementId = movement.performedMovementId ?? movement.movementId
   const historyQuery = useQuery({
@@ -804,13 +1119,26 @@ function HistoryStatus({ children, tone = 'neutral' }: { children: ReactNode; to
   )
 }
 
-function ToolButton({ title, icon, label, onClick }: { title: string; icon: ReactNode; label: string; onClick?: () => void }) {
+function ToolButton({
+  title,
+  icon,
+  label,
+  onClick,
+  disabled = false,
+}: {
+  title: string
+  icon: ReactNode
+  label: string
+  onClick?: () => void
+  disabled?: boolean
+}) {
   return (
     <button
       type="button"
-      className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)] transition hover:border-[var(--vf-action-border)] hover:bg-[var(--vf-surface-3)] hover:text-[var(--mantine-color-text)] md:h-7 md:w-auto md:gap-1 md:rounded-lg md:px-2 md:text-[11px] md:font-semibold"
+      className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)] transition hover:border-[var(--vf-action-border)] hover:bg-[var(--vf-surface-3)] hover:text-[var(--mantine-color-text)] disabled:cursor-not-allowed disabled:opacity-45 md:h-7 md:w-auto md:gap-1 md:rounded-lg md:px-2 md:text-[11px] md:font-semibold"
       title={title}
       aria-label={title}
+      disabled={disabled}
       onClick={onClick}
     >
       {icon}
@@ -913,4 +1241,11 @@ function roundToStep(value: number, step: number) {
 
 function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
+}
+
+function formatEquipmentLabel(value: string) {
+  return value
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }

@@ -1,15 +1,21 @@
 import { createServerFn } from '@tanstack/react-start'
 import type {
   AnchorInput,
+  Movement,
   MovementHistoryEntry,
+  MovementReplacementRule,
   MovementSlot,
+  MovementSwapOption,
   PlannedSession,
   ProgramInstance,
+  ProgramMovementOverride,
   ProgramTemplateSummary,
   RecentHistoryEntry,
   ProgressionDecision,
   SessionSummary,
   SetLog,
+  SubstitutionReason,
+  SwapScope,
   TodayPayload,
   ThemePreference,
   Unit,
@@ -22,7 +28,7 @@ import {
   evaluateAccessoryDoubleProgression,
   evaluateBullmastiffPlusSet,
 } from '~/lib/progression'
-import { getMovementName } from '~/lib/movements'
+import { buildMovementSwapOptions, defaultMovementReplacementRules, getMovementName, movementCatalog } from '~/lib/movements'
 import { getSupabaseServerClient, hasSupabaseEnv } from './supabase'
 
 async function requireUser() {
@@ -69,6 +75,63 @@ function templateVersionIdFromRows(rows: any[]) {
   return version.id as string
 }
 
+function mapProgramMovementOverride(row: any): ProgramMovementOverride {
+  return {
+    id: row.id,
+    programInstanceId: row.program_instance_id,
+    slotId: row.slot_id,
+    phaseKey: row.phase_key,
+    role: row.role,
+    originalMovementId: row.original_movement_id,
+    replacementMovementId: row.replacement_movement_id,
+    effectiveFromWeekIndex: row.effective_from_week_index,
+  }
+}
+
+function mapMovementReplacementRule(row: any): MovementReplacementRule {
+  return {
+    id: row.id,
+    sourceMovementId: row.source_movement_id,
+    replacementMovementId: row.replacement_movement_id,
+    role: row.role,
+    templateId: row.template_id,
+    phaseKey: row.phase_key,
+    slotId: row.slot_id,
+    relationshipLabel: row.relationship_label,
+    allowSessionScope: row.allow_session_scope,
+    allowPhaseSlotScope: row.allow_phase_slot_scope,
+  }
+}
+
+function mapMovementRow(row: any): Movement {
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    equipment: row.equipment ?? [],
+    variationOf: row.variation_of,
+    defaultUnit: row.default_unit,
+    isCompetition: row.is_competition,
+  }
+}
+
+async function getMovementCatalogForSwap(supabase: any): Promise<Record<string, Movement>> {
+  const { data, error } = await supabase.from('movements').select('*')
+  if (error) throw new Error(error.message)
+  const catalog = Object.fromEntries((data ?? []).map((row: any) => [row.id, mapMovementRow(row)]))
+  return Object.keys(catalog).length ? catalog : movementCatalog
+}
+
+async function getReplacementRulesForSwap(supabase: any): Promise<MovementReplacementRule[]> {
+  const { data, error } = await supabase
+    .from('movement_replacement_rules')
+    .select('*')
+    .eq('is_active', true)
+  if (error) throw new Error(error.message)
+  const rules = (data ?? []).map(mapMovementReplacementRule)
+  return rules.length ? rules : defaultMovementReplacementRules
+}
+
 async function getActiveProgramInternal(): Promise<ProgramInstance | null> {
   const { supabase, user } = await requireUser()
   const { data: instance, error } = await supabase
@@ -89,6 +152,14 @@ async function getActiveProgramInternal(): Promise<ProgramInstance | null> {
     .order('movement_id')
   if (anchorError) throw new Error(anchorError.message)
 
+  const { data: movementOverrides, error: overrideError } = await supabase
+    .from('program_movement_overrides')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('program_instance_id', instance.id)
+    .order('created_at', { ascending: true })
+  if (overrideError) throw new Error(overrideError.message)
+
   return {
     id: instance.id,
     templateId: instance.template_id,
@@ -104,6 +175,7 @@ async function getActiveProgramInternal(): Promise<ProgramInstance | null> {
       anchorType: anchor.anchor_type,
       value: Number(anchor.value),
     })),
+    movementOverrides: (movementOverrides ?? []).map(mapProgramMovementOverride),
   }
 }
 
@@ -244,7 +316,8 @@ async function getSessionInternal(sessionId: string): Promise<WorkoutSession> {
     notes: sessionRow.notes,
     syncState: 'synced',
     movements: snapshot.movements.map((movement) => {
-      const exercise = (exerciseRows ?? []).find((row: any) => row.slot_id === movement.id)
+      const slotId = movement.slotId ?? movement.id
+      const exercise = (exerciseRows ?? []).find((row: any) => row.slot_id === slotId)
       const sets = (setRows ?? [])
         .filter((set: any) => set.exercise_log_id === exercise?.id)
         .map((set: any): SetLog => ({
@@ -271,6 +344,7 @@ async function getSessionInternal(sessionId: string): Promise<WorkoutSession> {
         }))
       return {
         ...movement,
+        slotId,
         id: exercise?.id ?? movement.id,
         performedMovementId: exercise?.performed_movement_id ?? movement.movementId,
         performedMovementName: getMovementName(exercise?.performed_movement_id ?? movement.movementId),
@@ -465,7 +539,7 @@ export const startSessionFn = createServerFn({ method: 'POST' })
         .insert({
           user_id: user.id,
           session_id: session.id,
-          slot_id: movement.id,
+          slot_id: movement.slotId ?? movement.id,
           planned_movement_id: movement.movementId,
           performed_movement_id: movement.performedMovementId ?? movement.movementId,
           role: movement.role,
@@ -554,36 +628,162 @@ export const upsertSetLogFn = createServerFn({ method: 'POST' })
     return getSessionInternal(data.sessionId)
   })
 
+type SwapContext = {
+  sessionRow: any
+  exerciseRow: any
+  snapshot: PlannedSession
+  slotId: string
+  phaseKey: string
+  role: MovementSlot['role']
+}
+
+function phaseKeyForSnapshot(snapshot: PlannedSession, movement?: MovementSlot | null) {
+  if (movement?.phaseKey) return movement.phaseKey
+  if (snapshot.templateId === 'bromley-bullmastiff') {
+    return snapshot.weekLabel.toLowerCase().startsWith('peak') ? 'peak' : 'base'
+  }
+  return 'cycle'
+}
+
+async function getSwapContext(supabase: any, userId: string, sessionId: string, exerciseLogId: string): Promise<SwapContext> {
+  const { data: sessionRow, error: sessionError } = await supabase
+    .from('workout_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .single()
+  if (sessionError) throw new Error(sessionError.message)
+
+  const { data: exerciseRow, error: exerciseError } = await supabase
+    .from('exercise_logs')
+    .select('*')
+    .eq('id', exerciseLogId)
+    .eq('session_id', sessionId)
+    .eq('user_id', userId)
+    .single()
+  if (exerciseError) throw new Error(exerciseError.message)
+
+  const snapshot = sessionRow.prescription_snapshot as PlannedSession
+  const slotId = exerciseRow.slot_id as string
+  const movement = snapshot.movements.find((item) => (item.slotId ?? item.id) === slotId)
+
+  return {
+    sessionRow,
+    exerciseRow,
+    snapshot,
+    slotId,
+    phaseKey: phaseKeyForSnapshot(snapshot, movement),
+    role: exerciseRow.role,
+  }
+}
+
+async function getSwapOptionsForContext(supabase: any, context: SwapContext): Promise<MovementSwapOption[]> {
+  if (context.role === 'main') return []
+  const [catalog, rules] = await Promise.all([
+    getMovementCatalogForSwap(supabase),
+    getReplacementRulesForSwap(supabase),
+  ])
+  return buildMovementSwapOptions({
+    movementId: context.exerciseRow.planned_movement_id,
+    role: context.role,
+    templateId: context.snapshot.templateId,
+    phaseKey: context.phaseKey,
+    slotId: context.slotId,
+    catalog,
+    rules,
+  }).filter((option) => option.movementId !== context.exerciseRow.performed_movement_id)
+}
+
+export const listMovementSwapOptionsFn = createServerFn({ method: 'GET' })
+  .validator((data: { sessionId: string; exerciseLogId: string }) => data)
+  .handler(async ({ data }): Promise<MovementSwapOption[]> => {
+    const { supabase, user } = await requireUser()
+    const context = await getSwapContext(supabase, user.id, data.sessionId, data.exerciseLogId)
+    return getSwapOptionsForContext(supabase, context)
+  })
+
 export const substituteMovementFn = createServerFn({ method: 'POST' })
   .validator(
     (data: {
       sessionId: string
       exerciseLogId: string
-      slotId: string
-      plannedMovementId: string
       performedMovementId: string
-      reason: 'equipment_missing' | 'crowded_gym' | 'preference' | 'fatigue' | 'other'
+      reason: SubstitutionReason
       note?: string
+      scope?: SwapScope
     }) => data,
   )
   .handler(async ({ data }) => {
     const { supabase, user } = await requireUser()
+    const scope = data.scope ?? 'session'
+    const context = await getSwapContext(supabase, user.id, data.sessionId, data.exerciseLogId)
+
+    if (context.sessionRow.status === 'completed') {
+      throw new Error('This session is already finished. Completed sessions cannot be edited.')
+    }
+    if (context.sessionRow.status !== 'in_progress') {
+      throw new Error('Only in-progress sessions can be edited.')
+    }
+    if (context.role === 'main') {
+      throw new Error('Main lifts cannot be swapped.')
+    }
+
+    const options = await getSwapOptionsForContext(supabase, context)
+    const selectedOption = options.find(
+      (option) => option.movementId === data.performedMovementId && option.allowedScopes.includes(scope),
+    )
+    if (!selectedOption) {
+      throw new Error('This movement is not an allowed replacement for the selected slot.')
+    }
+
     const { error } = await supabase
       .from('exercise_logs')
       .update({ performed_movement_id: data.performedMovementId })
       .eq('id', data.exerciseLogId)
+      .eq('session_id', data.sessionId)
       .eq('user_id', user.id)
     if (error) throw new Error(error.message)
+
     const { error: logError } = await supabase.from('substitution_logs').insert({
       user_id: user.id,
       session_id: data.sessionId,
-      slot_id: data.slotId,
-      planned_movement_id: data.plannedMovementId,
+      slot_id: context.slotId,
+      planned_movement_id: context.exerciseRow.planned_movement_id,
       performed_movement_id: data.performedMovementId,
       reason: data.reason,
       note: data.note,
     })
     if (logError) throw new Error(logError.message)
+
+    if (scope === 'phase_slot') {
+      const { data: programRow, error: programError } = await supabase
+        .from('program_instances')
+        .select('id, current_week_index')
+        .eq('id', context.sessionRow.program_instance_id)
+        .eq('user_id', user.id)
+        .single()
+      if (programError) throw new Error(programError.message)
+
+      const { error: overrideError } = await supabase
+        .from('program_movement_overrides')
+        .upsert(
+          {
+            user_id: user.id,
+            program_instance_id: programRow.id,
+            slot_id: context.slotId,
+            phase_key: context.phaseKey,
+            role: context.role,
+            original_movement_id: context.exerciseRow.planned_movement_id,
+            replacement_movement_id: data.performedMovementId,
+            effective_from_week_index: Number(programRow.current_week_index) + 1,
+            source_session_id: data.sessionId,
+            source_exercise_log_id: data.exerciseLogId,
+          },
+          { onConflict: 'program_instance_id,slot_id,phase_key,role' },
+        )
+      if (overrideError) throw new Error(overrideError.message)
+    }
+
     return getSessionInternal(data.sessionId)
   })
 
