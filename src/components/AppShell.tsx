@@ -19,8 +19,8 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
   if (isAuth) return <>{children}</>
 
   return (
-    <div className="min-h-screen bg-[var(--mantine-color-body)] pb-[calc(4rem+env(safe-area-inset-bottom))] text-[var(--mantine-color-text)] md:pb-0">
-      <header className="sticky top-0 z-30 border-b border-[var(--mantine-color-default-border)] bg-[color:var(--mantine-color-default)/0.94] backdrop-blur-md">
+    <div className="min-h-dvh bg-[var(--mantine-color-body)] pb-[calc(4rem+env(safe-area-inset-bottom))] text-[var(--mantine-color-text)] md:pb-0">
+      <header className="sticky top-[env(safe-area-inset-top)] z-30 border-b border-[var(--mantine-color-default-border)] bg-[color:var(--mantine-color-default)/0.94] backdrop-blur-md">
         <div className="mx-auto grid h-12 max-w-[1180px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 md:px-5">
           <Link to="/today" className="flex min-w-0 items-center gap-2 justify-self-start">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--vf-brand-mark)] text-[var(--vf-brand-mark-text)]">

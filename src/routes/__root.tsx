@@ -15,6 +15,7 @@ import { getMeFn } from '~/server/api'
 import { meQueryOptions } from '~/lib/query-options'
 import type { ThemePreference, UserProfile } from '~/types/training'
 import { AppShell } from '~/components/AppShell'
+import { PwaUpdatePrompt } from '~/components/PwaUpdatePrompt'
 import { mantineCssVariablesResolver, mantineTheme } from '~/styles/mantine-theme'
 import appCss from '~/styles/app.css?url'
 
@@ -35,7 +36,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+      { name: 'theme-color', content: '#197f9a' },
+      { name: 'application-name', content: 'Sheetless' },
+      { name: 'mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-title', content: 'Sheetless' },
+      { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
       {
         title: 'Sheetless',
       },
@@ -44,7 +51,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: 'Structured strength training tracker for planned progression.',
       },
     ],
-    links: [{ rel: 'stylesheet', href: appCss }],
+    links: [
+      { rel: 'stylesheet', href: appCss },
+      { rel: 'manifest', href: '/manifest.webmanifest' },
+      { rel: 'apple-touch-icon', href: '/pwa/apple-touch-icon.png' },
+    ],
   }),
   component: RootComponent,
 })
@@ -123,10 +134,13 @@ function ThemedAppShell({
     >
       <AppShell user={user}>{children}</AppShell>
       <Notifications position="top-right" limit={4} />
-      <div className="hidden md:block">
-        <ReactQueryDevtools buttonPosition="bottom-left" initialIsOpen={false} />
-        <TanStackRouterDevtools position="bottom-right" />
-      </div>
+      <PwaUpdatePrompt />
+      {import.meta.env.DEV ? (
+        <div className="hidden md:block">
+          <ReactQueryDevtools buttonPosition="bottom-left" initialIsOpen={false} />
+          <TanStackRouterDevtools position="bottom-right" />
+        </div>
+      ) : null}
     </MantineProvider>
   )
 }
