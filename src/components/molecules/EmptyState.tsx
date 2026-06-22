@@ -11,8 +11,8 @@ export function EmptyState({
     action?: ReactNode
 }) {
     return (
-        <Card className="flex min-h-64 flex-col items-center justify-center text-center">
-            <Title order={2} className="text-lg font-extrabold">
+        <Card className="flex min-h-64 flex-col items-center justify-center border-dashed bg-[var(--vf-surface-2)] p-6 text-center">
+            <Title order={2} className="text-base font-extrabold md:text-lg">
                 {title}
             </Title>
             <Text component="p" size="sm" c="dimmed" className="mt-2 max-w-md">

@@ -149,7 +149,7 @@ function AuthedSettings() {
       </PageHeader>
 
       {hasPendingChanges ? (
-        <div className="sticky top-16 z-30 mb-4 rounded-2xl border border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-3 shadow-[var(--vf-shadow-card)]">
+        <div className="sticky top-16 z-30 mb-4 rounded-lg border border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-3 shadow-[var(--vf-shadow-card)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-extrabold text-[var(--mantine-color-text)]">Unsaved changes</p>
@@ -170,7 +170,7 @@ function AuthedSettings() {
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[11rem_minmax(0,1fr)]">
-        <aside className="hidden rounded-[var(--mantine-radius-xl)] border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 shadow-[var(--vf-shadow-card)] lg:flex lg:flex-col">
+        <aside className="hidden rounded-[var(--mantine-radius-lg)] border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 shadow-[var(--vf-shadow-card)] lg:flex lg:flex-col">
           <p className="vf-section-label px-2 pb-2">Settings</p>
           {settingsSections.map((item) => {
             const Icon = item.icon
@@ -193,7 +193,7 @@ function AuthedSettings() {
               <h2 className="text-sm font-extrabold">Preferences</h2>
               <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Units, rounding, and session defaults.</p>
             </div>
-            <Card className="space-y-3">
+            <Card className="space-y-3 p-4">
               <div>
                 <span className="vf-section-label">Theme</span>
                 <div className="mt-2 grid gap-2 sm:grid-cols-3">
@@ -225,7 +225,7 @@ function AuthedSettings() {
                 <label className="grid gap-1">
                   <span className="vf-section-label">Units</span>
                   <select
-                    className="min-h-11 rounded-[var(--mantine-radius-lg)] border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 font-medium"
+                    className="min-h-10 rounded-[var(--mantine-radius-md)] border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 font-medium"
                     value={units}
                     onChange={(event) => setUnits(event.target.value as Unit)}
                   >
@@ -238,7 +238,7 @@ function AuthedSettings() {
                   <TextInput type="number" value={rounding} onChange={(event) => setRounding(Number(event.target.value))} />
                 </label>
               </div>
-              <label className="flex items-center justify-between rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+              <label className="flex items-center justify-between rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
                 <span>
                   <span className="block text-sm font-semibold">Auto-start rest timer</span>
                   <span className="text-xs text-[var(--mantine-color-dimmed)]">Starts after each completed set.</span>
@@ -253,10 +253,10 @@ function AuthedSettings() {
               <h2 className="text-sm font-extrabold">Equipment Profile</h2>
               <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Select available equipment to filter alternatives.</p>
             </div>
-            <Card>
+            <Card className="p-4">
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {equipmentOptions.map((item) => (
-                  <label key={item} className="flex items-center justify-between rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+                  <label key={item} className="flex items-center justify-between rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
                     <span className="text-sm font-semibold">{item.replaceAll('_', ' ')}</span>
                     <input
                       className="h-4 w-4 accent-[var(--mantine-primary-color-filled)]"
@@ -302,7 +302,7 @@ function AuthedSettings() {
               <h2 className="text-sm font-extrabold">Account</h2>
               <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Login identity and session controls.</p>
             </div>
-            <Card className="space-y-3">
+            <Card className="space-y-3 p-4">
               <label className="grid gap-1">
                 <span className="vf-section-label">Email Address</span>
                 <TextInput type="email" value={me?.email ?? ''} readOnly />

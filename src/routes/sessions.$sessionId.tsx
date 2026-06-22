@@ -58,7 +58,7 @@ function SessionRoute() {
         queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
       ])
       await queryClient.fetchQuery(todayQueryOptions())
-      await router.navigate({ to: '/today' })
+      await router.navigate({ to: '/sessions/$sessionId/summary', params: { sessionId } })
     },
     onError: (error) => {
       const message = getApiErrorMessage(error, 'Unable to finish this session')

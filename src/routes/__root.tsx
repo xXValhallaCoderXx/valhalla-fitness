@@ -66,7 +66,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   const initialThemePreference = me?.themePreference ?? 'system'
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <ColorSchemeScript
           defaultColorScheme={toMantineColorScheme(initialThemePreference)}
@@ -123,8 +123,10 @@ function ThemedAppShell({
     >
       <AppShell user={user}>{children}</AppShell>
       <Notifications position="top-right" limit={4} />
-      <ReactQueryDevtools buttonPosition="bottom-left" initialIsOpen={false} />
-      <TanStackRouterDevtools position="bottom-right" />
+      <div className="hidden md:block">
+        <ReactQueryDevtools buttonPosition="bottom-left" initialIsOpen={false} />
+        <TanStackRouterDevtools position="bottom-right" />
+      </div>
     </MantineProvider>
   )
 }

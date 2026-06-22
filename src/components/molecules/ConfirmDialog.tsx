@@ -47,7 +47,7 @@ export function ConfirmDialog({
                         {cancelLabel}
                     </Button>
                     <Button {...confirmButtonProps} disabled={isPending} onClick={onConfirm}>
-                        {isPending ? 'Starting…' : confirmLabel}
+                        {isPending ? 'Working...' : confirmLabel}
                     </Button>
                 </div>
             </div>

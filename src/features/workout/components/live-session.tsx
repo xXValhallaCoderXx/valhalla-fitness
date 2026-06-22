@@ -63,7 +63,7 @@ export function LiveSessionFrame({
   const completedMovements = session.movements.filter(isMovementComplete).length
 
   return (
-    <div className="-mx-4 -my-5 min-h-[calc(100vh-3.5rem)] bg-[var(--mantine-color-body)] text-[var(--mantine-color-text)] md:mx-auto md:my-0 md:min-h-0 md:max-w-[920px] md:rounded-2xl md:border md:border-[var(--mantine-color-default-border)] md:bg-[var(--mantine-color-default)] md:shadow-[var(--vf-shadow-panel)]">
+    <div className="-mx-3 -my-4 min-h-[calc(100vh-3.5rem)] bg-[var(--mantine-color-body)] text-[var(--mantine-color-text)] md:mx-auto md:my-0 md:min-h-0 md:max-w-[1180px] md:rounded-xl md:border md:border-[var(--mantine-color-default-border)] md:bg-[var(--mantine-color-default)] md:shadow-[var(--vf-shadow-panel)]">
       <SessionContextBar
         session={session}
         progress={progress}
@@ -80,7 +80,7 @@ export function LiveSessionFrame({
         />
       </div>
 
-      <div className="md:flex md:min-h-[560px]">
+      <div className="md:flex md:min-h-[600px]">
         <MovementRail
           session={session}
           activeMovementId={selectedMovementId}
@@ -183,7 +183,7 @@ function MovementRail({
   onSelectMovement: (movementId: string) => void
 }) {
   return (
-    <aside className="hidden w-48 shrink-0 flex-col border-r border-[var(--mantine-color-default-border)] bg-[var(--vf-bg-elevated)] px-2 py-3 md:flex">
+    <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--mantine-color-default-border)] bg-[var(--vf-bg-elevated)] px-2 py-3 md:flex">
       <p className="mb-2 px-2 text-[10px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)]">Movements</p>
       <div className="space-y-0.5">
         {session.movements.map((movement) => {
@@ -247,7 +247,7 @@ function LiveMovementCard({
   }
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-color-default)] md:rounded-xl md:border-2 md:p-4 md:shadow-[var(--vf-shadow-card)]">
+    <article className="overflow-hidden rounded-xl border border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-color-default)] md:border-2 md:p-4 md:shadow-[var(--vf-shadow-card)]">
       <div className="border-b border-[var(--mantine-color-default-border)] px-4 pb-3 pt-4 md:border-0 md:p-0">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2 md:justify-start md:gap-4">
           <div className="min-w-0">
@@ -279,7 +279,7 @@ function LiveMovementCard({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2 md:mb-3 md:rounded-lg md:px-3 md:py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2 md:mb-3 md:px-3 md:py-2.5">
           <MetricBlock label="Top set today" value={topSet ? formatSetTarget(topSet, session.units) : 'No top set'} />
           <div className="hidden h-7 w-px bg-[var(--mantine-color-default-border)] md:block" aria-hidden="true" />
           <MetricBlock
@@ -357,7 +357,7 @@ function CollapsedMovementCard({
     <button
       type="button"
       className={cn(
-        'flex w-full items-center justify-between gap-3 rounded-2xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-3 text-left text-[var(--mantine-color-text)] transition hover:border-[var(--vf-action-border)] md:rounded-xl md:shadow-[var(--vf-shadow-card)]',
+        'flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-3 text-left text-[var(--mantine-color-text)] transition hover:border-[var(--vf-action-border)] md:shadow-[var(--vf-shadow-card)]',
         complete && 'opacity-55',
       )}
       onClick={onSelect}
@@ -674,7 +674,7 @@ function RirSegmentedControl({
 
 function LiveNotesBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
-    <label className="grid gap-1 rounded-2xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-4 md:rounded-xl">
+    <label className="grid gap-1 rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-4">
       <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)]">
         Session notes
       </span>
@@ -738,10 +738,10 @@ function RolePill({ role, subtle = false }: { role: MovementSlot['role']; subtle
 }
 
 const substitutionReasons: { value: SubstitutionReason; label: string }[] = [
-  { value: 'equipment_missing', label: 'Equipment unavailable' },
+  { value: 'equipment_missing', label: 'Equipment taken' },
   { value: 'crowded_gym', label: 'Crowded gym' },
-  { value: 'preference', label: 'Preference' },
   { value: 'fatigue', label: 'Fatigue' },
+  { value: 'preference', label: 'Variety' },
   { value: 'other', label: 'Other' },
 ]
 
@@ -869,59 +869,68 @@ function MovementSwapModal({
       closeOnEscape={!mutation.isPending}
       withCloseButton={!mutation.isPending}
       classNames={{
-        content: '!border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+        inner: '!items-end sm:!items-center',
+        content: '!mb-0 !max-h-[92dvh] !w-full !overflow-hidden !rounded-b-none !border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)] sm:!mb-auto sm:!max-w-[60rem] sm:!rounded-lg',
         header: '!bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
         title: 'text-lg font-bold !text-[var(--mantine-color-text)]',
-        body: '!text-[var(--mantine-color-text)]',
+        body: '!max-h-[calc(92dvh-4rem)] !overflow-y-auto !text-[var(--mantine-color-text)]',
         close: '!text-[var(--mantine-color-dimmed)] hover:!bg-[var(--vf-surface-2)] hover:!text-[var(--mantine-color-text)]',
       }}
     >
-      <div className="space-y-4">
-        <div className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)]">
-            Planned
-          </p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <p className="text-base font-extrabold">{movement.movementName}</p>
-            <RolePill role={movement.role} subtle />
-          </div>
-          {movement.performedMovementId && movement.performedMovementId !== movement.movementId ? (
-            <p className="mt-2 text-xs font-semibold text-[var(--vf-warning-text)]">
-              Currently performed as {movement.performedMovementName}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+        <div className="min-h-0 space-y-3">
+          <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)]">
+              Planned
             </p>
-          ) : null}
-          <p className="mt-2 text-xs text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-base font-extrabold">{movement.movementName}</p>
+              <RolePill role={movement.role} subtle />
+            </div>
+            {movement.performedMovementId && movement.performedMovementId !== movement.movementId ? (
+              <p className="mt-2 text-xs font-semibold text-[var(--vf-warning-text)]">
+                Currently performed as {movement.performedMovementName}
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
+          </div>
+
+          <TextInput
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search alternatives"
+            classNames={{
+              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)] !text-[var(--mantine-color-text)]',
+            }}
+          />
+
+          {optionsQuery.isPending ? (
+            <HistoryStatus>Loading suggested movements...</HistoryStatus>
+          ) : optionsQuery.isError ? (
+            <HistoryStatus tone="danger">{getApiErrorMessage(optionsQuery.error, 'Unable to load movement options')}</HistoryStatus>
+          ) : filteredOptions.length ? (
+            <div className="max-h-[38dvh] space-y-2 overflow-y-auto pr-1 lg:max-h-[28rem]">
+              {filteredOptions.map((option) => (
+                <SwapOptionRow
+                  key={option.movementId}
+                  option={option}
+                  selected={option.movementId === effectiveSelectedMovementId}
+                  onSelect={() => setSelectedMovementId(option.movementId)}
+                />
+              ))}
+            </div>
+          ) : (
+            <HistoryStatus>No matching movements found.</HistoryStatus>
+          )}
         </div>
 
-        <TextInput
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search alternatives"
-          classNames={{
-            input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)] !text-[var(--mantine-color-text)]',
-          }}
-        />
-
-        {optionsQuery.isPending ? (
-          <HistoryStatus>Loading suggested movements...</HistoryStatus>
-        ) : optionsQuery.isError ? (
-          <HistoryStatus tone="danger">{getApiErrorMessage(optionsQuery.error, 'Unable to load movement options')}</HistoryStatus>
-        ) : filteredOptions.length ? (
-          <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-            {filteredOptions.map((option) => (
-              <SwapOptionRow
-                key={option.movementId}
-                option={option}
-                selected={option.movementId === effectiveSelectedMovementId}
-                onSelect={() => setSelectedMovementId(option.movementId)}
-              />
-            ))}
+        <div className="space-y-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+          <div>
+            <p className="vf-section-label">Swap details</p>
+            <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
+              Choose why this movement is changing and whether the choice applies only now or to this phase slot.
+            </p>
           </div>
-        ) : (
-          <HistoryStatus>No matching movements found.</HistoryStatus>
-        )}
-
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Select
             label="Reason"
             data={substitutionReasons}
@@ -931,7 +940,7 @@ function MovementSwapModal({
             disabled={mutation.isPending}
             classNames={{
               label: '!text-[var(--mantine-color-dimmed)] !text-xs !font-bold',
-              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)] !text-[var(--mantine-color-text)]',
+              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
               dropdown: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)]',
               option: '!text-[var(--mantine-color-text)] hover:!bg-[var(--vf-surface-2)]',
             }}
@@ -944,39 +953,44 @@ function MovementSwapModal({
             disabled={mutation.isPending}
             classNames={{
               label: '!text-[var(--mantine-color-dimmed)] !text-xs !font-bold',
-              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)] !text-[var(--mantine-color-text)]',
+              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
             }}
           />
-        </div>
-
-        <Checkbox
-          checked={effectiveScope === 'phase_slot'}
-          disabled={!canUsePhaseScope || mutation.isPending}
-          onChange={(event) => setScope(event.currentTarget.checked ? 'phase_slot' : 'session')}
-          label="Use for this slot for the rest of the phase"
-          classNames={{
-            label: '!text-sm !font-semibold !text-[var(--mantine-color-text)]',
-            input: '!border-[var(--mantine-color-default-border)]',
-          }}
-        />
-
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-2 text-sm font-bold text-[var(--mantine-color-text)] transition hover:bg-[var(--vf-surface-2)] disabled:opacity-60"
-            disabled={mutation.isPending}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="rounded-xl bg-[var(--mantine-primary-color-filled)] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[var(--mantine-primary-color-filled-hover)] disabled:opacity-60"
-            disabled={!selectedOption || mutation.isPending}
-            onClick={submit}
-          >
-            {mutation.isPending ? 'Swapping...' : 'Swap movement'}
-          </button>
+          <Checkbox
+            checked={effectiveScope === 'phase_slot'}
+            disabled={!canUsePhaseScope || mutation.isPending}
+            onChange={(event) => setScope(event.currentTarget.checked ? 'phase_slot' : 'session')}
+            label="Use for this slot for the rest of the phase"
+            classNames={{
+              label: '!text-sm !font-semibold !text-[var(--mantine-color-text)]',
+              input: '!border-[var(--mantine-color-default-border)]',
+            }}
+          />
+          <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Selected</p>
+            <p className="mt-1 text-sm font-extrabold">{selectedOption?.movementName ?? 'No movement selected'}</p>
+            <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
+              {effectiveScope === 'phase_slot' ? 'Phase slot replacement' : 'This session only'}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-2 text-sm font-bold text-[var(--mantine-color-text)] transition hover:bg-[var(--vf-surface-2)] disabled:opacity-60"
+              disabled={mutation.isPending}
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-[var(--mantine-primary-color-filled)] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[var(--mantine-primary-color-filled-hover)] disabled:opacity-60"
+              disabled={!selectedOption || mutation.isPending}
+              onClick={submit}
+            >
+              {mutation.isPending ? 'Swapping...' : 'Swap'}
+            </button>
+          </div>
         </div>
       </div>
     </Modal>

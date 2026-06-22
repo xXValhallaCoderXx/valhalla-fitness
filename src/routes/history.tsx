@@ -1,4 +1,4 @@
-import { Badge, Card, Modal } from '@mantine/core'
+import { Badge, Modal } from '@mantine/core'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { ChevronRight, Dumbbell, ListChecks, Trophy } from 'lucide-react'
@@ -47,21 +47,21 @@ function AuthedHistory() {
         Tap a completed workout to review its movements, sets, and top-set highlights.
       </PageHeader>
 
-      <div className="mb-4 grid grid-cols-3 gap-2 md:gap-3">
-        <Card className="p-3 text-center">
-          <p className="text-lg font-extrabold md:text-xl">{completedCount}</p>
-          <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Sessions</p>
-        </Card>
-        <Card className="p-3 text-center">
-          <p className="truncate text-lg font-extrabold md:text-xl">
-            {latestSession ? formatRelativeTime(latestSession.completedAt ?? latestSession.scheduledDate) : '—'}
+      <div className="mb-4 vf-stat-strip">
+        <div className="vf-stat">
+          <p className="vf-stat-value">{completedCount}</p>
+          <p className="vf-stat-label">Sessions</p>
+        </div>
+        <div className="vf-stat">
+          <p className="vf-stat-value truncate">
+            {latestSession ? formatRelativeTime(latestSession.completedAt ?? latestSession.scheduledDate) : '-'}
           </p>
-          <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Latest</p>
-        </Card>
-        <Card className="p-3 text-center">
-          <p className="text-lg font-extrabold text-[var(--vf-success-text)] md:text-xl">{completedSetCount}</p>
-          <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Logged sets</p>
-        </Card>
+          <p className="vf-stat-label">Latest</p>
+        </div>
+        <div className="vf-stat">
+          <p className="vf-stat-value text-[var(--vf-success-text)]">{completedSetCount}</p>
+          <p className="vf-stat-label">Logged sets</p>
+        </div>
       </div>
 
       {data.length ? (
@@ -97,12 +97,12 @@ function RecentWorkoutCard({ session, onOpen }: { session: RecentHistoryEntry; o
   return (
     <button
       type="button"
-      className="vf-card-hover rounded-[var(--mantine-radius-xl)] border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-4 text-left text-[var(--mantine-color-text)] shadow-[var(--vf-shadow-card)] transition hover:border-[var(--vf-action-border)]"
+      className="vf-card-hover rounded-[var(--mantine-radius-lg)] border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 text-left text-[var(--mantine-color-text)] shadow-[var(--vf-shadow-card)] transition hover:border-[var(--vf-action-border)] md:p-4"
       onClick={onOpen}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-primary-color-filled)]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--vf-action-text)]">
             {session.completedAt ? <Trophy size={16} /> : <Dumbbell size={16} />}
           </div>
           <div className="min-w-0">
@@ -155,7 +155,8 @@ function WorkoutSummaryModal({
       title="Workout summary"
       size="lg"
       classNames={{
-        content: '!flex !max-h-[90dvh] !flex-col !overflow-hidden !border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
+        inner: '!items-end sm:!items-center',
+        content: '!mb-0 !flex !max-h-[90dvh] !flex-col !overflow-hidden !rounded-b-none !border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)] sm:!mb-auto sm:!rounded-lg',
         header: '!bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
         title: 'text-lg font-bold !text-[var(--mantine-color-text)]',
         body: '!min-h-0 !flex-1 !overflow-hidden !text-[var(--mantine-color-text)]',
@@ -168,7 +169,7 @@ function WorkoutSummaryModal({
         <HistoryModalStatus tone="danger">{getApiErrorMessage(error, 'Unable to load workout summary')}</HistoryModalStatus>
       ) : session ? (
         <div className="grid max-h-[calc(90dvh-6rem)] min-h-0 grid-rows-[auto_auto_auto_minmax(0,1fr)] gap-4">
-          <div className="rounded-2xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-4">
+          <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="vf-section-label">{session.programTitle}</p>
@@ -177,7 +178,7 @@ function WorkoutSummaryModal({
                   {session.weekLabel} · {session.hardness} · {session.estimatedMinutes} min
                 </p>
               </div>
-              <div className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-3 py-2 text-right">
+              <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-3 py-2 text-right">
                 <p className="text-sm font-extrabold">{formatFullDate(date)}</p>
                 <p className="text-xs text-[var(--mantine-color-dimmed)]">{formatRelativeTime(date)}</p>
               </div>
@@ -195,7 +196,7 @@ function WorkoutSummaryModal({
               <h3 className="vf-section-label mb-2">Highlights</h3>
               <div className="flex flex-wrap gap-1.5">
                 {topSets.slice(0, 4).map((set) => (
-                  <span key={set.id} className="rounded-lg border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-xs font-bold text-purple-300 md:text-purple-700">
+                  <span key={set.id} className="rounded-md border border-[var(--vf-accent-border)] bg-[var(--vf-accent-soft)] px-2 py-1 text-xs font-bold text-[var(--vf-accent-text)]">
                     {formatSetLog(set, session.units)}
                   </span>
                 ))}
@@ -209,7 +210,7 @@ function WorkoutSummaryModal({
             ))}
 
             {session.notes ? (
-              <div className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+              <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
                 <h3 className="vf-section-label mb-1">Notes</h3>
                 <p className="text-sm text-[var(--mantine-color-dimmed)]">{session.notes}</p>
               </div>
@@ -228,7 +229,7 @@ function WorkoutMovementSummary({ session, movement }: { session: WorkoutSession
   const displaySets = completedSets.length ? completedSets : movement.sets
 
   return (
-    <div className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-extrabold">{movement.movementName}</p>
@@ -243,7 +244,7 @@ function WorkoutMovementSummary({ session, movement }: { session: WorkoutSession
             className={cn(
               'rounded-lg border px-2 py-1 text-[11px] font-bold',
               set.isTopSet || set.isAmrap
-                ? 'border-purple-500/30 bg-purple-500/10 text-purple-300 md:text-purple-700'
+                ? 'border-[var(--vf-accent-border)] bg-[var(--vf-accent-soft)] text-[var(--vf-accent-text)]'
                 : set.completed
                   ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)] text-[var(--vf-success-text)]'
                   : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)]',
@@ -259,8 +260,8 @@ function WorkoutMovementSummary({ session, movement }: { session: WorkoutSession
 
 function SummaryMetric({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
   return (
-    <div className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 text-center">
-      <div className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--mantine-color-default)] text-[var(--mantine-primary-color-filled)]">
+    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 text-center">
+      <div className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-md bg-[var(--mantine-color-default)] text-[var(--vf-action-text)]">
         {icon}
       </div>
       <p className="text-lg font-extrabold">{value}</p>
@@ -271,7 +272,7 @@ function SummaryMetric({ icon, label, value }: { icon: ReactNode; label: string;
 
 function HistoryModalStatus({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'danger' }) {
   return (
-    <p className={cn('rounded-xl border p-3 text-sm', tone === 'danger' ? 'border-red-500/30 bg-red-500/10 text-red-200 md:text-red-700' : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]')}>
+    <p className={cn('rounded-lg border p-3 text-sm', tone === 'danger' ? 'border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] text-[var(--vf-danger-text)]' : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]')}>
       {children}
     </p>
   )

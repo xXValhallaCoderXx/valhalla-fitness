@@ -178,7 +178,7 @@ function AuthedTemplates({
       <PageHeader
         title="Choose a program"
         actions={
-          <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-3 py-2 text-xs text-[var(--mantine-color-dimmed)] shadow-[var(--vf-shadow-card)]">
+          <span className="vf-chip">
             <span className="font-extrabold text-[var(--mantine-color-text)]">{templates.length}</span> programs available
           </span>
         }
@@ -199,7 +199,7 @@ function AuthedTemplates({
           {['All', '5/3/1', 'Bromley', 'Base', 'Peak', 'High volume', 'Low volume'].map((item) => (
             <button
               key={item}
-              className={`min-h-9 whitespace-nowrap rounded-full border px-3.5 py-2 text-xs font-bold transition ${
+              className={`min-h-8 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-bold transition ${
                 filter === item
                   ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-primary-color-filled)] text-white'
                   : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)] hover:border-[var(--vf-action-border)] hover:text-[var(--mantine-color-text)]'
@@ -237,7 +237,7 @@ function AuthedTemplates({
             className="w-full max-w-lg"
             onClick={(event) => event.stopPropagation()}
           >
-            <Card>
+            <Card className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 id={setupTitleId} className="text-lg font-bold">
@@ -254,7 +254,7 @@ function AuthedTemplates({
                   <label className="grid gap-1">
                     <span className="text-xs font-bold uppercase text-[var(--mantine-color-dimmed)]">Units</span>
                     <select
-                      className="min-h-11 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3"
+                      className="min-h-10 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3"
                       value={units}
                       onChange={(event) => {
                         const next = event.target.value as Unit
@@ -285,7 +285,7 @@ function AuthedTemplates({
                   {anchors.map((anchor) => (
                     <label
                       key={anchor.movementId}
-                      className="grid gap-3 rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-center"
+                      className="grid gap-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-center"
                     >
                       <span className="min-w-0">
                         <span className="block text-sm font-extrabold text-[var(--mantine-color-text)]">{getMovementName(anchor.movementId)}</span>
@@ -320,7 +320,7 @@ function AuthedTemplates({
                 Start program
               </Button>
               {startError ? (
-                <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+                <p className="mt-3 rounded-lg border border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] p-3 text-sm text-[var(--vf-danger-text)]">
                   {startError}
                 </p>
               ) : null}
@@ -372,7 +372,7 @@ function TemplateCard({
   onStart: () => void
 }) {
   return (
-    <Card className="group flex min-h-[18rem] flex-col gap-5 p-4 vf-card-hover md:p-5">
+    <Card className="group flex min-h-[16rem] flex-col gap-4 p-4 vf-card-hover">
       <div className="flex flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Badge color={template.sourceLabel === 'Bromley' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
@@ -388,9 +388,9 @@ function TemplateCard({
         </div>
 
         <div className="mt-auto flex flex-wrap gap-1.5 text-[10px] text-[var(--mantine-color-dimmed)]">
-          <span className="rounded bg-[var(--vf-surface-2)] px-1.5 py-0.5 font-semibold">{template.complexity}</span>
+          <span className="rounded-md bg-[var(--vf-surface-2)] px-1.5 py-0.5 font-semibold">{template.complexity}</span>
           {template.tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="rounded bg-[var(--vf-surface-2)] px-1.5 py-0.5 font-semibold">
+            <span key={tag} className="rounded-md bg-[var(--vf-surface-2)] px-1.5 py-0.5 font-semibold">
               {tag}
             </span>
           ))}
