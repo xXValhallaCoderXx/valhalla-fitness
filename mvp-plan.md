@@ -24,15 +24,7 @@ Use these files as the current product/design source of truth:
 - `design-spec.md`
 - `references/base-strength-by-bromley.md`
 - `references/Ultimate-workout-plan-old.md`
-- `dev-assets/sample-pages/1-Fitsync - Template Library.html`
-- `dev-assets/sample-pages/2-Fittrack - Daily Fitness Overv.html`
-- `dev-assets/sample-pages/3-Keepfit - Live Session.html`
-- `dev-assets/sample-pages/4-Fitsync 2 - Substitution Sheet.html`
-- `dev-assets/sample-pages/5-Keepfit - Program Overview.html`
-- `dev-assets/sample-pages/6-Fitsync 2 - History Overview.html`
-- `dev-assets/sample-pages/7-Fitflow - Account Settings.html`
-- `dev-assets/sample-pages/8-Fitsync 2 - Sign In.html`
-- `dev-assets/sample-pages/9-Fitflow - Session Summary.html`
+- `dev-assets/sample-pages` reference exports for template library, today, live session, substitutions, program overview, history, account settings, sign in, and session summary.
 - Updated Figma screens, assumed to match or supersede the latest `dev-assets` exports.
 
 When there is conflict:
@@ -40,7 +32,7 @@ When there is conflict:
 1. This MVP plan controls release sequencing.
 2. `final-app-spec.md` controls program facts and progression behavior.
 3. `design-spec.md` and Figma/dev-assets control UI structure and interaction patterns.
-4. Placeholder names in exports such as Fitsync, Fitflow, Fittrack, and Keepfit are not product facts.
+4. Placeholder names in exports are not product facts.
 
 ## 3. MVP Scope
 
@@ -429,7 +421,7 @@ Accessories:
 
 ### Sign In
 
-Source: `8-Fitsync 2 - Sign In.html`
+Source: sign-in sample-page export.
 
 MVP requirements:
 
@@ -441,7 +433,7 @@ MVP requirements:
 
 ### Templates
 
-Source: `1-Fitsync - Template Library.html`
+Source: template-library sample-page export.
 
 MVP requirements:
 
@@ -466,7 +458,7 @@ MVP requirements:
 
 ### Today
 
-Source: `2-Fittrack - Daily Fitness Overv.html`
+Source: daily overview sample-page export.
 
 MVP requirements:
 
@@ -480,7 +472,7 @@ MVP requirements:
 
 ### Live Session
 
-Source: `3-Keepfit - Live Session.html`
+Source: live-session sample-page export.
 
 MVP requirements:
 
@@ -497,7 +489,7 @@ MVP requirements:
 
 ### Substitution Sheet
 
-Source: `4-Fitsync 2 - Substitution Sheet.html`
+Source: substitution-sheet sample-page export.
 
 MVP requirements:
 
@@ -510,7 +502,7 @@ MVP requirements:
 
 ### Program Overview
 
-Source: `5-Keepfit - Program Overview.html`
+Source: program-overview sample-page export.
 
 MVP requirements:
 
@@ -523,7 +515,7 @@ MVP requirements:
 
 ### History
 
-Source: `6-Fitsync 2 - History Overview.html`
+Source: history-overview sample-page export.
 
 MVP requirements:
 
@@ -535,7 +527,7 @@ MVP requirements:
 
 ### Settings
 
-Source: `7-Fitflow - Account Settings.html`
+Source: account-settings sample-page export.
 
 MVP requirements:
 
@@ -547,7 +539,7 @@ MVP requirements:
 
 ### Finish Session Summary
 
-Source: `9-Fitflow - Session Summary.html`
+Source: session-summary sample-page export.
 
 MVP requirements:
 

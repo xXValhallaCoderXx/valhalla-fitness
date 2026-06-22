@@ -113,7 +113,7 @@ function AuthForm() {
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--vf-brand-mark)] text-[var(--vf-brand-mark-text)]">
             <Dumbbell size={16} />
           </span>
-          <span className="text-sm font-extrabold">Valhalla Fitness</span>
+          <span className="text-sm font-extrabold">Sheetless</span>
         </div>
         <div className="max-w-sm">
           <p className="vf-section-label">Training cockpit</p>
@@ -143,7 +143,7 @@ function AuthForm() {
               <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--vf-brand-mark)] text-[var(--vf-brand-mark-text)]">
                 <Dumbbell size={14} />
               </span>
-              <span className="text-sm font-extrabold">Valhalla Fitness</span>
+              <span className="text-sm font-extrabold">Sheetless</span>
             </div>
             <span className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]" aria-hidden="true">
               <KeyRound size={14} />
@@ -155,7 +155,7 @@ function AuthForm() {
                 <Dumbbell size={22} />
               </div>
               <h1 className="text-[1.35rem] font-extrabold leading-tight">Welcome back</h1>
-              <p className="mt-1 text-sm font-medium text-[var(--mantine-color-dimmed)]">Sign in to your Valhalla Fitness account.</p>
+              <p className="mt-1 text-sm font-medium text-[var(--mantine-color-dimmed)]">Sign in to your Sheetless account.</p>
             </div>
 
             <form

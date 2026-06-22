@@ -79,9 +79,9 @@ function AuthedSettings() {
   )
 
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('valhalla-theme-preview', { detail: themePreference }))
+    window.dispatchEvent(new CustomEvent('sheetless-theme-preview', { detail: themePreference }))
     return () => {
-      window.dispatchEvent(new CustomEvent('valhalla-theme-preview-clear'))
+      window.dispatchEvent(new CustomEvent('sheetless-theme-preview-clear'))
     }
   }, [themePreference])
 

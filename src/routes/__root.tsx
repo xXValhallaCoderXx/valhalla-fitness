@@ -37,7 +37,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       {
-        title: 'Valhalla Fitness',
+        title: 'Sheetless',
       },
       {
         name: 'description',
@@ -105,11 +105,11 @@ function ThemedAppShell({
       setPreviewThemePreference(preference)
     }
     const handlePreviewClear = () => setPreviewThemePreference(null)
-    window.addEventListener('valhalla-theme-preview', handlePreview)
-    window.addEventListener('valhalla-theme-preview-clear', handlePreviewClear)
+    window.addEventListener('sheetless-theme-preview', handlePreview)
+    window.addEventListener('sheetless-theme-preview-clear', handlePreviewClear)
     return () => {
-      window.removeEventListener('valhalla-theme-preview', handlePreview)
-      window.removeEventListener('valhalla-theme-preview-clear', handlePreviewClear)
+      window.removeEventListener('sheetless-theme-preview', handlePreview)
+      window.removeEventListener('sheetless-theme-preview-clear', handlePreviewClear)
     }
   }, [])
 

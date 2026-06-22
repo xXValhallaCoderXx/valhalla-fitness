@@ -138,7 +138,7 @@ function SessionContextBar({
             <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--vf-brand-mark)] text-[var(--vf-brand-mark-text)]">
               <Dumbbell size={11} />
             </div>
-            <span className="text-xs font-bold tracking-tight text-[var(--mantine-color-text)]">Valhalla Fitness</span>
+            <span className="text-xs font-bold tracking-tight text-[var(--mantine-color-text)]">Sheetless</span>
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <div>

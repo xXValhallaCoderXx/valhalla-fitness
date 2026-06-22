@@ -26,7 +26,7 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--vf-brand-mark)] text-[var(--vf-brand-mark-text)]">
               <Dumbbell size={14} />
             </span>
-            <span className="truncate text-sm font-extrabold">Valhalla Fitness</span>
+            <span className="truncate text-sm font-extrabold">Sheetless</span>
           </Link>
           <nav className="hidden items-center justify-center gap-1 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-1 text-xs font-semibold shadow-[var(--vf-shadow-card)] md:flex">
             {navItems.map((item) => (
