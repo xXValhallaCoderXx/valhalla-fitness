@@ -7,6 +7,7 @@ import {
   setSessionFromTokensFn,
   verifyEmailOtpFn,
 } from '~/server/auth'
+import { authUserQueryOptions, meQueryOptions } from '~/lib/query-options'
 
 type CallbackInput =
   | { kind: 'code'; code: string }
@@ -48,6 +49,13 @@ function AuthCallback() {
     },
     onSuccess: async (result) => {
       if (result.ok) {
+        const queryClient = router.options.context.queryClient
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['auth'] }),
+          queryClient.invalidateQueries({ queryKey: ['me'] }),
+        ])
+        await queryClient.fetchQuery(authUserQueryOptions())
+        await queryClient.fetchQuery(meQueryOptions()).catch(() => null)
         await router.invalidate()
         await router.navigate({ to: '/today' })
       }

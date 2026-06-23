@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Badge, Button, Card } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, Link } from '@tanstack/react-router'
@@ -6,14 +6,15 @@ import { ArrowRight, Check, CheckCircle2, Clock3, Dumbbell, ListChecks, Notebook
 import type { ReactNode } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { sessionQueryOptions } from '~/lib/query-options'
+import { loadRouteQuery } from '~/lib/route-loading'
 import { resolveProgressionDecisionFn } from '~/server/api'
-import type { MovementSlot, SessionSummary, SetLog, Unit } from '~/types/training'
-import { Page, PageHeader } from '~/components/ui'
+import type { MovementSlot, SessionSummary, SetLog, Unit, WorkoutSession } from '~/types/training'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
 
 export const Route = createFileRoute('/sessions/$sessionId/summary')({
   loader: async ({ context, params }) => {
     if ((context as any).user) {
-      await context.queryClient.ensureQueryData(sessionQueryOptions(params.sessionId))
+      await loadRouteQuery(context.queryClient, sessionQueryOptions(params.sessionId))
     }
   },
   component: SummaryRoute,
@@ -21,7 +22,33 @@ export const Route = createFileRoute('/sessions/$sessionId/summary')({
 
 function SummaryRoute() {
   const { sessionId } = Route.useParams()
-  const { data: session } = useSuspenseQuery(sessionQueryOptions(sessionId))
+  const user = (Route.useRouteContext() as any).user
+  const sessionQuery = useQuery({
+    ...sessionQueryOptions(sessionId),
+    enabled: Boolean(user),
+  })
+
+  if (!user) {
+    return (
+      <Page>
+        <EmptyState title="Sign in to open this summary">Workout summaries are tied to your account.</EmptyState>
+      </Page>
+    )
+  }
+
+  if (sessionQuery.isPending) return <PageSkeleton />
+  if (sessionQuery.isError) return <PageLoadError error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
+
+  return <LoadedSummaryRoute sessionId={sessionId} session={sessionQuery.data} />
+}
+
+function LoadedSummaryRoute({
+  session,
+  sessionId,
+}: {
+  session: WorkoutSession
+  sessionId: string
+}) {
   const queryClient = useQueryClient()
   const sets = session.movements.flatMap((movement) => movement.sets)
   const completedSets = sets.filter((set) => set.completed)

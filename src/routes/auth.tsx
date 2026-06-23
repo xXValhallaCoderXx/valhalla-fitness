@@ -11,6 +11,7 @@ import {
   signUpWithPasswordFn,
 } from '~/server/auth'
 import { getApiErrorMessage } from '~/lib/api-error'
+import { authUserQueryOptions, meQueryOptions } from '~/lib/query-options'
 
 export const Route = createFileRoute('/auth')({
   component: AuthRoute,
@@ -55,6 +56,13 @@ function AuthForm() {
         title: mode === 'login' ? 'Logged in' : 'Account created',
         message: mode === 'login' ? 'Welcome back.' : 'Your account is ready.',
       })
+      const queryClient = router.options.context.queryClient
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['auth'] }),
+        queryClient.invalidateQueries({ queryKey: ['me'] }),
+      ])
+      await queryClient.fetchQuery(authUserQueryOptions())
+      await queryClient.fetchQuery(meQueryOptions()).catch(() => null)
       await router.invalidate()
       await router.navigate({ to: '/today' })
     },

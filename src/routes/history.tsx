@@ -1,5 +1,5 @@
 import { Badge, Modal, Tabs, TextInput } from '@mantine/core'
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Activity, BarChart3, ChevronRight, Dumbbell, History, ListChecks, Search, Trophy } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
@@ -7,6 +7,7 @@ import { getApiErrorMessage } from '~/lib/api-error'
 import { cn } from '~/lib/cn'
 import { formatCompactDate, formatFullDate, formatRelativeTime } from '~/lib/dates'
 import { historyDashboardQueryOptions, sessionQueryOptions } from '~/lib/query-options'
+import { loadRouteQuery } from '~/lib/route-loading'
 import type {
   BodyLoadRegion,
   BodyRegionId,
@@ -19,13 +20,13 @@ import type {
   Unit,
   WorkoutSession,
 } from '~/types/training'
-import { EmptyState, Page, PageHeader } from '~/components/ui'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
 
 type HistoryTab = 'overview' | 'body-load' | 'movements' | 'records' | 'sessions'
 
 export const Route = createFileRoute('/history')({
   loader: async ({ context }) => {
-    if ((context as any).user) await context.queryClient.ensureQueryData(historyDashboardQueryOptions())
+    if ((context as any).user) await loadRouteQuery(context.queryClient, historyDashboardQueryOptions())
   },
   component: HistoryRoute,
 })
@@ -43,14 +44,19 @@ function HistoryRoute() {
 }
 
 function AuthedHistory() {
-  const { data } = useSuspenseQuery(historyDashboardQueryOptions())
+  const historyQuery = useQuery(historyDashboardQueryOptions())
   const [activeTab, setActiveTab] = useState<HistoryTab>('overview')
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
-  const selectedHistoryEntry = data.recentSessions.find((session) => session.id === selectedSessionId) ?? null
   const selectedSessionQuery = useQuery({
     ...sessionQueryOptions(selectedSessionId ?? ''),
     enabled: Boolean(selectedSessionId),
   })
+
+  if (historyQuery.isPending) return <PageSkeleton />
+  if (historyQuery.isError) return <PageLoadError error={historyQuery.error} onRetry={() => void historyQuery.refetch()} />
+
+  const data = historyQuery.data
+  const selectedHistoryEntry = data.recentSessions.find((session) => session.id === selectedSessionId) ?? null
 
   return (
     <Page>

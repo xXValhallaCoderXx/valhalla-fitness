@@ -1,20 +1,21 @@
 import { Badge, Button, Card, Tooltip } from '@mantine/core'
-import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Activity, ArrowRight, CalendarDays, Check, Clock3, Dumbbell, Info, ListChecks, Target, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { programOverviewQueryOptions } from '~/lib/query-options'
+import { loadRouteQuery } from '~/lib/route-loading'
 import { buildProgramTimeline, type ProgramTimelineModel } from '~/lib/program-timeline'
 import { resolveProgressionDecisionFn } from '~/server/api'
 import type { BodyLoadRegion, ProgramOverview } from '~/types/training'
-import { EmptyState, Page, PageHeader } from '~/components/ui'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
 
 export const Route = createFileRoute('/program')({
   loader: async ({ context }) => {
     if ((context as any).user) {
-      await context.queryClient.ensureQueryData(programOverviewQueryOptions())
+      await loadRouteQuery(context.queryClient, programOverviewQueryOptions())
     }
   },
   component: ProgramRoute,
@@ -34,7 +35,7 @@ function ProgramRoute() {
 
 function AuthedProgram() {
   const queryClient = useQueryClient()
-  const { data: overview } = useSuspenseQuery(programOverviewQueryOptions())
+  const overviewQuery = useQuery(programOverviewQueryOptions())
   const mutation = useMutation({
     mutationFn: (data: { decisionId: string; action: 'accepted' | 'dismissed' | 'pending' }) =>
       resolveProgressionDecisionFn({ data }),
@@ -54,6 +55,11 @@ function AuthedProgram() {
       })
     },
   })
+
+  if (overviewQuery.isPending) return <PageSkeleton />
+  if (overviewQuery.isError) return <PageLoadError error={overviewQuery.error} onRetry={() => void overviewQuery.refetch()} />
+
+  const overview = overviewQuery.data
 
   const program = overview.activeProgram
   if (!program) {

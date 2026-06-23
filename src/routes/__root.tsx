@@ -10,9 +10,8 @@ import {
   createRootRouteWithContext,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-import { fetchUserFn, type AuthUser } from '~/server/auth'
-import { getMeFn } from '~/server/api'
-import { meQueryOptions } from '~/lib/query-options'
+import type { AuthUser } from '~/server/auth'
+import { authUserQueryOptions, meQueryOptions } from '~/lib/query-options'
 import type { ThemePreference, UserProfile } from '~/types/training'
 import { AppShell } from '~/components/AppShell'
 import { PwaUpdatePrompt } from '~/components/PwaUpdatePrompt'
@@ -28,9 +27,27 @@ const profileColorSchemeManager: MantineColorSchemeManager = {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  beforeLoad: async () => {
-    const user = await fetchUserFn()
-    const me = user ? await getMeFn().catch(() => null) : null
+  beforeLoad: async ({ context }) => {
+    const authOptions = authUserQueryOptions()
+    const profileOptions = meQueryOptions()
+
+    if (typeof window !== 'undefined') {
+      const cachedUser = context.queryClient.getQueryData<AuthUser | null>(authOptions.queryKey)
+      if (cachedUser !== undefined) {
+        void context.queryClient.prefetchQuery(authOptions)
+        if (cachedUser) void context.queryClient.prefetchQuery(profileOptions)
+        return {
+          user: cachedUser,
+          me: cachedUser
+            ? context.queryClient.getQueryData<UserProfile | null>(profileOptions.queryKey) ?? null
+            : null,
+        }
+      }
+    }
+
+    const user = await context.queryClient.fetchQuery(authOptions)
+    const me = user ? await context.queryClient.fetchQuery(profileOptions).catch(() => null) : null
+    if (!user) context.queryClient.setQueryData(profileOptions.queryKey, null)
     return { user, me }
   },
   head: () => ({

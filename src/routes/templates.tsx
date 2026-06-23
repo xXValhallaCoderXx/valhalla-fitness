@@ -1,5 +1,5 @@
-import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
-import { Badge, Button, Card, TextInput, Tooltip } from '@mantine/core'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { Badge, Button, Card, NumberInput, Select, TextInput, Tooltip } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Lock, Plus, RotateCcw, Search, Trash2 } from 'lucide-react'
@@ -15,6 +15,7 @@ import { getApiErrorMessage } from '~/lib/api-error'
 import { getMovementName, movementCatalog } from '~/lib/movements'
 import { defaultAnchors } from '~/lib/templates'
 import { meQueryOptions, templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
+import { loadRouteQueries, loadRouteQuery } from '~/lib/route-loading'
 import { createCustomProgramTemplateFn, startProgramFn } from '~/server/api'
 import type {
   AnchorInput,
@@ -23,19 +24,17 @@ import type {
   ProgramStartAccessoryAdditionInput,
   ProgramStartMovementOverrideInput,
   ProgramTemplateSummary,
+  TodayPayload,
   Unit,
   UserProfile,
 } from '~/types/training'
-import { ConfirmDialog, EmptyState, Page, PageHeader } from '~/components/ui'
+import { ConfirmDialog, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
 
 export const Route = createFileRoute('/templates')({
   loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData(templatesQueryOptions())
+    await loadRouteQuery(context.queryClient, templatesQueryOptions())
     if ((context as any).user) {
-      await Promise.all([
-        context.queryClient.ensureQueryData(meQueryOptions()),
-        context.queryClient.ensureQueryData(todayQueryOptions()),
-      ])
+      await loadRouteQueries(context.queryClient, [meQueryOptions(), todayQueryOptions()])
     }
   },
   component: TemplatesRoute,
@@ -43,10 +42,21 @@ export const Route = createFileRoute('/templates')({
 
 function TemplatesRoute() {
   const router = useRouter()
-  const { data: templates } = useSuspenseQuery(templatesQueryOptions())
-  const { data: me } = useSuspenseQuery(meQueryOptions())
+  const user = (Route.useRouteContext() as any).user
+  const templatesQuery = useQuery(templatesQueryOptions())
+  const meQuery = useQuery({
+    ...meQueryOptions(),
+    enabled: Boolean(user),
+  })
+  const todayQuery = useQuery({
+    ...todayQueryOptions(),
+    enabled: Boolean(user),
+  })
 
-  if (!me) {
+  if (templatesQuery.isPending) return <PageSkeleton />
+  if (templatesQuery.isError) return <PageLoadError error={templatesQuery.error} onRetry={() => void templatesQuery.refetch()} />
+
+  if (!user) {
     return (
       <Page>
         <EmptyState
@@ -59,7 +69,19 @@ function TemplatesRoute() {
     )
   }
 
-  return <AuthedTemplates templates={templates} me={me} />
+  if (meQuery.isPending || todayQuery.isPending) return <PageSkeleton />
+  if (meQuery.isError) return <PageLoadError error={meQuery.error} onRetry={() => void meQuery.refetch()} />
+  if (todayQuery.isError) return <PageLoadError error={todayQuery.error} onRetry={() => void todayQuery.refetch()} />
+
+  if (!meQuery.data) {
+    return (
+      <Page>
+        <EmptyState title="Profile unavailable">Sign in again to start a program.</EmptyState>
+      </Page>
+    )
+  }
+
+  return <AuthedTemplates templates={templatesQuery.data} me={meQuery.data} today={todayQuery.data} />
 }
 
 type WizardStep = 'basics' | 'movements' | 'accessories' | 'review'
@@ -82,14 +104,15 @@ function anchorsForTemplate(template: ProgramTemplateSummary, unit: Unit): Ancho
 }
 
 function AuthedTemplates({
+  today,
   templates,
   me,
 }: {
+  today: TodayPayload
   templates: ProgramTemplateSummary[]
   me: UserProfile
 }) {
   const router = useRouter()
-  const { data: today } = useSuspenseQuery(todayQueryOptions())
   const setupTitleId = useId()
   const builderTitleId = useId()
   const [filter, setFilter] = useState('All')
@@ -470,12 +493,11 @@ function StartInfoMetric({ label, value }: { label: string; value: ReactNode }) 
   )
 }
 
-type CustomBuilderStep = 'methodology' | 'schedule' | 'movements' | 'accessories' | 'review'
+type CustomBuilderStep = 'methodology' | 'main_lifts' | 'accessories' | 'review'
 
 const customBuilderSteps: Array<{ id: CustomBuilderStep; label: string }> = [
   { id: 'methodology', label: 'Goal & methodology' },
-  { id: 'schedule', label: 'Schedule' },
-  { id: 'movements', label: 'Movements' },
+  { id: 'main_lifts', label: 'Main lifts' },
   { id: 'accessories', label: 'Accessories' },
   { id: 'review', label: 'Review' },
 ]
@@ -491,6 +513,54 @@ const variationMovementOptions = Object.values(movementCatalog)
 const accessoryMovementOptions = Object.values(movementCatalog)
   .filter((movement) => !movement.isCompetition)
   .sort((left, right) => left.name.localeCompare(right.name))
+
+function customBuilderDayTitle(index: number, movementId: string) {
+  return `Day ${index + 1} - ${getMovementName(movementId)} day`
+}
+
+function clampIntegerInput(value: string | number, fallback: number, min: number, max: number) {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric)) return fallback
+  return Math.min(max, Math.max(min, Math.round(numeric)))
+}
+
+function clampBuilderDayCount(value: string | number, fallback: number) {
+  return clampIntegerInput(value, fallback, 1, 7)
+}
+
+function resizeCustomSessions(
+  current: CustomProgramBuilderInput,
+  daysPerWeek: number,
+): CustomProgramBuilderInput {
+  const nextDefault = createDefaultCustomProgramBuilderInput({
+    methodology: current.methodology,
+    daysPerWeek,
+  })
+  return {
+    ...current,
+    daysPerWeek,
+    sessions: Array.from({ length: daysPerWeek }, (_, index) => {
+      const existing = current.sessions[index]
+      if (existing) {
+        return {
+          ...existing,
+          title: customBuilderDayTitle(index, existing.mainMovementId),
+        }
+      }
+      return nextDefault.sessions[index]!
+    }),
+  }
+}
+
+function mainWorkSummary(methodology: CustomProgramMethodology, session: CustomProgramBuilderInput['sessions'][number]) {
+  if (methodology === '531') return '5/3/1 percentage work'
+  if (methodology === 'bromley') return 'Bromley wave work'
+  return `${session.mainSetCount}x${session.mainTargetReps} main work`
+}
+
+function variationSummary(session: CustomProgramBuilderInput['sessions'][number]) {
+  return session.variationMovementId ? getMovementName(session.variationMovementId) : 'None'
+}
 
 function CustomProgramBuilder({
   titleId,
@@ -525,7 +595,7 @@ function CustomProgramBuilder({
 
   const setMethodology = (methodology: CustomProgramMethodology) => {
     setDraft((current) => {
-      const daysPerWeek = current.daysPerWeek === 4 ? 4 : 3
+      const daysPerWeek = clampBuilderDayCount(current.daysPerWeek, 3)
       const next = createDefaultCustomProgramBuilderInput({ methodology, daysPerWeek })
       return {
         ...next,
@@ -535,17 +605,10 @@ function CustomProgramBuilder({
     })
   }
 
-  const setDaysPerWeek = (daysPerWeek: 3 | 4) => {
+  const setDaysPerWeek = (daysPerWeek: number) => {
     setDraft((current) => {
-      const next = createDefaultCustomProgramBuilderInput({
-        methodology: current.methodology,
-        daysPerWeek,
-      })
-      return {
-        ...next,
-        name: current.name,
-        goal: current.goal,
-      }
+      const nextDaysPerWeek = clampBuilderDayCount(daysPerWeek, current.daysPerWeek)
+      return resizeCustomSessions(current, nextDaysPerWeek)
     })
   }
 
@@ -595,8 +658,7 @@ function CustomProgramBuilder({
                   setCount: 3,
                   repMin: 10,
                   repMax: 15,
-                  targetRir: 2,
-                  progressionMethod: current.methodology === 'none' ? 'history_only' : 'double_progression',
+                  progressionMethod: 'history_only',
                 },
               ],
             }
@@ -646,7 +708,7 @@ function CustomProgramBuilder({
           </Button>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-5">
+        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
           {customBuilderSteps.map((item, index) => (
             <button
               key={item.id}
@@ -670,10 +732,9 @@ function CustomProgramBuilder({
             draft={draft}
             onDraftChange={updateDraft}
             onMethodologyChange={setMethodology}
+            onDaysChange={setDaysPerWeek}
           />
-        ) : step === 'schedule' ? (
-          <CustomScheduleStep draft={draft} onDaysChange={setDaysPerWeek} />
-        ) : step === 'movements' ? (
+        ) : step === 'main_lifts' ? (
           <CustomMovementsStep draft={draft} onSessionChange={updateSession} />
         ) : step === 'accessories' ? (
           <CustomAccessoriesStep
@@ -716,14 +777,16 @@ function CustomMethodologyStep({
   draft,
   onDraftChange,
   onMethodologyChange,
+  onDaysChange,
 }: {
   draft: CustomProgramBuilderInput
   onDraftChange: (patch: Partial<CustomProgramBuilderInput>) => void
   onMethodologyChange: (methodology: CustomProgramMethodology) => void
+  onDaysChange: (daysPerWeek: number) => void
 }) {
   return (
     <div className="grid gap-4">
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem]">
         <TextInput
           label="Programme name"
           value={draft.name}
@@ -733,6 +796,15 @@ function CustomMethodologyStep({
           label="Goal"
           value={draft.goal ?? ''}
           onChange={(event) => onDraftChange({ goal: event.target.value })}
+        />
+        <NumberInput
+          label="Days per week"
+          min={1}
+          max={7}
+          allowDecimal={false}
+          clampBehavior="strict"
+          value={draft.daysPerWeek}
+          onChange={(value) => onDaysChange(clampBuilderDayCount(value, draft.daysPerWeek))}
         />
       </div>
 
@@ -774,37 +846,6 @@ function CustomMethodologyStep({
   )
 }
 
-function CustomScheduleStep({
-  draft,
-  onDaysChange,
-}: {
-  draft: CustomProgramBuilderInput
-  onDaysChange: (daysPerWeek: 3 | 4) => void
-}) {
-  return (
-    <div className="grid gap-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        {[3, 4].map((dayCount) => (
-          <button
-            key={dayCount}
-            className={`rounded-lg border p-4 text-left transition ${
-              draft.daysPerWeek === dayCount
-                ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--vf-action-soft)]'
-                : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] hover:border-[var(--vf-action-border)]'
-            }`}
-            onClick={() => onDaysChange(dayCount as 3 | 4)}
-          >
-            <span className="block text-lg font-black">{dayCount} days/week</span>
-            <span className="mt-1 block text-xs text-[var(--mantine-color-dimmed)]">
-              {dayCount === 3 ? 'Squat, bench, and deadlift focus.' : 'Adds a dedicated press day.'}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function CustomMovementsStep({
   draft,
   onSessionChange,
@@ -817,44 +858,46 @@ function CustomMovementsStep({
     <div className="grid gap-3">
       {draft.sessions.map((session, index) => (
         <div key={index} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem_12rem]">
-            <TextInput
-              label="Day"
-              value={session.title}
-              onChange={(event) => onSessionChange(index, { title: event.target.value })}
-            />
+          <div className="mb-3">
+            <p className="text-sm font-extrabold">{customBuilderDayTitle(index, session.mainMovementId)}</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
             <BuilderSelect
               label="Main lift"
               value={session.mainMovementId}
-              onChange={(value) => onSessionChange(index, { mainMovementId: value })}
+              onChange={(value) => {
+                if (!value) return
+                onSessionChange(index, {
+                  mainMovementId: value,
+                  title: customBuilderDayTitle(index, value),
+                })
+              }}
               options={mainMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
             />
             <BuilderSelect
               label="Variation"
-              value={session.variationMovementId ?? ''}
+              value={session.variationMovementId ?? null}
               onChange={(value) => onSessionChange(index, { variationMovementId: value || null })}
-              options={[
-                { value: '', label: 'None' },
-                ...variationMovementOptions.map((movement) => ({ value: movement.id, label: movement.name })),
-              ]}
+              options={variationMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
+              clearable
+              placeholder="None"
             />
           </div>
           {usesEditableRepTargets ? (
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <BuilderNumberField
                 label="Sets"
                 value={session.mainSetCount}
+                min={1}
+                max={10}
                 onChange={(value) => onSessionChange(index, { mainSetCount: value })}
               />
               <BuilderNumberField
                 label="Reps"
                 value={session.mainTargetReps}
+                min={1}
+                max={30}
                 onChange={(value) => onSessionChange(index, { mainTargetReps: value })}
-              />
-              <BuilderNumberField
-                label="RIR"
-                value={session.mainTargetRir ?? 0}
-                onChange={(value) => onSessionChange(index, { mainTargetRir: value })}
               />
             </div>
           ) : null}
@@ -883,8 +926,18 @@ function CustomAccessoriesStep({
     <div className="grid gap-3">
       {draft.sessions.map((session, sessionIndex) => (
         <div key={sessionIndex} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-extrabold">{session.title}</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-extrabold">{customBuilderDayTitle(sessionIndex, session.mainMovementId)}</p>
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">
+                <span className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2 py-1">
+                  {mainWorkSummary(draft.methodology, session)}
+                </span>
+                <span className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2 py-1">
+                  Variation: {variationSummary(session)}
+                </span>
+              </div>
+            </div>
             <Button variant="default" onClick={() => onAddAccessory(sessionIndex)}>
               <Plus size={14} />
               Add
@@ -894,47 +947,37 @@ function CustomAccessoriesStep({
             {session.accessories.map((accessory, accessoryIndex) => (
               <div
                 key={accessoryIndex}
-                className="grid gap-2 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 lg:grid-cols-[minmax(10rem,1fr)_5rem_5rem_5rem_5rem_minmax(9rem,11rem)_auto] lg:items-end"
+                className="grid gap-2 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 lg:grid-cols-[minmax(10rem,1fr)_5rem_5rem_5rem_auto] lg:items-end"
               >
                 <BuilderSelect
                   label="Movement"
                   value={accessory.movementId}
-                  onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { movementId: value })}
+                  onChange={(value) => {
+                    if (!value) return
+                    onAccessoryChange(sessionIndex, accessoryIndex, { movementId: value })
+                  }}
                   options={accessoryMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
                 />
                 <BuilderNumberField
                   label="Sets"
                   value={accessory.setCount}
+                  min={1}
+                  max={8}
                   onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { setCount: value })}
                 />
                 <BuilderNumberField
                   label="Min"
                   value={accessory.repMin}
+                  min={1}
+                  max={50}
                   onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { repMin: value })}
                 />
                 <BuilderNumberField
                   label="Max"
                   value={accessory.repMax}
+                  min={1}
+                  max={50}
                   onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { repMax: value })}
-                />
-                <BuilderNumberField
-                  label="RIR"
-                  value={accessory.targetRir ?? 0}
-                  onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { targetRir: value })}
-                />
-                <BuilderSelect
-                  label="Method"
-                  value={draft.methodology === 'none' ? 'history_only' : accessory.progressionMethod}
-                  onChange={(value) =>
-                    onAccessoryChange(sessionIndex, accessoryIndex, {
-                      progressionMethod: value as 'history_only' | 'double_progression',
-                    })
-                  }
-                  disabled={draft.methodology === 'none'}
-                  options={[
-                    { value: 'history_only', label: 'History only' },
-                    { value: 'double_progression', label: 'Double progression' },
-                  ]}
                 />
                 <Button color="danger" variant="light" onClick={() => onRemoveAccessory(sessionIndex, accessoryIndex)}>
                   <Trash2 size={14} />
@@ -970,7 +1013,7 @@ function CustomReviewStep({ draft }: { draft: CustomProgramBuilderInput }) {
         <div className="mt-3 grid gap-2">
           {draft.sessions.map((session, index) => (
             <div key={index} className="rounded-md bg-[var(--mantine-color-default)] px-3 py-2 text-sm">
-              <span className="font-bold">{session.title}</span>
+              <span className="font-bold">{customBuilderDayTitle(index, session.mainMovementId)}</span>
               <span className="text-[var(--mantine-color-dimmed)]"> · {getMovementName(session.mainMovementId)}</span>
               {session.variationMovementId ? (
                 <span className="text-[var(--mantine-color-dimmed)]"> · {getMovementName(session.variationMovementId)}</span>
@@ -1000,51 +1043,60 @@ function BuilderSelect({
   value,
   options,
   disabled = false,
+  clearable = false,
+  placeholder,
   onChange,
 }: {
   label: string
-  value: string
+  value: string | null
   options: Array<{ value: string; label: string }>
   disabled?: boolean
-  onChange: (value: string) => void
+  clearable?: boolean
+  placeholder?: string
+  onChange: (value: string | null) => void
 }) {
   return (
-    <label className="grid gap-1">
-      <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{label}</span>
-      <select
-        className="min-h-10 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 text-sm disabled:opacity-60"
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {options.map((option) => (
-          <option key={option.value || 'none'} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <Select
+      label={label}
+      value={value}
+      data={options}
+      disabled={disabled}
+      clearable={clearable}
+      searchable
+      placeholder={placeholder}
+      classNames={{ label: 'text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]' }}
+      onChange={(nextValue) => {
+        if (nextValue === null && !clearable) return
+        onChange(nextValue)
+      }}
+    />
   )
 }
 
 function BuilderNumberField({
   label,
   value,
+  min = 1,
+  max = 50,
   onChange,
 }: {
   label: string
   value: number
+  min?: number
+  max?: number
   onChange: (value: number) => void
 }) {
   return (
-    <label className="grid gap-1">
-      <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{label}</span>
-      <TextInput
-        type="number"
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-    </label>
+    <NumberInput
+      label={label}
+      min={min}
+      max={max}
+      allowDecimal={false}
+      clampBehavior="strict"
+      value={value}
+      classNames={{ label: 'text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]' }}
+      onChange={(nextValue) => onChange(clampIntegerInput(nextValue, value, min, max))}
+    />
   )
 }
 
