@@ -71,7 +71,12 @@ function AuthedProgram() {
       <PageHeader
         title={program.title}
         eyebrow="Program"
-        actions={<Badge color="action">Week {overview.position?.weekNumber ?? timeline.currentWeekIndex + 1} of {timeline.totalWeeks}</Badge>}
+        actions={
+          <div className="flex flex-wrap justify-end gap-2">
+            {program.customizationStatus === 'customized' ? <Badge color="warning">Customized</Badge> : null}
+            <Badge color="action">Week {overview.position?.weekNumber ?? timeline.currentWeekIndex + 1} of {timeline.totalWeeks}</Badge>
+          </div>
+        }
       >
         <span className="block">{overview.position?.weekSummary ?? timeline.description}</span>
         <span className="mt-1 block text-[11px] font-semibold text-[var(--mantine-color-dimmed)] md:text-xs">
@@ -80,6 +85,18 @@ function AuthedProgram() {
       </PageHeader>
 
       <ProgramSummaryGrid overview={overview} timeline={timeline} />
+
+      {program.customizationStatus === 'customized' ? (
+        <Card className="mb-4 border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-4">
+          <p className="vf-section-label text-[var(--vf-warning-text)]">Customized from default</p>
+          <p className="mt-1 text-sm text-[var(--mantine-color-text)]">
+            This programme changes {program.customizationSummary.movementOverrideCount} movement slot
+            {program.customizationSummary.movementOverrideCount === 1 ? '' : 's'} and adds{' '}
+            {program.customizationSummary.accessoryAdditionCount} accessory slot
+            {program.customizationSummary.accessoryAdditionCount === 1 ? '' : 's'} from the original template.
+          </p>
+        </Card>
+      ) : null}
 
       {overview.pendingDecisions.length ? (
         <Card className="mb-4 border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-4">
@@ -323,7 +340,10 @@ function AccessoryPlan({ overview }: { overview: ProgramOverview }) {
               <div className="mt-2 space-y-1.5">
                 {day.slots.length ? day.slots.map((slot) => (
                   <div key={slot.slotId} className="rounded-md bg-[var(--mantine-color-default)] px-2 py-1.5">
-                    <p className="truncate text-xs font-bold">{slot.movementName}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="min-w-0 flex-1 truncate text-xs font-bold">{slot.movementName}</p>
+                      {slot.isAdded ? <Badge color="warning" size="xs">Added</Badge> : null}
+                    </div>
                     <p className="truncate text-[10px] text-[var(--mantine-color-dimmed)]">{slot.targetSummary}</p>
                     {slot.replacedMovementName ? (
                       <p className="mt-1 text-[10px] font-semibold text-[var(--vf-warning-text)]">Replaces {slot.replacedMovementName}</p>

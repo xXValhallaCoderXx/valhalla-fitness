@@ -1,5 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import type {
+  AccessoryMovementOption,
+  AccessoryProgressionMethod,
   AnchorInput,
   Movement,
   HistoryDashboard,
@@ -8,15 +10,22 @@ import type {
   MovementSlot,
   MovementSwapOption,
   PlannedSession,
+  ProgramAccessoryAddition,
+  ProgramCustomizationSummary,
   ProgramInstance,
   ProgramMovementOverride,
   ProgramOverview,
   ProgramRecentSessionSummary,
+  ProgramSetupOptions,
+  ProgramStartAccessoryAdditionInput,
+  ProgramStartMovementOverrideInput,
   ProgramTemplateSummary,
+  ProgramTemplateOrigin,
   RecentHistoryEntry,
   ProgressionDecision,
   SessionSummary,
   SetLog,
+  SetTarget,
   SubstitutionReason,
   SwapScope,
   TodayPayload,
@@ -25,7 +34,14 @@ import type {
   UserProfile,
   WorkoutSession,
 } from '~/types/training'
-import { defaultAnchors, expandPlannedSession, programForNextUncompletedSession, templateCatalog } from '~/lib/templates'
+import {
+  accessoryProgressionRuleId,
+  accessoryTargetSummary,
+  buildAccessoryInitialSets,
+  isAccessoryProgressionMethod,
+  parseAccessoryRepTarget,
+} from '~/lib/accessories'
+import { defaultAnchors, expandPlannedSession, getFallbackTemplateDefinition, programForNextUncompletedSession, templateCatalog } from '~/lib/templates'
 import {
   parseTemplateDefinition,
   validateRequiredAnchors,
@@ -33,12 +49,11 @@ import {
   type TemplateDefinition,
 } from '~/lib/template-engine'
 import {
-  e1rm,
-  evaluate531TmBand,
-  evaluateAccessoryDoubleProgression,
-  evaluateBullmastiffPlusSet,
-  mround,
-} from '~/lib/progression'
+  buildCustomProgramTemplateDefinition,
+  type CustomProgramBuilderInput,
+} from '~/lib/custom-templates'
+import { e1rm, mround } from '~/lib/progression'
+import { accessoryOutcomeSummary, buildProgressionDecisionsForSession } from '~/lib/progression-decisions'
 import { buildMovementSwapOptions, defaultMovementReplacementRules, getMovementName, movementCatalog } from '~/lib/movements'
 import {
   buildHistoryDashboard,
@@ -71,17 +86,26 @@ async function ensureProfile() {
   return data
 }
 
-function mapTemplateRow(row: any, available = true): ProgramTemplateSummary {
+function mapTemplateRow(row: any, available = true, definition?: TemplateDefinition | null): ProgramTemplateSummary {
+  const origin: ProgramTemplateOrigin =
+    row.origin ??
+    (row.source === 'custom_import'
+      ? 'user_created'
+      : row.source === 'bromley_base_strength'
+        ? 'coach_authored'
+        : 'system_default')
   return {
     id: row.id,
     name: row.name,
     source: row.source,
-    sourceLabel: row.source === 'bromley_base_strength' ? 'Bromley' : 'Healthy 5/3/1',
+    sourceLabel: row.source === 'bromley_base_strength' ? 'Bromley' : row.source === 'custom_import' ? 'Custom' : 'Healthy 5/3/1',
+    origin,
     description: row.description,
     daysPerWeek: row.days_per_week,
     progressionLabel: row.progression_label,
     complexity: row.complexity,
     tags: row.tags ?? [],
+    requiredAnchors: definition?.requiredAnchors ?? [],
     available,
   }
 }
@@ -143,6 +167,41 @@ function mapProgramMovementOverride(row: any): ProgramMovementOverride {
   }
 }
 
+function defaultCustomizationSummary(): ProgramCustomizationSummary {
+  return {
+    movementOverrideCount: 0,
+    accessoryAdditionCount: 0,
+  }
+}
+
+function normalizeCustomizationSummary(input: unknown): ProgramCustomizationSummary {
+  if (!input || typeof input !== 'object') return defaultCustomizationSummary()
+  const value = input as Record<string, unknown>
+  return {
+    movementOverrideCount: Number(value.movementOverrideCount ?? 0),
+    accessoryAdditionCount: Number(value.accessoryAdditionCount ?? 0),
+  }
+}
+
+function mapProgramAccessoryAddition(row: any): ProgramAccessoryAddition {
+  return {
+    id: row.id,
+    programInstanceId: row.program_instance_id,
+    sessionId: row.session_id,
+    slotId: row.slot_id,
+    phaseKey: row.phase_key,
+    movementId: row.movement_id,
+    prescriptionId: row.prescription_id,
+    sourceSlotId: row.source_slot_id,
+    targetSummary: row.target_summary,
+    sets: Array.isArray(row.sets) ? row.sets : [],
+    note: row.note,
+    progressionMethod: row.progression_method ?? 'history_only',
+    effectiveFromWeekIndex: Number(row.effective_from_week_index),
+    orderIndex: Number(row.order_index),
+  }
+}
+
 function mapMovementReplacementRule(row: any): MovementReplacementRule {
   return {
     id: row.id,
@@ -187,6 +246,145 @@ async function getReplacementRulesForSwap(supabase: any): Promise<MovementReplac
   return rules.length ? rules : defaultMovementReplacementRules
 }
 
+function listAccessoryMovementOptionsFromCatalog(catalog: Record<string, Movement>): AccessoryMovementOption[] {
+  return Object.values(catalog)
+    .filter((movement) => !movement.isCompetition)
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((movement) => ({
+      movementId: movement.id,
+      movementName: movement.name,
+      category: movement.category,
+      equipment: movement.equipment,
+      defaultUnit: movement.defaultUnit,
+    }))
+}
+
+function resolveTemplateMovementId(
+  movementId: TemplateDefinition['sessions'][number]['slots'][number]['movementId'],
+  phaseKey: string,
+) {
+  if (typeof movementId === 'string') return movementId
+  return movementId.byPhase?.[phaseKey] ?? movementId.default
+}
+
+function uniqueTemplatePhases(definition: TemplateDefinition) {
+  const phases = new Map<string, string>()
+  for (const week of definition.weeks) {
+    if (!phases.has(week.phaseKey)) phases.set(week.phaseKey, week.phaseLabel)
+  }
+  return Array.from(phases.entries()).map(([phaseKey, phaseLabel]) => ({ phaseKey, phaseLabel }))
+}
+
+function firstWeekForPhase(definition: TemplateDefinition, phaseKey: string) {
+  return definition.weeks.find((week) => week.phaseKey === phaseKey) ?? definition.weeks[0]
+}
+
+function sourceLabelForAccessoryPrescription(movementId: string, targetSummary: string) {
+  return `${getMovementName(movementId)} plan · ${targetSummary}`
+}
+
+function buildProgramSetupOptions({
+  template,
+  definition,
+  catalog,
+  rules,
+}: {
+  template: ProgramTemplateSummary
+  definition: TemplateDefinition
+  catalog: Record<string, Movement>
+  rules: MovementReplacementRule[]
+}): ProgramSetupOptions {
+  const phases = uniqueTemplatePhases(definition)
+  const accessoryCatalog = Object.values(catalog)
+    .filter((movement) => !movement.isCompetition)
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((movement) => ({
+      movementId: movement.id,
+      movementName: movement.name,
+      category: movement.category,
+      equipment: movement.equipment,
+    }))
+
+  return {
+    templateId: template.id,
+    templateName: template.name,
+    origin: template.origin,
+    accessoryCatalog,
+    sessions: definition.sessions.map((session) => {
+      const accessoryPrescriptions = session.slots
+        .filter((slot) => slot.role === 'accessory')
+        .map((slot) => {
+          const phase = phases[0]
+          const week = firstWeekForPhase(definition, phase?.phaseKey ?? definition.weeks[0]?.phaseKey ?? 'cycle')
+          const movementId = resolveTemplateMovementId(slot.movementId, week.phaseKey)
+          const prescription = week.prescriptions[slot.prescriptionId]
+          return {
+            sourceSlotId: slot.id,
+            label: sourceLabelForAccessoryPrescription(movementId, prescription?.targetSummary ?? 'Accessory work'),
+            prescriptionId: slot.prescriptionId,
+            targetSummary: prescription?.targetSummary ?? 'Accessory work',
+          }
+        })
+
+      const slots = session.slots.flatMap((slot) => {
+        if (slot.role !== 'variation' && slot.role !== 'accessory') return []
+        const slotId = `slot-${session.id}-${slot.id}`
+        const phaseRows = phases.map((phase) => {
+          const week = firstWeekForPhase(definition, phase.phaseKey)
+          const movementId = resolveTemplateMovementId(slot.movementId, phase.phaseKey)
+          const prescription = week.prescriptions[slot.prescriptionId]
+          return {
+            phaseKey: phase.phaseKey,
+            phaseLabel: phase.phaseLabel,
+            movementId,
+            targetSummary: prescription?.targetSummary ?? slot.targetSummary ?? 'Planned work',
+          }
+        })
+        const uniqueMovementIds = new Set(phaseRows.map((phase) => phase.movementId))
+        const rows =
+          slot.role === 'accessory' && uniqueMovementIds.size === 1
+            ? [{
+                phaseKey: '*',
+                phaseLabel: 'All phases',
+                movementId: phaseRows[0]?.movementId ?? resolveTemplateMovementId(slot.movementId, phases[0]?.phaseKey ?? 'cycle'),
+                targetSummary: phaseRows[0]?.targetSummary ?? slot.targetSummary ?? 'Accessory work',
+              }]
+            : phaseRows
+
+        return rows.map((row) => ({
+          sessionId: session.id,
+          sessionTitle: session.title,
+          slotId,
+          templateSlotId: slot.id,
+          phaseKey: row.phaseKey,
+          phaseLabel: row.phaseLabel,
+          role: slot.role as 'variation' | 'accessory',
+          defaultMovementId: row.movementId,
+          defaultMovementName: getMovementName(row.movementId),
+          prescriptionId: slot.prescriptionId,
+          targetSummary: row.targetSummary,
+          replacementOptions: buildMovementSwapOptions({
+            movementId: row.movementId,
+            role: slot.role,
+            templateId: template.id,
+            phaseKey: row.phaseKey === '*' ? null : row.phaseKey,
+            slotId,
+            catalog,
+            rules,
+          }).filter((option) => option.allowedScopes.includes('phase_slot')),
+        }))
+      })
+
+      return {
+        id: session.id,
+        title: session.title,
+        slots,
+        accessoryPrescriptions,
+      }
+    }),
+  }
+}
+
 async function getActiveProgramInternal(): Promise<ProgramInstance | null> {
   const { supabase, user } = await requireUser()
   const { data: instance, error } = await supabase
@@ -215,6 +413,14 @@ async function getActiveProgramInternal(): Promise<ProgramInstance | null> {
     .order('created_at', { ascending: true })
   if (overrideError) throw new Error(overrideError.message)
 
+  const { data: accessoryAdditions, error: additionError } = await supabase
+    .from('program_accessory_additions')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('program_instance_id', instance.id)
+    .order('order_index', { ascending: true })
+  if (additionError) throw new Error(additionError.message)
+
   const templateDefinition = await getPinnedTemplateDefinition(
     supabase,
     instance.template_version_id,
@@ -231,12 +437,15 @@ async function getActiveProgramInternal(): Promise<ProgramInstance | null> {
     units: instance.units,
     rounding: Number(instance.rounding),
     currentWeekIndex: instance.current_week_index,
+    customizationStatus: instance.customization_status ?? 'default',
+    customizationSummary: normalizeCustomizationSummary(instance.customization_summary),
     anchors: (anchors ?? []).map((anchor: any) => ({
       movementId: anchor.movement_id,
       anchorType: anchor.anchor_type,
       value: Number(anchor.value),
     })),
     movementOverrides: (movementOverrides ?? []).map(mapProgramMovementOverride),
+    accessoryAdditions: (accessoryAdditions ?? []).map(mapProgramAccessoryAddition),
     templateDefinition,
   }
 }
@@ -691,6 +900,7 @@ export const listTemplatesFn = createServerFn({ method: 'GET' }).handler(async (
   const { data, error } = await supabase
     .from('program_templates')
     .select('*')
+    .eq('is_active', true)
     .order('name', { ascending: true })
   if (error || !data?.length) return templateCatalog
 
@@ -707,20 +917,178 @@ export const listTemplatesFn = createServerFn({ method: 'GET' }).handler(async (
 
   const seeded = data.map((row: any) => {
     const validation = validateTemplateDefinition(latestByTemplateId.get(row.id)?.definition)
-    return mapTemplateRow(row, validation.ok)
+    return mapTemplateRow(row, validation.ok, validation.ok ? validation.definition : null)
   })
   const missing = templateCatalog.filter((template) => !seeded.some((row) => row.id === template.id))
   return [...seeded, ...missing]
 })
+
+export const getProgramSetupOptionsFn = createServerFn({ method: 'GET' })
+  .validator((data: { templateId: string }) => data)
+  .handler(async ({ data }): Promise<ProgramSetupOptions> => {
+    if (!hasSupabaseEnv()) {
+      const template = templateCatalog.find((item) => item.id === data.templateId)
+      if (!template) throw new Error('Template not found')
+      return buildProgramSetupOptions({
+        template,
+        definition: getFallbackTemplateDefinition(data.templateId),
+        catalog: movementCatalog,
+        rules: defaultMovementReplacementRules,
+      })
+    }
+
+    const supabase = getSupabaseServerClient()
+    const { data: templateRow, error: templateError } = await supabase
+      .from('program_templates')
+      .select('*')
+      .eq('id', data.templateId)
+      .eq('is_active', true)
+      .single()
+    if (templateError) throw new Error(templateError.message)
+    const template = mapTemplateRow(templateRow)
+    const [{ definition }, catalog, rules] = await Promise.all([
+      getLatestTemplateVersion(supabase, data.templateId),
+      getMovementCatalogForSwap(supabase),
+      getReplacementRulesForSwap(supabase),
+    ])
+    return buildProgramSetupOptions({ template, definition, catalog, rules })
+  })
+
+export const listAccessoryMovementOptionsFn = createServerFn({ method: 'GET' })
+  .handler(async (): Promise<AccessoryMovementOption[]> => {
+    if (!hasSupabaseEnv()) return listAccessoryMovementOptionsFromCatalog(movementCatalog)
+    const { supabase } = await requireUser()
+    const catalog = await getMovementCatalogForSwap(supabase)
+    return listAccessoryMovementOptionsFromCatalog(catalog)
+  })
+
+function normalizeStartMovementOverrides(
+  input: ProgramStartMovementOverrideInput[] | undefined,
+  setupOptions: ProgramSetupOptions,
+): Array<Omit<ProgramMovementOverride, 'id' | 'programInstanceId' | 'effectiveFromWeekIndex'> & { effectiveFromWeekIndex: number }> {
+  const setupSlots = setupOptions.sessions.flatMap((session) => session.slots)
+  const overrides = new Map<string, Omit<ProgramMovementOverride, 'id' | 'programInstanceId' | 'effectiveFromWeekIndex'> & { effectiveFromWeekIndex: number }>()
+
+  for (const item of input ?? []) {
+    if (item.replacementMovementId === item.originalMovementId) continue
+    const setupSlot = setupSlots.find(
+      (slot) => slot.slotId === item.slotId && slot.phaseKey === item.phaseKey && slot.role === item.role,
+    )
+    if (!setupSlot) throw new Error('Invalid customization slot.')
+    if (setupSlot.defaultMovementId !== item.originalMovementId) {
+      throw new Error('Customization no longer matches the selected template.')
+    }
+    const selectedOption = setupSlot.replacementOptions.find(
+      (option) => option.movementId === item.replacementMovementId && option.allowedScopes.includes('phase_slot'),
+    )
+    if (!selectedOption) {
+      throw new Error('This movement is not an allowed programme replacement for the selected slot.')
+    }
+    overrides.set(`${item.slotId}:${item.phaseKey}:${item.role}`, {
+      slotId: item.slotId,
+      phaseKey: item.phaseKey,
+      role: item.role,
+      originalMovementId: item.originalMovementId,
+      replacementMovementId: item.replacementMovementId,
+      effectiveFromWeekIndex: 0,
+    })
+  }
+
+  return Array.from(overrides.values())
+}
+
+function sanitizeSlotPart(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-')
+}
+
+function customTemplateId(userId: string, name: string) {
+  const slug = sanitizeSlotPart(name.toLowerCase()).replace(/^-|-$/g, '').slice(0, 32) || 'programme'
+  return `custom-${userId.slice(0, 8)}-${Date.now().toString(36)}-${slug}`
+}
+
+export const createCustomProgramTemplateFn = createServerFn({ method: 'POST' })
+  .validator((data: CustomProgramBuilderInput) => data)
+  .handler(async ({ data }): Promise<ProgramTemplateSummary> => {
+    await ensureProfile()
+    const { supabase, user } = await requireUser()
+    const catalog = await getMovementCatalogForSwap(supabase)
+    const generated = buildCustomProgramTemplateDefinition({
+      input: data,
+      templateId: customTemplateId(user.id, data.name),
+      catalog,
+    })
+
+    const { data: templateRow, error: templateError } = await supabase
+      .from('program_templates')
+      .insert({
+        id: generated.metadata.id,
+        name: generated.metadata.name,
+        source: 'custom_import',
+        origin: 'user_created',
+        created_by: user.id,
+        description: generated.metadata.description,
+        days_per_week: generated.metadata.daysPerWeek,
+        progression_label: generated.metadata.progressionLabel,
+        complexity: generated.metadata.complexity,
+        schema_version: generated.definition.schemaVersion,
+        tags: generated.metadata.tags,
+        is_active: true,
+      })
+      .select('*')
+      .single()
+    if (templateError) throw new Error(templateError.message)
+
+    const { error: versionError } = await supabase
+      .from('program_template_versions')
+      .insert({
+        template_id: generated.metadata.id,
+        version: '1',
+        definition: generated.definition,
+      })
+    if (versionError) throw new Error(versionError.message)
+
+    return mapTemplateRow(templateRow, true, generated.definition)
+  })
+
+function normalizeStartAccessoryAdditions(
+  input: ProgramStartAccessoryAdditionInput[] | undefined,
+  setupOptions: ProgramSetupOptions,
+): Array<Omit<ProgramAccessoryAddition, 'id' | 'programInstanceId'>> {
+  const additionsBySession = new Map<string, number>()
+  const validMovements = new Set(setupOptions.accessoryCatalog.map((movement) => movement.movementId))
+
+  return (input ?? []).map((item) => {
+    const session = setupOptions.sessions.find((candidate) => candidate.id === item.sessionId)
+    if (!session) throw new Error('Invalid accessory session.')
+    const source = session.accessoryPrescriptions.find((candidate) => candidate.sourceSlotId === item.sourceSlotId)
+    if (!source) throw new Error('Added accessories must copy an existing accessory prescription from the same session.')
+    if (!validMovements.has(item.movementId)) throw new Error('Invalid accessory movement.')
+
+    const index = (additionsBySession.get(item.sessionId) ?? 0) + 1
+    additionsBySession.set(item.sessionId, index)
+    return {
+      sessionId: item.sessionId,
+      slotId: `added-accessory-${index}-${sanitizeSlotPart(item.movementId)}`,
+      phaseKey: item.phaseKey ?? '*',
+      movementId: item.movementId,
+      prescriptionId: source.prescriptionId,
+      sourceSlotId: item.sourceSlotId,
+      effectiveFromWeekIndex: 0,
+      orderIndex: index,
+    }
+  })
+}
 
 export const startProgramFn = createServerFn({ method: 'POST' })
   .validator(
     (data: {
       templateId: string
       title?: string
-      units: Unit
-      rounding: number
-      anchors: AnchorInput[]
+      units?: Unit
+      rounding?: number
+      anchors?: AnchorInput[]
+      movementOverrides?: ProgramStartMovementOverrideInput[]
+      accessoryAdditions?: ProgramStartAccessoryAdditionInput[]
       replaceActiveProgram?: boolean
     }) => data,
   )
@@ -737,7 +1105,29 @@ export const startProgramFn = createServerFn({ method: 'POST' })
 
     const template = mapTemplateRow(templateRow)
     const templateVersion = await getLatestTemplateVersion(supabase, data.templateId)
-    const anchors = data.anchors.length ? data.anchors : defaultAnchors(data.units)
+    const [catalog, rules] = await Promise.all([
+      getMovementCatalogForSwap(supabase),
+      getReplacementRulesForSwap(supabase),
+    ])
+    const setupOptions = buildProgramSetupOptions({
+      template,
+      definition: templateVersion.definition,
+      catalog,
+      rules,
+    })
+    const movementOverrides = normalizeStartMovementOverrides(data.movementOverrides, setupOptions)
+    const accessoryAdditions = normalizeStartAccessoryAdditions(data.accessoryAdditions, setupOptions)
+    const customizationSummary: ProgramCustomizationSummary = {
+      movementOverrideCount: movementOverrides.length,
+      accessoryAdditionCount: accessoryAdditions.length,
+    }
+    const customizationStatus =
+      customizationSummary.movementOverrideCount || customizationSummary.accessoryAdditionCount
+        ? 'customized'
+        : 'default'
+    const units = (data.units ?? profile.units) as Unit
+    const rounding = data.rounding ?? Number(profile.rounding)
+    const anchors = data.anchors ? data.anchors : defaultAnchors(units)
     validateRequiredAnchors(templateVersion.definition, anchors)
 
     const { data: activePrograms, error: activeProgramError } = await supabase
@@ -782,26 +1172,64 @@ export const startProgramFn = createServerFn({ method: 'POST' })
         template_id: data.templateId,
         template_version_id: templateVersion.id,
         title: data.title || template.name,
-        units: data.units ?? profile.units,
-        rounding: data.rounding ?? Number(profile.rounding),
+        units,
+        rounding,
         current_block_id: templateVersion.definition.weeks[0]?.phaseKey ?? null,
         current_week_index: 0,
+        customization_status: customizationStatus,
+        customization_summary: customizationSummary,
       })
       .select('*')
       .single()
     if (error) throw new Error(error.message)
 
-    const { error: anchorError } = await supabase.from('program_anchors').insert(
-      anchors.map((anchor) => ({
-        user_id: user.id,
-        program_instance_id: instance.id,
-        movement_id: anchor.movementId,
-        anchor_type: anchor.anchorType,
-        value: anchor.value,
-        source: { kind: 'setup' },
-      })),
-    )
-    if (anchorError) throw new Error(anchorError.message)
+    if (anchors.length) {
+      const { error: anchorError } = await supabase.from('program_anchors').insert(
+        anchors.map((anchor) => ({
+          user_id: user.id,
+          program_instance_id: instance.id,
+          movement_id: anchor.movementId,
+          anchor_type: anchor.anchorType,
+          value: anchor.value,
+          source: { kind: 'setup' },
+        })),
+      )
+      if (anchorError) throw new Error(anchorError.message)
+    }
+
+    if (movementOverrides.length) {
+      const { error: overrideError } = await supabase.from('program_movement_overrides').insert(
+        movementOverrides.map((override) => ({
+          user_id: user.id,
+          program_instance_id: instance.id,
+          slot_id: override.slotId,
+          phase_key: override.phaseKey,
+          role: override.role,
+          original_movement_id: override.originalMovementId,
+          replacement_movement_id: override.replacementMovementId,
+          effective_from_week_index: override.effectiveFromWeekIndex,
+        })),
+      )
+      if (overrideError) throw new Error(overrideError.message)
+    }
+
+    if (accessoryAdditions.length) {
+      const { error: additionError } = await supabase.from('program_accessory_additions').insert(
+        accessoryAdditions.map((addition) => ({
+          user_id: user.id,
+          program_instance_id: instance.id,
+          session_id: addition.sessionId,
+          slot_id: addition.slotId,
+          phase_key: addition.phaseKey,
+          movement_id: addition.movementId,
+          prescription_id: addition.prescriptionId,
+          source_slot_id: addition.sourceSlotId,
+          effective_from_week_index: addition.effectiveFromWeekIndex,
+          order_index: addition.orderIndex,
+        })),
+      )
+      if (additionError) throw new Error(additionError.message)
+    }
     return getActiveProgramInternal()
   })
 
@@ -927,6 +1355,364 @@ export const upsertSetLogFn = createServerFn({ method: 'POST' })
     return getSessionInternal(data.sessionId)
   })
 
+function templateSessionIdForSnapshot(snapshot: PlannedSession, sessionRow: any) {
+  if (snapshot.templateSessionId) return snapshot.templateSessionId
+  const plannedSessionId = String(sessionRow.planned_session_id ?? snapshot.id)
+  return plannedSessionId.replace(/-w\d+$/i, '')
+}
+
+function setLogsFromTargets(exerciseLogId: string, userId: string, sets: SetTarget[]) {
+  return sets.map((set) => ({
+    user_id: userId,
+    exercise_log_id: exerciseLogId,
+    set_index: set.setIndex,
+    target_load: set.targetLoad ?? null,
+    target_reps: set.targetReps ?? null,
+    target_rep_min: set.targetRepMin ?? null,
+    target_rep_max: set.targetRepMax ?? null,
+    target_rpe: set.targetRpe ?? null,
+    target_rir: set.targetRir ?? null,
+    actual_load: set.targetLoad ?? null,
+    actual_reps: set.targetReps ?? set.targetRepMin ?? null,
+    is_top_set: Boolean(set.isTopSet),
+    is_amrap: Boolean(set.isAmrap),
+    is_backoff: Boolean(set.isBackoff),
+  }))
+}
+
+function movementSlotFromAccessoryInput({
+  slotId,
+  phaseKey,
+  movement,
+  orderIndex,
+  targetSummary,
+  sets,
+  note,
+  scope,
+  progressionMethod,
+}: {
+  slotId: string
+  phaseKey: string
+  movement: Movement
+  orderIndex: number
+  targetSummary: string
+  sets: SetTarget[]
+  note?: string | null
+  scope: SwapScope
+  progressionMethod: AccessoryProgressionMethod
+}): MovementSlot {
+  return {
+    id: slotId,
+    slotId,
+    phaseKey,
+    movementId: movement.id,
+    movementName: movement.name,
+    performedMovementId: movement.id,
+    performedMovementName: movement.name,
+    role: 'accessory',
+    orderIndex,
+    targetSummary,
+    progressionRuleId: accessoryProgressionRuleId(progressionMethod),
+    progressionMethod,
+    sets: sets.map((set) => ({
+      ...set,
+      actualLoad: set.targetLoad,
+      actualReps: set.targetReps ?? set.targetRepMin,
+      completed: false,
+    })),
+    previous: null,
+    notes: note ?? null,
+    isAdded: true,
+    addedScope: scope,
+  }
+}
+
+function nextAccessorySlotIds(templateSessionId: string, usedSlotIds: Set<string>, movementId: string) {
+  let index = Array.from(usedSlotIds).filter((slotId) => slotId.includes('added-accessory-')).length + 1
+  while (true) {
+    const additionSlotId = `added-accessory-${index}-${sanitizeSlotPart(movementId)}`
+    const sessionSlotId = `slot-${templateSessionId}-${additionSlotId}`
+    if (!usedSlotIds.has(sessionSlotId)) return { additionSlotId, sessionSlotId }
+    index += 1
+  }
+}
+
+export const addSessionAccessoryFn = createServerFn({ method: 'POST' })
+  .validator(
+    (data: {
+      sessionId: string
+      movementId: string
+      progressionMethod: AccessoryProgressionMethod
+      repTarget: string
+      scope: SwapScope
+      note?: string
+      clientMutationId: string
+    }) => data,
+  )
+  .handler(async ({ data }): Promise<WorkoutSession> => {
+    if (!isAccessoryProgressionMethod(data.progressionMethod)) throw new Error('Invalid accessory progression method.')
+    const repTarget = parseAccessoryRepTarget(data.repTarget)
+    if (!repTarget) throw new Error('Enter a valid rep target, such as 8-12 or 15.')
+    if (data.scope !== 'session' && data.scope !== 'phase_slot') throw new Error('Invalid accessory scope.')
+
+    const { supabase, user } = await requireUser()
+    const { data: sessionRow, error: sessionError } = await supabase
+      .from('workout_sessions')
+      .select('*')
+      .eq('id', data.sessionId)
+      .eq('user_id', user.id)
+      .single()
+    if (sessionError) throw new Error(sessionError.message)
+    if (sessionRow.status === 'completed') {
+      throw new Error('This session is already finished. Completed sessions cannot be edited.')
+    }
+    if (sessionRow.status !== 'in_progress') {
+      throw new Error('Only in-progress sessions can be edited.')
+    }
+
+    const { data: exerciseRows, error: exerciseRowsError } = await supabase
+      .from('exercise_logs')
+      .select('id, slot_id, order_index, client_mutation_id')
+      .eq('session_id', data.sessionId)
+      .eq('user_id', user.id)
+      .order('order_index', { ascending: true })
+    if (exerciseRowsError) throw new Error(exerciseRowsError.message)
+    if ((exerciseRows ?? []).some((row: any) => row.client_mutation_id === data.clientMutationId)) {
+      return getSessionInternal(data.sessionId)
+    }
+
+    const catalog = await getMovementCatalogForSwap(supabase)
+    const movement = catalog[data.movementId]
+    if (!movement || movement.isCompetition) throw new Error('Invalid accessory movement.')
+
+    const snapshot = sessionRow.prescription_snapshot as PlannedSession
+    const phaseKey = phaseKeyForSnapshot(snapshot)
+    const templateSessionId = templateSessionIdForSnapshot(snapshot, sessionRow)
+    const usedSlotIds = new Set((exerciseRows ?? []).map((row: any) => row.slot_id as string))
+    for (const snapshotSlot of snapshot.movements) usedSlotIds.add(snapshotSlot.slotId ?? snapshotSlot.id)
+    const { additionSlotId, sessionSlotId } = nextAccessorySlotIds(templateSessionId, usedSlotIds, movement.id)
+    const maxOrderIndex = Math.max(
+      0,
+      ...(exerciseRows ?? []).map((row: any) => Number(row.order_index) || 0),
+      ...snapshot.movements.map((item) => Number(item.orderIndex) || 0),
+    )
+    const orderIndex = maxOrderIndex + 1
+    const note = data.note?.trim() || null
+    const targetSummary = accessoryTargetSummary(repTarget, data.progressionMethod)
+    const targetSets = buildAccessoryInitialSets(repTarget)
+    const snapshotMovement = movementSlotFromAccessoryInput({
+      slotId: sessionSlotId,
+      phaseKey,
+      movement,
+      orderIndex,
+      targetSummary,
+      sets: targetSets,
+      note,
+      scope: data.scope,
+      progressionMethod: data.progressionMethod,
+    })
+
+    const { data: exercise, error: exerciseError } = await supabase
+      .from('exercise_logs')
+      .insert({
+        user_id: user.id,
+        session_id: data.sessionId,
+        slot_id: sessionSlotId,
+        planned_movement_id: movement.id,
+        performed_movement_id: movement.id,
+        role: 'accessory',
+        order_index: orderIndex,
+        target_summary: targetSummary,
+        notes: note,
+        client_mutation_id: data.clientMutationId,
+      })
+      .select('id')
+      .single()
+    if (exerciseError) {
+      if (exerciseError.code === '23505') return getSessionInternal(data.sessionId)
+      throw new Error(exerciseError.message)
+    }
+
+    const { error: setError } = await supabase.from('set_logs').insert(
+      setLogsFromTargets(exercise.id, user.id, targetSets),
+    )
+    if (setError) throw new Error(setError.message)
+
+    const nextSnapshot: PlannedSession = {
+      ...snapshot,
+      templateSessionId,
+      movements: [...snapshot.movements, snapshotMovement],
+    }
+    const { error: snapshotError } = await supabase
+      .from('workout_sessions')
+      .update({ prescription_snapshot: nextSnapshot })
+      .eq('id', data.sessionId)
+      .eq('user_id', user.id)
+    if (snapshotError) throw new Error(snapshotError.message)
+
+    if (data.scope === 'phase_slot') {
+      const { data: additionRows, error: additionRowsError } = await supabase
+        .from('program_accessory_additions')
+        .select('order_index')
+        .eq('user_id', user.id)
+        .eq('program_instance_id', sessionRow.program_instance_id)
+        .eq('session_id', templateSessionId)
+      if (additionRowsError) throw new Error(additionRowsError.message)
+      const additionOrderIndex = Math.max(0, ...(additionRows ?? []).map((row: any) => Number(row.order_index) || 0)) + 1
+
+      const { error: additionError } = await supabase.from('program_accessory_additions').insert({
+        user_id: user.id,
+        program_instance_id: sessionRow.program_instance_id,
+        session_id: templateSessionId,
+        slot_id: additionSlotId,
+        phase_key: phaseKey,
+        movement_id: movement.id,
+        prescription_id: `manual-${data.progressionMethod}`,
+        source_slot_id: null,
+        target_summary: targetSummary,
+        sets: targetSets,
+        note,
+        progression_method: data.progressionMethod,
+        effective_from_week_index: Number(snapshot.weekIndex) + 1,
+        order_index: additionOrderIndex,
+      })
+      if (additionError) throw new Error(additionError.message)
+
+      const { data: programRow, error: programError } = await supabase
+        .from('program_instances')
+        .select('customization_summary')
+        .eq('id', sessionRow.program_instance_id)
+        .eq('user_id', user.id)
+        .single()
+      if (programError) throw new Error(programError.message)
+      const summary = normalizeCustomizationSummary(programRow.customization_summary)
+      const { error: summaryError } = await supabase
+        .from('program_instances')
+        .update({
+          customization_status: 'customized',
+          customization_summary: {
+            ...summary,
+            accessoryAdditionCount: summary.accessoryAdditionCount + 1,
+          },
+        })
+        .eq('id', sessionRow.program_instance_id)
+        .eq('user_id', user.id)
+      if (summaryError) throw new Error(summaryError.message)
+    }
+
+    return getSessionInternal(data.sessionId)
+  })
+
+function setTargetFromRow(row: any, setIndex: number): SetTarget {
+  return {
+    id: `set-${setIndex}`,
+    setIndex,
+    targetLoad: row?.target_load === null || row?.target_load === undefined ? null : Number(row.target_load),
+    targetReps: row?.target_reps ?? null,
+    targetRepMin: row?.target_rep_min ?? null,
+    targetRepMax: row?.target_rep_max ?? null,
+    targetRpe: row?.target_rpe === null || row?.target_rpe === undefined ? null : Number(row.target_rpe),
+    targetRir: row?.target_rir === null || row?.target_rir === undefined ? null : Number(row.target_rir),
+    isTopSet: Boolean(row?.is_top_set),
+    isAmrap: Boolean(row?.is_amrap),
+    isBackoff: Boolean(row?.is_backoff),
+    label: row?.target_reps
+      ? String(row.target_reps)
+      : row?.target_rep_min && row?.target_rep_max
+        ? `${row.target_rep_min}-${row.target_rep_max}`
+        : undefined,
+  }
+}
+
+function snapshotSetFromTarget(target: SetTarget): SetLog {
+  return {
+    ...target,
+    actualLoad: target.targetLoad ?? null,
+    actualReps: target.targetReps ?? target.targetRepMin ?? null,
+    completed: false,
+  }
+}
+
+export const addExerciseSetFn = createServerFn({ method: 'POST' })
+  .validator((data: { sessionId: string; exerciseLogId: string; clientMutationId: string }) => data)
+  .handler(async ({ data }): Promise<WorkoutSession> => {
+    const { supabase, user } = await requireUser()
+    const { data: sessionRow, error: sessionError } = await supabase
+      .from('workout_sessions')
+      .select('*')
+      .eq('id', data.sessionId)
+      .eq('user_id', user.id)
+      .single()
+    if (sessionError) throw new Error(sessionError.message)
+    if (sessionRow.status === 'completed') {
+      throw new Error('This session is already finished. Completed sessions cannot be edited.')
+    }
+    if (sessionRow.status !== 'in_progress') {
+      throw new Error('Only in-progress sessions can be edited.')
+    }
+
+    const { data: existingMutation, error: existingMutationError } = await supabase
+      .from('set_logs')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('client_mutation_id', data.clientMutationId)
+      .maybeSingle()
+    if (existingMutationError) throw new Error(existingMutationError.message)
+    if (existingMutation) return getSessionInternal(data.sessionId)
+
+    const { data: exerciseRow, error: exerciseError } = await supabase
+      .from('exercise_logs')
+      .select('id, slot_id, role')
+      .eq('id', data.exerciseLogId)
+      .eq('session_id', data.sessionId)
+      .eq('user_id', user.id)
+      .single()
+    if (exerciseError) throw new Error(exerciseError.message)
+    if (exerciseRow.role !== 'accessory') throw new Error('Sets can only be added to accessory movements.')
+
+    const { data: setRows, error: setRowsError } = await supabase
+      .from('set_logs')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('exercise_log_id', data.exerciseLogId)
+      .order('set_index', { ascending: true })
+    if (setRowsError) throw new Error(setRowsError.message)
+
+    const lastSet = (setRows ?? []).at(-1)
+    const setIndex = Math.max(0, ...(setRows ?? []).map((set: any) => Number(set.set_index) || 0)) + 1
+    const target = setTargetFromRow(lastSet, setIndex)
+    const [setInsert] = setLogsFromTargets(data.exerciseLogId, user.id, [target])
+    if (!setInsert) throw new Error('Unable to build the next set.')
+    const { error: setError } = await supabase.from('set_logs').insert({
+      ...setInsert,
+      client_mutation_id: data.clientMutationId,
+    })
+    if (setError) {
+      if (setError.code === '23505') return getSessionInternal(data.sessionId)
+      throw new Error(setError.message)
+    }
+
+    const snapshot = sessionRow.prescription_snapshot as PlannedSession
+    const nextSnapshot: PlannedSession = {
+      ...snapshot,
+      movements: snapshot.movements.map((movement) => {
+        if ((movement.slotId ?? movement.id) !== exerciseRow.slot_id) return movement
+        return {
+          ...movement,
+          sets: [...movement.sets, snapshotSetFromTarget(target)],
+        }
+      }),
+    }
+    const { error: snapshotError } = await supabase
+      .from('workout_sessions')
+      .update({ prescription_snapshot: nextSnapshot })
+      .eq('id', data.sessionId)
+      .eq('user_id', user.id)
+    if (snapshotError) throw new Error(snapshotError.message)
+
+    return getSessionInternal(data.sessionId)
+  })
+
 type SwapContext = {
   sessionRow: any
   exerciseRow: any
@@ -938,6 +1724,8 @@ type SwapContext = {
 
 function phaseKeyForSnapshot(snapshot: PlannedSession, movement?: MovementSlot | null) {
   if (movement?.phaseKey) return movement.phaseKey
+  const snapshotPhaseKey = snapshot.movements.find((item) => item.phaseKey)?.phaseKey
+  if (snapshotPhaseKey) return snapshotPhaseKey
   if (snapshot.templateId === 'bromley-bullmastiff') {
     return snapshot.weekLabel.toLowerCase().startsWith('peak') ? 'peak' : 'base'
   }
@@ -982,7 +1770,7 @@ async function getSwapOptionsForContext(supabase: any, context: SwapContext): Pr
     getMovementCatalogForSwap(supabase),
     getReplacementRulesForSwap(supabase),
   ])
-  return buildMovementSwapOptions({
+  const options = buildMovementSwapOptions({
     movementId: context.exerciseRow.planned_movement_id,
     role: context.role,
     templateId: context.snapshot.templateId,
@@ -991,6 +1779,21 @@ async function getSwapOptionsForContext(supabase: any, context: SwapContext): Pr
     catalog,
     rules,
   }).filter((option) => option.movementId !== context.exerciseRow.performed_movement_id)
+  if (context.exerciseRow.performed_movement_id !== context.exerciseRow.planned_movement_id) {
+    const plannedMovement = catalog[context.exerciseRow.planned_movement_id]
+    if (plannedMovement) {
+      options.unshift({
+        movementId: plannedMovement.id,
+        movementName: plannedMovement.name,
+        category: plannedMovement.category,
+        equipment: plannedMovement.equipment,
+        relationshipLabel: 'Default for this slot',
+        source: 'default',
+        allowedScopes: ['session', 'phase_slot'],
+      })
+    }
+  }
+  return options
 }
 
 export const listMovementSwapOptionsFn = createServerFn({ method: 'GET' })
@@ -1063,23 +1866,33 @@ export const substituteMovementFn = createServerFn({ method: 'POST' })
         .single()
       if (programError) throw new Error(programError.message)
 
-      const { error: overrideError } = await supabase
-        .from('program_movement_overrides')
-        .upsert(
-          {
-            user_id: user.id,
-            program_instance_id: programRow.id,
-            slot_id: context.slotId,
-            phase_key: context.phaseKey,
-            role: context.role,
-            original_movement_id: context.exerciseRow.planned_movement_id,
-            replacement_movement_id: data.performedMovementId,
-            effective_from_week_index: Number(programRow.current_week_index) + 1,
-            source_session_id: data.sessionId,
-            source_exercise_log_id: data.exerciseLogId,
-          },
-          { onConflict: 'program_instance_id,slot_id,phase_key,role' },
-        )
+      const isRestoringDefault = data.performedMovementId === context.exerciseRow.planned_movement_id
+      const { error: overrideError } = isRestoringDefault
+        ? await supabase
+            .from('program_movement_overrides')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('program_instance_id', programRow.id)
+            .eq('slot_id', context.slotId)
+            .eq('phase_key', context.phaseKey)
+            .eq('role', context.role)
+        : await supabase
+            .from('program_movement_overrides')
+            .upsert(
+              {
+                user_id: user.id,
+                program_instance_id: programRow.id,
+                slot_id: context.slotId,
+                phase_key: context.phaseKey,
+                role: context.role,
+                original_movement_id: context.exerciseRow.planned_movement_id,
+                replacement_movement_id: data.performedMovementId,
+                effective_from_week_index: Number(programRow.current_week_index) + 1,
+                source_session_id: data.sessionId,
+                source_exercise_log_id: data.exerciseLogId,
+              },
+              { onConflict: 'program_instance_id,slot_id,phase_key,role' },
+            )
       if (overrideError) throw new Error(overrideError.message)
     }
 
@@ -1088,63 +1901,6 @@ export const substituteMovementFn = createServerFn({ method: 'POST' })
 
 function hasNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
-}
-
-function hasCompletedReps(set: SetLog) {
-  return set.completed && hasNumber(set.actualReps)
-}
-
-function hasCompletedRepsAndRir(set: SetLog) {
-  return hasCompletedReps(set) && hasNumber(set.actualRir)
-}
-
-function hasCompleteAccessoryInputs(movement: MovementSlot) {
-  return movement.sets.length > 0 && movement.sets.every(hasCompletedRepsAndRir)
-}
-
-function accessoryOutcome(movement: MovementSlot) {
-  if (!hasCompleteAccessoryInputs(movement)) return 'Incomplete data - no recommendation'
-  return evaluateAccessoryDoubleProgression(
-    movement.sets,
-    movement.sets[0]?.targetRepMin ?? 8,
-    movement.sets[0]?.targetRepMax ?? 12,
-    movement.sets[0]?.targetRir ?? 2,
-  )
-}
-
-function buildDecisions(session: WorkoutSession, activeProgram: ProgramInstance) {
-  const decisions: ProgressionDecision[] = []
-  for (const movement of session.movements) {
-    if (movement.role === 'main') {
-      const anchor = activeProgram.anchors.find((item) => item.movementId === movement.movementId)
-      const topSetWithReps = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedReps(set))
-      const topSetWithRir = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedRepsAndRir(set))
-      if (topSetWithReps && anchor && session.templateId === 'bromley-bullmastiff') {
-        decisions.push(
-          evaluateBullmastiffPlusSet(topSetWithReps, topSetWithReps.targetReps ?? 1, anchor.value, activeProgram.rounding, movement.movementId),
-        )
-      }
-      if (topSetWithRir && anchor && session.templateId === 'healthy-531-fsl') {
-        decisions.push(evaluate531TmBand([topSetWithRir], anchor.value, activeProgram.rounding, movement.movementId))
-      }
-    }
-    if (movement.role === 'accessory' && hasCompleteAccessoryInputs(movement)) {
-      const outcome = accessoryOutcome(movement)
-      if (outcome === 'Add load next time') {
-        decisions.push({
-          id: `pending-accessory-${movement.movementId}`,
-          movementId: movement.movementId,
-          movementName: movement.movementName,
-          ruleId: 'accessory_double_progression',
-          scope: 'session',
-          status: 'pending',
-          inputSummary: `${movement.movementName} completed the top of the rep range.`,
-          recommendation: outcome,
-        })
-      }
-    }
-  }
-  return decisions
 }
 
 export const finishSessionFn = createServerFn({ method: 'POST' })
@@ -1156,7 +1912,7 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
     if (session.status === 'completed') throw new Error('Session is already finished')
     if (session.status !== 'in_progress') throw new Error('Only in-progress sessions can be finished')
     const { supabase, user } = await requireUser()
-    const decisions = buildDecisions(session, activeProgram)
+    const decisions = buildProgressionDecisionsForSession(session, activeProgram)
 
     const { error: finishError } = await supabase
       .from('workout_sessions')
@@ -1202,7 +1958,7 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
       topSets: sets.filter((set) => set.isTopSet || set.isAmrap),
       accessoryOutcomes: completedSession.movements
         .filter((movement) => movement.role === 'accessory')
-        .map((movement) => `${movement.movementName}: ${accessoryOutcome(movement)}`),
+        .map((movement) => `${movement.movementName}: ${accessoryOutcomeSummary(movement)}`),
       decisions,
     }
   })

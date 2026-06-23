@@ -145,6 +145,41 @@ export function evaluateBullmastiffPlusSet(
   }
 }
 
+export function evaluateSimpleLinearCompletion(
+  sets: Pick<SetLog, 'completed' | 'actualReps' | 'actualRir' | 'targetReps' | 'targetRepMin' | 'targetRir'>[],
+  currentAnchor: number,
+  rounding: number,
+  movementId: string,
+): ProgressionDecision | null {
+  const completedAllTargets = sets.length > 0 && sets.every((set) => {
+    if (!set.completed) return false
+    const targetReps = set.targetReps ?? set.targetRepMin ?? 1
+    if ((set.actualReps ?? 0) < targetReps) return false
+    const targetRir = set.targetRir
+    if (typeof targetRir === 'number' && Number.isFinite(targetRir)) {
+      return (set.actualRir ?? -1) >= targetRir
+    }
+    return true
+  })
+  if (!completedAllTargets) return null
+
+  const isUpper = movementId === 'bench_press' || movementId === 'overhead_press'
+  const increment = isUpper ? 2.5 : 5
+  const recommended = mround(currentAnchor + increment, rounding)
+  return {
+    id: `pending-simple-linear-${movementId}`,
+    movementId,
+    movementName: getMovementName(movementId),
+    ruleId: 'simple_linear_completion',
+    scope: 'session',
+    status: 'pending',
+    inputSummary: `${getMovementName(movementId)} completed all target work at or above the target reps and RIR.`,
+    recommendation: `Move the working anchor from ${currentAnchor} to ${recommended}.`,
+    previousAnchor: currentAnchor,
+    recommendedAnchor: recommended,
+  }
+}
+
 export function evaluateAccessoryDoubleProgression(
   sets: Pick<SetLog, 'actualReps' | 'actualRir'>[],
   repMin: number,
