@@ -74,7 +74,7 @@ function AuthedToday() {
             </Link>
           }
         >
-          Start Healthy 5/3/1 FSL or Bullmastiff to generate today&apos;s session.
+          Start a template to generate today&apos;s session.
         </EmptyState>
       </Page>
     )

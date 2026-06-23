@@ -525,7 +525,14 @@ export type ProgramOverview = {
     title: string
     scheduledDate: string
     mainMovementName: string
+    movementSummary: string
     keyPrescription: string
+    movements: Array<{
+      role: MovementRole
+      movementName: string
+      targetSummary: string
+    }>
+    mainCount: number
     variationCount: number
     accessoryCount: number
     status: 'planned' | 'in_progress' | 'completed'

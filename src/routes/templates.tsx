@@ -166,17 +166,20 @@ function AuthedTemplates({
       setShowSwitchConfirm(false)
       setShowSetup(false)
       setSelected(null)
-      await router.invalidate()
+      const queryClient = router.options.context.queryClient
       const invalidations = [
-        router.options.context.queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
-        router.options.context.queryClient.invalidateQueries({ queryKey: ['today'] }),
+        queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
+        queryClient.invalidateQueries({ queryKey: ['today'] }),
+        queryClient.invalidateQueries({ queryKey: ['programOverview'] }),
+        queryClient.invalidateQueries({ queryKey: ['history'] }),
       ]
       if (activeSessionId) {
         invalidations.push(
-          router.options.context.queryClient.invalidateQueries({ queryKey: ['session', activeSessionId] }),
+          queryClient.invalidateQueries({ queryKey: ['session', activeSessionId] }),
         )
       }
       await Promise.all(invalidations)
+      await router.invalidate()
       await router.navigate({ to: '/today' })
     },
   })

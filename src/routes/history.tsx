@@ -6,8 +6,8 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { cn } from '~/lib/cn'
 import { formatCompactDate, formatFullDate, formatRelativeTime } from '~/lib/dates'
-import { historyDashboardQueryOptions, sessionQueryOptions } from '~/lib/query-options'
-import { loadRouteQuery } from '~/lib/route-loading'
+import { activeProgramQueryOptions, historyDashboardQueryOptions, sessionQueryOptions } from '~/lib/query-options'
+import { loadRouteQueries } from '~/lib/route-loading'
 import type {
   BodyLoadRegion,
   BodyRegionId,
@@ -26,7 +26,9 @@ type HistoryTab = 'overview' | 'body-load' | 'movements' | 'records' | 'sessions
 
 export const Route = createFileRoute('/history')({
   loader: async ({ context }) => {
-    if ((context as any).user) await loadRouteQuery(context.queryClient, historyDashboardQueryOptions())
+    if ((context as any).user) {
+      await loadRouteQueries(context.queryClient, [historyDashboardQueryOptions(), activeProgramQueryOptions()])
+    }
   },
   component: HistoryRoute,
 })
@@ -45,6 +47,7 @@ function HistoryRoute() {
 
 function AuthedHistory() {
   const historyQuery = useQuery(historyDashboardQueryOptions())
+  const activeProgramQuery = useQuery(activeProgramQueryOptions())
   const [activeTab, setActiveTab] = useState<HistoryTab>('overview')
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const selectedSessionQuery = useQuery({
@@ -56,11 +59,16 @@ function AuthedHistory() {
   if (historyQuery.isError) return <PageLoadError error={historyQuery.error} onRetry={() => void historyQuery.refetch()} />
 
   const data = historyQuery.data
+  const activeProgramTitle = activeProgramQuery.data?.title ?? null
   const selectedHistoryEntry = data.recentSessions.find((session) => session.id === selectedSessionId) ?? null
 
   return (
     <Page>
-      <PageHeader title="Training History" eyebrow="Logged work">
+      <PageHeader
+        title="Training History"
+        eyebrow="Logged work"
+        actions={activeProgramTitle ? <Badge color="action">Active: {activeProgramTitle}</Badge> : null}
+      >
         Training output by week, movement, body region, and completed session.
       </PageHeader>
 
@@ -82,7 +90,7 @@ function AuthedHistory() {
         </Tabs.List>
 
         <Tabs.Panel value="overview">
-          <OverviewTab data={data} onOpenSession={setSelectedSessionId} />
+          <OverviewTab data={data} activeProgramTitle={activeProgramTitle} onOpenSession={setSelectedSessionId} />
         </Tabs.Panel>
         <Tabs.Panel value="body-load">
           <BodyLoadTab data={data} />
@@ -94,7 +102,7 @@ function AuthedHistory() {
           <RecordsTab data={data} />
         </Tabs.Panel>
         <Tabs.Panel value="sessions">
-          <SessionsTab sessions={data.recentSessions} onOpenSession={setSelectedSessionId} />
+          <SessionsTab sessions={data.recentSessions} activeProgramTitle={activeProgramTitle} onOpenSession={setSelectedSessionId} />
         </Tabs.Panel>
       </Tabs>
 
@@ -110,7 +118,15 @@ function AuthedHistory() {
   )
 }
 
-function OverviewTab({ data, onOpenSession }: { data: HistoryDashboard; onOpenSession: (sessionId: string) => void }) {
+function OverviewTab({
+  data,
+  activeProgramTitle,
+  onOpenSession,
+}: {
+  data: HistoryDashboard
+  activeProgramTitle?: string | null
+  onOpenSession: (sessionId: string) => void
+}) {
   const latestSession = data.recentSessions[0]
   return (
     <div className="space-y-4">
@@ -192,7 +208,9 @@ function OverviewTab({ data, onOpenSession }: { data: HistoryDashboard; onOpenSe
         </div>
       ) : (
         <EmptyState title="No completed sessions yet">
-          Finish a workout and your training stats will appear here.
+          {activeProgramTitle
+            ? `${activeProgramTitle} is active. Finish your first workout and training stats will appear here.`
+            : 'Finish a workout and your training stats will appear here.'}
         </EmptyState>
       )}
     </div>
@@ -277,9 +295,11 @@ function RecordsTab({ data }: { data: HistoryDashboard }) {
 
 function SessionsTab({
   sessions,
+  activeProgramTitle,
   onOpenSession,
 }: {
   sessions: RecentHistoryEntry[]
+  activeProgramTitle?: string | null
   onOpenSession: (sessionId: string) => void
 }) {
   return sessions.length ? (
@@ -290,7 +310,9 @@ function SessionsTab({
     </div>
   ) : (
     <EmptyState title="No completed sessions yet">
-      Finish a workout and it will be listed here with movement history.
+      {activeProgramTitle
+        ? `${activeProgramTitle} is active. Finished workouts will be listed here with movement history.`
+        : 'Finish a workout and it will be listed here with movement history.'}
     </EmptyState>
   )
 }

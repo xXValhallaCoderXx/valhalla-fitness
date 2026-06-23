@@ -177,14 +177,20 @@ export type TemplateValidationResult =
   | { ok: true; definition: TemplateDefinition }
   | { ok: false; message: string }
 
+export type TimelineSessionMovement = {
+  role: MovementRole
+  roleLabel: string
+  movementName: string
+  targetSummary: string
+  progressionRuleId?: string | null
+}
+
 export type TimelineSession = {
   label: string
   title: string
-  mainMovement: string
-  mainPrescription: string
-  variationMovement: string
-  variationPrescription: string
-  accessoryPrescription: string
+  movementSummary: string
+  keyPrescription: string
+  movements: TimelineSessionMovement[]
   progressionNote: string
   globalIndex: number
 }
@@ -396,33 +402,51 @@ export function buildProgramTimelineFromDefinition(
       subtitle: week.waveLabel ? `${week.phaseLabel} · ${week.waveLabel}, ${week.label.toLowerCase()}` : week.phaseLabel,
       summary: week.summary,
       sessions: definition.sessions.map((session, sessionIndex): TimelineSession => {
-        const mainSlot = session.slots.find((slot) => slot.role === 'main')
-        const variationSlot = session.slots.find((slot) => slot.role === 'variation')
-        const accessorySlots = session.slots.filter((slot) => slot.role === 'accessory')
-        const mainPrescription = mainSlot ? week.prescriptions[mainSlot.prescriptionId] : null
-        const variationPrescription = variationSlot ? week.prescriptions[variationSlot.prescriptionId] : null
+        const roleCounts = countSlotRoles(session.slots)
+        const roleIndexes = new Map<MovementRole, number>()
+        const movements = session.slots.map((slot): TimelineSessionMovement => {
+          const roleIndex = (roleIndexes.get(slot.role) ?? 0) + 1
+          roleIndexes.set(slot.role, roleIndex)
+          const prescription = week.prescriptions[slot.prescriptionId]
+          return {
+            role: slot.role,
+            roleLabel: timelineRoleLabel(slot.role, roleCounts.get(slot.role) ?? 1, roleIndex),
+            movementName: getMovementName(resolveMovementId(slot.movementId, week.phaseKey)),
+            targetSummary: slot.targetSummary ?? prescription?.targetSummary ?? 'No prescription',
+            progressionRuleId: prescription?.progressionRuleId ?? null,
+          }
+        })
+        const progressionRuleIds = uniqueCompact(movements.map((movement) => movement.progressionRuleId).filter(Boolean) as string[])
         return {
           label: `S${sessionIndex + 1}`,
           title: session.title,
-          mainMovement: mainSlot ? getMovementName(resolveMovementId(mainSlot.movementId, week.phaseKey)) : 'None',
-          mainPrescription: mainPrescription?.targetSummary ?? 'No main prescription',
-          variationMovement: variationSlot
-            ? getMovementName(resolveMovementId(variationSlot.movementId, week.phaseKey))
-            : accessorySlots.length
-              ? `${accessorySlots.length} accessories`
-              : 'None',
-          variationPrescription: variationPrescription?.targetSummary ?? 'No variation prescription',
-          accessoryPrescription: accessorySlots.length
-            ? `${accessorySlots.length} accessory ${accessorySlots.length === 1 ? 'slot' : 'slots'}`
-            : 'No accessories',
-          progressionNote: mainPrescription?.progressionRuleId
-            ? `Main work uses ${mainPrescription.progressionRuleId.replaceAll('_', ' ')}.`
+          movementSummary: movements.map((movement) => movement.movementName).join(', ') || 'No movements',
+          keyPrescription: movements.find((movement) => movement.role === 'main')?.targetSummary ?? movements[0]?.targetSummary ?? 'No prescription',
+          movements,
+          progressionNote: progressionRuleIds.length
+            ? `Session work uses ${progressionRuleIds.map((ruleId) => ruleId.replaceAll('_', ' ')).join(', ')}.`
             : 'Log completed sets honestly; future recommendations use saved performance.',
           globalIndex: weekIndex * definition.daysPerWeek + sessionIndex,
         }
       }),
     })),
   }
+}
+
+function countSlotRoles(slots: TemplateDefinition['sessions'][number]['slots']) {
+  const counts = new Map<MovementRole, number>()
+  for (const slot of slots) counts.set(slot.role, (counts.get(slot.role) ?? 0) + 1)
+  return counts
+}
+
+function timelineRoleLabel(role: MovementRole, roleCount: number, roleIndex: number) {
+  const label = role.replaceAll('_', ' ')
+  const title = label.charAt(0).toUpperCase() + label.slice(1)
+  return roleCount > 1 ? `${title} ${roleIndex}` : title
+}
+
+function uniqueCompact(values: string[]) {
+  return Array.from(new Set(values))
 }
 
 function expandSet(
