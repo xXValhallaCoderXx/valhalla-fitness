@@ -191,3 +191,21 @@ input[type="number"]::-webkit-outer-spin-button {
   font-weight: 700;
   margin-top: 0.25rem;
 }
+
+.vf-route-progress {
+  animation: vf-route-progress 1s ease-in-out infinite;
+}
+
+@keyframes vf-route-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  55% {
+    transform: translateX(120%);
+  }
+
+  100% {
+    transform: translateX(310%);
+  }
+}

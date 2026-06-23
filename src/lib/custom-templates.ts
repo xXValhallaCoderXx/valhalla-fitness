@@ -104,8 +104,8 @@ export const customProgramBuilderInputSchema = z.object({
   name: z.string().trim().min(3).max(80),
   goal: z.string().trim().max(220).optional().nullable(),
   methodology: customProgramMethodologySchema,
-  daysPerWeek: z.coerce.number().int().min(3).max(4),
-  sessions: z.array(builderSessionSchema).min(3).max(4),
+  daysPerWeek: z.coerce.number().int().min(1).max(7),
+  sessions: z.array(builderSessionSchema).min(1).max(7),
 })
 
 export type NormalizedCustomProgramBuilderInput = z.infer<typeof customProgramBuilderInputSchema>
@@ -134,58 +134,57 @@ export function createDefaultCustomProgramBuilderInput({
   daysPerWeek = 3,
 }: {
   methodology?: CustomProgramMethodology
-  daysPerWeek?: 3 | 4
+  daysPerWeek?: number
 } = {}): CustomProgramBuilderInput {
+  const normalizedDaysPerWeek = clampDaysPerWeek(daysPerWeek)
   const dayDefaults = [
     {
-      title: 'Squat Day',
       mainMovementId: 'squat',
       variationMovementId: methodology === 'bromley' ? 'front_squat' : null,
       accessoryMovementId: 'leg_press',
     },
     {
-      title: 'Bench Day',
       mainMovementId: 'bench_press',
       variationMovementId: methodology === 'bromley' ? 'close_grip_bench_press' : null,
       accessoryMovementId: 'chest_supported_row',
     },
     {
-      title: 'Deadlift Day',
       mainMovementId: 'deadlift',
       variationMovementId: methodology === 'bromley' ? 'romanian_deadlift' : null,
       accessoryMovementId: 'hamstring_curl',
     },
     {
-      title: 'Press Day',
       mainMovementId: 'overhead_press',
       variationMovementId: methodology === 'bromley' ? 'push_press' : null,
       accessoryMovementId: 'face_pull',
     },
-  ].slice(0, daysPerWeek)
+  ]
 
   return {
     name: 'Custom programme',
     goal: '',
     methodology,
-    daysPerWeek,
-    sessions: dayDefaults.map((day) => ({
-      title: day.title,
-      mainMovementId: day.mainMovementId,
-      variationMovementId: day.variationMovementId,
-      mainSetCount: methodology === 'simple_linear' ? 3 : 4,
-      mainTargetReps: methodology === 'simple_linear' ? 5 : 8,
-      mainTargetRir: methodology === 'none' ? 2 : 1,
-      accessories: [
-        {
-          movementId: day.accessoryMovementId,
-          setCount: 3,
-          repMin: 10,
-          repMax: 15,
-          targetRir: 2,
-          progressionMethod: methodology === 'none' ? 'history_only' : 'double_progression',
-        },
-      ],
-    })),
+    daysPerWeek: normalizedDaysPerWeek,
+    sessions: Array.from({ length: normalizedDaysPerWeek }, (_, index) => {
+      const day = dayDefaults[index % dayDefaults.length]!
+      return {
+        title: customSessionTitle(index, day.mainMovementId, movementCatalog),
+        mainMovementId: day.mainMovementId,
+        variationMovementId: day.variationMovementId,
+        mainSetCount: methodology === 'simple_linear' ? 3 : 4,
+        mainTargetReps: methodology === 'simple_linear' ? 5 : 8,
+        mainTargetRir: methodology === 'none' ? 2 : 1,
+        accessories: [
+          {
+            movementId: day.accessoryMovementId,
+            setCount: 3,
+            repMin: 10,
+            repMax: 15,
+            progressionMethod: 'history_only',
+          },
+        ],
+      }
+    }),
   }
 }
 
@@ -216,14 +215,15 @@ export function normalizeCustomProgramBuilderInput(
 
   return {
     ...parsed,
-    sessions: parsed.sessions.map((session) => ({
+    sessions: parsed.sessions.map((session, index) => ({
       ...session,
+      title: customSessionTitle(index, session.mainMovementId, catalog),
       variationMovementId: session.variationMovementId || null,
-      mainTargetRir: session.mainTargetRir ?? null,
+      mainTargetRir: session.mainTargetRir ?? defaultMainTargetRir(parsed.methodology),
       accessories: session.accessories.map((accessory) => ({
         ...accessory,
-        targetRir: accessory.targetRir ?? null,
-        progressionMethod: parsed.methodology === 'none' ? 'history_only' : accessory.progressionMethod,
+        targetRir: null,
+        progressionMethod: 'history_only',
       })),
     })),
   }
@@ -430,21 +430,15 @@ function variationPrescription(
 }
 
 function accessoryPrescription(
-  methodology: CustomProgramMethodology,
+  _methodology: CustomProgramMethodology,
   accessory: NormalizedCustomProgramBuilderInput['sessions'][number]['accessories'][number],
 ): PrescriptionDefinition {
-  const progressionRuleId =
-    methodology !== 'none' && accessory.progressionMethod === 'double_progression'
-      ? 'accessory_double_progression'
-      : undefined
   return {
     targetSummary: `${accessory.setCount}x${accessory.repMin}-${accessory.repMax} · choose load`,
-    progressionRuleId,
     sets: repeatedSets(accessory.setCount, {
       targetLoad: userSelected(),
       targetRepMin: accessory.repMin,
       targetRepMax: accessory.repMax,
-      targetRir: accessory.targetRir,
       label: `${accessory.repMin}-${accessory.repMax}`,
     }),
   }
@@ -570,18 +564,15 @@ function progressionRulesFor(methodology: CustomProgramMethodology): TemplateDef
   if (methodology === '531') {
     return {
       main: 'healthy_531_tm_band',
-      accessory: 'accessory_double_progression',
     }
   }
   if (methodology === 'bromley') {
     return {
       main: 'bullmastiff_plus_set',
-      accessory: 'accessory_double_progression',
     }
   }
   return {
     main: 'simple_linear_completion',
-    accessory: 'accessory_double_progression',
   }
 }
 
@@ -624,4 +615,18 @@ function assertMovementExists(catalog: Record<string, Movement>, movementId: str
 
 function unique(values: string[]) {
   return Array.from(new Set(values))
+}
+
+function clampDaysPerWeek(daysPerWeek: number) {
+  if (!Number.isFinite(daysPerWeek)) return 3
+  return Math.min(7, Math.max(1, Math.round(daysPerWeek)))
+}
+
+function defaultMainTargetRir(methodology: CustomProgramMethodology) {
+  return methodology === 'none' ? 2 : 1
+}
+
+function customSessionTitle(index: number, movementId: string, catalog: Record<string, Movement>) {
+  const movementName = catalog[movementId]?.name ?? movementId
+  return `Day ${index + 1} - ${movementName} day`
 }

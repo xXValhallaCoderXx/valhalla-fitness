@@ -73,7 +73,60 @@ describe('custom programme templates', () => {
       expect(validateTemplateDefinition(generated.definition)).toMatchObject({ ok: true })
       expect(generated.metadata.origin).toBe('user_created')
       expect(generated.metadata.sourceLabel).toBe('Custom')
+      expect(generated.definition.sessions).toHaveLength(generated.definition.daysPerWeek)
     }
+  })
+
+  it('generates valid 1-day, 5-day, and 7-day templates', () => {
+    for (const daysPerWeek of [1, 5, 7]) {
+      const generated = buildCustomProgramTemplateDefinition({
+        templateId: `custom-${daysPerWeek}-day`,
+        input: createDefaultCustomProgramBuilderInput({ methodology: 'simple_linear', daysPerWeek }),
+      })
+      expect(validateTemplateDefinition(generated.definition)).toMatchObject({ ok: true })
+      expect(generated.definition.daysPerWeek).toBe(daysPerWeek)
+      expect(generated.definition.sessions).toHaveLength(daysPerWeek)
+    }
+  })
+
+  it('dedupes required anchors when main lifts repeat across days', () => {
+    const generated = buildCustomProgramTemplateDefinition({
+      templateId: 'custom-repeated-main-lifts',
+      input: createDefaultCustomProgramBuilderInput({ methodology: 'simple_linear', daysPerWeek: 5 }),
+    })
+    expect(generated.definition.sessions).toHaveLength(5)
+    expect(generated.definition.requiredAnchors).toEqual([
+      'squat',
+      'bench_press',
+      'deadlift',
+      'overhead_press',
+    ])
+  })
+
+  it('keeps custom accessories history-only without target RIR prescriptions', () => {
+    const input = createDefaultCustomProgramBuilderInput({ methodology: '531', daysPerWeek: 5 })
+    input.sessions[0]!.accessories[0] = {
+      ...input.sessions[0]!.accessories[0]!,
+      targetRir: 4,
+      progressionMethod: 'double_progression',
+    }
+
+    const { definition } = buildCustomProgramTemplateDefinition({
+      templateId: 'custom-history-only-accessories',
+      input,
+    })
+    const accessoryPrescriptions = Object.entries(definition.weeks[0]!.prescriptions)
+      .filter(([id]) => id.includes('accessory'))
+      .map(([, prescription]) => prescription)
+
+    expect(definition.progressionRules).not.toHaveProperty('accessory')
+    expect(accessoryPrescriptions.length).toBeGreaterThan(0)
+    expect(accessoryPrescriptions.every((prescription) => !prescription.progressionRuleId)).toBe(true)
+    expect(
+      accessoryPrescriptions
+        .flatMap((prescription) => prescription.sets)
+        .every((set) => !('targetRir' in set)),
+    ).toBe(true)
   })
 
   it('generates logger-only templates without anchors, progression rules, or calculated loads', () => {

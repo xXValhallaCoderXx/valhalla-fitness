@@ -1,18 +1,19 @@
-import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Badge, Button, Card } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Dumbbell, Play, RotateCw } from 'lucide-react'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { todayQueryOptions } from '~/lib/query-options'
+import { loadRouteQuery } from '~/lib/route-loading'
 import { startSessionFn } from '~/server/api'
-import { EmptyState, Page, PageHeader } from '~/components/ui'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
 import { SessionProgress, SyncPill } from '~/features/workout/components'
 
 export const Route = createFileRoute('/today')({
   loader: async ({ context }) => {
     if ((context as any).user) {
-      await context.queryClient.ensureQueryData(todayQueryOptions())
+      await loadRouteQuery(context.queryClient, todayQueryOptions())
     }
   },
   component: TodayRoute,
@@ -40,7 +41,7 @@ function TodayRoute() {
 
 function AuthedToday() {
   const router = useRouter()
-  const { data } = useSuspenseQuery(todayQueryOptions())
+  const todayQuery = useQuery(todayQueryOptions())
   const startMutation = useMutation({
     mutationFn: () => startSessionFn({ data: { clientMutationId: crypto.randomUUID() } }),
     onSuccess: async (session) => {
@@ -56,6 +57,11 @@ function AuthedToday() {
       })
     },
   })
+
+  if (todayQuery.isPending) return <PageSkeleton />
+  if (todayQuery.isError) return <PageLoadError error={todayQuery.error} onRetry={() => void todayQuery.refetch()} />
+
+  const data = todayQuery.data
 
   if (!data.activeProgram || !data.plannedSession) {
     return (

@@ -14,6 +14,7 @@ const navItems = [
 
 export function AppShell({ user, children }: { user: AuthUser | null; children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const isNavigating = useRouterState({ select: (state) => state.isLoading })
   const isAuth = pathname.startsWith('/auth')
 
   if (isAuth) return <>{children}</>
@@ -53,6 +54,7 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
             </span>
           </div>
         </div>
+        <NavigationProgress active={isNavigating} />
       </header>
       {children}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--mantine-color-default-border)] bg-[color:var(--mantine-color-default)/0.96] px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_36px_rgb(0_0_0/0.12)] backdrop-blur md:hidden">
@@ -79,5 +81,24 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
         </div>
       </nav>
     </div>
+  )
+}
+
+function NavigationProgress({ active }: { active: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden opacity-0 transition-opacity duration-150',
+        active && 'opacity-100',
+      )}
+    >
+      <span
+        className={cn(
+          'block h-full w-1/3 rounded-full bg-[var(--mantine-primary-color-filled)]',
+          active && 'vf-route-progress',
+        )}
+      />
+    </span>
   )
 }

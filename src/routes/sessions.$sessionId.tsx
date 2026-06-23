@@ -1,26 +1,54 @@
-import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { sessionQueryOptions, todayQueryOptions } from '~/lib/query-options'
+import { loadRouteQuery } from '~/lib/route-loading'
 import { finishSessionFn } from '~/server/api'
-import { ConfirmDialog, Page } from '~/components/ui'
+import type { WorkoutSession } from '~/types/training'
+import { ConfirmDialog, EmptyState, Page, PageLoadError, PageSkeleton } from '~/components/ui'
 import { LiveSessionFrame } from '~/features/workout/components'
 
 export const Route = createFileRoute('/sessions/$sessionId')({
   loader: async ({ context, params }) => {
     if ((context as any).user) {
-      await context.queryClient.ensureQueryData(sessionQueryOptions(params.sessionId))
+      await loadRouteQuery(context.queryClient, sessionQueryOptions(params.sessionId))
     }
   },
   component: SessionRoute,
 })
 
 function SessionRoute() {
-  const router = useRouter()
   const { sessionId } = Route.useParams()
-  const { data: session } = useSuspenseQuery(sessionQueryOptions(sessionId))
+  const user = (Route.useRouteContext() as any).user
+  const sessionQuery = useQuery({
+    ...sessionQueryOptions(sessionId),
+    enabled: Boolean(user),
+  })
+
+  if (!user) {
+    return (
+      <Page>
+        <EmptyState title="Sign in to open this workout">Workout logs are tied to your account.</EmptyState>
+      </Page>
+    )
+  }
+
+  if (sessionQuery.isPending) return <PageSkeleton />
+  if (sessionQuery.isError) return <PageLoadError error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
+
+  return <LoadedSessionRoute sessionId={sessionId} session={sessionQuery.data} />
+}
+
+function LoadedSessionRoute({
+  session,
+  sessionId,
+}: {
+  session: WorkoutSession
+  sessionId: string
+}) {
+  const router = useRouter()
   const [notes, setNotes] = useState(session.notes ?? '')
   const [finishError, setFinishError] = useState<string | null>(null)
   const [showFinishConfirm, setShowFinishConfirm] = useState(false)

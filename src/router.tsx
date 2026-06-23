@@ -4,6 +4,7 @@ import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query
 import { routeTree } from './routeTree.gen'
 import { AppError } from './components/AppError'
 import { NotFound } from './components/NotFound'
+import { PageSkeleton } from './components/ui'
 
 export function getRouter() {
   const queryClient = new QueryClient({
@@ -22,6 +23,8 @@ export function getRouter() {
     routeTree,
     context: { queryClient },
     defaultPreload: 'intent',
+    defaultPendingComponent: () => <PageSkeleton compact />,
+    defaultPendingMinMs: 150,
     defaultErrorComponent: AppError,
     defaultNotFoundComponent: NotFound,
     scrollRestoration: true,

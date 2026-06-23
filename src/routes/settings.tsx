@@ -1,15 +1,16 @@
-import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Badge, Button, Card, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { Cloud, Dumbbell, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
-import { meQueryOptions } from '~/lib/query-options'
+import { authUserQueryOptions, meQueryOptions } from '~/lib/query-options'
+import { loadRouteQuery } from '~/lib/route-loading'
 import { signOutFn } from '~/server/auth'
 import { updateSettingsFn } from '~/server/api'
-import type { ThemePreference, Unit } from '~/types/training'
-import { EmptyState, Page, PageHeader } from '~/components/ui'
+import type { ThemePreference, Unit, UserProfile } from '~/types/training'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
 
 const equipmentOptions = [
   'barbell',
@@ -43,7 +44,7 @@ const settingsSections = [
 
 export const Route = createFileRoute('/settings')({
   loader: async ({ context }) => {
-    if ((context as any).user) await context.queryClient.ensureQueryData(meQueryOptions())
+    if ((context as any).user) await loadRouteQuery(context.queryClient, meQueryOptions())
   },
   component: SettingsRoute,
 })
@@ -61,8 +62,23 @@ function SettingsRoute() {
 }
 
 function AuthedSettings() {
+  const meQuery = useQuery(meQueryOptions())
+
+  if (meQuery.isPending) return <PageSkeleton compact />
+  if (meQuery.isError) return <PageLoadError error={meQuery.error} onRetry={() => void meQuery.refetch()} />
+  if (!meQuery.data) {
+    return (
+      <Page>
+        <EmptyState title="Profile unavailable">Sign in again to edit settings.</EmptyState>
+      </Page>
+    )
+  }
+
+  return <SettingsForm me={meQuery.data} />
+}
+
+function SettingsForm({ me }: { me: UserProfile }) {
   const router = useRouter()
-  const { data: me } = useSuspenseQuery(meQueryOptions())
   const [units, setUnits] = useState<Unit>(me?.units ?? 'kg')
   const [rounding, setRounding] = useState(me?.rounding ?? 2.5)
   const [equipmentProfile, setEquipmentProfile] = useState<string[]>(me?.equipmentProfile ?? [])
@@ -123,8 +139,20 @@ function AuthedSettings() {
   }
 
   const signOutMutation = useMutation({
-    mutationFn: () => signOutFn(),
+    mutationFn: async () => {
+      const result = await signOutFn()
+      if (!result.ok) throw new Error(result.message)
+      return result
+    },
     onSuccess: async () => {
+      const queryClient = router.options.context.queryClient
+      queryClient.setQueryData(authUserQueryOptions().queryKey, null)
+      queryClient.setQueryData(meQueryOptions().queryKey, null)
+      queryClient.removeQueries({ queryKey: ['activeProgram'] })
+      queryClient.removeQueries({ queryKey: ['today'] })
+      queryClient.removeQueries({ queryKey: ['programOverview'] })
+      queryClient.removeQueries({ queryKey: ['history'] })
+      queryClient.removeQueries({ queryKey: ['session'] })
       await router.invalidate()
       await router.navigate({ to: '/auth' })
     },
