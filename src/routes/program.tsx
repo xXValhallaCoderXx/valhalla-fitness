@@ -26,7 +26,7 @@ function ProgramRoute() {
   if (!user) {
     return (
       <Page>
-        <EmptyState title="Sign in to review your program">Program timelines and anchors are account data.</EmptyState>
+        <EmptyState title="Sign in to review your program">Program timelines and load state are account data.</EmptyState>
       </Page>
     )
   }
@@ -65,7 +65,7 @@ function AuthedProgram() {
   if (!program) {
     return (
       <Page>
-        <EmptyState title="No active program">Start a template to see its timeline and anchors here.</EmptyState>
+        <EmptyState title="No active program">Start a template to see its timeline and current loads here.</EmptyState>
       </Page>
     )
   }
@@ -124,24 +124,24 @@ function AuthedProgram() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="vf-section-label">Current Anchors</h2>
-                  <InfoHint label="What are anchors?">
-                    Anchors are the training-max values used to calculate planned loads. When you accept a main-lift progression decision, the relevant anchor is updated for future sessions.
+                  <h2 className="vf-section-label">Current Loads</h2>
+                  <InfoHint label="What are current loads?">
+                    Program state stores the current training maxes or working loads used to calculate planned loads. Accepted progression decisions update the relevant value for future sessions.
                   </InfoHint>
                 </div>
-                <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">Training max values used for load prescriptions.</p>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">Training maxes and working loads used for prescriptions.</p>
               </div>
               <Badge>{program.units}</Badge>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              {overview.anchors.map((anchor) => (
-                <div key={anchor.movementId} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-                  <p className="text-xs text-[var(--mantine-color-dimmed)]">{anchor.movementName}</p>
+              {overview.stateValues.map((state) => (
+                <div key={state.stateKey} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+                  <p className="text-xs text-[var(--mantine-color-dimmed)]">{state.movementName}</p>
                   <p className="mt-1 text-lg font-bold">
-                    {formatNumber(anchor.value)} <span className="text-xs text-[var(--mantine-color-dimmed)]">{anchor.units}</span>
+                    {formatNumber(state.value)} <span className="text-xs text-[var(--mantine-color-dimmed)]">{state.units}</span>
                   </p>
                   <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
-                    {anchor.pendingDecision ? 'pending review' : anchor.lastAcceptedDecision ? 'last change saved' : 'training max'}
+                    {state.pendingDecision ? 'pending review' : state.lastAcceptedDecision ? 'last change saved' : state.stateType.replaceAll('_', ' ')}
                   </p>
                 </div>
               ))}
@@ -152,7 +152,7 @@ function AuthedProgram() {
             <div className="flex items-center gap-2">
               <h2 className="vf-section-label">Progression</h2>
               <InfoHint label="How progression works">
-                Progression cards are recommendations generated from completed sessions. They stay pending until you accept, dismiss, or leave them for later; accepted anchor changes update future loads.
+                Progression cards are recommendations generated from completed sessions. They stay pending until you accept, dismiss, or leave them for later; accepted state changes update future loads.
               </InfoHint>
             </div>
             <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">Reviewable recommendations from logged training.</p>

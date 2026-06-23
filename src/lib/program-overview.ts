@@ -1,10 +1,10 @@
 import type {
   BodyLoadSummary,
   ProgramAccessoryPlan,
-  ProgramAnchorOverview,
   ProgramInstance,
   ProgramOverview,
   ProgramRecentSessionSummary,
+  ProgramStateOverview,
   ProgressionDecision,
   TodayPayload,
 } from '~/types/training'
@@ -30,7 +30,7 @@ export function buildProgramOverview({
       position: null,
       nextSession: null,
       recentSessions,
-      anchors: [],
+      stateValues: [],
       accessoryPlan: [],
       bodyLoad,
       pendingDecisions: today.pendingDecisions,
@@ -79,25 +79,28 @@ export function buildProgramOverview({
           : '/today',
     },
     recentSessions,
-    anchors: buildAnchorOverview(program, today.pendingDecisions, acceptedDecisions),
+    stateValues: buildStateOverview(program, today.pendingDecisions, acceptedDecisions),
     accessoryPlan: buildAccessoryPlan(program),
     bodyLoad,
     pendingDecisions: today.pendingDecisions,
   }
 }
 
-function buildAnchorOverview(
+function buildStateOverview(
   program: ProgramInstance,
   pendingDecisions: ProgressionDecision[],
   acceptedDecisions: ProgressionDecision[],
-): ProgramAnchorOverview[] {
-  return program.anchors.map((anchor): ProgramAnchorOverview => ({
-    movementId: anchor.movementId,
-    movementName: getMovementName(anchor.movementId),
-    value: anchor.value,
+): ProgramStateOverview[] {
+  return program.stateValues.map((state): ProgramStateOverview => ({
+    movementId: state.movementId,
+    movementName: getMovementName(state.movementId),
+    stateKey: state.key,
+    stateType: state.type,
+    label: state.label ?? null,
+    value: state.value,
     units: program.units,
-    pendingDecision: pendingDecisions.find((decision) => decision.movementId === anchor.movementId) ?? null,
-    lastAcceptedDecision: acceptedDecisions.find((decision) => decision.movementId === anchor.movementId) ?? null,
+    pendingDecision: pendingDecisions.find((decision) => decision.stateKey === state.key) ?? null,
+    lastAcceptedDecision: acceptedDecisions.find((decision) => decision.stateKey === state.key) ?? null,
   }))
 }
 

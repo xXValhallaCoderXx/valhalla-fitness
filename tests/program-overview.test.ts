@@ -17,17 +17,17 @@ const program: ProgramInstance = {
   currentWeekIndex: 1,
   customizationStatus: 'default',
   customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
-  anchors: [
-    { movementId: 'squat', anchorType: 'training_max', value: 165 },
-    { movementId: 'bench_press', anchorType: 'training_max', value: 110 },
-    { movementId: 'deadlift', anchorType: 'training_max', value: 190 },
-    { movementId: 'overhead_press', anchorType: 'training_max', value: 75 },
+  stateValues: [
+    { key: 'squat_training_max', movementId: 'squat', type: 'training_max', value: 165 },
+    { key: 'bench_press_training_max', movementId: 'bench_press', type: 'training_max', value: 110 },
+    { key: 'deadlift_training_max', movementId: 'deadlift', type: 'training_max', value: 190 },
+    { key: 'overhead_press_training_max', movementId: 'overhead_press', type: 'training_max', value: 75 },
   ],
   templateDefinition: getFallbackTemplateDefinition('bromley-bullmastiff'),
 }
 
 describe('program overview model', () => {
-  it('derives position, next session, anchors, and accessory plan from the active template', () => {
+  it('derives position, next session, state values, and accessory plan from the active template', () => {
     const plannedSession = expandPlannedSession(program, '2026-06-22', program.templateDefinition)
     const today: TodayPayload = {
       activeProgram: program,
@@ -67,7 +67,7 @@ describe('program overview model', () => {
       status: 'planned',
       href: '/today',
     })
-    expect(overview.anchors.map((anchor) => anchor.movementName)).toContain('Bench Press')
+    expect(overview.stateValues.map((state) => state.movementName)).toContain('Bench Press')
     expect(overview.accessoryPlan).toHaveLength(4)
     expect(overview.recentSessions[0]?.topSetHighlights).toEqual(['Squat 120 kg x 6+'])
   })

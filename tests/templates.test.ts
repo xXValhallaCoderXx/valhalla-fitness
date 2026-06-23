@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { buildAccessoryInitialSets, parseAccessoryRepTarget } from '../src/lib/accessories'
+import { movementCatalog } from '../src/lib/movements'
 import { expandPlannedSession, programForNextUncompletedSession } from '../src/lib/templates'
 import { listFallbackTemplateDefinitions } from '../src/lib/template-definitions'
-import { validateTemplateDefinition } from '../src/lib/template-engine'
+import { findMissingTemplateMovementIds, validateTemplateDefinition } from '../src/lib/template-engine'
 import type { ProgramInstance } from '../src/types/training'
 
 const program: ProgramInstance = {
@@ -17,11 +18,11 @@ const program: ProgramInstance = {
   currentWeekIndex: 0,
   customizationStatus: 'default',
   customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
-  anchors: [
-    { movementId: 'squat', anchorType: 'training_max', value: 165 },
-    { movementId: 'bench_press', anchorType: 'training_max', value: 110 },
-    { movementId: 'deadlift', anchorType: 'training_max', value: 190 },
-    { movementId: 'overhead_press', anchorType: 'training_max', value: 75 },
+  stateValues: [
+    { key: 'squat_training_max', movementId: 'squat', type: 'training_max', value: 165 },
+    { key: 'bench_press_training_max', movementId: 'bench_press', type: 'training_max', value: 110 },
+    { key: 'deadlift_training_max', movementId: 'deadlift', type: 'training_max', value: 190 },
+    { key: 'overhead_press_training_max', movementId: 'overhead_press', type: 'training_max', value: 75 },
   ],
 }
 
@@ -29,6 +30,7 @@ describe('planned session progression', () => {
   it('validates all fallback template definitions', () => {
     for (const definition of listFallbackTemplateDefinitions()) {
       expect(validateTemplateDefinition(definition)).toMatchObject({ ok: true })
+      expect(findMissingTemplateMovementIds(definition, movementCatalog)).toEqual([])
     }
   })
 
@@ -53,6 +55,38 @@ describe('planned session progression', () => {
 
     expect(nextSession.id).toBe('squat-day-w2')
     expect(nextSession.movements[0]?.sets.find((set) => set.isAmrap)?.targetReps).toBe(3)
+  })
+
+  it('expands Alternating 5x5 LP as a continuous A/B rotation', () => {
+    const lpProgram: ProgramInstance = {
+      ...program,
+      templateId: 'generic_alternating_5x5_lp',
+      title: 'Alternating 5x5 LP',
+      stateValues: [
+        { key: 'squat_working_load', movementId: 'squat', type: 'working_load', value: 60 },
+        { key: 'bench_press_working_load', movementId: 'bench_press', type: 'working_load', value: 45 },
+        { key: 'overhead_press_working_load', movementId: 'overhead_press', type: 'working_load', value: 30 },
+        { key: 'deadlift_working_load', movementId: 'deadlift', type: 'working_load', value: 80 },
+        { key: 'barbell_row_working_load', movementId: 'barbell_row', type: 'working_load', value: 40 },
+      ],
+    }
+    const sessions = [0, 1, 2, 3, 4, 5, 6].map((currentWeekIndex) =>
+      expandPlannedSession({ ...lpProgram, currentWeekIndex }, '2026-06-21'),
+    )
+
+    expect(sessions.map((session) => session.movements.map((movement) => movement.movementId).join('/'))).toEqual([
+      'squat/bench_press/barbell_row',
+      'squat/overhead_press/deadlift',
+      'squat/bench_press/barbell_row',
+      'squat/overhead_press/deadlift',
+      'squat/bench_press/barbell_row',
+      'squat/overhead_press/deadlift',
+      'squat/bench_press/barbell_row',
+    ])
+    expect(sessions[0]?.movements[0]?.sets).toHaveLength(5)
+    expect(sessions[1]?.movements[2]?.sets).toHaveLength(1)
+    expect(sessions[0]?.movements[0]?.sets[0]?.targetLoad).toBe(60)
+    expect(sessions[1]?.movements[2]?.sets[0]?.targetLoad).toBe(80)
   })
 
   it('moves Bullmastiff from completed squat day to bench day', () => {

@@ -1,12 +1,14 @@
 import { z } from 'zod'
 import type {
-  AnchorInput,
   MovementRole,
   MovementSlot,
+  Movement,
   ProgramAccessoryAddition,
   PlannedSession,
   ProgramInstance,
   ProgramMovementOverride,
+  ProgramStateInput,
+  ProgramStateType,
   SetLog,
   Unit,
 } from '~/types/training'
@@ -18,11 +20,17 @@ const hardnessSchema = z.enum(['Light', 'Medium', 'Hard', 'Deload'])
 
 const loadSchema = z.discriminatedUnion('kind', [
   z.object({
-    kind: z.literal('percent'),
-    anchor: z.literal('training_max').default('training_max'),
+    kind: z.literal('percent_of_state'),
+    stateKey: z.string().min(1).optional(),
+    stateType: z.enum(['training_max', 'one_rep_max', 'working_load', 'five_rep_max', 'manual']).default('training_max'),
     percent: z.number().positive(),
     percentMax: z.number().positive().optional(),
     default: z.enum(['low', 'high', 'blank']).default('low'),
+  }),
+  z.object({
+    kind: z.literal('state'),
+    stateKey: z.string().min(1).optional(),
+    stateType: z.enum(['training_max', 'one_rep_max', 'working_load', 'five_rep_max', 'manual']).default('working_load'),
   }),
   z.object({
     kind: z.literal('fixed'),
@@ -85,18 +93,34 @@ const weekSchema = z.object({
   prescriptions: z.record(z.string(), prescriptionSchema),
 })
 
+const requiredStateSchema = z.object({
+  key: z.string().min(1),
+  movementId: z.string().min(1),
+  type: z.enum(['training_max', 'one_rep_max', 'working_load', 'five_rep_max', 'manual']),
+  label: z.string().optional(),
+})
+
+const progressionConfigSchema = z.object({
+  simple_linear_completion: z.object({
+    increments: z.record(z.string(), z.object({
+      kg: z.number().positive(),
+      lb: z.number().positive(),
+    })),
+  }).optional(),
+}).optional()
+
 export const templateDefinitionSchema = z.object({
   schemaVersion: z.literal('2026.06.dsl'),
   id: z.string().min(1),
   name: z.string().min(1),
-  anchorType: z.enum(['training_max', 'one_rep_max', 'manual']).default('training_max'),
   durationWeeks: z.number().int().positive(),
   daysPerWeek: z.number().int().positive(),
-  requiredAnchors: z.array(z.string().min(1)),
+  requiredState: z.array(requiredStateSchema),
   timelineDescription: z.string().min(1),
   sessions: z.array(sessionSchema).min(1),
   weeks: z.array(weekSchema).min(1),
   progressionRules: z.record(z.string(), z.string()).optional(),
+  progressionConfig: progressionConfigSchema,
 }).superRefine((definition, context) => {
   if (definition.sessions.length !== definition.daysPerWeek) {
     context.addIssue({
@@ -112,6 +136,17 @@ export const templateDefinitionSchema = z.object({
       message: 'weeks length must match durationWeeks',
     })
   }
+  const stateKeys = new Set<string>()
+  for (const [stateIndex, state] of definition.requiredState.entries()) {
+    if (stateKeys.has(state.key)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['requiredState', stateIndex, 'key'],
+        message: `${state.key} is declared more than once`,
+      })
+    }
+    stateKeys.add(state.key)
+  }
   for (const [sessionIndex, session] of definition.sessions.entries()) {
     for (const [slotIndex, slot] of session.slots.entries()) {
       for (const [weekIndex, week] of definition.weeks.entries()) {
@@ -123,14 +158,12 @@ export const templateDefinitionSchema = z.object({
           })
         }
       }
-      if (slotUsesPercentLoad(definition, slot)) {
-        const movementId = typeof slot.movementId === 'string' ? slot.movementId : slot.movementId.default
-        const anchorMovementId = slot.anchorMovementId ?? movementId
-        if (!definition.requiredAnchors.includes(anchorMovementId)) {
+      for (const stateKey of slotStateKeys(definition, slot)) {
+        if (!stateKeys.has(stateKey)) {
           context.addIssue({
             code: 'custom',
             path: ['sessions', sessionIndex, 'slots', slotIndex, 'anchorMovementId'],
-            message: `${anchorMovementId} must be listed in requiredAnchors because this slot uses percentage loading`,
+            message: `${stateKey} must be listed in requiredState because this slot references programme state`,
           })
         }
       }
@@ -182,24 +215,58 @@ export function validateTemplateDefinition(input: unknown): TemplateValidationRe
   return { ok: false, message: z.prettifyError(result.error) }
 }
 
-export function validateRequiredAnchors(definition: TemplateDefinition, anchors: AnchorInput[]) {
-  const values = new Map(anchors.map((anchor) => [anchor.movementId, anchor.value]))
-  const missing = definition.requiredAnchors.filter((movementId) => {
-    const value = values.get(movementId)
+export function findMissingTemplateMovementIds(
+  definition: TemplateDefinition,
+  catalog: Record<string, Movement>,
+) {
+  const movementIds = new Set<string>()
+  for (const state of definition.requiredState) movementIds.add(state.movementId)
+  for (const session of definition.sessions) {
+    for (const slot of session.slots) {
+      for (const movementId of movementIdsForSlot(slot.movementId)) movementIds.add(movementId)
+      if (slot.anchorMovementId) movementIds.add(slot.anchorMovementId)
+    }
+  }
+  return Array.from(movementIds).filter((movementId) => !catalog[movementId]).sort()
+}
+
+export function validateRequiredState(definition: TemplateDefinition, stateValues: ProgramStateInput[]) {
+  const values = new Map(stateValues.map((state) => [state.key, state.value]))
+  const missing = definition.requiredState.filter((state) => {
+    const value = values.get(state.key)
     return !Number.isFinite(value) || Number(value) <= 0
   })
   if (missing.length) {
-    throw new Error(`Missing valid training max anchors for ${missing.map(getMovementName).join(', ')}`)
+    throw new Error(`Missing valid programme state for ${missing.map((state) => state.label ?? getMovementName(state.movementId)).join(', ')}`)
   }
 }
 
-function slotUsesPercentLoad(
+function slotStateKeys(
   definition: z.infer<typeof templateDefinitionSchema>,
   slot: z.infer<typeof slotSchema>,
 ) {
-  return definition.weeks.some((week) =>
-    week.prescriptions[slot.prescriptionId]?.sets.some((set) => set.targetLoad?.kind === 'percent'),
-  )
+  const stateKeys = new Set<string>()
+  for (const week of definition.weeks) {
+    const prescription = week.prescriptions[slot.prescriptionId]
+    for (const set of prescription?.sets ?? []) {
+      if (set.targetLoad?.kind === 'state' || set.targetLoad?.kind === 'percent_of_state') {
+        if (set.targetLoad.stateKey) {
+          stateKeys.add(set.targetLoad.stateKey)
+          continue
+        }
+        const movementIds =
+          set.targetLoad.kind === 'percent_of_state'
+            ? slot.anchorMovementId
+              ? [slot.anchorMovementId]
+              : movementIdsForSlot(slot.movementId)
+            : movementIdsForSlot(slot.movementId)
+        for (const movementId of movementIds) {
+          stateKeys.add(programStateKey(movementId, set.targetLoad.stateType))
+        }
+      }
+    }
+  }
+  return stateKeys
 }
 
 export function expandSessionFromTemplateDefinition(
@@ -208,7 +275,7 @@ export function expandSessionFromTemplateDefinition(
   scheduledDate: string,
   previousBySlotId: Record<string, MovementSlot['previous']> = {},
 ): PlannedSession {
-  validateRequiredAnchors(definition, program.anchors)
+  validateRequiredState(definition, program.stateValues)
   const sessionIndex = positiveModulo(program.currentWeekIndex, definition.daysPerWeek)
   const programmeWeekIndex = positiveModulo(
     Math.floor(program.currentWeekIndex / definition.daysPerWeek),
@@ -230,8 +297,6 @@ export function expandSessionFromTemplateDefinition(
       movementId: plannedMovementId,
       currentWeekIndex: program.currentWeekIndex,
     })
-    const anchorMovementId = slot.anchorMovementId ?? plannedMovementId
-
     return {
       id: slotId,
       slotId,
@@ -244,8 +309,9 @@ export function expandSessionFromTemplateDefinition(
       progressionRuleId: prescription.progressionRuleId ?? null,
       sets: prescription.sets.map((set, setIndex) =>
         expandSet(set, setIndex, {
-          anchors: program.anchors,
-          anchorMovementId,
+          stateValues: program.stateValues,
+          movementId,
+          anchorMovementId: slot.anchorMovementId ?? plannedMovementId,
           rounding: program.rounding,
           units: program.units,
         }),
@@ -363,7 +429,8 @@ function expandSet(
   set: TemplateSetDefinition,
   setIndex: number,
   context: {
-    anchors: AnchorInput[]
+    stateValues: ProgramStateInput[]
+    movementId: string
     anchorMovementId: string
     rounding: number
     units: Unit
@@ -400,7 +467,8 @@ function expandSet(
 function resolveTargetLoad(
   load: TemplateSetDefinition['targetLoad'] | undefined,
   context: {
-    anchors: AnchorInput[]
+    stateValues: ProgramStateInput[]
+    movementId: string
     anchorMovementId: string
     rounding: number
     units: Unit
@@ -410,13 +478,16 @@ function resolveTargetLoad(
   if (load.kind === 'fixed') {
     return context.units === 'kg' ? load.kg : load.lb ?? mround(load.kg * 2.205, 5)
   }
-  if (load.default === 'blank') return null
-  const anchor = context.anchors.find((item) => item.movementId === context.anchorMovementId)?.value
-  if (!Number.isFinite(anchor) || Number(anchor) <= 0) {
-    throw new Error(`Missing valid training max anchor for ${getMovementName(context.anchorMovementId)}`)
+  const movementId = load.kind === 'percent_of_state' ? context.anchorMovementId : context.movementId
+  const stateKey = load.stateKey ?? programStateKey(movementId, load.stateType)
+  const state = context.stateValues.find((item) => item.key === stateKey)
+  if (!state || !Number.isFinite(state.value) || Number(state.value) <= 0) {
+    throw new Error(`Missing valid programme state for ${stateKey}`)
   }
+  if (load.kind === 'state') return Number(state.value)
+  if (load.default === 'blank') return null
   const percent = load.default === 'high' && load.percentMax ? load.percentMax : load.percent
-  return mround(Number(anchor) * percent, context.rounding)
+  return mround(Number(state.value) * percent, context.rounding)
 }
 
 function resolveMovementId(movementId: string | { default: string; byPhase?: Record<string, string> }, phaseKey: string) {
@@ -474,13 +545,13 @@ function expandAccessoryAddition(
   const prescription = week.prescriptions[addition.prescriptionId]
   if (!addition.sets?.length && !prescription) throw new Error(`Missing ${addition.prescriptionId} prescription`)
   const slotId = `slot-${session.id}-${addition.slotId}`
-  const anchorMovementId = sourceSlot?.anchorMovementId ?? addition.movementId
   const sets = addition.sets?.length
     ? expandManualAccessorySets(addition.sets)
     : prescription!.sets.map((set, setIndex) =>
         expandSet(set, setIndex, {
-          anchors: program.anchors,
-          anchorMovementId,
+          stateValues: program.stateValues,
+          movementId: addition.movementId,
+          anchorMovementId: sourceSlot?.anchorMovementId ?? addition.movementId,
           rounding: program.rounding,
           units: program.units,
         }),
@@ -518,4 +589,13 @@ function expandManualAccessorySets(sets: ProgramAccessoryAddition['sets']): SetL
 
 function positiveModulo(value: number, divisor: number) {
   return ((value % divisor) + divisor) % divisor
+}
+
+export function programStateKey(movementId: string, stateType: ProgramStateType) {
+  return `${movementId}_${stateType}`
+}
+
+function movementIdsForSlot(movementId: string | { default: string; byPhase?: Record<string, string> }) {
+  if (typeof movementId === 'string') return [movementId]
+  return Array.from(new Set([movementId.default, ...Object.values(movementId.byPhase ?? {})]))
 }

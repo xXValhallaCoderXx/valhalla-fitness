@@ -14,7 +14,7 @@ const activeProgram: ProgramInstance = {
   currentWeekIndex: 0,
   customizationStatus: 'default',
   customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
-  anchors: [],
+  stateValues: [],
 }
 
 const session = (status: WorkoutSession['status']): WorkoutSession => ({

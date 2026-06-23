@@ -31,33 +31,33 @@ describe('progression engine', () => {
 
   it('evaluates 5/3/1 TM bands', () => {
     expect(
-      evaluate531TmBand([{ actualReps: 4, actualRir: 2, targetReps: 5 }], 190, 2.5, 'deadlift')
+      evaluate531TmBand([{ actualReps: 4, actualRir: 2, targetReps: 5 }], 190, 2.5, 'deadlift', 'deadlift_training_max')
         .ruleId,
     ).toBe('healthy_531_tm_reset')
     expect(
-      evaluate531TmBand([{ actualReps: 5, actualRir: 1, targetReps: 5 }], 190, 2.5, 'deadlift')
+      evaluate531TmBand([{ actualReps: 5, actualRir: 1, targetReps: 5 }], 190, 2.5, 'deadlift', 'deadlift_training_max')
         .ruleId,
     ).toBe('healthy_531_tm_hold')
     expect(
-      evaluate531TmBand([{ actualReps: 5, actualRir: 2, targetReps: 5 }], 190, 2.5, 'deadlift')
-        .recommendedAnchor,
+      evaluate531TmBand([{ actualReps: 5, actualRir: 2, targetReps: 5 }], 190, 2.5, 'deadlift', 'deadlift_training_max')
+        .recommendedValue,
     ).toBe(195)
     expect(
-      evaluate531TmBand([{ actualReps: 7, actualRir: 2, targetReps: 5 }], 190, 2.5, 'deadlift')
-        .recommendedAnchor,
+      evaluate531TmBand([{ actualReps: 7, actualRir: 2, targetReps: 5 }], 190, 2.5, 'deadlift', 'deadlift_training_max')
+        .recommendedValue,
     ).toBe(197.5)
   })
 
   it('evaluates Bullmastiff plus-set jumps', () => {
-    const decision = evaluateBullmastiffPlusSet({ actualReps: 9, actualRir: 2 }, 6, 200, 2.5, 'squat')
-    expect(decision.recommendedAnchor).toBe(205)
+    const decision = evaluateBullmastiffPlusSet({ actualReps: 9, actualRir: 2 }, 6, 200, 2.5, 'squat', 'squat_training_max')
+    expect(decision.recommendedValue).toBe(205)
     expect(decision.inputSummary).toContain('9 reps at RIR 2')
     expect(decision.recommendation).toContain('3 extra reps')
   })
 
   it('keeps Bullmastiff load unchanged when RIR is high but no extra reps were logged', () => {
-    const decision = evaluateBullmastiffPlusSet({ actualReps: 6, actualRir: 4 }, 6, 200, 2.5, 'squat')
-    expect(decision.recommendedAnchor).toBe(200)
+    const decision = evaluateBullmastiffPlusSet({ actualReps: 6, actualRir: 4 }, 6, 200, 2.5, 'squat', 'squat_training_max')
+    expect(decision.recommendedValue).toBe(200)
     expect(decision.inputSummary).toContain('6 reps at RIR 4')
     expect(decision.recommendation).toContain('no extra reps')
   })

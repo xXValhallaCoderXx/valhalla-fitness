@@ -72,6 +72,7 @@ export function evaluate531TmBand(
   currentTm: number,
   rounding: number,
   movementId: string,
+  stateKey: string,
 ): ProgressionDecision {
   const isUpper = movementId === 'bench_press' || movementId === 'overhead_press'
   const minimumMissed = cycleTopSets.some(
@@ -103,6 +104,8 @@ export function evaluate531TmBand(
     id: `pending-531-${movementId}`,
     movementId,
     movementName: getMovementName(movementId),
+    stateKey,
+    stateType: 'training_max',
     ruleId: `healthy_531_tm_${band}`,
     scope: 'cycle',
     status: 'pending',
@@ -111,8 +114,8 @@ export function evaluate531TmBand(
       band === 'hold'
         ? `Repeat ${currentTm} next cycle.`
         : `Move TM from ${currentTm} to ${next}.`,
-    previousAnchor: currentTm,
-    recommendedAnchor: next,
+    previousValue: currentTm,
+    recommendedValue: next,
   }
 }
 
@@ -122,6 +125,7 @@ export function evaluateBullmastiffPlusSet(
   anchor: number,
   rounding: number,
   movementId: string,
+  stateKey: string,
 ): ProgressionDecision {
   const actualReps = setLog.actualReps ?? 0
   const hasActualRir = typeof setLog.actualRir === 'number' && Number.isFinite(setLog.actualRir)
@@ -132,6 +136,8 @@ export function evaluateBullmastiffPlusSet(
     id: `pending-bullmastiff-${movementId}`,
     movementId,
     movementName: getMovementName(movementId),
+    stateKey,
+    stateType: 'training_max',
     ruleId: 'bullmastiff_plus_set',
     scope: 'wave',
     status: 'pending',
@@ -140,8 +146,8 @@ export function evaluateBullmastiffPlusSet(
       extraReps > 0
         ? `Add ${mround(jump, rounding)} based on ${extraReps} extra ${extraReps === 1 ? 'rep' : 'reps'}.`
         : 'Repeat the load next wave; no extra reps were logged on the plus set.',
-    previousAnchor: anchor,
-    recommendedAnchor: recommended,
+    previousValue: anchor,
+    recommendedValue: recommended,
   }
 }
 
@@ -150,6 +156,8 @@ export function evaluateSimpleLinearCompletion(
   currentAnchor: number,
   rounding: number,
   movementId: string,
+  stateKey: string,
+  increment?: number,
 ): ProgressionDecision | null {
   const completedAllTargets = sets.length > 0 && sets.every((set) => {
     if (!set.completed) return false
@@ -163,20 +171,22 @@ export function evaluateSimpleLinearCompletion(
   })
   if (!completedAllTargets) return null
 
-  const isUpper = movementId === 'bench_press' || movementId === 'overhead_press'
-  const increment = isUpper ? 2.5 : 5
-  const recommended = mround(currentAnchor + increment, rounding)
+  const isUpper = movementId === 'bench_press' || movementId === 'overhead_press' || movementId === 'barbell_row'
+  const incrementValue = increment ?? (isUpper ? 2.5 : 5)
+  const recommended = Math.max(mround(currentAnchor + incrementValue, rounding), currentAnchor + rounding)
   return {
     id: `pending-simple-linear-${movementId}`,
     movementId,
     movementName: getMovementName(movementId),
+    stateKey,
+    stateType: 'working_load',
     ruleId: 'simple_linear_completion',
     scope: 'session',
     status: 'pending',
     inputSummary: `${getMovementName(movementId)} completed all target work at or above the target reps and RIR.`,
-    recommendation: `Move the working anchor from ${currentAnchor} to ${recommended}.`,
-    previousAnchor: currentAnchor,
-    recommendedAnchor: recommended,
+    recommendation: `Move the working load from ${currentAnchor} to ${recommended}.`,
+    previousValue: currentAnchor,
+    recommendedValue: recommended,
   }
 }
 

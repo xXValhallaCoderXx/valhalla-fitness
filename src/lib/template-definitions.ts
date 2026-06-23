@@ -1,11 +1,16 @@
-import type { TemplateDefinition, TemplateSetDefinition } from './template-engine'
+import { programStateKey, type TemplateDefinition, type TemplateSetDefinition } from './template-engine'
 
-const requiredAnchors = ['squat', 'bench_press', 'deadlift', 'overhead_press']
+const mainLiftIds = ['squat', 'bench_press', 'deadlift', 'overhead_press'] as const
+const alternating5x5MovementIds = ['squat', 'bench_press', 'overhead_press', 'deadlift', 'barbell_row'] as const
 
 type LoadDefault = 'low' | 'high' | 'blank'
 
 function percent(percent: number, percentMax?: number, defaultLoad: LoadDefault = 'low') {
-  return { kind: 'percent' as const, anchor: 'training_max' as const, percent, percentMax, default: defaultLoad }
+  return { kind: 'percent_of_state' as const, stateType: 'training_max' as const, percent, percentMax, default: defaultLoad }
+}
+
+function workingLoad() {
+  return { kind: 'state' as const, stateType: 'working_load' as const }
 }
 
 function fixed(kg: number, lb?: number) {
@@ -41,6 +46,116 @@ function accessoryPrescription(sets: number, repMin: number, repMax: number, kg?
       label: `${repMin}-${repMax}`,
     }),
   }
+}
+
+function fiveByFivePrescription() {
+  return {
+    targetSummary: '5x5 @ current working load',
+    progressionRuleId: 'simple_linear_completion',
+    sets: repeatedSets(5, {
+      targetLoad: workingLoad(),
+      targetReps: 5,
+      label: '5',
+    }),
+  }
+}
+
+function oneByFivePrescription() {
+  return {
+    targetSummary: '1x5 @ current working load',
+    progressionRuleId: 'simple_linear_completion',
+    sets: repeatedSets(1, {
+      targetLoad: workingLoad(),
+      targetReps: 5,
+      label: '5',
+    }),
+  }
+}
+
+function alternating5x5Sessions(): TemplateDefinition['sessions'] {
+  return [
+    alternating5x5Session('day-1', 'Day 1'),
+    alternating5x5Session('day-2', 'Day 2'),
+    alternating5x5Session('day-3', 'Day 3'),
+  ]
+}
+
+function alternating5x5Session(id: string, title: string): TemplateDefinition['sessions'][number] {
+  const isMiddleSession = id === 'day-2'
+  return {
+    id,
+    title,
+    estimatedMinutes: isMiddleSession ? 55 : 65,
+    slots: [
+      {
+        id: 'squat',
+        role: 'main',
+        movementId: 'squat',
+        prescriptionId: 'five-by-five',
+      },
+      {
+        id: 'push',
+        role: 'main',
+        movementId: isMiddleSession
+          ? { default: 'overhead_press', byPhase: { starts_with_b: 'bench_press' } }
+          : { default: 'bench_press', byPhase: { starts_with_b: 'overhead_press' } },
+        prescriptionId: 'five-by-five',
+      },
+      {
+        id: 'pull',
+        role: 'main',
+        movementId: isMiddleSession
+          ? { default: 'deadlift', byPhase: { starts_with_b: 'barbell_row' } }
+          : { default: 'barbell_row', byPhase: { starts_with_b: 'deadlift' } },
+        prescriptionId: isMiddleSession ? 'middle-pull' : 'outer-pull',
+      },
+    ],
+  }
+}
+
+function alternating5x5Weeks(): TemplateDefinition['weeks'] {
+  return [
+    {
+      label: 'Week 1',
+      phaseKey: 'starts_with_a',
+      phaseLabel: 'Starts with A',
+      summary: 'A/B/A rotation using squat every day, bench and row on A, overhead press and deadlift on B.',
+      hardness: 'Medium',
+      prescriptions: {
+        'five-by-five': fiveByFivePrescription(),
+        'outer-pull': fiveByFivePrescription(),
+        'middle-pull': oneByFivePrescription(),
+      },
+    },
+    {
+      label: 'Week 2',
+      phaseKey: 'starts_with_b',
+      phaseLabel: 'Starts with B',
+      summary: 'B/A/B rotation so the alternating sequence stays continuous across weeks.',
+      hardness: 'Medium',
+      prescriptions: {
+        'five-by-five': fiveByFivePrescription(),
+        'outer-pull': oneByFivePrescription(),
+        'middle-pull': fiveByFivePrescription(),
+      },
+    },
+  ]
+}
+
+function requiredTrainingMaxState(): TemplateDefinition['requiredState'] {
+  return mainLiftIds.map((movementId) => ({
+    key: programStateKey(movementId, 'training_max'),
+    movementId,
+    type: 'training_max',
+  }))
+}
+
+function requiredWorkingLoadState(movementIds: readonly string[]): TemplateDefinition['requiredState'] {
+  return movementIds.map((movementId) => ({
+    key: programStateKey(movementId, 'working_load'),
+    movementId,
+    type: 'working_load',
+  }))
 }
 
 function healthy531Weeks(): TemplateDefinition['weeks'] {
@@ -349,14 +464,38 @@ function volumeIntensityWeeks(): TemplateDefinition['weeks'] {
 }
 
 export const fallbackTemplateDefinitions: Record<string, TemplateDefinition> = {
+  'generic_alternating_5x5_lp': {
+    schemaVersion: '2026.06.dsl',
+    id: 'generic_alternating_5x5_lp',
+    name: 'Alternating 5x5 LP',
+    durationWeeks: 2,
+    daysPerWeek: 3,
+    requiredState: requiredWorkingLoadState(alternating5x5MovementIds),
+    timelineDescription: 'Two-week A/B rotation for three non-consecutive training days per week.',
+    sessions: alternating5x5Sessions(),
+    weeks: alternating5x5Weeks(),
+    progressionRules: {
+      main: 'simple_linear_completion',
+    },
+    progressionConfig: {
+      simple_linear_completion: {
+        increments: {
+          squat: { kg: 2.5, lb: 5 },
+          bench_press: { kg: 2.5, lb: 5 },
+          overhead_press: { kg: 2.5, lb: 5 },
+          deadlift: { kg: 5, lb: 10 },
+          barbell_row: { kg: 2.5, lb: 5 },
+        },
+      },
+    },
+  },
   'healthy-531-fsl': {
     schemaVersion: '2026.06.dsl',
     id: 'healthy-531-fsl',
     name: 'Healthy 5/3/1 FSL',
-    anchorType: 'training_max',
     durationWeeks: 4,
     daysPerWeek: 4,
-    requiredAnchors,
+    requiredState: requiredTrainingMaxState(),
     timelineDescription: '4-week 5/3/1 cycle with four main-lift sessions per week.',
     sessions: [
       healthySession('squat-day', 'Squat + Lower Accessories', 'squat', [
@@ -390,10 +529,9 @@ export const fallbackTemplateDefinitions: Record<string, TemplateDefinition> = {
     schemaVersion: '2026.06.dsl',
     id: 'bromley-bullmastiff',
     name: 'Bromley Bullmastiff',
-    anchorType: 'training_max',
     durationWeeks: 18,
     daysPerWeek: 4,
-    requiredAnchors,
+    requiredState: requiredTrainingMaxState(),
     timelineDescription: '18-week source structure: 9 base weeks, then 9 peak weeks. Each phase uses three 3-week waves.',
     sessions: [
       bullSession('bull-squat', 'Bullmastiff Squat', 'squat', 'front_squat', 'pause_squat', ['leg_press', 'hamstring_curl']),
@@ -412,10 +550,9 @@ export const fallbackTemplateDefinitions: Record<string, TemplateDefinition> = {
     schemaVersion: '2026.06.dsl',
     id: 'bromley-70s-powerlifter',
     name: 'Bromley 70s Powerlifter',
-    anchorType: 'training_max',
     durationWeeks: 18,
     daysPerWeek: 4,
-    requiredAnchors,
+    requiredState: requiredTrainingMaxState(),
     timelineDescription: '18-week upper/lower plan with three volumizing waves followed by three intensifying waves.',
     sessions: [
       seventiesSession('70s-bench', '70s Bench', 'bench_press', 'wide_grip_bench_press', 'pause_bench_press', 'incline_bench_press', 'floor_press', ['t_bar_row', 'barbell_curl', 'jm_press']),
@@ -434,10 +571,9 @@ export const fallbackTemplateDefinitions: Record<string, TemplateDefinition> = {
     schemaVersion: '2026.06.dsl',
     id: 'bromley-volume-intensity',
     name: 'Bromley Volume/Intensity',
-    anchorType: 'training_max',
     durationWeeks: 6,
     daysPerWeek: 3,
-    requiredAnchors,
+    requiredState: requiredTrainingMaxState(),
     timelineDescription: '3-day whole-body program alternating a 3-week volumizing wave with a 3-week top-set wave.',
     sessions: [
       volumeIntensitySession('vi-monday', 'Volume/Intensity Monday', [

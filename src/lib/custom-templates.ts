@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { Movement, ProgramTemplateSummary } from '~/types/training'
 import {
+  programStateKey,
   validateTemplateDefinition,
   type TemplateDefinition,
   type TemplateSetDefinition,
@@ -47,7 +48,7 @@ export const customProgramMethodologies: Record<
   '531': {
     label: '5/3/1-style',
     shortLabel: '5/3/1',
-    description: 'Training-max anchors drive percentage main work and 5/3/1 TM recommendations.',
+    description: 'Training-max state drives percentage main work and 5/3/1 TM recommendations.',
     tooltip: 'Regulates only main-lift training-max changes through the healthy 5/3/1 TM band rule.',
     progressionLabel: '5/3/1 TM band',
     complexity: 'Intermediate',
@@ -123,7 +124,7 @@ export type GeneratedCustomProgramTemplate = {
     | 'progressionLabel'
     | 'complexity'
     | 'tags'
-    | 'requiredAnchors'
+    | 'requiredState'
     | 'available'
   >
   definition: TemplateDefinition
@@ -240,10 +241,17 @@ export function buildCustomProgramTemplateDefinition({
 }): GeneratedCustomProgramTemplate {
   const normalized = normalizeCustomProgramBuilderInput(input, catalog)
   const methodology = customProgramMethodologies[normalized.methodology]
-  const requiredAnchors =
+  const requiredState =
     normalized.methodology === 'none'
       ? []
-      : unique(normalized.sessions.map((session) => anchorMovementIdFor(session.mainMovementId, catalog)))
+      : unique(normalized.sessions.map((session) => anchorMovementIdFor(session.mainMovementId, catalog))).map((movementId) => ({
+          key: programStateKey(
+            movementId,
+            normalized.methodology === 'simple_linear' ? 'working_load' : 'training_max',
+          ),
+          movementId,
+          type: normalized.methodology === 'simple_linear' ? 'working_load' as const : 'training_max' as const,
+        }))
   const durationWeeks = normalized.methodology === '531' ? 4 : normalized.methodology === 'bromley' ? 18 : 1
   const sessions = normalized.sessions.map((session, index): TemplateDefinition['sessions'][number] => {
     const sessionKey = `day-${index + 1}`
@@ -289,10 +297,9 @@ export function buildCustomProgramTemplateDefinition({
     schemaVersion: '2026.06.dsl',
     id: templateId,
     name: normalized.name,
-    anchorType: normalized.methodology === 'none' ? 'manual' : 'training_max',
     durationWeeks,
     daysPerWeek: normalized.daysPerWeek,
-    requiredAnchors,
+    requiredState,
     timelineDescription: timelineDescription(normalized.methodology, normalized.daysPerWeek),
     sessions,
     weeks: buildCustomWeeks(normalized, durationWeeks),
@@ -317,7 +324,7 @@ export function buildCustomProgramTemplateDefinition({
       progressionLabel: methodology.progressionLabel,
       complexity: methodology.complexity,
       tags: ['custom', methodology.tag, `${normalized.daysPerWeek} days`],
-      requiredAnchors,
+      requiredState,
       available: true,
     },
     definition: validation.definition,
@@ -376,7 +383,7 @@ function mainPrescription(
       targetSummary: `${session.mainSetCount}x${session.mainTargetReps} @ current load`,
       progressionRuleId: 'simple_linear_completion',
       sets: repeatedSets(session.mainSetCount, {
-        targetLoad: percent(1),
+        targetLoad: workingLoad(),
         targetReps: session.mainTargetReps,
         targetRir: session.mainTargetRir,
         label: `${session.mainTargetReps}`,
@@ -547,7 +554,7 @@ function phaseFor(methodology: CustomProgramMethodology, weekIndex: number): Cus
     return {
       key: 'linear',
       label: 'Linear progression',
-      summary: 'Repeat the planned sessions and increase anchors after completed target work.',
+      summary: 'Repeat the planned sessions and increase working loads after completed target work.',
       hardness: 'Medium' as const,
     }
   }
@@ -582,7 +589,11 @@ function timelineDescription(methodology: CustomProgramMethodology, daysPerWeek:
 }
 
 function percent(percentValue: number, percentMax?: number) {
-  return { kind: 'percent' as const, anchor: 'training_max' as const, percent: percentValue, percentMax, default: 'low' as const }
+  return { kind: 'percent_of_state' as const, stateType: 'training_max' as const, percent: percentValue, percentMax, default: 'low' as const }
+}
+
+function workingLoad() {
+  return { kind: 'state' as const, stateType: 'working_load' as const }
 }
 
 function userSelected() {

@@ -41,7 +41,7 @@ export type UserProfile = {
 export type ProgramTemplateSummary = {
   id: string
   name: string
-  source: 'healthy_531' | 'bromley_base_strength' | 'custom_import'
+  source: 'healthy_531' | 'bromley_base_strength' | 'linear_strength' | 'custom_import'
   sourceLabel: string
   origin: ProgramTemplateOrigin
   description: string
@@ -49,14 +49,22 @@ export type ProgramTemplateSummary = {
   progressionLabel: string
   complexity: string
   tags: string[]
-  requiredAnchors: string[]
+  requiredState: ProgramStateRequirement[]
   available: boolean
 }
 
-export type AnchorInput = {
+export type ProgramStateType = 'training_max' | 'one_rep_max' | 'working_load' | 'five_rep_max' | 'manual'
+
+export type ProgramStateRequirement = {
+  key: string
   movementId: string
-  anchorType: 'training_max' | 'one_rep_max' | 'manual'
+  type: ProgramStateType
+  label?: string
+}
+
+export type ProgramStateInput = ProgramStateRequirement & {
   value: number
+  unit?: Unit
 }
 
 export type ProgramInstance = {
@@ -71,7 +79,7 @@ export type ProgramInstance = {
   currentWeekIndex: number
   customizationStatus: ProgramCustomizationStatus
   customizationSummary: ProgramCustomizationSummary
-  anchors: AnchorInput[]
+  stateValues: ProgramStateInput[]
   movementOverrides?: ProgramMovementOverride[]
   accessoryAdditions?: ProgramAccessoryAddition[]
   templateDefinition?: TemplateDefinition
@@ -286,13 +294,15 @@ export type ProgressionDecision = {
   id: string
   movementId: string
   movementName: string
+  stateKey?: string | null
+  stateType?: ProgramStateType | null
   ruleId: string
   scope: 'session' | 'week' | 'wave' | 'cycle' | 'block'
   status: 'pending' | 'accepted' | 'dismissed' | 'superseded'
   inputSummary: string
   recommendation: string
-  previousAnchor?: number | null
-  recommendedAnchor?: number | null
+  previousValue?: number | null
+  recommendedValue?: number | null
 }
 
 export type TodayPayload = {
@@ -470,9 +480,12 @@ export type ProgramRecentSessionSummary = {
   topSetHighlights: string[]
 }
 
-export type ProgramAnchorOverview = {
+export type ProgramStateOverview = {
   movementId: string
   movementName: string
+  stateKey: string
+  stateType: ProgramStateType
+  label?: string | null
   value: number
   units: Unit
   pendingDecision?: ProgressionDecision | null
@@ -519,7 +532,7 @@ export type ProgramOverview = {
     href: string
   } | null
   recentSessions: ProgramRecentSessionSummary[]
-  anchors: ProgramAnchorOverview[]
+  stateValues: ProgramStateOverview[]
   accessoryPlan: ProgramAccessoryPlan[]
   bodyLoad: BodyLoadSummary
   pendingDecisions: ProgressionDecision[]

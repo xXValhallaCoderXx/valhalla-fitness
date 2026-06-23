@@ -29,9 +29,8 @@ function programFor(definition: TemplateDefinition): ProgramInstance {
     currentWeekIndex: 0,
     customizationStatus: 'default',
     customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
-    anchors: definition.requiredAnchors.map((movementId) => ({
-      movementId,
-      anchorType: 'training_max',
+    stateValues: definition.requiredState.map((state) => ({
+      ...state,
       value: 100,
     })),
     templateDefinition: definition,
@@ -89,17 +88,17 @@ describe('custom programme templates', () => {
     }
   })
 
-  it('dedupes required anchors when main lifts repeat across days', () => {
+  it('dedupes required state when main lifts repeat across days', () => {
     const generated = buildCustomProgramTemplateDefinition({
       templateId: 'custom-repeated-main-lifts',
       input: createDefaultCustomProgramBuilderInput({ methodology: 'simple_linear', daysPerWeek: 5 }),
     })
     expect(generated.definition.sessions).toHaveLength(5)
-    expect(generated.definition.requiredAnchors).toEqual([
-      'squat',
-      'bench_press',
-      'deadlift',
-      'overhead_press',
+    expect(generated.definition.requiredState).toEqual([
+      expect.objectContaining({ key: 'squat_working_load', movementId: 'squat', type: 'working_load' }),
+      expect.objectContaining({ key: 'bench_press_working_load', movementId: 'bench_press', type: 'working_load' }),
+      expect.objectContaining({ key: 'deadlift_working_load', movementId: 'deadlift', type: 'working_load' }),
+      expect.objectContaining({ key: 'overhead_press_working_load', movementId: 'overhead_press', type: 'working_load' }),
     ])
   })
 
@@ -129,9 +128,9 @@ describe('custom programme templates', () => {
     ).toBe(true)
   })
 
-  it('generates logger-only templates without anchors, progression rules, or calculated loads', () => {
+  it('generates logger-only templates without required state, progression rules, or calculated loads', () => {
     const { definition, metadata } = build('none')
-    expect(definition.requiredAnchors).toEqual([])
+    expect(definition.requiredState).toEqual([])
     expect(metadata.progressionLabel).toBe('Logger only')
 
     const prescriptions = Object.values(definition.weeks[0]!.prescriptions)
@@ -194,8 +193,8 @@ describe('custom programme templates', () => {
     expect(decisions).toContainEqual(
       expect.objectContaining({
         ruleId: 'simple_linear_completion',
-        previousAnchor: 100,
-        recommendedAnchor: 105,
+        previousValue: 100,
+        recommendedValue: 105,
       }),
     )
   })

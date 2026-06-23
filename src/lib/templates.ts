@@ -1,7 +1,8 @@
 import type {
-  AnchorInput,
   PlannedSession,
   ProgramInstance,
+  ProgramStateInput,
+  ProgramStateRequirement,
   ProgramTemplateSummary,
   Unit,
 } from '~/types/training'
@@ -17,6 +18,21 @@ import {
 
 export const templateCatalog: ProgramTemplateSummary[] = [
   {
+    id: 'generic_alternating_5x5_lp',
+    name: 'Alternating 5x5 LP',
+    source: 'linear_strength',
+    sourceLabel: 'Linear Strength',
+    origin: 'system_default',
+    description:
+      'Three-day beginner linear progression alternating A/B sessions with 5x5 work and a 1x5 deadlift.',
+    daysPerWeek: 3,
+    progressionLabel: 'Working-load LP',
+    complexity: 'Beginner',
+    tags: ['linear', '5x5', 'beginner'],
+    requiredState: requiredWorkingLoadState(['squat', 'bench_press', 'overhead_press', 'deadlift', 'barbell_row']),
+    available: true,
+  },
+  {
     id: 'healthy-531-fsl',
     name: 'Healthy 5/3/1 FSL',
     source: 'healthy_531',
@@ -28,7 +44,7 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     progressionLabel: 'TM progression + FSL',
     complexity: 'Intermediate',
     tags: ['5/3/1', 'base'],
-    requiredAnchors: ['squat', 'bench_press', 'deadlift', 'overhead_press'],
+    requiredState: requiredTrainingMaxState(),
     available: true,
   },
   {
@@ -43,7 +59,7 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     progressionLabel: '18-week plus-set waves',
     complexity: 'Advanced',
     tags: ['bromley', 'base', 'high volume'],
-    requiredAnchors: ['squat', 'bench_press', 'deadlift', 'overhead_press'],
+    requiredState: requiredTrainingMaxState(),
     available: true,
   },
   {
@@ -57,7 +73,7 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     progressionLabel: 'Base-to-peak waves',
     complexity: 'Advanced',
     tags: ['bromley', 'base', 'peak'],
-    requiredAnchors: ['squat', 'bench_press', 'deadlift', 'overhead_press'],
+    requiredState: requiredTrainingMaxState(),
     available: true,
   },
   {
@@ -71,20 +87,23 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     progressionLabel: 'Alternating volume/intensity waves',
     complexity: 'Intermediate',
     tags: ['bromley', 'base'],
-    requiredAnchors: ['squat', 'bench_press', 'deadlift', 'overhead_press'],
+    requiredState: requiredTrainingMaxState(),
     available: true,
   },
 ]
 
-export function defaultAnchors(unit: Unit = 'kg'): AnchorInput[] {
+export function defaultStateValues(
+  unit: Unit = 'kg',
+  requiredState: ProgramStateRequirement[] = requiredTrainingMaxState(),
+): ProgramStateInput[] {
   const values =
     unit === 'kg'
-      ? { squat: 165, bench_press: 110, deadlift: 190, overhead_press: 75 }
-      : { squat: 365, bench_press: 245, deadlift: 420, overhead_press: 165 }
-  return Object.entries(values).map(([movementId, value]) => ({
-    movementId,
-    anchorType: 'training_max',
-    value,
+      ? { squat: 165, bench_press: 110, deadlift: 190, overhead_press: 75, barbell_row: 60 }
+      : { squat: 365, bench_press: 245, deadlift: 420, overhead_press: 165, barbell_row: 135 }
+  return requiredState.map((state) => ({
+    ...state,
+    value: values[state.movementId as keyof typeof values] ?? (unit === 'kg' ? 60 : 135),
+    unit,
   }))
 }
 
@@ -112,3 +131,19 @@ export function programForNextUncompletedSession(
 }
 
 export { getFallbackTemplateDefinition, listFallbackTemplateDefinitions }
+
+function requiredTrainingMaxState(): ProgramStateRequirement[] {
+  return ['squat', 'bench_press', 'deadlift', 'overhead_press'].map((movementId) => ({
+    key: `${movementId}_training_max`,
+    movementId,
+    type: 'training_max',
+  }))
+}
+
+function requiredWorkingLoadState(movementIds: string[]): ProgramStateRequirement[] {
+  return movementIds.map((movementId) => ({
+    key: `${movementId}_working_load`,
+    movementId,
+    type: 'working_load',
+  }))
+}

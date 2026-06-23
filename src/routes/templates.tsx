@@ -13,12 +13,12 @@ import {
 import { shouldConfirmProgramStart } from '~/lib/program-switch'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { getMovementName, movementCatalog } from '~/lib/movements'
-import { defaultAnchors } from '~/lib/templates'
+import { defaultStateValues } from '~/lib/templates'
 import { meQueryOptions, templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
 import { loadRouteQueries, loadRouteQuery } from '~/lib/route-loading'
 import { createCustomProgramTemplateFn, startProgramFn } from '~/server/api'
 import type {
-  AnchorInput,
+  ProgramStateInput,
   ProgramSetupOptions,
   ProgramSetupSlotOption,
   ProgramStartAccessoryAdditionInput,
@@ -90,17 +90,9 @@ type AccessoryAdditionDraft = ProgramStartAccessoryAdditionInput & {
   clientId: string
 }
 
-function anchorsForTemplate(template: ProgramTemplateSummary, unit: Unit): AnchorInput[] {
-  if (!template.requiredAnchors.length) return []
-  const defaults = defaultAnchors(unit)
-  return template.requiredAnchors.map((movementId) => {
-    const fallback = unit === 'kg' ? 60 : 135
-    return defaults.find((anchor) => anchor.movementId === movementId) ?? {
-      movementId,
-      anchorType: 'training_max',
-      value: fallback,
-    }
-  })
+function stateValuesForTemplate(template: ProgramTemplateSummary, unit: Unit): ProgramStateInput[] {
+  if (!template.requiredState.length) return []
+  return defaultStateValues(unit, template.requiredState)
 }
 
 function AuthedTemplates({
@@ -122,7 +114,7 @@ function AuthedTemplates({
   const [showBuilder, setShowBuilder] = useState(false)
   const units = me.units
   const rounding = me.rounding
-  const [anchors, setAnchors] = useState<AnchorInput[]>([])
+  const [stateValues, setStateValues] = useState<ProgramStateInput[]>([])
   const [showSwitchConfirm, setShowSwitchConfirm] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const activeSessionId = today.activeSession?.sessionId
@@ -146,13 +138,13 @@ function AuthedTemplates({
   const startMutation = useMutation({
     mutationFn: (input: { replaceActiveProgram?: boolean }) => {
       if (!selected) throw new Error('No template selected')
-      const startAnchors = selected.requiredAnchors.length
-        ? anchors.filter((anchor) => selected.requiredAnchors.includes(anchor.movementId))
+      const startStateValues = selected.requiredState.length
+        ? stateValues.filter((state) => selected.requiredState.some((required) => required.key === state.key))
         : []
       return startProgramFn({
         data: {
           templateId: selected.id,
-          anchors: startAnchors,
+          stateValues: startStateValues,
           replaceActiveProgram: input.replaceActiveProgram,
         },
       })
@@ -191,7 +183,7 @@ function AuthedTemplates({
 
   const selectTemplate = (template: ProgramTemplateSummary) => {
     setSelected(template)
-    setAnchors(anchorsForTemplate(template, units))
+    setStateValues(stateValuesForTemplate(template, units))
     setShowSetup(true)
     setShowSwitchConfirm(false)
     setStartError(null)
@@ -201,7 +193,7 @@ function AuthedTemplates({
     notifications.show({ color: 'success', title: 'Programme created', message: `${template.name} is ready to start.` })
     setShowBuilder(false)
     setSelected(template)
-    setAnchors(anchorsForTemplate(template, units))
+    setStateValues(stateValuesForTemplate(template, units))
     setShowSetup(true)
     await router.invalidate()
     await router.options.context.queryClient.invalidateQueries({ queryKey: ['templates'] })
@@ -362,12 +354,12 @@ function AuthedTemplates({
               template={selected}
               units={units}
               rounding={rounding}
-              anchors={anchors}
-              requiredAnchors={selected.requiredAnchors}
+              stateValues={stateValues}
+              requiredState={selected.requiredState}
               isPending={startMutation.isPending}
               startError={startError}
               onClose={closeSetup}
-              onAnchorsChange={setAnchors}
+              onStateValuesChange={setStateValues}
               onStart={requestStartProgram}
             />
           </div>
@@ -414,24 +406,24 @@ function ProgramStartWizard({
   template,
   units,
   rounding,
-  anchors,
-  requiredAnchors,
+  stateValues,
+  requiredState,
   isPending,
   startError,
   onClose,
-  onAnchorsChange,
+  onStateValuesChange,
   onStart,
 }: {
   titleId: string
   template: ProgramTemplateSummary
   units: Unit
   rounding: number
-  anchors: AnchorInput[]
-  requiredAnchors: string[]
+  stateValues: ProgramStateInput[]
+  requiredState: ProgramTemplateSummary['requiredState']
   isPending: boolean
   startError: string | null
   onClose: () => void
-  onAnchorsChange: Dispatch<SetStateAction<AnchorInput[]>>
+  onStateValuesChange: Dispatch<SetStateAction<ProgramStateInput[]>>
   onStart: () => void
 }) {
   return (
@@ -463,9 +455,9 @@ function ProgramStartWizard({
         <BasicsStep
           units={units}
           rounding={rounding}
-          anchors={anchors}
-          requiredAnchors={requiredAnchors}
-          onAnchorsChange={onAnchorsChange}
+          stateValues={stateValues}
+          requiredState={requiredState}
+          onStateValuesChange={onStateValuesChange}
         />
       </div>
 
@@ -1108,7 +1100,7 @@ export function ProgramCustomizationDraftWizard({
   setupError,
   units,
   rounding,
-  anchors,
+  stateValues,
   wizardStep,
   currentStepIndex,
   movementOverrides,
@@ -1120,7 +1112,7 @@ export function ProgramCustomizationDraftWizard({
   isPending,
   startError,
   onClose,
-  onAnchorsChange,
+  onStateValuesChange,
   onStepChange,
   onMovementOverrideChange,
   onAddAccessory,
@@ -1136,7 +1128,7 @@ export function ProgramCustomizationDraftWizard({
   setupError: string | null
   units: Unit
   rounding: number
-  anchors: AnchorInput[]
+  stateValues: ProgramStateInput[]
   wizardStep: WizardStep
   currentStepIndex: number
   movementOverrides: ProgramStartMovementOverrideInput[]
@@ -1148,7 +1140,7 @@ export function ProgramCustomizationDraftWizard({
   isPending: boolean
   startError: string | null
   onClose: () => void
-  onAnchorsChange: Dispatch<SetStateAction<AnchorInput[]>>
+  onStateValuesChange: Dispatch<SetStateAction<ProgramStateInput[]>>
   onStepChange: (step: WizardStep) => void
   onMovementOverrideChange: (slot: ProgramSetupSlotOption, replacementMovementId: string) => void
   onAddAccessory: (addition: ProgramStartAccessoryAdditionInput) => void
@@ -1178,7 +1170,7 @@ export function ProgramCustomizationDraftWizard({
               {hasCustomizations ? <Badge color="warning">Customized</Badge> : null}
             </div>
             <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">
-              Set anchors, choose variations, and review accessory changes before starting.
+              Set starting loads, choose variations, and review accessory changes before starting.
             </p>
           </div>
           <Button color="neutral" variant="subtle" onClick={onClose}>
@@ -1218,9 +1210,9 @@ export function ProgramCustomizationDraftWizard({
           <BasicsStep
             units={units}
             rounding={rounding}
-            anchors={anchors}
-            requiredAnchors={anchors.map((anchor) => anchor.movementId)}
-            onAnchorsChange={onAnchorsChange}
+            stateValues={stateValues}
+            requiredState={stateValues}
+            onStateValuesChange={onStateValuesChange}
           />
         ) : isSetupLoading ? (
           <p className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-4 text-sm text-[var(--mantine-color-dimmed)]">
@@ -1248,7 +1240,7 @@ export function ProgramCustomizationDraftWizard({
             setupOptions={setupOptions}
             units={units}
             rounding={rounding}
-            anchors={anchors}
+            stateValues={stateValues}
             movementOverrides={movementOverrides}
             accessoryAdditions={accessoryAdditions}
             movementOverrideCount={movementOverrideCount}
@@ -1290,18 +1282,18 @@ export function ProgramCustomizationDraftWizard({
 function BasicsStep({
   units,
   rounding,
-  anchors,
-  requiredAnchors,
-  onAnchorsChange,
+  stateValues,
+  requiredState,
+  onStateValuesChange,
 }: {
   units: Unit
   rounding: number
-  anchors: AnchorInput[]
-  requiredAnchors: string[]
-  onAnchorsChange: Dispatch<SetStateAction<AnchorInput[]>>
+  stateValues: ProgramStateInput[]
+  requiredState: ProgramTemplateSummary['requiredState']
+  onStateValuesChange: Dispatch<SetStateAction<ProgramStateInput[]>>
 }) {
-  const visibleAnchors = requiredAnchors.length
-    ? requiredAnchors.map((movementId) => anchors.find((anchor) => anchor.movementId === movementId)).filter(Boolean) as AnchorInput[]
+  const visibleState = requiredState.length
+    ? requiredState.map((required) => stateValues.find((state) => state.key === required.key)).filter(Boolean) as ProgramStateInput[]
     : []
 
   return (
@@ -1330,34 +1322,34 @@ function BasicsStep({
           Edit in Settings
         </a>
       </div>
-      {requiredAnchors.length ? (
+      {requiredState.length ? (
         <div className="grid gap-2">
           <div>
-            <p className="vf-section-label">Starting anchors</p>
+            <p className="vf-section-label">Starting loads</p>
             <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
-              Enter the training max used to calculate the first block of prescribed loads.
+              Enter the training maxes or working loads used to calculate the first block.
             </p>
           </div>
-          {visibleAnchors.map((anchor) => (
+          {visibleState.map((state) => (
             <label
-              key={anchor.movementId}
+              key={state.key}
               className="grid gap-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-center"
             >
               <span className="min-w-0">
-                <span className="block text-sm font-extrabold text-[var(--mantine-color-text)]">{getMovementName(anchor.movementId)}</span>
+                <span className="block text-sm font-extrabold text-[var(--mantine-color-text)]">{getMovementName(state.movementId)}</span>
                 <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
-                  {anchor.anchorType.replaceAll('_', ' ')}
+                  {state.type.replaceAll('_', ' ')}
                 </span>
               </span>
               <span className="relative block">
                 <TextInput
                   classNames={{ input: 'pr-12 text-right' }}
                   type="number"
-                  value={anchor.value}
+                  value={state.value}
                   onChange={(event) =>
-                    onAnchorsChange((current) =>
+                    onStateValuesChange((current) =>
                       current.map((item) =>
-                        item.movementId === anchor.movementId ? { ...item, value: Number(event.target.value) } : item,
+                        item.key === state.key ? { ...item, value: Number(event.target.value) } : item,
                       ),
                     )
                   }
@@ -1371,7 +1363,7 @@ function BasicsStep({
         </div>
       ) : (
         <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-          <p className="vf-section-label">No starting anchors</p>
+          <p className="vf-section-label">No starting loads</p>
           <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">
             This programme uses user-selected loads and history-only logging.
           </p>
@@ -1560,7 +1552,7 @@ function ReviewStep({
   setupOptions,
   units,
   rounding,
-  anchors,
+  stateValues,
   movementOverrides,
   accessoryAdditions,
   movementOverrideCount,
@@ -1569,7 +1561,7 @@ function ReviewStep({
   setupOptions: ProgramSetupOptions
   units: Unit
   rounding: number
-  anchors: AnchorInput[]
+  stateValues: ProgramStateInput[]
   movementOverrides: ProgramStartMovementOverrideInput[]
   accessoryAdditions: AccessoryAdditionDraft[]
   movementOverrideCount: number
@@ -1594,12 +1586,12 @@ function ReviewStep({
       </div>
 
       <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-        <p className="vf-section-label">Anchors</p>
+        <p className="vf-section-label">Starting loads</p>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {anchors.map((anchor) => (
-            <div key={anchor.movementId} className="rounded-md bg-[var(--mantine-color-default)] px-3 py-2">
-              <p className="text-xs text-[var(--mantine-color-dimmed)]">{getMovementName(anchor.movementId)}</p>
-              <p className="text-sm font-bold">{anchor.value} {units}</p>
+          {stateValues.map((state) => (
+            <div key={state.key} className="rounded-md bg-[var(--mantine-color-default)] px-3 py-2">
+              <p className="text-xs text-[var(--mantine-color-dimmed)]">{getMovementName(state.movementId)}</p>
+              <p className="text-sm font-bold">{state.value} {units}</p>
             </div>
           ))}
         </div>
