@@ -92,7 +92,7 @@ export const templateDefinitionSchema = z.object({
   anchorType: z.enum(['training_max', 'one_rep_max', 'manual']).default('training_max'),
   durationWeeks: z.number().int().positive(),
   daysPerWeek: z.number().int().positive(),
-  requiredAnchors: z.array(z.string().min(1)).min(1),
+  requiredAnchors: z.array(z.string().min(1)),
   timelineDescription: z.string().min(1),
   sessions: z.array(sessionSchema).min(1),
   weeks: z.array(weekSchema).min(1),
@@ -123,14 +123,14 @@ export const templateDefinitionSchema = z.object({
           })
         }
       }
-      if (slot.role === 'main') {
+      if (slotUsesPercentLoad(definition, slot)) {
         const movementId = typeof slot.movementId === 'string' ? slot.movementId : slot.movementId.default
         const anchorMovementId = slot.anchorMovementId ?? movementId
         if (!definition.requiredAnchors.includes(anchorMovementId)) {
           context.addIssue({
             code: 'custom',
             path: ['sessions', sessionIndex, 'slots', slotIndex, 'anchorMovementId'],
-            message: `${anchorMovementId} must be listed in requiredAnchors`,
+            message: `${anchorMovementId} must be listed in requiredAnchors because this slot uses percentage loading`,
           })
         }
       }
@@ -191,6 +191,15 @@ export function validateRequiredAnchors(definition: TemplateDefinition, anchors:
   if (missing.length) {
     throw new Error(`Missing valid training max anchors for ${missing.map(getMovementName).join(', ')}`)
   }
+}
+
+function slotUsesPercentLoad(
+  definition: z.infer<typeof templateDefinitionSchema>,
+  slot: z.infer<typeof slotSchema>,
+) {
+  return definition.weeks.some((week) =>
+    week.prescriptions[slot.prescriptionId]?.sets.some((set) => set.targetLoad?.kind === 'percent'),
+  )
 }
 
 export function expandSessionFromTemplateDefinition(

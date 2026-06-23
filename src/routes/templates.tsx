@@ -1,15 +1,21 @@
 import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
-import { Badge, Button, Card, TextInput } from '@mantine/core'
+import { Badge, Button, Card, TextInput, Tooltip } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, Lock, Plus, RotateCcw, Search, Trash2 } from 'lucide-react'
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Lock, Plus, RotateCcw, Search, Trash2 } from 'lucide-react'
 import { useEffect, useId, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
+import {
+  createDefaultCustomProgramBuilderInput,
+  customProgramMethodologies,
+  type CustomProgramBuilderInput,
+  type CustomProgramMethodology,
+} from '~/lib/custom-templates'
 import { shouldConfirmProgramStart } from '~/lib/program-switch'
 import { getApiErrorMessage } from '~/lib/api-error'
-import { getMovementName } from '~/lib/movements'
+import { getMovementName, movementCatalog } from '~/lib/movements'
 import { defaultAnchors } from '~/lib/templates'
 import { meQueryOptions, templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
-import { startProgramFn } from '~/server/api'
+import { createCustomProgramTemplateFn, startProgramFn } from '~/server/api'
 import type {
   AnchorInput,
   ProgramSetupOptions,
@@ -62,6 +68,19 @@ type AccessoryAdditionDraft = ProgramStartAccessoryAdditionInput & {
   clientId: string
 }
 
+function anchorsForTemplate(template: ProgramTemplateSummary, unit: Unit): AnchorInput[] {
+  if (!template.requiredAnchors.length) return []
+  const defaults = defaultAnchors(unit)
+  return template.requiredAnchors.map((movementId) => {
+    const fallback = unit === 'kg' ? 60 : 135
+    return defaults.find((anchor) => anchor.movementId === movementId) ?? {
+      movementId,
+      anchorType: 'training_max',
+      value: fallback,
+    }
+  })
+}
+
 function AuthedTemplates({
   templates,
   me,
@@ -72,13 +91,15 @@ function AuthedTemplates({
   const router = useRouter()
   const { data: today } = useSuspenseQuery(todayQueryOptions())
   const setupTitleId = useId()
+  const builderTitleId = useId()
   const [filter, setFilter] = useState('All')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<ProgramTemplateSummary | null>(null)
   const [showSetup, setShowSetup] = useState(false)
+  const [showBuilder, setShowBuilder] = useState(false)
   const units = me.units
   const rounding = me.rounding
-  const [anchors, setAnchors] = useState<AnchorInput[]>(defaultAnchors(me.units))
+  const [anchors, setAnchors] = useState<AnchorInput[]>([])
   const [showSwitchConfirm, setShowSwitchConfirm] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const activeSessionId = today.activeSession?.sessionId
@@ -102,10 +123,13 @@ function AuthedTemplates({
   const startMutation = useMutation({
     mutationFn: (input: { replaceActiveProgram?: boolean }) => {
       if (!selected) throw new Error('No template selected')
+      const startAnchors = selected.requiredAnchors.length
+        ? anchors.filter((anchor) => selected.requiredAnchors.includes(anchor.movementId))
+        : []
       return startProgramFn({
         data: {
           templateId: selected.id,
-          anchors,
+          anchors: startAnchors,
           replaceActiveProgram: input.replaceActiveProgram,
         },
       })
@@ -144,9 +168,20 @@ function AuthedTemplates({
 
   const selectTemplate = (template: ProgramTemplateSummary) => {
     setSelected(template)
+    setAnchors(anchorsForTemplate(template, units))
     setShowSetup(true)
     setShowSwitchConfirm(false)
     setStartError(null)
+  }
+
+  const handleCustomTemplateCreated = async (template: ProgramTemplateSummary) => {
+    notifications.show({ color: 'success', title: 'Programme created', message: `${template.name} is ready to start.` })
+    setShowBuilder(false)
+    setSelected(template)
+    setAnchors(anchorsForTemplate(template, units))
+    setShowSetup(true)
+    await router.invalidate()
+    await router.options.context.queryClient.invalidateQueries({ queryKey: ['templates'] })
   }
 
   const closeSetup = () => {
@@ -196,9 +231,15 @@ function AuthedTemplates({
       <PageHeader
         title="Choose a program"
         actions={
-          <span className="vf-chip">
-            <span className="font-extrabold text-[var(--mantine-color-text)]">{templates.length}</span> programs available
-          </span>
+          <div className="flex flex-wrap justify-end gap-2">
+            <span className="vf-chip">
+              <span className="font-extrabold text-[var(--mantine-color-text)]">{templates.length}</span> programs available
+            </span>
+            <Button onClick={() => setShowBuilder(true)}>
+              <Plus size={16} />
+              Create programme
+            </Button>
+          </div>
         }
       >
         Select a structured program to start your next training cycle.
@@ -214,7 +255,7 @@ function AuthedTemplates({
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar sm:flex-wrap sm:overflow-visible sm:pb-0">
-          {['All', '5/3/1', 'Bromley', 'Base', 'Peak', 'High volume', 'Low volume'].map((item) => (
+          {['All', 'Custom', '5/3/1', 'Bromley', 'Base', 'Peak', 'High volume', 'Low volume'].map((item) => (
             <button
               key={item}
               className={`min-h-8 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-bold transition ${
@@ -258,6 +299,27 @@ function AuthedTemplates({
         </section>
       </div>
 
+      {showBuilder ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-black/60 p-3 sm:items-center sm:justify-center"
+          onClick={() => setShowBuilder(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={builderTitleId}
+            className="w-full max-w-4xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <CustomProgramBuilder
+              titleId={builderTitleId}
+              onClose={() => setShowBuilder(false)}
+              onCreated={handleCustomTemplateCreated}
+            />
+          </div>
+        </div>
+      ) : null}
+
       {selected && showSetup ? (
         <div
           className="fixed inset-0 z-50 flex items-end bg-black/60 p-3 sm:items-center sm:justify-center"
@@ -278,6 +340,7 @@ function AuthedTemplates({
               units={units}
               rounding={rounding}
               anchors={anchors}
+              requiredAnchors={selected.requiredAnchors}
               isPending={startMutation.isPending}
               startError={startError}
               onClose={closeSetup}
@@ -329,6 +392,7 @@ function ProgramStartWizard({
   units,
   rounding,
   anchors,
+  requiredAnchors,
   isPending,
   startError,
   onClose,
@@ -340,6 +404,7 @@ function ProgramStartWizard({
   units: Unit
   rounding: number
   anchors: AnchorInput[]
+  requiredAnchors: string[]
   isPending: boolean
   startError: string | null
   onClose: () => void
@@ -376,6 +441,7 @@ function ProgramStartWizard({
           units={units}
           rounding={rounding}
           anchors={anchors}
+          requiredAnchors={requiredAnchors}
           onAnchorsChange={onAnchorsChange}
         />
       </div>
@@ -401,6 +467,584 @@ function StartInfoMetric({ label, value }: { label: string; value: ReactNode }) 
       <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{label}</p>
       <p className="mt-1 text-sm font-extrabold">{value}</p>
     </div>
+  )
+}
+
+type CustomBuilderStep = 'methodology' | 'schedule' | 'movements' | 'accessories' | 'review'
+
+const customBuilderSteps: Array<{ id: CustomBuilderStep; label: string }> = [
+  { id: 'methodology', label: 'Goal & methodology' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'movements', label: 'Movements' },
+  { id: 'accessories', label: 'Accessories' },
+  { id: 'review', label: 'Review' },
+]
+
+const mainMovementOptions = Object.values(movementCatalog)
+  .filter((movement) => movement.isCompetition)
+  .sort((left, right) => left.name.localeCompare(right.name))
+
+const variationMovementOptions = Object.values(movementCatalog)
+  .filter((movement) => !movement.isCompetition && movement.variationOf)
+  .sort((left, right) => left.name.localeCompare(right.name))
+
+const accessoryMovementOptions = Object.values(movementCatalog)
+  .filter((movement) => !movement.isCompetition)
+  .sort((left, right) => left.name.localeCompare(right.name))
+
+function CustomProgramBuilder({
+  titleId,
+  onClose,
+  onCreated,
+}: {
+  titleId: string
+  onClose: () => void
+  onCreated: (template: ProgramTemplateSummary) => void | Promise<void>
+}) {
+  const [step, setStep] = useState<CustomBuilderStep>('methodology')
+  const [draft, setDraft] = useState<CustomProgramBuilderInput>(() => createDefaultCustomProgramBuilderInput())
+  const currentStepIndex = customBuilderSteps.findIndex((item) => item.id === step)
+  const isReview = step === 'review'
+  const mutation = useMutation({
+    mutationFn: () => createCustomProgramTemplateFn({ data: draft }),
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Could not create programme',
+        message: getApiErrorMessage(error, 'Unable to create custom programme'),
+      })
+    },
+    onSuccess: (template) => {
+      void onCreated(template)
+    },
+  })
+
+  const updateDraft = (patch: Partial<CustomProgramBuilderInput>) => {
+    setDraft((current) => ({ ...current, ...patch }))
+  }
+
+  const setMethodology = (methodology: CustomProgramMethodology) => {
+    setDraft((current) => {
+      const daysPerWeek = current.daysPerWeek === 4 ? 4 : 3
+      const next = createDefaultCustomProgramBuilderInput({ methodology, daysPerWeek })
+      return {
+        ...next,
+        name: current.name,
+        goal: current.goal,
+      }
+    })
+  }
+
+  const setDaysPerWeek = (daysPerWeek: 3 | 4) => {
+    setDraft((current) => {
+      const next = createDefaultCustomProgramBuilderInput({
+        methodology: current.methodology,
+        daysPerWeek,
+      })
+      return {
+        ...next,
+        name: current.name,
+        goal: current.goal,
+      }
+    })
+  }
+
+  const updateSession = (
+    sessionIndex: number,
+    patch: Partial<CustomProgramBuilderInput['sessions'][number]>,
+  ) => {
+    setDraft((current) => ({
+      ...current,
+      sessions: current.sessions.map((session, index) =>
+        index === sessionIndex ? { ...session, ...patch } : session,
+      ),
+    }))
+  }
+
+  const updateAccessory = (
+    sessionIndex: number,
+    accessoryIndex: number,
+    patch: Partial<CustomProgramBuilderInput['sessions'][number]['accessories'][number]>,
+  ) => {
+    setDraft((current) => ({
+      ...current,
+      sessions: current.sessions.map((session, index) =>
+        index === sessionIndex
+          ? {
+              ...session,
+              accessories: session.accessories.map((accessory, itemIndex) =>
+                itemIndex === accessoryIndex ? { ...accessory, ...patch } : accessory,
+              ),
+            }
+          : session,
+      ),
+    }))
+  }
+
+  const addAccessory = (sessionIndex: number) => {
+    setDraft((current) => ({
+      ...current,
+      sessions: current.sessions.map((session, index) =>
+        index === sessionIndex
+          ? {
+              ...session,
+              accessories: [
+                ...session.accessories,
+                {
+                  movementId: accessoryMovementOptions[0]?.id ?? 'face_pull',
+                  setCount: 3,
+                  repMin: 10,
+                  repMax: 15,
+                  targetRir: 2,
+                  progressionMethod: current.methodology === 'none' ? 'history_only' : 'double_progression',
+                },
+              ],
+            }
+          : session,
+      ),
+    }))
+  }
+
+  const removeAccessory = (sessionIndex: number, accessoryIndex: number) => {
+    setDraft((current) => ({
+      ...current,
+      sessions: current.sessions.map((session, index) =>
+        index === sessionIndex
+          ? {
+              ...session,
+              accessories: session.accessories.filter((_, itemIndex) => itemIndex !== accessoryIndex),
+            }
+          : session,
+      ),
+    }))
+  }
+
+  const moveStep = (direction: 1 | -1) => {
+    const next = customBuilderSteps[currentStepIndex + direction]
+    if (next) setStep(next.id)
+  }
+
+  const canCreate = draft.name.trim().length >= 3 && draft.sessions.length === draft.daysPerWeek
+
+  return (
+    <Card className="max-h-[92vh] overflow-hidden p-0">
+      <div className="border-b border-[var(--mantine-color-default-border)] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 id={titleId} className="truncate text-lg font-bold">
+                Create programme
+              </h2>
+              <Badge color="action">Custom</Badge>
+            </div>
+            <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">
+              Build a constrained template from supported methodology presets.
+            </p>
+          </div>
+          <Button color="neutral" variant="subtle" onClick={onClose} disabled={mutation.isPending}>
+            Close
+          </Button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-5">
+          {customBuilderSteps.map((item, index) => (
+            <button
+              key={item.id}
+              className={`min-h-9 rounded-md border px-2 text-xs font-bold transition ${
+                step === item.id
+                  ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-primary-color-filled)] text-white'
+                  : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]'
+              }`}
+              disabled={mutation.isPending}
+              onClick={() => setStep(item.id)}
+            >
+              {index + 1}. {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="max-h-[58vh] overflow-y-auto p-4">
+        {step === 'methodology' ? (
+          <CustomMethodologyStep
+            draft={draft}
+            onDraftChange={updateDraft}
+            onMethodologyChange={setMethodology}
+          />
+        ) : step === 'schedule' ? (
+          <CustomScheduleStep draft={draft} onDaysChange={setDaysPerWeek} />
+        ) : step === 'movements' ? (
+          <CustomMovementsStep draft={draft} onSessionChange={updateSession} />
+        ) : step === 'accessories' ? (
+          <CustomAccessoriesStep
+            draft={draft}
+            onAccessoryChange={updateAccessory}
+            onAddAccessory={addAccessory}
+            onRemoveAccessory={removeAccessory}
+          />
+        ) : (
+          <CustomReviewStep draft={draft} />
+        )}
+      </div>
+
+      <div className="border-t border-[var(--mantine-color-default-border)] p-4">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <Button variant="default" disabled={mutation.isPending || currentStepIndex === 0} onClick={() => moveStep(-1)}>
+            <ChevronLeft size={14} />
+            Back
+          </Button>
+          <div className="flex gap-2 sm:justify-end">
+            {!isReview ? (
+              <Button className="flex-1 sm:flex-none" disabled={mutation.isPending} onClick={() => moveStep(1)}>
+                Next
+                <ChevronRight size={14} />
+              </Button>
+            ) : (
+              <Button className="flex-1 sm:flex-none" disabled={mutation.isPending || !canCreate} onClick={() => mutation.mutate()}>
+                <Check size={16} />
+                Create programme
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+function CustomMethodologyStep({
+  draft,
+  onDraftChange,
+  onMethodologyChange,
+}: {
+  draft: CustomProgramBuilderInput
+  onDraftChange: (patch: Partial<CustomProgramBuilderInput>) => void
+  onMethodologyChange: (methodology: CustomProgramMethodology) => void
+}) {
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 md:grid-cols-2">
+        <TextInput
+          label="Programme name"
+          value={draft.name}
+          onChange={(event) => onDraftChange({ name: event.target.value })}
+        />
+        <TextInput
+          label="Goal"
+          value={draft.goal ?? ''}
+          onChange={(event) => onDraftChange({ goal: event.target.value })}
+        />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {(Object.keys(customProgramMethodologies) as CustomProgramMethodology[]).map((methodology) => {
+          const option = customProgramMethodologies[methodology]
+          const selected = draft.methodology === methodology
+          return (
+            <button
+              key={methodology}
+              className={`min-h-[8rem] rounded-lg border p-4 text-left transition ${
+                selected
+                  ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--vf-action-soft)]'
+                  : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] hover:border-[var(--vf-action-border)]'
+              }`}
+              onClick={() => onMethodologyChange(methodology)}
+            >
+              <span className="flex items-start justify-between gap-3">
+                <span className="min-w-0">
+                  <span className="block text-sm font-extrabold">{option.label}</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+                    {option.description}
+                  </span>
+                </span>
+                <Tooltip label={option.tooltip} multiline w={260}>
+                  <span
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)]"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <Info size={15} />
+                  </span>
+                </Tooltip>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function CustomScheduleStep({
+  draft,
+  onDaysChange,
+}: {
+  draft: CustomProgramBuilderInput
+  onDaysChange: (daysPerWeek: 3 | 4) => void
+}) {
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {[3, 4].map((dayCount) => (
+          <button
+            key={dayCount}
+            className={`rounded-lg border p-4 text-left transition ${
+              draft.daysPerWeek === dayCount
+                ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--vf-action-soft)]'
+                : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] hover:border-[var(--vf-action-border)]'
+            }`}
+            onClick={() => onDaysChange(dayCount as 3 | 4)}
+          >
+            <span className="block text-lg font-black">{dayCount} days/week</span>
+            <span className="mt-1 block text-xs text-[var(--mantine-color-dimmed)]">
+              {dayCount === 3 ? 'Squat, bench, and deadlift focus.' : 'Adds a dedicated press day.'}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CustomMovementsStep({
+  draft,
+  onSessionChange,
+}: {
+  draft: CustomProgramBuilderInput
+  onSessionChange: (sessionIndex: number, patch: Partial<CustomProgramBuilderInput['sessions'][number]>) => void
+}) {
+  const usesEditableRepTargets = draft.methodology === 'none' || draft.methodology === 'simple_linear'
+  return (
+    <div className="grid gap-3">
+      {draft.sessions.map((session, index) => (
+        <div key={index} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem_12rem]">
+            <TextInput
+              label="Day"
+              value={session.title}
+              onChange={(event) => onSessionChange(index, { title: event.target.value })}
+            />
+            <BuilderSelect
+              label="Main lift"
+              value={session.mainMovementId}
+              onChange={(value) => onSessionChange(index, { mainMovementId: value })}
+              options={mainMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
+            />
+            <BuilderSelect
+              label="Variation"
+              value={session.variationMovementId ?? ''}
+              onChange={(value) => onSessionChange(index, { variationMovementId: value || null })}
+              options={[
+                { value: '', label: 'None' },
+                ...variationMovementOptions.map((movement) => ({ value: movement.id, label: movement.name })),
+              ]}
+            />
+          </div>
+          {usesEditableRepTargets ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <BuilderNumberField
+                label="Sets"
+                value={session.mainSetCount}
+                onChange={(value) => onSessionChange(index, { mainSetCount: value })}
+              />
+              <BuilderNumberField
+                label="Reps"
+                value={session.mainTargetReps}
+                onChange={(value) => onSessionChange(index, { mainTargetReps: value })}
+              />
+              <BuilderNumberField
+                label="RIR"
+                value={session.mainTargetRir ?? 0}
+                onChange={(value) => onSessionChange(index, { mainTargetRir: value })}
+              />
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CustomAccessoriesStep({
+  draft,
+  onAccessoryChange,
+  onAddAccessory,
+  onRemoveAccessory,
+}: {
+  draft: CustomProgramBuilderInput
+  onAccessoryChange: (
+    sessionIndex: number,
+    accessoryIndex: number,
+    patch: Partial<CustomProgramBuilderInput['sessions'][number]['accessories'][number]>,
+  ) => void
+  onAddAccessory: (sessionIndex: number) => void
+  onRemoveAccessory: (sessionIndex: number, accessoryIndex: number) => void
+}) {
+  return (
+    <div className="grid gap-3">
+      {draft.sessions.map((session, sessionIndex) => (
+        <div key={sessionIndex} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-extrabold">{session.title}</p>
+            <Button variant="default" onClick={() => onAddAccessory(sessionIndex)}>
+              <Plus size={14} />
+              Add
+            </Button>
+          </div>
+          <div className="mt-3 grid gap-2">
+            {session.accessories.map((accessory, accessoryIndex) => (
+              <div
+                key={accessoryIndex}
+                className="grid gap-2 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 lg:grid-cols-[minmax(10rem,1fr)_5rem_5rem_5rem_5rem_minmax(9rem,11rem)_auto] lg:items-end"
+              >
+                <BuilderSelect
+                  label="Movement"
+                  value={accessory.movementId}
+                  onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { movementId: value })}
+                  options={accessoryMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
+                />
+                <BuilderNumberField
+                  label="Sets"
+                  value={accessory.setCount}
+                  onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { setCount: value })}
+                />
+                <BuilderNumberField
+                  label="Min"
+                  value={accessory.repMin}
+                  onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { repMin: value })}
+                />
+                <BuilderNumberField
+                  label="Max"
+                  value={accessory.repMax}
+                  onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { repMax: value })}
+                />
+                <BuilderNumberField
+                  label="RIR"
+                  value={accessory.targetRir ?? 0}
+                  onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { targetRir: value })}
+                />
+                <BuilderSelect
+                  label="Method"
+                  value={draft.methodology === 'none' ? 'history_only' : accessory.progressionMethod}
+                  onChange={(value) =>
+                    onAccessoryChange(sessionIndex, accessoryIndex, {
+                      progressionMethod: value as 'history_only' | 'double_progression',
+                    })
+                  }
+                  disabled={draft.methodology === 'none'}
+                  options={[
+                    { value: 'history_only', label: 'History only' },
+                    { value: 'double_progression', label: 'Double progression' },
+                  ]}
+                />
+                <Button color="danger" variant="light" onClick={() => onRemoveAccessory(sessionIndex, accessoryIndex)}>
+                  <Trash2 size={14} />
+                </Button>
+              </div>
+            ))}
+            {!session.accessories.length ? (
+              <p className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 text-sm text-[var(--mantine-color-dimmed)]">
+                No accessories planned.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CustomReviewStep({ draft }: { draft: CustomProgramBuilderInput }) {
+  const methodology = customProgramMethodologies[draft.methodology]
+  const accessoryCount = draft.sessions.reduce((total, session) => total + session.accessories.length, 0)
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 md:grid-cols-4">
+        <ReviewMetric label="Method" value={methodology.shortLabel} />
+        <ReviewMetric label="Schedule" value={`${draft.daysPerWeek} days/wk`} />
+        <ReviewMetric label="Sessions" value={draft.sessions.length} />
+        <ReviewMetric label="Accessories" value={accessoryCount} />
+      </div>
+      <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+        <p className="text-sm font-extrabold">{draft.name}</p>
+        {draft.goal ? <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{draft.goal}</p> : null}
+        <div className="mt-3 grid gap-2">
+          {draft.sessions.map((session, index) => (
+            <div key={index} className="rounded-md bg-[var(--mantine-color-default)] px-3 py-2 text-sm">
+              <span className="font-bold">{session.title}</span>
+              <span className="text-[var(--mantine-color-dimmed)]"> · {getMovementName(session.mainMovementId)}</span>
+              {session.variationMovementId ? (
+                <span className="text-[var(--mantine-color-dimmed)]"> · {getMovementName(session.variationMovementId)}</span>
+              ) : null}
+              <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
+                {session.accessories.length} accessory {session.accessories.length === 1 ? 'slot' : 'slots'}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ReviewMetric({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{label}</p>
+      <p className="mt-1 text-sm font-extrabold">{value}</p>
+    </div>
+  )
+}
+
+function BuilderSelect({
+  label,
+  value,
+  options,
+  disabled = false,
+  onChange,
+}: {
+  label: string
+  value: string
+  options: Array<{ value: string; label: string }>
+  disabled?: boolean
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{label}</span>
+      <select
+        className="min-h-10 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 text-sm disabled:opacity-60"
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option.value || 'none'} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function BuilderNumberField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: number
+  onChange: (value: number) => void
+}) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{label}</span>
+      <TextInput
+        type="number"
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
   )
 }
 
@@ -523,6 +1167,7 @@ export function ProgramCustomizationDraftWizard({
             units={units}
             rounding={rounding}
             anchors={anchors}
+            requiredAnchors={anchors.map((anchor) => anchor.movementId)}
             onAnchorsChange={onAnchorsChange}
           />
         ) : isSetupLoading ? (
@@ -594,13 +1239,19 @@ function BasicsStep({
   units,
   rounding,
   anchors,
+  requiredAnchors,
   onAnchorsChange,
 }: {
   units: Unit
   rounding: number
   anchors: AnchorInput[]
+  requiredAnchors: string[]
   onAnchorsChange: Dispatch<SetStateAction<AnchorInput[]>>
 }) {
+  const visibleAnchors = requiredAnchors.length
+    ? requiredAnchors.map((movementId) => anchors.find((anchor) => anchor.movementId === movementId)).filter(Boolean) as AnchorInput[]
+    : []
+
   return (
     <div className="grid gap-4">
       <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
@@ -627,44 +1278,53 @@ function BasicsStep({
           Edit in Settings
         </a>
       </div>
-      <div className="grid gap-2">
-        <div>
-          <p className="vf-section-label">Starting anchors</p>
-          <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
-            Enter the training max used to calculate the first block of prescribed loads.
+      {requiredAnchors.length ? (
+        <div className="grid gap-2">
+          <div>
+            <p className="vf-section-label">Starting anchors</p>
+            <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
+              Enter the training max used to calculate the first block of prescribed loads.
+            </p>
+          </div>
+          {visibleAnchors.map((anchor) => (
+            <label
+              key={anchor.movementId}
+              className="grid gap-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-center"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-extrabold text-[var(--mantine-color-text)]">{getMovementName(anchor.movementId)}</span>
+                <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+                  {anchor.anchorType.replaceAll('_', ' ')}
+                </span>
+              </span>
+              <span className="relative block">
+                <TextInput
+                  classNames={{ input: 'pr-12 text-right' }}
+                  type="number"
+                  value={anchor.value}
+                  onChange={(event) =>
+                    onAnchorsChange((current) =>
+                      current.map((item) =>
+                        item.movementId === anchor.movementId ? { ...item, value: Number(event.target.value) } : item,
+                      ),
+                    )
+                  }
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--mantine-color-dimmed)]">
+                  {units}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+          <p className="vf-section-label">No starting anchors</p>
+          <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">
+            This programme uses user-selected loads and history-only logging.
           </p>
         </div>
-        {anchors.map((anchor) => (
-          <label
-            key={anchor.movementId}
-            className="grid gap-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-center"
-          >
-            <span className="min-w-0">
-              <span className="block text-sm font-extrabold text-[var(--mantine-color-text)]">{getMovementName(anchor.movementId)}</span>
-              <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
-                {anchor.anchorType.replaceAll('_', ' ')}
-              </span>
-            </span>
-            <span className="relative block">
-              <TextInput
-                classNames={{ input: 'pr-12 text-right' }}
-                type="number"
-                value={anchor.value}
-                onChange={(event) =>
-                  onAnchorsChange((current) =>
-                    current.map((item) =>
-                      item.movementId === anchor.movementId ? { ...item, value: Number(event.target.value) } : item,
-                    ),
-                  )
-                }
-              />
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--mantine-color-dimmed)]">
-                {units}
-              </span>
-            </span>
-          </label>
-        ))}
-      </div>
+      )}
     </div>
   )
 }

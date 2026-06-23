@@ -49,6 +49,7 @@ export type ProgramTemplateSummary = {
   progressionLabel: string
   complexity: string
   tags: string[]
+  requiredAnchors: string[]
   available: boolean
 }
 

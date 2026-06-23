@@ -89,11 +89,10 @@ Add a guided custom programme builder that lets users create constrained program
 
 - Add `Create programme` entry point on the templates/programmes page.
 - Use a guided builder with these steps:
-  - Goal and methodology: choose `5/3/1-style`, `Bromley base/peak`, or `Simple linear progression`.
+  - Goal and methodology: choose `None (logger only)`, `5/3/1-style`, `Bromley base/peak`, or `Simple linear progression`.
   - Schedule: choose 3 or 4 days per week.
-  - Main lift layout: choose from provided day templates.
-  - Supplemental/variation approach: choose from methodology-specific options.
-  - Accessory slots: choose categories and default movements from curated lists.
+  - Movements: choose day titles, main lift slots, optional variations, set count, and rep targets where the methodology allows it.
+  - Accessories: choose curated accessory movements, set count, rep targets, and optional accessory methodology.
   - Review and create.
 - After creation:
   - Save a user-owned template.
@@ -135,7 +134,12 @@ Add a guided custom programme builder that lets users create constrained program
 - `Simple linear progression`
   - 3 or 4 days/week.
   - Fixed sets/reps.
-  - Increment rules can be simple metadata first, with recommendations added later.
+  - Recommend anchor increases when all target work is completed at or above target reps and RIR.
+- `None (logger only)`
+  - Default methodology.
+  - No required anchors.
+  - All loads are user-selected.
+  - No automatic progression or auto-regulation decisions.
 
 ### Server API
 
@@ -151,6 +155,7 @@ Add a guided custom programme builder that lets users create constrained program
 
 - Keep `ProgramCustomizationDraftWizard` code available as a source for future builder screens, but do not expose its setup-time override flow from normal template start.
 - Create a new route or modal for custom programme creation.
+- Add info tooltips to every methodology card. The `None (logger only)` tooltip should say: `No automatic recommendations are created; workouts are logged for history only.`
 - Use the same cards, badges, and anchor start flow as normal templates once a custom programme exists.
 
 ### Acceptance Criteria

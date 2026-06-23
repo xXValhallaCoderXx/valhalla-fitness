@@ -1,0 +1,149 @@
+import { describe, expect, it } from 'vitest'
+import {
+  buildCustomProgramTemplateDefinition,
+  createDefaultCustomProgramBuilderInput,
+  type CustomProgramMethodology,
+} from '../src/lib/custom-templates'
+import { buildProgressionDecisionsForSession } from '../src/lib/progression-decisions'
+import { expandPlannedSession } from '../src/lib/templates'
+import { validateTemplateDefinition, type TemplateDefinition } from '../src/lib/template-engine'
+import type { ProgramInstance, WorkoutSession } from '../src/types/training'
+
+function build(methodology: CustomProgramMethodology, templateId = `custom-${methodology}`) {
+  return buildCustomProgramTemplateDefinition({
+    templateId,
+    input: createDefaultCustomProgramBuilderInput({ methodology, daysPerWeek: methodology === '531' ? 4 : 3 }),
+  })
+}
+
+function programFor(definition: TemplateDefinition): ProgramInstance {
+  return {
+    id: 'program-1',
+    templateId: definition.id,
+    templateVersionId: 'template-version-1',
+    title: definition.name,
+    status: 'active',
+    startDate: '2026-06-23',
+    units: 'kg',
+    rounding: 2.5,
+    currentWeekIndex: 0,
+    customizationStatus: 'default',
+    customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
+    anchors: definition.requiredAnchors.map((movementId) => ({
+      movementId,
+      anchorType: 'training_max',
+      value: 100,
+    })),
+    templateDefinition: definition,
+  }
+}
+
+function completeMainWork(session: WorkoutSession): WorkoutSession {
+  return {
+    ...session,
+    movements: session.movements.map((movement) =>
+      movement.role === 'main'
+        ? {
+            ...movement,
+            sets: movement.sets.map((set) => ({
+              ...set,
+              completed: true,
+              actualReps: set.targetReps ?? set.targetRepMin ?? 1,
+              actualRir: set.targetRir ?? 2,
+            })),
+          }
+        : movement,
+    ),
+  }
+}
+
+function firstSessionFor(definition: TemplateDefinition): WorkoutSession {
+  const planned = expandPlannedSession(programFor(definition), '2026-06-23', definition)
+  return {
+    ...planned,
+    sessionId: 'session-1',
+    status: 'in_progress',
+  }
+}
+
+describe('custom programme templates', () => {
+  it('generates valid template definitions for all supported methodologies', () => {
+    for (const methodology of ['none', '531', 'bromley', 'simple_linear'] as const) {
+      const generated = build(methodology)
+      expect(validateTemplateDefinition(generated.definition)).toMatchObject({ ok: true })
+      expect(generated.metadata.origin).toBe('user_created')
+      expect(generated.metadata.sourceLabel).toBe('Custom')
+    }
+  })
+
+  it('generates logger-only templates without anchors, progression rules, or calculated loads', () => {
+    const { definition, metadata } = build('none')
+    expect(definition.requiredAnchors).toEqual([])
+    expect(metadata.progressionLabel).toBe('Logger only')
+
+    const prescriptions = Object.values(definition.weeks[0]!.prescriptions)
+    expect(prescriptions.every((prescription) => !prescription.progressionRuleId)).toBe(true)
+    expect(
+      prescriptions
+        .flatMap((prescription) => prescription.sets)
+        .every((set) => set.targetLoad?.kind === 'user_selected'),
+    ).toBe(true)
+  })
+
+  it('rejects invalid movement ids before generating DSL', () => {
+    const input = createDefaultCustomProgramBuilderInput()
+    input.sessions[0]!.mainMovementId = 'not_a_movement'
+    expect(() =>
+      buildCustomProgramTemplateDefinition({
+        templateId: 'custom-invalid',
+        input,
+      }),
+    ).toThrow('Invalid main movement')
+  })
+
+  it('generates no progression decisions for logger-only sessions', () => {
+    const { definition } = build('none')
+    const program = programFor(definition)
+    const decisions = buildProgressionDecisionsForSession(
+      completeMainWork(firstSessionFor(definition)),
+      program,
+    )
+    expect(decisions).toEqual([])
+  })
+
+  it('uses movement progression rule ids for custom 5/3/1 decisions', () => {
+    const { definition } = build('531')
+    const program = programFor(definition)
+    const decisions = buildProgressionDecisionsForSession(
+      completeMainWork(firstSessionFor(definition)),
+      program,
+    )
+    expect(decisions.map((decision) => decision.ruleId)).toContain('healthy_531_tm_standard')
+  })
+
+  it('uses movement progression rule ids for custom Bromley plus-set decisions', () => {
+    const { definition } = build('bromley')
+    const program = programFor(definition)
+    const decisions = buildProgressionDecisionsForSession(
+      completeMainWork(firstSessionFor(definition)),
+      program,
+    )
+    expect(decisions.map((decision) => decision.ruleId)).toContain('bullmastiff_plus_set')
+  })
+
+  it('uses simple linear completion decisions for custom linear templates', () => {
+    const { definition } = build('simple_linear')
+    const program = programFor(definition)
+    const decisions = buildProgressionDecisionsForSession(
+      completeMainWork(firstSessionFor(definition)),
+      program,
+    )
+    expect(decisions).toContainEqual(
+      expect.objectContaining({
+        ruleId: 'simple_linear_completion',
+        previousAnchor: 100,
+        recommendedAnchor: 105,
+      }),
+    )
+  })
+})

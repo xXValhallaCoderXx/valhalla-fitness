@@ -28,6 +28,7 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     progressionLabel: 'TM progression + FSL',
     complexity: 'Intermediate',
     tags: ['5/3/1', 'base'],
+    requiredAnchors: ['squat', 'bench_press', 'deadlift', 'overhead_press'],
     available: true,
   },
   {
@@ -42,6 +43,7 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     progressionLabel: '18-week plus-set waves',
     complexity: 'Advanced',
     tags: ['bromley', 'base', 'high volume'],
+    requiredAnchors: ['squat', 'bench_press', 'deadlift', 'overhead_press'],
     available: true,
   },
   {
@@ -55,6 +57,7 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     progressionLabel: 'Base-to-peak waves',
     complexity: 'Advanced',
     tags: ['bromley', 'base', 'peak'],
+    requiredAnchors: ['squat', 'bench_press', 'deadlift', 'overhead_press'],
     available: true,
   },
   {
@@ -68,6 +71,7 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     progressionLabel: 'Alternating volume/intensity waves',
     complexity: 'Intermediate',
     tags: ['bromley', 'base'],
+    requiredAnchors: ['squat', 'bench_press', 'deadlift', 'overhead_press'],
     available: true,
   },
 ]

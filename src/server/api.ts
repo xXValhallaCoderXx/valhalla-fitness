@@ -49,12 +49,11 @@ import {
   type TemplateDefinition,
 } from '~/lib/template-engine'
 import {
-  e1rm,
-  evaluate531TmBand,
-  evaluateAccessoryDoubleProgression,
-  evaluateBullmastiffPlusSet,
-  mround,
-} from '~/lib/progression'
+  buildCustomProgramTemplateDefinition,
+  type CustomProgramBuilderInput,
+} from '~/lib/custom-templates'
+import { e1rm, mround } from '~/lib/progression'
+import { accessoryOutcomeSummary, buildProgressionDecisionsForSession } from '~/lib/progression-decisions'
 import { buildMovementSwapOptions, defaultMovementReplacementRules, getMovementName, movementCatalog } from '~/lib/movements'
 import {
   buildHistoryDashboard,
@@ -87,7 +86,7 @@ async function ensureProfile() {
   return data
 }
 
-function mapTemplateRow(row: any, available = true): ProgramTemplateSummary {
+function mapTemplateRow(row: any, available = true, definition?: TemplateDefinition | null): ProgramTemplateSummary {
   const origin: ProgramTemplateOrigin =
     row.origin ??
     (row.source === 'custom_import'
@@ -106,6 +105,7 @@ function mapTemplateRow(row: any, available = true): ProgramTemplateSummary {
     progressionLabel: row.progression_label,
     complexity: row.complexity,
     tags: row.tags ?? [],
+    requiredAnchors: definition?.requiredAnchors ?? [],
     available,
   }
 }
@@ -900,6 +900,7 @@ export const listTemplatesFn = createServerFn({ method: 'GET' }).handler(async (
   const { data, error } = await supabase
     .from('program_templates')
     .select('*')
+    .eq('is_active', true)
     .order('name', { ascending: true })
   if (error || !data?.length) return templateCatalog
 
@@ -916,7 +917,7 @@ export const listTemplatesFn = createServerFn({ method: 'GET' }).handler(async (
 
   const seeded = data.map((row: any) => {
     const validation = validateTemplateDefinition(latestByTemplateId.get(row.id)?.definition)
-    return mapTemplateRow(row, validation.ok)
+    return mapTemplateRow(row, validation.ok, validation.ok ? validation.definition : null)
   })
   const missing = templateCatalog.filter((template) => !seeded.some((row) => row.id === template.id))
   return [...seeded, ...missing]
@@ -1000,6 +1001,55 @@ function sanitizeSlotPart(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-')
 }
 
+function customTemplateId(userId: string, name: string) {
+  const slug = sanitizeSlotPart(name.toLowerCase()).replace(/^-|-$/g, '').slice(0, 32) || 'programme'
+  return `custom-${userId.slice(0, 8)}-${Date.now().toString(36)}-${slug}`
+}
+
+export const createCustomProgramTemplateFn = createServerFn({ method: 'POST' })
+  .validator((data: CustomProgramBuilderInput) => data)
+  .handler(async ({ data }): Promise<ProgramTemplateSummary> => {
+    await ensureProfile()
+    const { supabase, user } = await requireUser()
+    const catalog = await getMovementCatalogForSwap(supabase)
+    const generated = buildCustomProgramTemplateDefinition({
+      input: data,
+      templateId: customTemplateId(user.id, data.name),
+      catalog,
+    })
+
+    const { data: templateRow, error: templateError } = await supabase
+      .from('program_templates')
+      .insert({
+        id: generated.metadata.id,
+        name: generated.metadata.name,
+        source: 'custom_import',
+        origin: 'user_created',
+        created_by: user.id,
+        description: generated.metadata.description,
+        days_per_week: generated.metadata.daysPerWeek,
+        progression_label: generated.metadata.progressionLabel,
+        complexity: generated.metadata.complexity,
+        schema_version: generated.definition.schemaVersion,
+        tags: generated.metadata.tags,
+        is_active: true,
+      })
+      .select('*')
+      .single()
+    if (templateError) throw new Error(templateError.message)
+
+    const { error: versionError } = await supabase
+      .from('program_template_versions')
+      .insert({
+        template_id: generated.metadata.id,
+        version: '1',
+        definition: generated.definition,
+      })
+    if (versionError) throw new Error(versionError.message)
+
+    return mapTemplateRow(templateRow, true, generated.definition)
+  })
+
 function normalizeStartAccessoryAdditions(
   input: ProgramStartAccessoryAdditionInput[] | undefined,
   setupOptions: ProgramSetupOptions,
@@ -1077,7 +1127,7 @@ export const startProgramFn = createServerFn({ method: 'POST' })
         : 'default'
     const units = (data.units ?? profile.units) as Unit
     const rounding = data.rounding ?? Number(profile.rounding)
-    const anchors = data.anchors?.length ? data.anchors : defaultAnchors(units)
+    const anchors = data.anchors ? data.anchors : defaultAnchors(units)
     validateRequiredAnchors(templateVersion.definition, anchors)
 
     const { data: activePrograms, error: activeProgramError } = await supabase
@@ -1133,17 +1183,19 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       .single()
     if (error) throw new Error(error.message)
 
-    const { error: anchorError } = await supabase.from('program_anchors').insert(
-      anchors.map((anchor) => ({
-        user_id: user.id,
-        program_instance_id: instance.id,
-        movement_id: anchor.movementId,
-        anchor_type: anchor.anchorType,
-        value: anchor.value,
-        source: { kind: 'setup' },
-      })),
-    )
-    if (anchorError) throw new Error(anchorError.message)
+    if (anchors.length) {
+      const { error: anchorError } = await supabase.from('program_anchors').insert(
+        anchors.map((anchor) => ({
+          user_id: user.id,
+          program_instance_id: instance.id,
+          movement_id: anchor.movementId,
+          anchor_type: anchor.anchorType,
+          value: anchor.value,
+          source: { kind: 'setup' },
+        })),
+      )
+      if (anchorError) throw new Error(anchorError.message)
+    }
 
     if (movementOverrides.length) {
       const { error: overrideError } = await supabase.from('program_movement_overrides').insert(
@@ -1851,76 +1903,6 @@ function hasNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
-function hasCompletedReps(set: SetLog) {
-  return set.completed && hasNumber(set.actualReps)
-}
-
-function hasCompletedRepsAndRir(set: SetLog) {
-  return hasCompletedReps(set) && hasNumber(set.actualRir)
-}
-
-function hasCompleteAccessoryInputs(movement: MovementSlot) {
-  return movement.sets.length > 0 && movement.sets.every(hasCompletedRepsAndRir)
-}
-
-function accessoryOutcome(movement: MovementSlot) {
-  if (!hasCompleteAccessoryInputs(movement)) return 'Incomplete data - no recommendation'
-  const firstSet = movement.sets[0]
-  const targetRepMin = firstSet?.targetRepMin ?? firstSet?.targetReps ?? 8
-  const targetRepMax = firstSet?.targetRepMax ?? firstSet?.targetReps ?? targetRepMin
-  return evaluateAccessoryDoubleProgression(
-    movement.sets,
-    targetRepMin,
-    targetRepMax,
-    firstSet?.targetRir ?? 2,
-  )
-}
-
-function usesAccessoryAutoregulation(movement: MovementSlot) {
-  if (movement.progressionRuleId === 'accessory_double_progression') return true
-  return !movement.isAdded && movement.progressionRuleId == null
-}
-
-function accessoryOutcomeSummary(movement: MovementSlot) {
-  if (!usesAccessoryAutoregulation(movement)) return 'History only - no auto-regulation'
-  return accessoryOutcome(movement)
-}
-
-function buildDecisions(session: WorkoutSession, activeProgram: ProgramInstance) {
-  const decisions: ProgressionDecision[] = []
-  for (const movement of session.movements) {
-    if (movement.role === 'main') {
-      const anchor = activeProgram.anchors.find((item) => item.movementId === movement.movementId)
-      const topSetWithReps = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedReps(set))
-      const topSetWithRir = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedRepsAndRir(set))
-      if (topSetWithReps && anchor && session.templateId === 'bromley-bullmastiff') {
-        decisions.push(
-          evaluateBullmastiffPlusSet(topSetWithReps, topSetWithReps.targetReps ?? 1, anchor.value, activeProgram.rounding, movement.movementId),
-        )
-      }
-      if (topSetWithRir && anchor && session.templateId === 'healthy-531-fsl') {
-        decisions.push(evaluate531TmBand([topSetWithRir], anchor.value, activeProgram.rounding, movement.movementId))
-      }
-    }
-    if (movement.role === 'accessory' && usesAccessoryAutoregulation(movement) && hasCompleteAccessoryInputs(movement)) {
-      const outcome = accessoryOutcome(movement)
-      if (outcome === 'Add load next time') {
-        decisions.push({
-          id: `pending-accessory-${movement.movementId}`,
-          movementId: movement.movementId,
-          movementName: movement.movementName,
-          ruleId: 'accessory_double_progression',
-          scope: 'session',
-          status: 'pending',
-          inputSummary: `${movement.movementName} completed the top of the rep range.`,
-          recommendation: outcome,
-        })
-      }
-    }
-  }
-  return decisions
-}
-
 export const finishSessionFn = createServerFn({ method: 'POST' })
   .validator((data: { sessionId: string; notes?: string | null }) => data)
   .handler(async ({ data }): Promise<SessionSummary> => {
@@ -1930,7 +1912,7 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
     if (session.status === 'completed') throw new Error('Session is already finished')
     if (session.status !== 'in_progress') throw new Error('Only in-progress sessions can be finished')
     const { supabase, user } = await requireUser()
-    const decisions = buildDecisions(session, activeProgram)
+    const decisions = buildProgressionDecisionsForSession(session, activeProgram)
 
     const { error: finishError } = await supabase
       .from('workout_sessions')
