@@ -116,6 +116,7 @@ export function defaultProgramStateDefaults(unit: Unit = 'kg'): ProgramStateDefa
 
 export function defaultProgramStateRequirements(): ProgramStateRequirement[] {
   return [
+    ...requiredOneRepMaxState(['squat', 'bench_press', 'deadlift', 'overhead_press', 'barbell_row']),
     ...requiredTrainingMaxState(),
     ...requiredWorkingLoadState(['squat', 'bench_press', 'overhead_press', 'deadlift', 'barbell_row']),
   ]
@@ -159,6 +160,14 @@ function requiredTrainingMaxState(): ProgramStateRequirement[] {
     key: `${movementId}_training_max`,
     movementId,
     type: 'training_max',
+  }))
+}
+
+function requiredOneRepMaxState(movementIds: string[]): ProgramStateRequirement[] {
+  return movementIds.map((movementId) => ({
+    key: `${movementId}_one_rep_max`,
+    movementId,
+    type: 'one_rep_max',
   }))
 }
 

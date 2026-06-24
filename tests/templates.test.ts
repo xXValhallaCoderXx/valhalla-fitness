@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildAccessoryInitialSets, parseAccessoryRepTarget } from '../src/lib/accessories'
 import { movementCatalog } from '../src/lib/movements'
+import { buildProgramStartStateValues } from '../src/lib/program-loads'
 import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, programForNextUncompletedSession } from '../src/lib/templates'
 import { getFallbackTemplateDefinition, listFallbackTemplateDefinitions } from '../src/lib/template-definitions'
 import { findMissingTemplateMovementIds, validateRequiredState, validateTemplateDefinition } from '../src/lib/template-engine'
@@ -44,6 +45,47 @@ describe('planned session progression', () => {
 
     expect(stateValues.find((state) => state.key === 'squat_working_load')?.value).toBe(60)
     expect(stateValues.find((state) => state.key === 'bench_press_working_load')?.value).toBeNull()
+  })
+
+  it('derives programme working loads from saved e1RMs at start', () => {
+    const definition = getFallbackTemplateDefinition('generic_alternating_5x5_lp')
+    const stateValues = buildProgramStartStateValues({
+      unit: 'kg',
+      requiredState: definition.requiredState,
+      defaults: {
+        ...defaultProgramStateDefaults('kg'),
+        squat_one_rep_max: 100,
+        bench_press_one_rep_max: 82.5,
+        squat_training_max: 300,
+        squat_working_load: 999,
+      },
+      rounding: 2.5,
+      workingLoadPercent: 75,
+    })
+
+    expect(stateValues.find((state) => state.key === 'squat_working_load')?.value).toBe(75)
+    expect(stateValues.find((state) => state.key === 'bench_press_working_load')?.value).toBe(62.5)
+    expect(stateValues.find((state) => state.key === 'barbell_row_working_load')?.value).toBeNull()
+  })
+
+  it('derives programme training maxes from saved e1RMs at start', () => {
+    const definition = getFallbackTemplateDefinition('healthy-531-fsl')
+    const stateValues = buildProgramStartStateValues({
+      unit: 'kg',
+      requiredState: definition.requiredState,
+      defaults: {
+        ...defaultProgramStateDefaults('kg'),
+        squat_one_rep_max: 140,
+        bench_press_one_rep_max: 100,
+        squat_training_max: 999,
+      },
+      rounding: 2.5,
+      trainingMaxPercent: 90,
+    })
+
+    expect(stateValues.find((state) => state.key === 'squat_training_max')?.value).toBe(125)
+    expect(stateValues.find((state) => state.key === 'bench_press_training_max')?.value).toBe(90)
+    expect(stateValues.find((state) => state.key === 'deadlift_training_max')?.value).toBeNull()
   })
 
   it('validates all fallback template definitions', () => {

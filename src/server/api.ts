@@ -1221,12 +1221,15 @@ export const startProgramFn = createServerFn({ method: 'POST' })
         : 'default'
     const units = (data.units ?? profile.units) as Unit
     const rounding = data.rounding ?? Number(profile.rounding)
+    const profileStateDefaults = normalizeProgramStateDefaults(profile.program_state_defaults, units)
     const stateValues = data.stateValues
       ? data.stateValues
       : defaultStateValues(
           units,
-          templateVersion.definition.requiredState,
-          normalizeProgramStateDefaults(profile.program_state_defaults, units),
+          templateVersion.definition.requiredState.filter(
+            (state) => state.type !== 'training_max' && state.type !== 'working_load',
+          ),
+          profileStateDefaults,
         )
     const persistedStateValues = validProgramStateValues(templateVersion.definition, stateValues)
 

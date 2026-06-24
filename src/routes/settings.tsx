@@ -40,39 +40,19 @@ const themeOptions: Array<{
 
 const settingsSections = [
   { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
-  { id: 'programme-loads', label: 'Programme Loads', icon: Gauge },
+  { id: 'programme-loads', label: 'Strength Estimates', icon: Gauge },
   { id: 'equipment', label: 'Equipment', icon: Dumbbell },
   { id: 'data-sync', label: 'Data & Sync', icon: Cloud },
   { id: 'account', label: 'Account', icon: User },
 ]
 
-type LoadDefaultsTab = 'working_loads' | 'training_maxes'
+type KnownSetInput = {
+  weight: string
+  reps: string
+  rir: string
+}
 
-type LoadHelperState = {
-  key: string
-  label: string
-  type: 'working_load' | 'training_max'
-} | null
-
-const programmeLoadSections: Array<{
-  id: LoadDefaultsTab
-  label: string
-  description: string
-  keys: string[]
-}> = [
-  {
-    id: 'working_loads',
-    label: 'Working Loads',
-    description: 'Used by linear/current-load templates.',
-    keys: ['squat_working_load', 'bench_press_working_load', 'overhead_press_working_load', 'deadlift_working_load', 'barbell_row_working_load'],
-  },
-  {
-    id: 'training_maxes',
-    label: 'Training Maxes',
-    description: 'Conservative anchors for percentage and wave templates.',
-    keys: ['squat_training_max', 'bench_press_training_max', 'deadlift_training_max', 'overhead_press_training_max'],
-  },
-]
+const oneRepMaxKeys = ['squat_one_rep_max', 'bench_press_one_rep_max', 'deadlift_one_rep_max', 'overhead_press_one_rep_max', 'barbell_row_one_rep_max']
 
 export const Route = createFileRoute('/settings')({
   loader: async ({ context }) => {
@@ -118,8 +98,12 @@ function SettingsForm({ me }: { me: UserProfile }) {
   const [programStateDefaults, setProgramStateDefaults] = useState<ProgramStateDefaults>(
     me?.programStateDefaults ?? defaultProgramStateDefaults(me?.units ?? 'kg'),
   )
-  const [activeLoadTab, setActiveLoadTab] = useState<LoadDefaultsTab>('working_loads')
-  const [loadHelper, setLoadHelper] = useState<LoadHelperState>(null)
+  const [showOneRepMaxCalculator, setShowOneRepMaxCalculator] = useState(false)
+  const [knownSetInputs, setKnownSetInputs] = useState<Record<string, KnownSetInput>>(() =>
+    Object.fromEntries(
+      oneRepMaxKeys.map((key) => [key, { weight: '', reps: '', rir: '0' }]),
+    ),
+  )
 
   const hasPendingChanges = useMemo(
     () =>
@@ -192,7 +176,28 @@ function SettingsForm({ me }: { me: UserProfile }) {
     }))
   }
 
-  const activeLoadSection = programmeLoadSections.find((section) => section.id === activeLoadTab) ?? programmeLoadSections[0]!
+  const calculatedOneRepMaxes = useMemo(
+    () =>
+      Object.fromEntries(
+        oneRepMaxKeys.map((key) => [
+          key,
+          calculateOneRepMaxFromKnownSet(knownSetInputs[key], rounding),
+        ]),
+      ) as Record<string, number | null>,
+    [knownSetInputs, rounding],
+  )
+  const hasCalculatedOneRepMaxes = Object.values(calculatedOneRepMaxes).some((value) => hasLoadDefault(value))
+
+  const applyCalculatedOneRepMaxes = () => {
+    setProgramStateDefaults((current) => {
+      const next = { ...current }
+      for (const [key, value] of Object.entries(calculatedOneRepMaxes)) {
+        if (hasLoadDefault(value)) next[key] = value
+      }
+      return next
+    })
+    setShowOneRepMaxCalculator(false)
+  }
 
   const signOutMutation = useMutation({
     mutationFn: async () => {
@@ -322,39 +327,30 @@ function SettingsForm({ me }: { me: UserProfile }) {
 
           <section id="programme-loads" className="scroll-mt-24">
             <div className="mb-2">
-              <h2 className="text-sm font-extrabold">Programme Loads</h2>
+              <h2 className="text-sm font-extrabold">Strength Estimates</h2>
               <p className="text-[10px] text-[var(--mantine-color-dimmed)]">
-                New programmes copy only the loads their methodology requires. Active programmes keep their own saved values.
+                Saved estimated 1RMs are used to suggest starting values when you begin a programme.
               </p>
             </div>
             <Card className="space-y-4 p-4">
-              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar sm:flex-wrap sm:overflow-visible sm:pb-0">
-                {programmeLoadSections.map((section) => (
-                  <button
-                    key={section.id}
-                    type="button"
-                    className={`min-h-9 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-bold transition ${
-                      activeLoadTab === section.id
-                        ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-primary-color-filled)] text-white'
-                        : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)] hover:border-[var(--vf-action-border)] hover:text-[var(--mantine-color-text)]'
-                    }`}
-                    onClick={() => setActiveLoadTab(section.id)}
-                  >
-                    {section.label}
-                  </button>
-                ))}
-              </div>
-
               <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-                <div className="mb-3">
-                  <p className="vf-section-label">{activeLoadSection.label}</p>
-                  <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{activeLoadSection.description}</p>
+                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="vf-section-label">Estimated 1RMs</p>
+                    <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+                      Enter a current strength estimate for each main lift. Programme-specific training maxes and
+                      working loads are derived later on the start screen.
+                    </p>
+                  </div>
+                  <Button variant="default" size="xs" onClick={() => setShowOneRepMaxCalculator(true)}>
+                    <Calculator size={14} />
+                    Calculate from known sets
+                  </Button>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {activeLoadSection.keys.map((key) => {
+                  {oneRepMaxKeys.map((key) => {
                     const value = programStateDefaults[key] ?? null
-                    const label = startingLoadLabel(key)
-                    const type = key.endsWith('_training_max') ? 'training_max' : 'working_load'
+                    const label = strengthEstimateLabel(key)
                     return (
                       <div key={key} className="grid gap-1">
                         <div className="flex items-center justify-between gap-2">
@@ -385,18 +381,14 @@ function SettingsForm({ me }: { me: UserProfile }) {
                             <X size={14} />
                           </button>
                         </span>
-                        <Button
-                          variant="default"
-                          size="xs"
-                          onClick={() => setLoadHelper({ key, label, type })}
-                        >
-                          <Calculator size={14} />
-                          Helper
-                        </Button>
                       </div>
                     )
                   })}
                 </div>
+                <p className="mt-3 text-[11px] leading-relaxed text-[var(--mantine-color-dimmed)]">
+                  These estimates are global defaults. Active programmes keep their own load values after start, and
+                  history can still show e1RM trends from logged sets.
+                </p>
               </div>
             </Card>
           </section>
@@ -469,146 +461,111 @@ function SettingsForm({ me }: { me: UserProfile }) {
         </div>
       </div>
 
-      <LoadHelperModal
-        helper={loadHelper}
+      <OneRepMaxCalculatorModal
+        opened={showOneRepMaxCalculator}
+        keys={oneRepMaxKeys}
         units={units}
-        rounding={rounding}
-        onApply={(key, value) => updateProgramStateDefault(key, value)}
-        onClose={() => setLoadHelper(null)}
+        knownSetInputs={knownSetInputs}
+        calculatedValues={calculatedOneRepMaxes}
+        canApply={hasCalculatedOneRepMaxes}
+        onKnownSetChange={(key, field, value) =>
+          setKnownSetInputs((current) => ({
+            ...current,
+            [key]: {
+              ...(current[key] ?? { weight: '', reps: '', rir: '0' }),
+              [field]: value,
+            },
+          }))
+        }
+        onApply={applyCalculatedOneRepMaxes}
+        onClose={() => setShowOneRepMaxCalculator(false)}
       />
     </Page>
   )
 }
 
-function LoadHelperModal({
-  helper,
+function OneRepMaxCalculatorModal({
+  opened,
+  keys,
   units,
-  rounding,
+  knownSetInputs,
+  calculatedValues,
+  canApply,
+  onKnownSetChange,
   onApply,
   onClose,
 }: {
-  helper: LoadHelperState
+  opened: boolean
+  keys: string[]
   units: Unit
-  rounding: number
-  onApply: (key: string, value: number) => void
+  knownSetInputs: Record<string, KnownSetInput>
+  calculatedValues: Record<string, number | null>
+  canApply: boolean
+  onKnownSetChange: (key: string, field: keyof KnownSetInput, value: string) => void
+  onApply: () => void
   onClose: () => void
 }) {
   return (
-    <Modal opened={Boolean(helper)} onClose={onClose} title={helper?.type === 'training_max' ? 'Estimate training max' : 'Set working load'} size="md">
-      {helper ? (
-        <LoadHelperForm
-          key={helper.key}
-          helper={helper}
-          units={units}
-          rounding={rounding}
-          onApply={onApply}
-          onClose={onClose}
-        />
-      ) : null}
+    <Modal opened={opened} onClose={onClose} title="Calculate estimated 1RMs" size="xl">
+      <div className="space-y-4">
+        <div>
+          <p className="text-sm font-extrabold">Set your estimated 1RMs</p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+            Enter a recent hard set and Sheetless will estimate a one-rep max for each lift.
+          </p>
+          <p className="mt-2 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">
+            These estimates help future programmes suggest starting values. They are not live values for active programmes.
+          </p>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {keys.map((key) => {
+            const movementId = key.replace(/_one_rep_max$/, '')
+            const input = knownSetInputs[key] ?? { weight: '', reps: '', rir: '0' }
+            const calculated = calculatedValues[key]
+            return (
+              <div key={key} className="grid gap-2 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+                <p className="text-sm font-extrabold">{getMovementName(movementId)}</p>
+                <TextInput
+                  type="number"
+                  label="Load"
+                  value={input.weight}
+                  rightSection={<span className="text-xs font-bold text-[var(--mantine-color-dimmed)]">{units}</span>}
+                  onChange={(event) => onKnownSetChange(key, 'weight', event.target.value)}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <TextInput
+                    type="number"
+                    label="Reps"
+                    value={input.reps}
+                    onChange={(event) => onKnownSetChange(key, 'reps', event.target.value)}
+                  />
+                  <TextInput
+                    type="number"
+                    label="RIR"
+                    value={input.rir}
+                    onChange={(event) => onKnownSetChange(key, 'rir', event.target.value)}
+                  />
+                </div>
+                <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Estimated 1RM</p>
+                  <p className="mt-0.5 text-sm font-extrabold">
+                    {hasLoadDefault(calculated) ? `${formatLoadDefault(calculated)} ${units}` : 'Unset'}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="flex justify-end">
+          <Button disabled={!canApply} onClick={onApply}>
+            <Calculator size={14} />
+            Apply estimated 1RMs
+          </Button>
+        </div>
+      </div>
     </Modal>
-  )
-}
-
-function LoadHelperForm({
-  helper,
-  units,
-  rounding,
-  onApply,
-  onClose,
-}: {
-  helper: NonNullable<LoadHelperState>
-  units: Unit
-  rounding: number
-  onApply: (key: string, value: number) => void
-  onClose: () => void
-}) {
-  const [knownLoad, setKnownLoad] = useState('')
-  const [knownReps, setKnownReps] = useState('5')
-  const [knownRir, setKnownRir] = useState('1')
-  const [workingLoad, setWorkingLoad] = useState('')
-  const knownLoadValue = loadDefaultFromInput(knownLoad)
-  const knownRepsValue = integerFromInput(knownReps)
-  const knownRirValue = numberFromInput(knownRir)
-  const estimatedMax =
-    helper.type === 'training_max' && knownLoadValue && knownRepsValue
-      ? e1rm(knownLoadValue, knownRepsValue, knownRirValue ?? 0)
-      : null
-  const trainingMaxSuggestion = estimatedMax ? mround(estimatedMax * 0.9, rounding) : null
-  const workingLoadSuggestion = loadDefaultFromInput(workingLoad)
-  const suggestion = helper.type === 'training_max' ? trainingMaxSuggestion : workingLoadSuggestion
-
-  const applySuggestion = () => {
-    if (!suggestion) return
-    onApply(helper.key, suggestion)
-    onClose()
-  }
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm font-extrabold">{helper.label}</p>
-        <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
-          {helper.type === 'training_max'
-            ? 'Use a known set to estimate e1RM, then copy a conservative 90% training max rounded to your profile setting.'
-            : 'Use the load you can currently use for the planned work. Linear templates copy this as the starting working load.'}
-        </p>
-      </div>
-
-      {helper.type === 'training_max' ? (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <TextInput
-            type="number"
-            label="Known load"
-            value={knownLoad}
-            rightSection={<span className="text-xs font-bold text-[var(--mantine-color-dimmed)]">{units}</span>}
-            onChange={(event) => setKnownLoad(event.target.value)}
-          />
-          <TextInput
-            type="number"
-            label="Reps"
-            value={knownReps}
-            onChange={(event) => setKnownReps(event.target.value)}
-          />
-          <TextInput
-            type="number"
-            label="RIR"
-            value={knownRir}
-            onChange={(event) => setKnownRir(event.target.value)}
-          />
-        </div>
-      ) : (
-        <TextInput
-          type="number"
-          label="Current working load"
-          value={workingLoad}
-          rightSection={<span className="text-xs font-bold text-[var(--mantine-color-dimmed)]">{units}</span>}
-          onChange={(event) => setWorkingLoad(event.target.value)}
-        />
-      )}
-
-      <div className="grid gap-2 sm:grid-cols-2">
-        {helper.type === 'training_max' ? (
-          <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Estimated 1RM</p>
-            <p className="mt-1 text-sm font-extrabold">
-              {estimatedMax ? `${formatLoadDefault(mround(estimatedMax, rounding))} ${units}` : 'Enter a set'}
-            </p>
-          </div>
-        ) : null}
-        <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Suggested value</p>
-          <p className="mt-1 text-sm font-extrabold">{suggestion ? `${formatLoadDefault(suggestion)} ${units}` : 'Unset'}</p>
-        </div>
-      </div>
-
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button variant="default" onClick={onClose}>Cancel</Button>
-        <Button disabled={!suggestion} onClick={applySuggestion}>
-          <Calculator size={14} />
-          Apply
-        </Button>
-      </div>
-    </div>
   )
 }
 
@@ -627,7 +584,7 @@ function sameNumberRecord(left: ProgramStateDefaults, right: ProgramStateDefault
   return true
 }
 
-function hasLoadDefault(value: number | null) {
+function hasLoadDefault(value: number | null | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
 
@@ -637,26 +594,29 @@ function loadDefaultFromInput(value: string) {
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null
 }
 
-function numberFromInput(value: string) {
-  if (!value.trim()) return null
-  const numeric = Number(value)
-  return Number.isFinite(numeric) ? numeric : null
+function calculateEstimatedOneRepMax(input: KnownSetInput | undefined) {
+  if (!input) return null
+  const weight = loadDefaultFromInput(input.weight)
+  const reps = loadDefaultFromInput(input.reps)
+  if (!weight || !reps) return null
+  const rir = loadDefaultFromInput(input.rir) ?? 0
+  const estimated = e1rm(weight, reps, rir)
+  return hasLoadDefault(estimated) ? estimated : null
 }
 
-function integerFromInput(value: string) {
-  const numeric = numberFromInput(value)
-  if (numeric === null || numeric <= 0) return null
-  return Math.round(numeric)
+function calculateOneRepMaxFromKnownSet(input: KnownSetInput | undefined, rounding: number) {
+  const estimated = calculateEstimatedOneRepMax(input)
+  if (!estimated) return null
+  return mround(estimated, rounding)
 }
 
 function formatLoadDefault(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }
 
-function startingLoadLabel(key: string) {
-  const type = key.endsWith('_training_max') ? 'training max' : 'working load'
-  const movementId = key.replace(/_(training_max|working_load)$/, '')
-  return `${getMovementName(movementId)} ${type}`
+function strengthEstimateLabel(key: string) {
+  const movementId = key.replace(/_one_rep_max$/, '')
+  return `${getMovementName(movementId)} estimated 1RM`
 }
 
 function formatEquipmentLabel(value: string) {
