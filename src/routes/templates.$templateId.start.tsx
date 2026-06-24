@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Badge, Button, Card, Modal, Slider, TextInput } from '@mantine/core'
+import { Badge, Button, Card, Modal, Popover, Slider, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { ArrowLeft, Check, Info, Lock, Plus, RotateCcw, Settings, Trash2 } from 'lucide-react'
@@ -305,7 +305,6 @@ function LoadedTemplateStartRoute({
     setStartError(null)
     if (missingRequiredState.length) {
       setStartError(missingRequiredLoadMessage(missingRequiredState))
-      setShowDefaultsModal(true)
       return
     }
     if (shouldConfirmProgramStart(today)) {
@@ -320,7 +319,6 @@ function LoadedTemplateStartRoute({
     if (missingRequiredState.length) {
       setStartError(missingRequiredLoadMessage(missingRequiredState))
       setShowSwitchConfirm(false)
-      setShowDefaultsModal(true)
       return
     }
     startMutation.mutate({ replaceActiveProgram: true })
@@ -444,10 +442,11 @@ function LoadedTemplateStartRoute({
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
-              <Button variant="default" onClick={() => setShowDefaultsModal(true)}>
-                <Settings size={14} />
-                Loads
-              </Button>
+              <SetupValuesButton
+                disabled={missingRequiredState.length > 0}
+                label="Values"
+                onClick={() => setShowDefaultsModal(true)}
+              />
               <Button disabled={startMutation.isPending || missingRequiredState.length > 0} onClick={requestStartProgram}>
                 <Check size={16} />
                 Start
@@ -764,6 +763,88 @@ function DayAccessoryAddForm({
   )
 }
 
+function SetupValuesButton({
+  className,
+  disabled,
+  fullWidth = false,
+  label,
+  onClick,
+}: {
+  className?: string
+  disabled: boolean
+  fullWidth?: boolean
+  label: string
+  onClick: () => void
+}) {
+  const buttonClassName = `${fullWidth ? 'w-full' : ''} ${disabled ? '' : className ?? ''}`.trim() || undefined
+  const button = (
+    <Button
+      variant="default"
+      className={buttonClassName}
+      disabled={disabled}
+      style={disabled ? { pointerEvents: 'none' } : undefined}
+      onClick={disabled ? undefined : onClick}
+    >
+      <Settings size={14} />
+      {label}
+    </Button>
+  )
+
+  if (!disabled) return button
+
+  return (
+    <Popover withArrow withinPortal position="top" width={280} shadow="md">
+      <Popover.Target>
+        <span className={`${fullWidth ? 'block w-full' : 'inline-flex'} ${className ?? ''}`.trim()}>
+          {button}
+        </span>
+      </Popover.Target>
+      <Popover.Dropdown>
+        <div className="space-y-3">
+          <p className="text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+            Set your estimated 1RMs in <StrengthEstimatesLink /> first. Sheetless uses them to suggest this
+            programme&apos;s starting values.
+          </p>
+          <Button component="a" href="/settings#programme-loads" size="xs" className="w-full">
+            <Settings size={14} />
+            Open Strength Estimates
+          </Button>
+        </div>
+      </Popover.Dropdown>
+    </Popover>
+  )
+}
+
+function MissingStrengthEstimatesNotice({
+  className,
+  stateValues,
+}: {
+  className: string
+  stateValues: ProgramStateInput[]
+}) {
+  const labels = stateValues.map((state) => getMovementName(state.movementId))
+  const programmeValue = programmeValueLabel(stateValues)
+
+  return (
+    <p className={className}>
+      Add {stateValues.length} strength estimate{stateValues.length === 1 ? '' : 's'}
+      {labels.length ? <> for {labels.join(', ')}</> : null} in <StrengthEstimatesLink /> before starting.
+      Sheetless uses them to suggest this programme&apos;s {programmeValue}.
+    </p>
+  )
+}
+
+function StrengthEstimatesLink({ children = 'Settings > Strength Estimates' }: { children?: ReactNode }) {
+  return (
+    <a
+      href="/settings#programme-loads"
+      className="font-extrabold text-[var(--vf-action-text)] underline underline-offset-2 hover:text-[var(--mantine-primary-color-filled)]"
+    >
+      {children}
+    </a>
+  )
+}
+
 function StartSummaryPanel({
   className,
   units,
@@ -796,7 +877,7 @@ function StartSummaryPanel({
   return (
     <Card className={`space-y-4 p-4 ${className ?? ''}`}>
       <div>
-        <p className="vf-section-label">Programme defaults</p>
+        <p className="vf-section-label">Starting values</p>
         <p className="mt-1 text-sm font-extrabold">{defaultsSummary(units, rounding, visibleState)}</p>
         <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
           {hasWorkingLoadState
@@ -805,10 +886,13 @@ function StartSummaryPanel({
               ? 'Training maxes are suggested from your saved e1RMs for this programme.'
               : 'New programmes keep programme-scoped values.'}
         </p>
-        <Button variant="default" className="mt-3 w-full" onClick={onViewDefaults}>
-          <Settings size={14} />
-          Set up loads
-        </Button>
+        <SetupValuesButton
+          className="mt-3"
+          disabled={missingRequiredState.length > 0}
+          fullWidth
+          label="Set up values"
+          onClick={onViewDefaults}
+        />
       </div>
 
       <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
@@ -825,9 +909,10 @@ function StartSummaryPanel({
       ) : null}
 
       {missingRequiredState.length ? (
-        <p className="rounded-md border border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-3 text-xs text-[var(--vf-warning-text)]">
-          Complete {missingRequiredState.length} required load{missingRequiredState.length === 1 ? '' : 's'} before starting.
-        </p>
+        <MissingStrengthEstimatesNotice
+          className="rounded-md border border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-3 text-xs text-[var(--vf-warning-text)]"
+          stateValues={missingRequiredState}
+        />
       ) : null}
 
       {startError ? (
@@ -876,12 +961,12 @@ function DefaultsModal({
   onClose: () => void
 }) {
   return (
-    <Modal opened={opened} onClose={onClose} title="Programme load setup" size="xl">
+    <Modal opened={opened} onClose={onClose} title="Programme start values" size="xl">
       <div className="space-y-4">
         <div className="grid gap-2 sm:grid-cols-3">
           <StartInfoMetric label="Units" value={units} />
           <StartInfoMetric label="Rounding" value={rounding} />
-          <StartInfoMetric label="Programme loads" value={visibleState.length || 'None'} />
+          <StartInfoMetric label="Programme values" value={visibleState.length || 'None'} />
         </div>
 
         {visibleState.length ? (
@@ -990,10 +1075,10 @@ function DefaultsModal({
                       {state.type === 'working_load'
                         ? oneRepMax
                           ? `Suggested from ${formatNumber(oneRepMax)} ${units} estimated 1RM. You can override it for this programme.`
-                          : 'No saved estimated 1RM was found for this movement. Enter a one-off working load to start.'
+                          : 'No saved estimated 1RM was found for this movement. Set it in Strength Estimates before choosing working loads.'
                         : oneRepMax
                           ? `Suggested from ${formatNumber(oneRepMax)} ${units} estimated 1RM. Editing it here will not change Settings.`
-                          : 'No saved estimated 1RM was found for this movement. Enter a one-off training max to start.'}
+                          : 'No saved estimated 1RM was found for this movement. Set it in Strength Estimates before choosing training maxes.'}
                     </p>
                   </div>
                 )
@@ -1002,21 +1087,22 @@ function DefaultsModal({
           </div>
         ) : (
           <p className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 text-sm text-[var(--mantine-color-dimmed)]">
-            This programme does not need saved starting loads. Loads can be selected while logging.
+            This programme does not need saved strength estimates. Loads can be selected while logging.
           </p>
         )}
 
         {missingRequiredState.length ? (
-          <p className="rounded-md border border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-3 text-sm text-[var(--vf-warning-text)]">
-            {missingRequiredLoadMessage(missingRequiredState)}
-          </p>
+          <MissingStrengthEstimatesNotice
+            className="rounded-md border border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-3 text-sm text-[var(--vf-warning-text)]"
+            stateValues={missingRequiredState}
+          />
         ) : null}
 
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="default" onClick={onClose}>Close</Button>
           <Button component="a" href="/settings#programme-loads" onClick={onClose}>
             <Settings size={14} />
-            Open Settings
+            Open Strength Estimates
           </Button>
         </div>
       </div>
@@ -1125,17 +1211,23 @@ function formatNumber(value: number) {
 
 function defaultsSummary(units: Unit, rounding: number, stateValues: ProgramStateInput[]) {
   const missingCount = stateValues.filter((state) => !hasUsableStateValue(state.value)).length
-  const loadSummary = stateValues.length
+  const valueSummary = stateValues.length
     ? missingCount
-      ? `${missingCount} load${missingCount === 1 ? '' : 's'} unset`
-      : `${stateValues.length} starting load${stateValues.length === 1 ? '' : 's'} saved`
-    : 'no starting loads required'
-  return `${units} - round ${rounding} - ${loadSummary}`
+      ? `${missingCount} value${missingCount === 1 ? '' : 's'} unset`
+      : `${stateValues.length} starting value${stateValues.length === 1 ? '' : 's'} ready`
+    : 'no starting values required'
+  return `${units} - round ${rounding} - ${valueSummary}`
 }
 
 function missingRequiredLoadMessage(stateValues: ProgramStateInput[]) {
-  const labels = stateValues.map((state) => `${getMovementName(state.movementId)} ${state.type.replaceAll('_', ' ')}`)
-  return `Missing required programme load${labels.length === 1 ? '' : 's'}: ${labels.join(', ')}.`
+  const labels = stateValues.map((state) => getMovementName(state.movementId))
+  return `Missing strength estimate${labels.length === 1 ? '' : 's'} for ${labels.join(', ')}. Open Settings > Strength Estimates before choosing programme ${programmeValueLabel(stateValues)}.`
+}
+
+function programmeValueLabel(stateValues: ProgramStateInput[]) {
+  if (stateValues.some((state) => state.type === 'working_load')) return 'working loads'
+  if (stateValues.some((state) => state.type === 'training_max')) return 'training maxes'
+  return 'starting values'
 }
 
 function compactWeekPreviewOptions(weeks: ProgramSetupOptions['previewWeeks']): WeekPreviewOption[] {

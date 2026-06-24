@@ -99,11 +99,8 @@ function SettingsForm({ me }: { me: UserProfile }) {
     me?.programStateDefaults ?? defaultProgramStateDefaults(me?.units ?? 'kg'),
   )
   const [showOneRepMaxCalculator, setShowOneRepMaxCalculator] = useState(false)
-  const [knownSetInputs, setKnownSetInputs] = useState<Record<string, KnownSetInput>>(() =>
-    Object.fromEntries(
-      oneRepMaxKeys.map((key) => [key, { weight: '', reps: '', rir: '0' }]),
-    ),
-  )
+  const [selectedOneRepMaxKey, setSelectedOneRepMaxKey] = useState(oneRepMaxKeys[0]!)
+  const [knownSetInput, setKnownSetInput] = useState<KnownSetInput>({ weight: '', reps: '', rir: '0' })
 
   const hasPendingChanges = useMemo(
     () =>
@@ -176,25 +173,19 @@ function SettingsForm({ me }: { me: UserProfile }) {
     }))
   }
 
-  const calculatedOneRepMaxes = useMemo(
-    () =>
-      Object.fromEntries(
-        oneRepMaxKeys.map((key) => [
-          key,
-          calculateOneRepMaxFromKnownSet(knownSetInputs[key], rounding),
-        ]),
-      ) as Record<string, number | null>,
-    [knownSetInputs, rounding],
+  const calculatedOneRepMax = useMemo(
+    () => calculateOneRepMaxFromKnownSet(knownSetInput, rounding),
+    [knownSetInput, rounding],
   )
-  const hasCalculatedOneRepMaxes = Object.values(calculatedOneRepMaxes).some((value) => hasLoadDefault(value))
+  const hasCalculatedOneRepMax = hasLoadDefault(calculatedOneRepMax)
 
-  const applyCalculatedOneRepMaxes = () => {
+  const applyCalculatedOneRepMax = () => {
+    if (!hasLoadDefault(calculatedOneRepMax)) return
     setProgramStateDefaults((current) => {
-      const next = { ...current }
-      for (const [key, value] of Object.entries(calculatedOneRepMaxes)) {
-        if (hasLoadDefault(value)) next[key] = value
+      return {
+        ...current,
+        [selectedOneRepMaxKey]: calculatedOneRepMax,
       }
-      return next
     })
     setShowOneRepMaxCalculator(false)
   }
@@ -464,20 +455,19 @@ function SettingsForm({ me }: { me: UserProfile }) {
       <OneRepMaxCalculatorModal
         opened={showOneRepMaxCalculator}
         keys={oneRepMaxKeys}
+        selectedKey={selectedOneRepMaxKey}
         units={units}
-        knownSetInputs={knownSetInputs}
-        calculatedValues={calculatedOneRepMaxes}
-        canApply={hasCalculatedOneRepMaxes}
-        onKnownSetChange={(key, field, value) =>
-          setKnownSetInputs((current) => ({
+        knownSetInput={knownSetInput}
+        calculatedValue={calculatedOneRepMax}
+        canApply={hasCalculatedOneRepMax}
+        onSelectedKeyChange={setSelectedOneRepMaxKey}
+        onKnownSetChange={(field, value) =>
+          setKnownSetInput((current) => ({
             ...current,
-            [key]: {
-              ...(current[key] ?? { weight: '', reps: '', rir: '0' }),
-              [field]: value,
-            },
+            [field]: value,
           }))
         }
-        onApply={applyCalculatedOneRepMaxes}
+        onApply={applyCalculatedOneRepMax}
         onClose={() => setShowOneRepMaxCalculator(false)}
       />
     </Page>
@@ -487,81 +477,97 @@ function SettingsForm({ me }: { me: UserProfile }) {
 function OneRepMaxCalculatorModal({
   opened,
   keys,
+  selectedKey,
   units,
-  knownSetInputs,
-  calculatedValues,
+  knownSetInput,
+  calculatedValue,
   canApply,
+  onSelectedKeyChange,
   onKnownSetChange,
   onApply,
   onClose,
 }: {
   opened: boolean
   keys: string[]
+  selectedKey: string
   units: Unit
-  knownSetInputs: Record<string, KnownSetInput>
-  calculatedValues: Record<string, number | null>
+  knownSetInput: KnownSetInput
+  calculatedValue: number | null
   canApply: boolean
-  onKnownSetChange: (key: string, field: keyof KnownSetInput, value: string) => void
+  onSelectedKeyChange: (key: string) => void
+  onKnownSetChange: (field: keyof KnownSetInput, value: string) => void
   onApply: () => void
   onClose: () => void
 }) {
+  const selectedMovementId = selectedKey.replace(/_one_rep_max$/, '')
+  const selectedMovementName = getMovementName(selectedMovementId)
+
   return (
-    <Modal opened={opened} onClose={onClose} title="Calculate estimated 1RMs" size="xl">
+    <Modal opened={opened} onClose={onClose} title="Calculate estimated 1RM" size="lg">
       <div className="space-y-4">
         <div>
-          <p className="text-sm font-extrabold">Set your estimated 1RMs</p>
+          <p className="text-sm font-extrabold">Calculate from a known set</p>
           <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
-            Enter a recent hard set and Sheetless will estimate a one-rep max for each lift.
+            Choose the lift, enter a recent hard set, then apply the estimated one-rep max to that lift.
           </p>
           <p className="mt-2 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">
             These estimates help future programmes suggest starting values. They are not live values for active programmes.
           </p>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {keys.map((key) => {
-            const movementId = key.replace(/_one_rep_max$/, '')
-            const input = knownSetInputs[key] ?? { weight: '', reps: '', rir: '0' }
-            const calculated = calculatedValues[key]
-            return (
-              <div key={key} className="grid gap-2 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-                <p className="text-sm font-extrabold">{getMovementName(movementId)}</p>
-                <TextInput
-                  type="number"
-                  label="Load"
-                  value={input.weight}
-                  rightSection={<span className="text-xs font-bold text-[var(--mantine-color-dimmed)]">{units}</span>}
-                  onChange={(event) => onKnownSetChange(key, 'weight', event.target.value)}
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <TextInput
-                    type="number"
-                    label="Reps"
-                    value={input.reps}
-                    onChange={(event) => onKnownSetChange(key, 'reps', event.target.value)}
-                  />
-                  <TextInput
-                    type="number"
-                    label="RIR"
-                    value={input.rir}
-                    onChange={(event) => onKnownSetChange(key, 'rir', event.target.value)}
-                  />
-                </div>
-                <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Estimated 1RM</p>
-                  <p className="mt-0.5 text-sm font-extrabold">
-                    {hasLoadDefault(calculated) ? `${formatLoadDefault(calculated)} ${units}` : 'Unset'}
-                  </p>
-                </div>
-              </div>
-            )
-          })}
+        <div className="grid gap-3 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+          <label className="grid gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Lift</span>
+            <select
+              className="min-h-9 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2.5 text-sm font-semibold"
+              value={selectedKey}
+              onChange={(event) => onSelectedKeyChange(event.target.value)}
+            >
+              {keys.map((key) => {
+                const movementId = key.replace(/_one_rep_max$/, '')
+                return (
+                  <option key={key} value={key}>
+                    {getMovementName(movementId)}
+                  </option>
+                )
+              })}
+            </select>
+          </label>
+
+          <TextInput
+            type="number"
+            label="Load"
+            value={knownSetInput.weight}
+            rightSection={<span className="text-xs font-bold text-[var(--mantine-color-dimmed)]">{units}</span>}
+            onChange={(event) => onKnownSetChange('weight', event.target.value)}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <TextInput
+              type="number"
+              label="Reps"
+              value={knownSetInput.reps}
+              onChange={(event) => onKnownSetChange('reps', event.target.value)}
+            />
+            <TextInput
+              type="number"
+              label="RIR"
+              value={knownSetInput.rir}
+              onChange={(event) => onKnownSetChange('rir', event.target.value)}
+            />
+          </div>
+
+          <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Estimated 1RM</p>
+            <p className="mt-0.5 text-lg font-extrabold">
+              {hasLoadDefault(calculatedValue) ? `${formatLoadDefault(calculatedValue)} ${units}` : 'Unset'}
+            </p>
+          </div>
         </div>
 
         <div className="flex justify-end">
           <Button disabled={!canApply} onClick={onApply}>
             <Calculator size={14} />
-            Apply estimated 1RMs
+            Apply to {selectedMovementName}
           </Button>
         </div>
       </div>

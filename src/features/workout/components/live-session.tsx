@@ -804,6 +804,7 @@ function AddAccessoryModal({
 }) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null)
   const [progressionMethod, setProgressionMethod] = useState<AccessoryProgressionMethod>('history_only')
   const [methodHelpOpen, setMethodHelpOpen] = useState(false)
@@ -817,22 +818,27 @@ function AddAccessoryModal({
     enabled: open,
   })
   const options = useMemo(() => optionsQuery.data ?? [], [optionsQuery.data])
+  const categoryFilters = useMemo(() => buildAccessoryCategoryFilters(options), [options])
   const filteredOptions = useMemo(() => {
     const query = search.trim().toLowerCase()
-    if (!query) return options
+    const hasCategoryFilter = categoryFilter !== 'all'
     return options.filter((option) => {
       const equipment = option.equipment.join(' ').toLowerCase()
-      return (
+      const matchesCategory = !hasCategoryFilter || option.category === categoryFilter
+      const matchesSearch = !query || (
         option.movementName.toLowerCase().includes(query) ||
         option.category.toLowerCase().includes(query) ||
         equipment.includes(query)
       )
+      return matchesCategory && matchesSearch
     })
-  }, [options, search])
+  }, [categoryFilter, options, search])
+  const hasActiveAccessoryFilters = Boolean(search.trim() || categoryFilter !== 'all')
   const visibleSelectedMovementId = filteredOptions.some((option) => option.movementId === selectedMovementId)
     ? selectedMovementId
     : null
-  const effectiveSelectedMovementId = visibleSelectedMovementId ?? filteredOptions[0]?.movementId ?? options[0]?.movementId ?? null
+  const effectiveSelectedMovementId =
+    visibleSelectedMovementId ?? filteredOptions[0]?.movementId ?? (hasActiveAccessoryFilters ? null : options[0]?.movementId) ?? null
   const selectedOption = options.find((option) => option.movementId === effectiveSelectedMovementId) ?? null
   const phaseLabel = phaseScopeLabel(session)
   const repTargetInput = buildAccessoryRepTargetInput(repMin, repMax)
@@ -934,6 +940,27 @@ function AddAccessoryModal({
               input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)] !text-[var(--mantine-color-text)]',
             }}
           />
+          <AccessoryCategoryFilters
+            value={categoryFilter}
+            options={categoryFilters}
+            totalCount={options.length}
+            onChange={setCategoryFilter}
+          />
+          <div className="flex min-h-5 items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+            <span>{filteredOptions.length} movement{filteredOptions.length === 1 ? '' : 's'}</span>
+            {search.trim() || categoryFilter !== 'all' ? (
+              <button
+                type="button"
+                className="rounded px-1.5 py-0.5 text-[var(--vf-action-text)] transition hover:bg-[var(--vf-action-soft)]"
+                onClick={() => {
+                  setSearch('')
+                  setCategoryFilter('all')
+                }}
+              >
+                Clear filters
+              </button>
+            ) : null}
+          </div>
 
           {optionsQuery.isPending ? (
             <HistoryStatus>Loading accessory movements...</HistoryStatus>
@@ -1118,6 +1145,71 @@ function AccessoryOptionRow({
           {option.defaultUnit}
         </span>
       </div>
+    </button>
+  )
+}
+
+function AccessoryCategoryFilters({
+  value,
+  options,
+  totalCount,
+  onChange,
+}: {
+  value: string
+  options: Array<{ value: string; label: string; count: number }>
+  totalCount: number
+  onChange: (value: string) => void
+}) {
+  if (!options.length) return null
+
+  return (
+    <div className="-mx-1 overflow-x-auto px-1 pb-1">
+      <div className="flex w-max gap-1.5 sm:w-full sm:flex-wrap">
+        <AccessoryCategoryFilterButton
+          active={value === 'all'}
+          count={totalCount}
+          label="All"
+          onClick={() => onChange('all')}
+        />
+        {options.map((option) => (
+          <AccessoryCategoryFilterButton
+            key={option.value}
+            active={value === option.value}
+            count={option.count}
+            label={option.label}
+            onClick={() => onChange(option.value)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function AccessoryCategoryFilterButton({
+  active,
+  count,
+  label,
+  onClick,
+}: {
+  active: boolean
+  count: number
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      className={cn(
+        'inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-extrabold transition',
+        active
+          ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--vf-action-soft)] text-[var(--vf-action-text)]'
+          : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)] hover:border-[var(--vf-action-border)] hover:text-[var(--mantine-color-text)]',
+      )}
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      <span className="text-[10px] opacity-75">{count}</span>
     </button>
   )
 }
@@ -1698,6 +1790,30 @@ function formatNumber(value: number) {
 
 function formatCategoryLabel(value: string) {
   return formatEquipmentLabel(value)
+}
+
+const accessoryCategoryOrder = ['lower', 'hinge', 'posterior_chain', 'upper', 'upper_back', 'core']
+
+function buildAccessoryCategoryFilters(options: AccessoryMovementOption[]) {
+  const counts = new Map<string, number>()
+  for (const option of options) counts.set(option.category, (counts.get(option.category) ?? 0) + 1)
+
+  return Array.from(counts.entries())
+    .sort(([left], [right]) => {
+      const leftIndex = accessoryCategoryOrder.indexOf(left)
+      const rightIndex = accessoryCategoryOrder.indexOf(right)
+      if (leftIndex !== -1 || rightIndex !== -1) {
+        if (leftIndex === -1) return 1
+        if (rightIndex === -1) return -1
+        return leftIndex - rightIndex
+      }
+      return formatCategoryLabel(left).localeCompare(formatCategoryLabel(right))
+    })
+    .map(([value, count]) => ({
+      value,
+      count,
+      label: formatCategoryLabel(value),
+    }))
 }
 
 function formatEquipmentLabel(value: string) {
