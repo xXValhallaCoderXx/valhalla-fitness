@@ -2,7 +2,6 @@ import { createServerFn } from '@tanstack/react-start'
 import type {
   AccessoryMovementOption,
   AccessoryProgressionMethod,
-  AnchorInput,
   Movement,
   HistoryDashboard,
   MovementHistoryEntry,
@@ -16,9 +15,11 @@ import type {
   ProgramMovementOverride,
   ProgramOverview,
   ProgramRecentSessionSummary,
+  ProgramStateDefaults,
   ProgramSetupOptions,
   ProgramStartAccessoryAdditionInput,
   ProgramStartMovementOverrideInput,
+  ProgramStateInput,
   ProgramTemplateSummary,
   ProgramTemplateOrigin,
   RecentHistoryEntry,
@@ -41,10 +42,10 @@ import {
   isAccessoryProgressionMethod,
   parseAccessoryRepTarget,
 } from '~/lib/accessories'
-import { defaultAnchors, expandPlannedSession, getFallbackTemplateDefinition, programForNextUncompletedSession, templateCatalog } from '~/lib/templates'
+import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, getFallbackTemplateDefinition, programForNextUncompletedSession, templateCatalog } from '~/lib/templates'
 import {
   parseTemplateDefinition,
-  validateRequiredAnchors,
+  validateRequiredState,
   validateTemplateDefinition,
   type TemplateDefinition,
 } from '~/lib/template-engine'
@@ -55,6 +56,7 @@ import {
 import { e1rm, mround } from '~/lib/progression'
 import { accessoryOutcomeSummary, buildProgressionDecisionsForSession } from '~/lib/progression-decisions'
 import { buildMovementSwapOptions, defaultMovementReplacementRules, getMovementName, movementCatalog } from '~/lib/movements'
+import { buildProgramStartPreview } from '~/lib/program-start-preview'
 import {
   buildHistoryDashboard,
   type HistorySessionInput,
@@ -86,26 +88,67 @@ async function ensureProfile() {
   return data
 }
 
+function normalizeProgramStateDefaults(input: unknown, units: Unit): ProgramStateDefaults {
+  const fallback = defaultProgramStateDefaults(units)
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return fallback
+  const values = input as Record<string, unknown>
+  return Object.fromEntries(
+    Object.entries(fallback).map(([key, fallbackValue]) => {
+      const value = Number(values[key])
+      return [key, Number.isFinite(value) && value > 0 ? value : fallbackValue]
+    }),
+  )
+}
+
+function normalizeTemplateSource(row: any): ProgramTemplateSummary['source'] {
+  if (row.source === 'custom_import') return 'custom_program'
+  if (row.source === 'healthy_531') return 'training_max_wave'
+  if (row.source === 'bromley_base_strength') {
+    return row.id === 'bromley-70s-powerlifter' || row.id === 'bromley-volume-intensity'
+      ? 'volume_strength'
+      : 'wave_powerbuilding'
+  }
+  if (
+    row.source === 'linear_strength' ||
+    row.source === 'training_max_wave' ||
+    row.source === 'wave_powerbuilding' ||
+    row.source === 'volume_strength' ||
+    row.source === 'custom_program'
+  ) {
+    return row.source
+  }
+  return 'linear_strength'
+}
+
+function sourceLabelFor(source: ProgramTemplateSummary['source']) {
+  if (source === 'custom_program') return 'Custom'
+  if (source === 'linear_strength') return 'Linear Strength'
+  if (source === 'training_max_wave') return 'Training Max Wave'
+  if (source === 'wave_powerbuilding') return 'Wave Powerbuilding'
+  return 'Volume Strength'
+}
+
+function normalizeTemplateOrigin(row: any, source: ProgramTemplateSummary['source']): ProgramTemplateOrigin {
+  if (row.origin === 'user_created' || source === 'custom_program') return 'user_created'
+  if (row.origin === 'licensed_partner') return 'licensed_partner'
+  return 'system_default'
+}
+
 function mapTemplateRow(row: any, available = true, definition?: TemplateDefinition | null): ProgramTemplateSummary {
-  const origin: ProgramTemplateOrigin =
-    row.origin ??
-    (row.source === 'custom_import'
-      ? 'user_created'
-      : row.source === 'bromley_base_strength'
-        ? 'coach_authored'
-        : 'system_default')
+  const source = normalizeTemplateSource(row)
+  const origin = normalizeTemplateOrigin(row, source)
   return {
     id: row.id,
     name: row.name,
-    source: row.source,
-    sourceLabel: row.source === 'bromley_base_strength' ? 'Bromley' : row.source === 'custom_import' ? 'Custom' : 'Healthy 5/3/1',
+    source,
+    sourceLabel: sourceLabelFor(source),
     origin,
     description: row.description,
     daysPerWeek: row.days_per_week,
     progressionLabel: row.progression_label,
     complexity: row.complexity,
     tags: row.tags ?? [],
-    requiredAnchors: definition?.requiredAnchors ?? [],
+    requiredState: definition?.requiredState ?? [],
     available,
   }
 }
@@ -119,7 +162,12 @@ function templateVersionIdFromRows(rows: any[]) {
 function templateDefinitionFromRows(rows: any[]) {
   const version = rows[0]
   if (!version?.definition) throw new Error('Template definition missing')
-  return parseTemplateDefinition(version.definition)
+  try {
+    return parseTemplateDefinition(version.definition)
+  } catch (error) {
+    if (version.template_id) return getFallbackTemplateDefinition(version.template_id)
+    throw error
+  }
 }
 
 async function getPinnedTemplateDefinition(
@@ -134,7 +182,11 @@ async function getPinnedTemplateDefinition(
     .eq('template_id', templateId)
     .single()
   if (error) throw new Error(error.message)
-  return parseTemplateDefinition(data.definition)
+  try {
+    return parseTemplateDefinition(data.definition)
+  } catch {
+    return getFallbackTemplateDefinition(templateId)
+  }
 }
 
 async function getLatestTemplateVersion(
@@ -143,7 +195,7 @@ async function getLatestTemplateVersion(
 ): Promise<{ id: string; definition: TemplateDefinition }> {
   const { data, error } = await supabase
     .from('program_template_versions')
-    .select('id, definition')
+    .select('id, template_id, definition')
     .eq('template_id', templateId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -309,6 +361,12 @@ function buildProgramSetupOptions({
     templateId: template.id,
     templateName: template.name,
     origin: template.origin,
+    previewWeeks: buildProgramStartPreview({
+      templateId: template.id,
+      definition,
+      catalog,
+      rules,
+    }),
     accessoryCatalog,
     sessions: definition.sessions.map((session) => {
       const accessoryPrescriptions = session.slots
@@ -398,12 +456,12 @@ async function getActiveProgramInternal(): Promise<ProgramInstance | null> {
   if (error) throw new Error(error.message)
   if (!instance) return null
 
-  const { data: anchors, error: anchorError } = await supabase
-    .from('program_anchors')
+  const { data: stateRows, error: stateError } = await supabase
+    .from('program_state_values')
     .select('*')
     .eq('program_instance_id', instance.id)
-    .order('movement_id')
-  if (anchorError) throw new Error(anchorError.message)
+    .order('key')
+  if (stateError) throw new Error(stateError.message)
 
   const { data: movementOverrides, error: overrideError } = await supabase
     .from('program_movement_overrides')
@@ -439,10 +497,13 @@ async function getActiveProgramInternal(): Promise<ProgramInstance | null> {
     currentWeekIndex: instance.current_week_index,
     customizationStatus: instance.customization_status ?? 'default',
     customizationSummary: normalizeCustomizationSummary(instance.customization_summary),
-    anchors: (anchors ?? []).map((anchor: any) => ({
-      movementId: anchor.movement_id,
-      anchorType: anchor.anchor_type,
-      value: Number(anchor.value),
+    stateValues: (stateRows ?? []).map((state: any) => ({
+      key: state.key,
+      movementId: state.movement_id,
+      type: state.state_type,
+      label: state.label,
+      value: Number(state.value),
+      unit: state.unit ?? instance.units,
     })),
     movementOverrides: (movementOverrides ?? []).map(mapProgramMovementOverride),
     accessoryAdditions: (accessoryAdditions ?? []).map(mapProgramAccessoryAddition),
@@ -469,13 +530,15 @@ function mapProgressionDecision(row: any): ProgressionDecision {
     id: row.id,
     movementId: row.movement_id,
     movementName: getMovementName(row.movement_id),
+    stateKey: row.state_key,
+    stateType: row.state_type,
     ruleId: row.rule_id,
     scope: row.scope,
     status: row.status,
     inputSummary: row.input_summary,
     recommendation: row.recommendation,
-    previousAnchor: row.previous_anchor === null ? null : Number(row.previous_anchor),
-    recommendedAnchor: row.recommended_anchor === null ? null : Number(row.recommended_anchor),
+    previousValue: row.previous_value === null ? null : Number(row.previous_value),
+    recommendedValue: row.recommended_value === null ? null : Number(row.recommended_value),
   }
 }
 
@@ -867,6 +930,7 @@ export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promi
     rounding: Number(profile.rounding),
     equipmentProfile: profile.equipment_profile ?? [],
     themePreference: (profile.theme_preference ?? 'system') as ThemePreference,
+    programStateDefaults: normalizeProgramStateDefaults(profile.program_state_defaults, profile.units as Unit),
   }
 })
 
@@ -877,10 +941,12 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
       rounding: number
       equipmentProfile: string[]
       themePreference: ThemePreference
+      programStateDefaults: ProgramStateDefaults
     }) => data,
   )
   .handler(async ({ data }) => {
     const { supabase, user } = await requireUser()
+    const programStateDefaults = normalizeProgramStateDefaults(data.programStateDefaults, data.units)
     const { error } = await supabase
       .from('profiles')
       .update({
@@ -888,6 +954,7 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
         rounding: data.rounding,
         equipment_profile: data.equipmentProfile,
         theme_preference: data.themePreference,
+        program_state_defaults: programStateDefaults,
       })
       .eq('id', user.id)
     if (error) throw new Error(error.message)
@@ -916,8 +983,14 @@ export const listTemplatesFn = createServerFn({ method: 'GET' }).handler(async (
   }
 
   const seeded = data.map((row: any) => {
-    const validation = validateTemplateDefinition(latestByTemplateId.get(row.id)?.definition)
-    return mapTemplateRow(row, validation.ok, validation.ok ? validation.definition : null)
+    const latestDefinition = latestByTemplateId.get(row.id)?.definition
+    const validation = validateTemplateDefinition(latestDefinition)
+    if (validation.ok) return mapTemplateRow(row, true, validation.definition)
+    try {
+      return mapTemplateRow(row, true, getFallbackTemplateDefinition(row.id))
+    } catch {
+      return mapTemplateRow(row, false, null)
+    }
   })
   const missing = templateCatalog.filter((template) => !seeded.some((row) => row.id === template.id))
   return [...seeded, ...missing]
@@ -1023,7 +1096,7 @@ export const createCustomProgramTemplateFn = createServerFn({ method: 'POST' })
       .insert({
         id: generated.metadata.id,
         name: generated.metadata.name,
-        source: 'custom_import',
+        source: 'custom_program',
         origin: 'user_created',
         created_by: user.id,
         description: generated.metadata.description,
@@ -1086,7 +1159,7 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       title?: string
       units?: Unit
       rounding?: number
-      anchors?: AnchorInput[]
+      stateValues?: ProgramStateInput[]
       movementOverrides?: ProgramStartMovementOverrideInput[]
       accessoryAdditions?: ProgramStartAccessoryAdditionInput[]
       replaceActiveProgram?: boolean
@@ -1127,8 +1200,14 @@ export const startProgramFn = createServerFn({ method: 'POST' })
         : 'default'
     const units = (data.units ?? profile.units) as Unit
     const rounding = data.rounding ?? Number(profile.rounding)
-    const anchors = data.anchors ? data.anchors : defaultAnchors(units)
-    validateRequiredAnchors(templateVersion.definition, anchors)
+    const stateValues = data.stateValues
+      ? data.stateValues
+      : defaultStateValues(
+          units,
+          templateVersion.definition.requiredState,
+          normalizeProgramStateDefaults(profile.program_state_defaults, units),
+        )
+    validateRequiredState(templateVersion.definition, stateValues)
 
     const { data: activePrograms, error: activeProgramError } = await supabase
       .from('program_instances')
@@ -1183,18 +1262,21 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       .single()
     if (error) throw new Error(error.message)
 
-    if (anchors.length) {
-      const { error: anchorError } = await supabase.from('program_anchors').insert(
-        anchors.map((anchor) => ({
+    if (stateValues.length) {
+      const { error: stateInsertError } = await supabase.from('program_state_values').insert(
+        stateValues.map((state) => ({
           user_id: user.id,
           program_instance_id: instance.id,
-          movement_id: anchor.movementId,
-          anchor_type: anchor.anchorType,
-          value: anchor.value,
-          source: { kind: 'setup' },
+          key: state.key,
+          movement_id: state.movementId,
+          state_type: state.type,
+          label: state.label ?? null,
+          value: state.value,
+          unit: state.unit ?? units,
+          metadata: { source: 'setup' },
         })),
       )
-      if (anchorError) throw new Error(anchorError.message)
+      if (stateInsertError) throw new Error(stateInsertError.message)
     }
 
     if (movementOverrides.length) {
@@ -1726,7 +1808,7 @@ function phaseKeyForSnapshot(snapshot: PlannedSession, movement?: MovementSlot |
   if (movement?.phaseKey) return movement.phaseKey
   const snapshotPhaseKey = snapshot.movements.find((item) => item.phaseKey)?.phaseKey
   if (snapshotPhaseKey) return snapshotPhaseKey
-  if (snapshot.templateId === 'bromley-bullmastiff') {
+  if (snapshot.templateId === 'old_school_wave_powerbuilding' || snapshot.templateId === 'bromley-bullmastiff') {
     return snapshot.weekLabel.toLowerCase().startsWith('peak') ? 'peak' : 'base'
   }
   return 'cycle'
@@ -1943,8 +2025,10 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
         status: 'pending',
         input_summary: decision.inputSummary,
         recommendation: decision.recommendation,
-        previous_anchor: decision.previousAnchor,
-        recommended_anchor: decision.recommendedAnchor,
+        state_key: decision.stateKey,
+        state_type: decision.stateType,
+        previous_value: decision.previousValue,
+        recommended_value: decision.recommendedValue,
       })
       if (decisionError) throw new Error(decisionError.message)
     }
@@ -1983,16 +2067,16 @@ export const resolveProgressionDecisionFn = createServerFn({ method: 'POST' })
       .eq('user_id', user.id)
     if (updateError) throw new Error(updateError.message)
 
-    if (data.action === 'accepted' && decision.recommended_anchor !== null) {
-      const { error: anchorError } = await supabase
-        .from('program_anchors')
-        .update({ value: decision.recommended_anchor })
+    if (data.action === 'accepted' && decision.recommended_value !== null && decision.state_key) {
+      const { error: stateUpdateError } = await supabase
+        .from('program_state_values')
+        .update({ value: decision.recommended_value })
         .eq('user_id', user.id)
         .eq('program_instance_id', decision.program_instance_id)
-        .eq('movement_id', decision.movement_id)
+        .eq('key', decision.state_key)
         .select('id')
         .single()
-      if (anchorError) throw new Error(anchorError.message)
+      if (stateUpdateError) throw new Error(stateUpdateError.message)
     }
     return getPendingDecisionsInternal(decision.program_instance_id)
   })

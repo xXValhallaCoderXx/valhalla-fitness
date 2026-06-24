@@ -17,14 +17,14 @@ export function buildProgramTimeline(
   return buildProgramTimelineFromDefinition(program, definition)
 }
 
-export function buildBullmastiffTimeline(currentSessionIndex: number) {
+export function buildOldSchoolWaveTimeline(currentSessionIndex: number) {
   return buildProgramTimeline(
     { templateId: 'bromley-bullmastiff', currentWeekIndex: currentSessionIndex },
     getFallbackTemplateDefinition('bromley-bullmastiff'),
   )
 }
 
-export function buildHealthy531Timeline(currentSessionIndex: number) {
+export function buildTrainingMaxWaveTimeline(currentSessionIndex: number) {
   return buildProgramTimeline(
     { templateId: 'healthy-531-fsl', currentWeekIndex: currentSessionIndex },
     getFallbackTemplateDefinition('healthy-531-fsl'),

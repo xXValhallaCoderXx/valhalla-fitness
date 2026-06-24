@@ -1,9 +1,10 @@
 import type { MovementSlot, ProgramInstance, ProgressionDecision, SetLog, WorkoutSession } from '~/types/training'
+import { programStateKey } from './template-engine'
 import {
-  evaluate531TmBand,
   evaluateAccessoryDoubleProgression,
-  evaluateBullmastiffPlusSet,
+  evaluatePlusSetWave,
   evaluateSimpleLinearCompletion,
+  evaluateTrainingMaxBand,
 } from './progression'
 
 function hasNumber(value: unknown): value is number {
@@ -39,6 +40,14 @@ export function usesAccessoryAutoregulation(movement: MovementSlot) {
   return movement.progressionRuleId === 'accessory_double_progression'
 }
 
+function isPlusSetWaveRule(ruleId: string) {
+  return ruleId === 'plus_set_wave' || ruleId === 'bullmastiff_plus_set'
+}
+
+function isTrainingMaxBandRule(ruleId: string) {
+  return ruleId === 'training_max_band' || ruleId === 'healthy_531_tm_band'
+}
+
 export function accessoryOutcomeSummary(movement: MovementSlot) {
   if (!usesAccessoryAutoregulation(movement)) return 'History only - no auto-regulation'
   return accessoryOutcome(movement)
@@ -52,31 +61,39 @@ export function buildProgressionDecisionsForSession(
   for (const movement of session.movements) {
     if (movement.role === 'main') {
       const ruleId = movement.progressionRuleId
-      const anchor = activeProgram.anchors.find((item) => item.movementId === movement.movementId)
-      if (!ruleId || !anchor) continue
+      if (!ruleId) continue
 
       const topSetWithReps = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedReps(set))
       const topSetWithRir = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedRepsAndRir(set))
-      if (ruleId === 'bullmastiff_plus_set' && topSetWithReps) {
+      if (isPlusSetWaveRule(ruleId) && topSetWithReps) {
+        const state = stateForMovement(activeProgram, movement.movementId, 'training_max')
+        if (!state) continue
         decisions.push(
-          evaluateBullmastiffPlusSet(
+          evaluatePlusSetWave(
             topSetWithReps,
             topSetWithReps.targetReps ?? 1,
-            anchor.value,
+            state.value,
             activeProgram.rounding,
             movement.movementId,
+            state.key,
           ),
         )
       }
-      if (ruleId === 'healthy_531_tm_band' && topSetWithRir) {
-        decisions.push(evaluate531TmBand([topSetWithRir], anchor.value, activeProgram.rounding, movement.movementId))
+      if (isTrainingMaxBandRule(ruleId) && topSetWithRir) {
+        const state = stateForMovement(activeProgram, movement.movementId, 'training_max')
+        if (!state) continue
+        decisions.push(evaluateTrainingMaxBand([topSetWithRir], state.value, activeProgram.rounding, movement.movementId, state.key))
       }
       if (ruleId === 'simple_linear_completion') {
+        const state = stateForMovement(activeProgram, movement.movementId, 'working_load')
+        if (!state) continue
         const decision = evaluateSimpleLinearCompletion(
           movement.sets,
-          anchor.value,
+          state.value,
           activeProgram.rounding,
           movement.movementId,
+          state.key,
+          simpleLinearIncrement(activeProgram, movement.movementId),
         )
         if (decision) decisions.push(decision)
       }
@@ -98,4 +115,18 @@ export function buildProgressionDecisionsForSession(
     }
   }
   return decisions
+}
+
+function stateForMovement(
+  activeProgram: ProgramInstance,
+  movementId: string,
+  type: 'training_max' | 'working_load',
+) {
+  return activeProgram.stateValues.find((state) => state.key === programStateKey(movementId, type)) ??
+    activeProgram.stateValues.find((state) => state.movementId === movementId && state.type === type)
+}
+
+function simpleLinearIncrement(activeProgram: ProgramInstance, movementId: string) {
+  const configured = activeProgram.templateDefinition?.progressionConfig?.simple_linear_completion?.increments[movementId]
+  return configured?.[activeProgram.units]
 }

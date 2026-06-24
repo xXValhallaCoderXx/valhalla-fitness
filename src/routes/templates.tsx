@@ -1,24 +1,22 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Badge, Button, Card, NumberInput, Select, TextInput, Tooltip } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Outlet, useRouter, useRouterState } from '@tanstack/react-router'
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Lock, Plus, RotateCcw, Search, Trash2 } from 'lucide-react'
-import { useEffect, useId, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
+import { useId, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import {
   createDefaultCustomProgramBuilderInput,
   customProgramMethodologies,
   type CustomProgramBuilderInput,
   type CustomProgramMethodology,
 } from '~/lib/custom-templates'
-import { shouldConfirmProgramStart } from '~/lib/program-switch'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { getMovementName, movementCatalog } from '~/lib/movements'
-import { defaultAnchors } from '~/lib/templates'
-import { meQueryOptions, templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
+import { templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
 import { loadRouteQueries, loadRouteQuery } from '~/lib/route-loading'
-import { createCustomProgramTemplateFn, startProgramFn } from '~/server/api'
+import { createCustomProgramTemplateFn } from '~/server/api'
 import type {
-  AnchorInput,
+  ProgramStateInput,
   ProgramSetupOptions,
   ProgramSetupSlotOption,
   ProgramStartAccessoryAdditionInput,
@@ -26,28 +24,29 @@ import type {
   ProgramTemplateSummary,
   TodayPayload,
   Unit,
-  UserProfile,
 } from '~/types/training'
-import { ConfirmDialog, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
 
 export const Route = createFileRoute('/templates')({
   loader: async ({ context }) => {
     await loadRouteQuery(context.queryClient, templatesQueryOptions())
     if ((context as any).user) {
-      await loadRouteQueries(context.queryClient, [meQueryOptions(), todayQueryOptions()])
+      await loadRouteQueries(context.queryClient, [todayQueryOptions()])
     }
   },
   component: TemplatesRoute,
 })
 
 function TemplatesRoute() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  if (pathname !== '/templates') return <Outlet />
+  return <TemplatesIndexRoute />
+}
+
+function TemplatesIndexRoute() {
   const router = useRouter()
   const user = (Route.useRouteContext() as any).user
   const templatesQuery = useQuery(templatesQueryOptions())
-  const meQuery = useQuery({
-    ...meQueryOptions(),
-    enabled: Boolean(user),
-  })
   const todayQuery = useQuery({
     ...todayQueryOptions(),
     enabled: Boolean(user),
@@ -69,19 +68,10 @@ function TemplatesRoute() {
     )
   }
 
-  if (meQuery.isPending || todayQuery.isPending) return <PageSkeleton />
-  if (meQuery.isError) return <PageLoadError error={meQuery.error} onRetry={() => void meQuery.refetch()} />
+  if (todayQuery.isPending) return <PageSkeleton />
   if (todayQuery.isError) return <PageLoadError error={todayQuery.error} onRetry={() => void todayQuery.refetch()} />
 
-  if (!meQuery.data) {
-    return (
-      <Page>
-        <EmptyState title="Profile unavailable">Sign in again to start a program.</EmptyState>
-      </Page>
-    )
-  }
-
-  return <AuthedTemplates templates={templatesQuery.data} me={meQuery.data} today={todayQuery.data} />
+  return <AuthedTemplates templates={templatesQuery.data} today={todayQuery.data} />
 }
 
 type WizardStep = 'basics' | 'movements' | 'accessories' | 'review'
@@ -90,42 +80,18 @@ type AccessoryAdditionDraft = ProgramStartAccessoryAdditionInput & {
   clientId: string
 }
 
-function anchorsForTemplate(template: ProgramTemplateSummary, unit: Unit): AnchorInput[] {
-  if (!template.requiredAnchors.length) return []
-  const defaults = defaultAnchors(unit)
-  return template.requiredAnchors.map((movementId) => {
-    const fallback = unit === 'kg' ? 60 : 135
-    return defaults.find((anchor) => anchor.movementId === movementId) ?? {
-      movementId,
-      anchorType: 'training_max',
-      value: fallback,
-    }
-  })
-}
-
 function AuthedTemplates({
   today,
   templates,
-  me,
 }: {
   today: TodayPayload
   templates: ProgramTemplateSummary[]
-  me: UserProfile
 }) {
   const router = useRouter()
-  const setupTitleId = useId()
   const builderTitleId = useId()
   const [filter, setFilter] = useState('All')
   const [query, setQuery] = useState('')
-  const [selected, setSelected] = useState<ProgramTemplateSummary | null>(null)
-  const [showSetup, setShowSetup] = useState(false)
   const [showBuilder, setShowBuilder] = useState(false)
-  const units = me.units
-  const rounding = me.rounding
-  const [anchors, setAnchors] = useState<AnchorInput[]>([])
-  const [showSwitchConfirm, setShowSwitchConfirm] = useState(false)
-  const [startError, setStartError] = useState<string | null>(null)
-  const activeSessionId = today.activeSession?.sessionId
   const activeTemplateId = today.activeProgram?.templateId ?? null
 
   const filtered = useMemo(() => {
@@ -143,111 +109,17 @@ function AuthedTemplates({
     ? filtered.filter((template) => template.id !== activeTemplateId)
     : filtered
 
-  const startMutation = useMutation({
-    mutationFn: (input: { replaceActiveProgram?: boolean }) => {
-      if (!selected) throw new Error('No template selected')
-      const startAnchors = selected.requiredAnchors.length
-        ? anchors.filter((anchor) => selected.requiredAnchors.includes(anchor.movementId))
-        : []
-      return startProgramFn({
-        data: {
-          templateId: selected.id,
-          anchors: startAnchors,
-          replaceActiveProgram: input.replaceActiveProgram,
-        },
-      })
-    },
-    onMutate: () => {
-      setStartError(null)
-    },
-    onError: (error) => {
-      if (error instanceof Error && error.message === 'Active program in progress') {
-        setShowSwitchConfirm(true)
-        return
-      }
-      const message = getApiErrorMessage(error, 'Unable to start program')
-      setStartError(message)
-      notifications.show({ color: 'danger', title: 'Could not start program', message })
-    },
-    onSuccess: async () => {
-      notifications.show({ color: 'success', title: 'Program started', message: 'Your next workout is ready.' })
-      setShowSwitchConfirm(false)
-      setShowSetup(false)
-      setSelected(null)
-      await router.invalidate()
-      const invalidations = [
-        router.options.context.queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
-        router.options.context.queryClient.invalidateQueries({ queryKey: ['today'] }),
-      ]
-      if (activeSessionId) {
-        invalidations.push(
-          router.options.context.queryClient.invalidateQueries({ queryKey: ['session', activeSessionId] }),
-        )
-      }
-      await Promise.all(invalidations)
-      await router.navigate({ to: '/today' })
-    },
-  })
-
   const selectTemplate = (template: ProgramTemplateSummary) => {
-    setSelected(template)
-    setAnchors(anchorsForTemplate(template, units))
-    setShowSetup(true)
-    setShowSwitchConfirm(false)
-    setStartError(null)
+    void router.navigate({ to: '/templates/$templateId/start', params: { templateId: template.id } })
   }
 
   const handleCustomTemplateCreated = async (template: ProgramTemplateSummary) => {
     notifications.show({ color: 'success', title: 'Programme created', message: `${template.name} is ready to start.` })
     setShowBuilder(false)
-    setSelected(template)
-    setAnchors(anchorsForTemplate(template, units))
-    setShowSetup(true)
     await router.invalidate()
     await router.options.context.queryClient.invalidateQueries({ queryKey: ['templates'] })
+    await router.navigate({ to: '/templates/$templateId/start', params: { templateId: template.id } })
   }
-
-  const closeSetup = () => {
-    setSelected(null)
-    setShowSetup(false)
-    setShowSwitchConfirm(false)
-    setStartError(null)
-  }
-
-  const requestStartProgram = () => {
-    setStartError(null)
-    if (shouldConfirmProgramStart(today)) {
-      setShowSetup(false)
-      setShowSwitchConfirm(true)
-      return
-    }
-    startMutation.mutate({})
-  }
-
-  const confirmSwitch = () => {
-    setStartError(null)
-    startMutation.mutate({ replaceActiveProgram: true })
-  }
-
-  const cancelSwitch = () => {
-    setShowSwitchConfirm(false)
-    setShowSetup(Boolean(selected))
-  }
-
-  useEffect(() => {
-    if (!selected || !showSetup || startMutation.isPending) return
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      setSelected(null)
-      setShowSetup(false)
-      setShowSwitchConfirm(false)
-      setStartError(null)
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selected, showSetup, startMutation.isPending])
 
   return (
     <Page className="max-w-[1180px] md:px-8 lg:px-10">
@@ -268,6 +140,11 @@ function AuthedTemplates({
         Select a structured program to start your next training cycle.
       </PageHeader>
 
+      <p className="mb-4 max-w-4xl rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+        Built-in programs are original Sheetless programming tools and are not official, affiliated, or endorsed
+        templates from any coach, author, book, or program.
+      </p>
+
       <div className="mb-5 space-y-3 md:mb-6">
         <div className="max-w-4xl">
           <TextInput
@@ -278,7 +155,7 @@ function AuthedTemplates({
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar sm:flex-wrap sm:overflow-visible sm:pb-0">
-          {['All', 'Custom', '5/3/1', 'Bromley', 'Base', 'Peak', 'High volume', 'Low volume'].map((item) => (
+          {['All', 'Custom', 'Linear', 'Training max', 'Wave', 'Volume', 'Peak', 'High volume'].map((item) => (
             <button
               key={item}
               className={`min-h-8 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-bold transition ${
@@ -342,154 +219,7 @@ function AuthedTemplates({
           </div>
         </div>
       ) : null}
-
-      {selected && showSetup ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-black/60 p-3 sm:items-center sm:justify-center"
-          onClick={() => {
-            if (!startMutation.isPending) closeSetup()
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={setupTitleId}
-            className="w-full max-w-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <ProgramStartWizard
-              titleId={setupTitleId}
-              template={selected}
-              units={units}
-              rounding={rounding}
-              anchors={anchors}
-              requiredAnchors={selected.requiredAnchors}
-              isPending={startMutation.isPending}
-              startError={startError}
-              onClose={closeSetup}
-              onAnchorsChange={setAnchors}
-              onStart={requestStartProgram}
-            />
-          </div>
-        </div>
-      ) : null}
-      <ConfirmDialog
-        open={showSwitchConfirm}
-        title="Replace active program?"
-        confirmLabel="Replace program"
-        confirmVariant="danger"
-        isPending={startMutation.isPending}
-        onCancel={cancelSwitch}
-        onConfirm={confirmSwitch}
-      >
-        <div className="space-y-2">
-          <p>
-            {today.activeProgram ? (
-              <>
-                You already have{' '}
-                <span className="font-semibold text-[var(--mantine-color-text)]">{today.activeProgram.title}</span> active.
-              </>
-            ) : (
-              'You already have an active program.'
-            )}
-          </p>
-          <p>
-            Starting <span className="font-semibold text-[var(--mantine-color-text)]">{selected?.name ?? 'a new program'}</span>{' '}
-            will archive the current program and make this your new active program.
-          </p>
-          {today.activeSession ? (
-            <p>
-              Your workout in progress will be marked as abandoned. Any lifts that have already been saved will be
-              retained.
-            </p>
-          ) : null}
-        </div>
-      </ConfirmDialog>
     </Page>
-  )
-}
-
-function ProgramStartWizard({
-  titleId,
-  template,
-  units,
-  rounding,
-  anchors,
-  requiredAnchors,
-  isPending,
-  startError,
-  onClose,
-  onAnchorsChange,
-  onStart,
-}: {
-  titleId: string
-  template: ProgramTemplateSummary
-  units: Unit
-  rounding: number
-  anchors: AnchorInput[]
-  requiredAnchors: string[]
-  isPending: boolean
-  startError: string | null
-  onClose: () => void
-  onAnchorsChange: Dispatch<SetStateAction<AnchorInput[]>>
-  onStart: () => void
-}) {
-  return (
-    <Card className="max-h-[92vh] overflow-hidden p-0">
-      <div className="border-b border-[var(--mantine-color-default-border)] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 id={titleId} className="truncate text-lg font-bold">
-                {template.name}
-              </h2>
-              <Badge color={template.origin === 'coach_authored' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
-            </div>
-            <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">{template.description}</p>
-          </div>
-          <Button color="neutral" variant="subtle" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <StartInfoMetric label="Schedule" value={`${template.daysPerWeek} days/wk`} />
-          <StartInfoMetric label="Progression" value={template.progressionLabel} />
-          <StartInfoMetric label="Complexity" value={template.complexity} />
-        </div>
-      </div>
-
-      <div className="max-h-[58vh] overflow-y-auto p-4">
-        <BasicsStep
-          units={units}
-          rounding={rounding}
-          anchors={anchors}
-          requiredAnchors={requiredAnchors}
-          onAnchorsChange={onAnchorsChange}
-        />
-      </div>
-
-      <div className="border-t border-[var(--mantine-color-default-border)] p-4">
-        {startError ? (
-          <p className="mb-3 rounded-lg border border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] p-3 text-sm text-[var(--vf-danger-text)]">
-            {startError}
-          </p>
-        ) : null}
-        <Button className="w-full" disabled={isPending} onClick={onStart}>
-          <Check size={16} />
-          Start program
-        </Button>
-      </div>
-    </Card>
-  )
-}
-
-function StartInfoMetric({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{label}</p>
-      <p className="mt-1 text-sm font-extrabold">{value}</p>
-    </div>
   )
 }
 
@@ -553,8 +283,8 @@ function resizeCustomSessions(
 }
 
 function mainWorkSummary(methodology: CustomProgramMethodology, session: CustomProgramBuilderInput['sessions'][number]) {
-  if (methodology === '531') return '5/3/1 percentage work'
-  if (methodology === 'bromley') return 'Bromley wave work'
+  if (methodology === 'training_max_wave') return 'Training-max wave work'
+  if (methodology === 'plus_set_wave') return 'Plus-set wave work'
   return `${session.mainSetCount}x${session.mainTargetReps} main work`
 }
 
@@ -1108,7 +838,7 @@ export function ProgramCustomizationDraftWizard({
   setupError,
   units,
   rounding,
-  anchors,
+  stateValues,
   wizardStep,
   currentStepIndex,
   movementOverrides,
@@ -1120,7 +850,7 @@ export function ProgramCustomizationDraftWizard({
   isPending,
   startError,
   onClose,
-  onAnchorsChange,
+  onStateValuesChange,
   onStepChange,
   onMovementOverrideChange,
   onAddAccessory,
@@ -1136,7 +866,7 @@ export function ProgramCustomizationDraftWizard({
   setupError: string | null
   units: Unit
   rounding: number
-  anchors: AnchorInput[]
+  stateValues: ProgramStateInput[]
   wizardStep: WizardStep
   currentStepIndex: number
   movementOverrides: ProgramStartMovementOverrideInput[]
@@ -1148,7 +878,7 @@ export function ProgramCustomizationDraftWizard({
   isPending: boolean
   startError: string | null
   onClose: () => void
-  onAnchorsChange: Dispatch<SetStateAction<AnchorInput[]>>
+  onStateValuesChange: Dispatch<SetStateAction<ProgramStateInput[]>>
   onStepChange: (step: WizardStep) => void
   onMovementOverrideChange: (slot: ProgramSetupSlotOption, replacementMovementId: string) => void
   onAddAccessory: (addition: ProgramStartAccessoryAdditionInput) => void
@@ -1178,7 +908,7 @@ export function ProgramCustomizationDraftWizard({
               {hasCustomizations ? <Badge color="warning">Customized</Badge> : null}
             </div>
             <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">
-              Set anchors, choose variations, and review accessory changes before starting.
+              Set starting loads, choose variations, and review accessory changes before starting.
             </p>
           </div>
           <Button color="neutral" variant="subtle" onClick={onClose}>
@@ -1218,9 +948,9 @@ export function ProgramCustomizationDraftWizard({
           <BasicsStep
             units={units}
             rounding={rounding}
-            anchors={anchors}
-            requiredAnchors={anchors.map((anchor) => anchor.movementId)}
-            onAnchorsChange={onAnchorsChange}
+            stateValues={stateValues}
+            requiredState={stateValues}
+            onStateValuesChange={onStateValuesChange}
           />
         ) : isSetupLoading ? (
           <p className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-4 text-sm text-[var(--mantine-color-dimmed)]">
@@ -1248,7 +978,7 @@ export function ProgramCustomizationDraftWizard({
             setupOptions={setupOptions}
             units={units}
             rounding={rounding}
-            anchors={anchors}
+            stateValues={stateValues}
             movementOverrides={movementOverrides}
             accessoryAdditions={accessoryAdditions}
             movementOverrideCount={movementOverrideCount}
@@ -1290,18 +1020,18 @@ export function ProgramCustomizationDraftWizard({
 function BasicsStep({
   units,
   rounding,
-  anchors,
-  requiredAnchors,
-  onAnchorsChange,
+  stateValues,
+  requiredState,
+  onStateValuesChange,
 }: {
   units: Unit
   rounding: number
-  anchors: AnchorInput[]
-  requiredAnchors: string[]
-  onAnchorsChange: Dispatch<SetStateAction<AnchorInput[]>>
+  stateValues: ProgramStateInput[]
+  requiredState: ProgramTemplateSummary['requiredState']
+  onStateValuesChange: Dispatch<SetStateAction<ProgramStateInput[]>>
 }) {
-  const visibleAnchors = requiredAnchors.length
-    ? requiredAnchors.map((movementId) => anchors.find((anchor) => anchor.movementId === movementId)).filter(Boolean) as AnchorInput[]
+  const visibleState = requiredState.length
+    ? requiredState.map((required) => stateValues.find((state) => state.key === required.key)).filter(Boolean) as ProgramStateInput[]
     : []
 
   return (
@@ -1330,34 +1060,34 @@ function BasicsStep({
           Edit in Settings
         </a>
       </div>
-      {requiredAnchors.length ? (
+      {requiredState.length ? (
         <div className="grid gap-2">
           <div>
-            <p className="vf-section-label">Starting anchors</p>
+            <p className="vf-section-label">Starting loads</p>
             <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
-              Enter the training max used to calculate the first block of prescribed loads.
+              Enter the training maxes or working loads used to calculate the first block.
             </p>
           </div>
-          {visibleAnchors.map((anchor) => (
+          {visibleState.map((state) => (
             <label
-              key={anchor.movementId}
+              key={state.key}
               className="grid gap-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-center"
             >
               <span className="min-w-0">
-                <span className="block text-sm font-extrabold text-[var(--mantine-color-text)]">{getMovementName(anchor.movementId)}</span>
+                <span className="block text-sm font-extrabold text-[var(--mantine-color-text)]">{getMovementName(state.movementId)}</span>
                 <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
-                  {anchor.anchorType.replaceAll('_', ' ')}
+                  {state.type.replaceAll('_', ' ')}
                 </span>
               </span>
               <span className="relative block">
                 <TextInput
                   classNames={{ input: 'pr-12 text-right' }}
                   type="number"
-                  value={anchor.value}
+                  value={state.value}
                   onChange={(event) =>
-                    onAnchorsChange((current) =>
+                    onStateValuesChange((current) =>
                       current.map((item) =>
-                        item.movementId === anchor.movementId ? { ...item, value: Number(event.target.value) } : item,
+                        item.key === state.key ? { ...item, value: Number(event.target.value) } : item,
                       ),
                     )
                   }
@@ -1371,7 +1101,7 @@ function BasicsStep({
         </div>
       ) : (
         <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-          <p className="vf-section-label">No starting anchors</p>
+          <p className="vf-section-label">No starting loads</p>
           <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">
             This programme uses user-selected loads and history-only logging.
           </p>
@@ -1472,6 +1202,19 @@ function AccessoriesStep({
     ? sourceSlotId
     : selectedSession?.accessoryPrescriptions[0]?.sourceSlotId ?? ''
 
+  if (!firstSession) {
+    return (
+      <div className="grid gap-4">
+        <div>
+          <p className="vf-section-label">Add accessory slots</p>
+          <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
+            This programme does not have accessory prescriptions to copy.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   const canAdd = Boolean(selectedSession && effectiveSourceSlotId && movementId)
   return (
     <div className="grid gap-4">
@@ -1560,7 +1303,7 @@ function ReviewStep({
   setupOptions,
   units,
   rounding,
-  anchors,
+  stateValues,
   movementOverrides,
   accessoryAdditions,
   movementOverrideCount,
@@ -1569,7 +1312,7 @@ function ReviewStep({
   setupOptions: ProgramSetupOptions
   units: Unit
   rounding: number
-  anchors: AnchorInput[]
+  stateValues: ProgramStateInput[]
   movementOverrides: ProgramStartMovementOverrideInput[]
   accessoryAdditions: AccessoryAdditionDraft[]
   movementOverrideCount: number
@@ -1594,12 +1337,12 @@ function ReviewStep({
       </div>
 
       <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-        <p className="vf-section-label">Anchors</p>
+        <p className="vf-section-label">Starting loads</p>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {anchors.map((anchor) => (
-            <div key={anchor.movementId} className="rounded-md bg-[var(--mantine-color-default)] px-3 py-2">
-              <p className="text-xs text-[var(--mantine-color-dimmed)]">{getMovementName(anchor.movementId)}</p>
-              <p className="text-sm font-bold">{anchor.value} {units}</p>
+          {stateValues.map((state) => (
+            <div key={state.key} className="rounded-md bg-[var(--mantine-color-default)] px-3 py-2">
+              <p className="text-xs text-[var(--mantine-color-dimmed)]">{getMovementName(state.movementId)}</p>
+              <p className="text-sm font-bold">{state.value} {units}</p>
             </div>
           ))}
         </div>
@@ -1660,7 +1403,7 @@ function TemplateCard({
     <Card className={`group flex min-h-[16rem] flex-col gap-4 p-4 vf-card-hover ${isActive ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)]' : ''}`}>
       <div className="flex flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge color={template.sourceLabel === 'Bromley' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
+          <Badge color={template.origin === 'licensed_partner' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
           {isActive ? <Badge color="success">Active</Badge> : null}
           <span className="text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">{template.daysPerWeek} days/wk</span>
           <Badge color="action" className="normal-case sm:ml-auto">

@@ -26,7 +26,7 @@ function ProgramRoute() {
   if (!user) {
     return (
       <Page>
-        <EmptyState title="Sign in to review your program">Program timelines and anchors are account data.</EmptyState>
+        <EmptyState title="Sign in to review your program">Program timelines and load state are account data.</EmptyState>
       </Page>
     )
   }
@@ -65,7 +65,7 @@ function AuthedProgram() {
   if (!program) {
     return (
       <Page>
-        <EmptyState title="No active program">Start a template to see its timeline and anchors here.</EmptyState>
+        <EmptyState title="No active program">Start a template to see its timeline and current loads here.</EmptyState>
       </Page>
     )
   }
@@ -124,24 +124,24 @@ function AuthedProgram() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="vf-section-label">Current Anchors</h2>
-                  <InfoHint label="What are anchors?">
-                    Anchors are the training-max values used to calculate planned loads. When you accept a main-lift progression decision, the relevant anchor is updated for future sessions.
+                  <h2 className="vf-section-label">Current Loads</h2>
+                  <InfoHint label="What are current loads?">
+                    Program state stores the current training maxes or working loads used to calculate planned loads. Accepted progression decisions update the relevant value for future sessions.
                   </InfoHint>
                 </div>
-                <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">Training max values used for load prescriptions.</p>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">Training maxes and working loads used for prescriptions.</p>
               </div>
               <Badge>{program.units}</Badge>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              {overview.anchors.map((anchor) => (
-                <div key={anchor.movementId} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-                  <p className="text-xs text-[var(--mantine-color-dimmed)]">{anchor.movementName}</p>
+              {overview.stateValues.map((state) => (
+                <div key={state.stateKey} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+                  <p className="text-xs text-[var(--mantine-color-dimmed)]">{state.movementName}</p>
                   <p className="mt-1 text-lg font-bold">
-                    {formatNumber(anchor.value)} <span className="text-xs text-[var(--mantine-color-dimmed)]">{anchor.units}</span>
+                    {formatNumber(state.value)} <span className="text-xs text-[var(--mantine-color-dimmed)]">{state.units}</span>
                   </p>
                   <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
-                    {anchor.pendingDecision ? 'pending review' : anchor.lastAcceptedDecision ? 'last change saved' : 'training max'}
+                    {state.pendingDecision ? 'pending review' : state.lastAcceptedDecision ? 'last change saved' : state.stateType.replaceAll('_', ' ')}
                   </p>
                 </div>
               ))}
@@ -152,7 +152,7 @@ function AuthedProgram() {
             <div className="flex items-center gap-2">
               <h2 className="vf-section-label">Progression</h2>
               <InfoHint label="How progression works">
-                Progression cards are recommendations generated from completed sessions. They stay pending until you accept, dismiss, or leave them for later; accepted anchor changes update future loads.
+                Progression cards are recommendations generated from completed sessions. They stay pending until you accept, dismiss, or leave them for later; accepted state changes update future loads.
               </InfoHint>
             </div>
             <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">Reviewable recommendations from logged training.</p>
@@ -242,7 +242,7 @@ function ProgramSummaryGrid({
           <div className="min-w-0">
             <h2 className="vf-section-label">Next session</h2>
             <h3 className="mt-2 truncate text-lg font-extrabold">{nextSession?.title ?? 'No session queued'}</h3>
-            <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">{nextSession?.mainMovementName ?? 'Start a program to queue work.'}</p>
+            <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">{nextSession?.movementSummary ?? 'Start a program to queue work.'}</p>
           </div>
           <Badge color={nextSession?.status === 'in_progress' ? 'warning' : nextSession?.status === 'completed' ? 'success' : 'action'}>
             {nextSession?.status.replaceAll('_', ' ') ?? 'planned'}
@@ -251,8 +251,22 @@ function ProgramSummaryGrid({
         <div className="mt-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
           <p className="text-xs font-extrabold text-[var(--mantine-color-dimmed)]">Key work</p>
           <p className="mt-1 text-sm font-bold">{nextSession?.keyPrescription ?? 'No prescription'}</p>
+          {nextSession?.movements.length ? (
+            <div className="mt-3 space-y-1.5">
+              {nextSession.movements.map((movement, index) => (
+                <div key={`${movement.role}-${movement.movementName}-${index}`} className="flex items-start justify-between gap-3 rounded-md bg-[var(--mantine-color-default)] px-2 py-1.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-bold">{movement.movementName}</p>
+                    <p className="truncate text-[10px] text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-extrabold uppercase text-[var(--mantine-color-dimmed)]">{movement.role}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <SummaryMetric icon={<Dumbbell size={14} />} label="Main" value={nextSession?.mainCount ?? 0} />
           <SummaryMetric icon={<Dumbbell size={14} />} label="Variations" value={nextSession?.variationCount ?? 0} />
           <SummaryMetric icon={<ListChecks size={14} />} label="Accessories" value={nextSession?.accessoryCount ?? 0} />
         </div>
@@ -498,13 +512,18 @@ function ProgramTimeline({
                         <summary className="cursor-pointer list-none">
                           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                             <span className="font-extrabold text-[var(--mantine-color-text)]">{session.label}: {session.title}</span>
-                            <span className="font-semibold text-[var(--mantine-color-dimmed)]">{session.mainPrescription}</span>
+                            <span className="font-semibold text-[var(--mantine-color-dimmed)]">{session.movementSummary}</span>
                           </div>
                         </summary>
-                        <div className="mt-2 grid gap-2 border-t border-[var(--mantine-color-default-border)] pt-2 sm:grid-cols-3">
-                          <TimelineSessionDetail label="Main" value={`${session.mainMovement} · ${session.mainPrescription}`} />
-                          <TimelineSessionDetail label="Variation" value={`${session.variationMovement} · ${session.variationPrescription}`} />
-                          <TimelineSessionDetail label="Accessories" value={session.accessoryPrescription} />
+                        <div className="mt-2 grid gap-2 border-t border-[var(--mantine-color-default-border)] pt-2 sm:grid-cols-2 xl:grid-cols-3">
+                          {session.movements.map((movement, index) => (
+                            <TimelineSessionDetail
+                              key={`${movement.roleLabel}-${movement.movementName}-${index}`}
+                              label={movement.roleLabel}
+                              movementName={movement.movementName}
+                              targetSummary={movement.targetSummary}
+                            />
+                          ))}
                         </div>
                         <p className="mt-2 text-[11px] leading-relaxed text-[var(--mantine-color-dimmed)]">{session.progressionNote}</p>
                       </details>
@@ -520,11 +539,20 @@ function ProgramTimeline({
   )
 }
 
-function TimelineSessionDetail({ label, value }: { label: string; value: string }) {
+function TimelineSessionDetail({
+  label,
+  movementName,
+  targetSummary,
+}: {
+  label: string
+  movementName: string
+  targetSummary: string
+}) {
   return (
     <div className="rounded-lg bg-[var(--mantine-color-default)] p-2">
       <p className="text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{label}</p>
-      <p className="mt-1 font-semibold text-[var(--mantine-color-text)]">{value}</p>
+      <p className="mt-1 font-semibold text-[var(--mantine-color-text)]">{movementName}</p>
+      <p className="mt-0.5 text-[11px] text-[var(--mantine-color-dimmed)]">{targetSummary}</p>
     </div>
   )
 }

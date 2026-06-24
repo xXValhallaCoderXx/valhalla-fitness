@@ -6,7 +6,7 @@ const activeProgram: ProgramInstance = {
   id: 'program-1',
   templateId: 'healthy-531-fsl',
   templateVersionId: 'template-version-1',
-  title: 'Healthy 5/3/1 FSL',
+  title: 'Training Max Wave',
   status: 'active',
   startDate: '2026-06-21',
   units: 'kg',
@@ -14,14 +14,14 @@ const activeProgram: ProgramInstance = {
   currentWeekIndex: 0,
   customizationStatus: 'default',
   customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
-  anchors: [],
+  stateValues: [],
 }
 
 const session = (status: WorkoutSession['status']): WorkoutSession => ({
   sessionId: `session-${status}`,
   id: 'planned-1',
   title: 'Squat',
-  programTitle: 'Healthy 5/3/1 FSL',
+  programTitle: 'Training Max Wave',
   templateId: 'healthy-531-fsl',
   weekIndex: 0,
   weekLabel: 'Week 1',

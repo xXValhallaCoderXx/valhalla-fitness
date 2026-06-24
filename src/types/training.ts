@@ -14,9 +14,11 @@ export type AccessoryProgressionMethod = 'history_only' | 'double_progression'
 
 export type SubstitutionReason = 'equipment_missing' | 'crowded_gym' | 'preference' | 'fatigue' | 'other'
 
-export type ProgramTemplateOrigin = 'system_default' | 'coach_authored' | 'user_created'
+export type ProgramTemplateOrigin = 'system_default' | 'licensed_partner' | 'user_created'
 
 export type ProgramCustomizationStatus = 'default' | 'customized'
+
+export type ProgramStateDefaults = Record<string, number>
 
 export type Movement = {
   id: string
@@ -36,12 +38,13 @@ export type UserProfile = {
   rounding: number
   equipmentProfile: string[]
   themePreference: ThemePreference
+  programStateDefaults: ProgramStateDefaults
 }
 
 export type ProgramTemplateSummary = {
   id: string
   name: string
-  source: 'healthy_531' | 'bromley_base_strength' | 'custom_import'
+  source: 'linear_strength' | 'training_max_wave' | 'wave_powerbuilding' | 'volume_strength' | 'custom_program'
   sourceLabel: string
   origin: ProgramTemplateOrigin
   description: string
@@ -49,14 +52,22 @@ export type ProgramTemplateSummary = {
   progressionLabel: string
   complexity: string
   tags: string[]
-  requiredAnchors: string[]
+  requiredState: ProgramStateRequirement[]
   available: boolean
 }
 
-export type AnchorInput = {
+export type ProgramStateType = 'training_max' | 'one_rep_max' | 'working_load' | 'five_rep_max' | 'manual'
+
+export type ProgramStateRequirement = {
+  key: string
   movementId: string
-  anchorType: 'training_max' | 'one_rep_max' | 'manual'
+  type: ProgramStateType
+  label?: string
+}
+
+export type ProgramStateInput = ProgramStateRequirement & {
   value: number
+  unit?: Unit
 }
 
 export type ProgramInstance = {
@@ -71,7 +82,7 @@ export type ProgramInstance = {
   currentWeekIndex: number
   customizationStatus: ProgramCustomizationStatus
   customizationSummary: ProgramCustomizationSummary
-  anchors: AnchorInput[]
+  stateValues: ProgramStateInput[]
   movementOverrides?: ProgramMovementOverride[]
   accessoryAdditions?: ProgramAccessoryAddition[]
   templateDefinition?: TemplateDefinition
@@ -226,6 +237,42 @@ export type ProgramSetupAccessoryPrescriptionOption = {
   targetSummary: string
 }
 
+export type ProgramSetupPreviewMovement = {
+  slotId: string
+  templateSlotId: string
+  phaseKey: string
+  phaseLabel: string
+  setupPhaseKey: string
+  role: MovementRole
+  roleLabel: string
+  defaultMovementId: string
+  defaultMovementName: string
+  targetSummary: string
+  progressionRuleId?: string | null
+  replacementOptions: MovementSwapOption[]
+}
+
+export type ProgramSetupPreviewSession = {
+  id: string
+  label: string
+  title: string
+  estimatedMinutes: number
+  movementSummary: string
+  keyPrescription: string
+  movements: ProgramSetupPreviewMovement[]
+}
+
+export type ProgramSetupPreviewWeek = {
+  index: number
+  label: string
+  phaseKey: string
+  phaseLabel: string
+  subtitle: string
+  summary: string
+  hardness: 'Light' | 'Medium' | 'Hard' | 'Deload'
+  sessions: ProgramSetupPreviewSession[]
+}
+
 export type ProgramSetupSessionOption = {
   id: string
   title: string
@@ -238,6 +285,7 @@ export type ProgramSetupOptions = {
   templateName: string
   origin: ProgramTemplateOrigin
   sessions: ProgramSetupSessionOption[]
+  previewWeeks: ProgramSetupPreviewWeek[]
   accessoryCatalog: Array<{
     movementId: string
     movementName: string
@@ -286,13 +334,15 @@ export type ProgressionDecision = {
   id: string
   movementId: string
   movementName: string
+  stateKey?: string | null
+  stateType?: ProgramStateType | null
   ruleId: string
   scope: 'session' | 'week' | 'wave' | 'cycle' | 'block'
   status: 'pending' | 'accepted' | 'dismissed' | 'superseded'
   inputSummary: string
   recommendation: string
-  previousAnchor?: number | null
-  recommendedAnchor?: number | null
+  previousValue?: number | null
+  recommendedValue?: number | null
 }
 
 export type TodayPayload = {
@@ -470,9 +520,12 @@ export type ProgramRecentSessionSummary = {
   topSetHighlights: string[]
 }
 
-export type ProgramAnchorOverview = {
+export type ProgramStateOverview = {
   movementId: string
   movementName: string
+  stateKey: string
+  stateType: ProgramStateType
+  label?: string | null
   value: number
   units: Unit
   pendingDecision?: ProgressionDecision | null
@@ -512,14 +565,21 @@ export type ProgramOverview = {
     title: string
     scheduledDate: string
     mainMovementName: string
+    movementSummary: string
     keyPrescription: string
+    movements: Array<{
+      role: MovementRole
+      movementName: string
+      targetSummary: string
+    }>
+    mainCount: number
     variationCount: number
     accessoryCount: number
     status: 'planned' | 'in_progress' | 'completed'
     href: string
   } | null
   recentSessions: ProgramRecentSessionSummary[]
-  anchors: ProgramAnchorOverview[]
+  stateValues: ProgramStateOverview[]
   accessoryPlan: ProgramAccessoryPlan[]
   bodyLoad: BodyLoadSummary
   pendingDecisions: ProgressionDecision[]

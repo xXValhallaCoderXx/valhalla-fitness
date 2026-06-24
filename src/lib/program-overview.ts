@@ -1,10 +1,10 @@
 import type {
   BodyLoadSummary,
   ProgramAccessoryPlan,
-  ProgramAnchorOverview,
   ProgramInstance,
   ProgramOverview,
   ProgramRecentSessionSummary,
+  ProgramStateOverview,
   ProgressionDecision,
   TodayPayload,
 } from '~/types/training'
@@ -24,29 +24,38 @@ export function buildProgramOverview({
   acceptedDecisions: ProgressionDecision[]
 }): ProgramOverview {
   const program = today.activeProgram
-  if (!program || !program.templateDefinition || !today.plannedSession) {
+  if (!program || !program.templateDefinition) {
     return {
       activeProgram: program,
       position: null,
       nextSession: null,
       recentSessions,
-      anchors: [],
-      accessoryPlan: [],
+      stateValues: program ? buildStateOverview(program, today.pendingDecisions, acceptedDecisions) : [],
+      accessoryPlan: program ? buildAccessoryPlan(program) : [],
       bodyLoad,
       pendingDecisions: today.pendingDecisions,
     }
   }
 
   const definition = program.templateDefinition
+  const plannedSession = today.plannedSession ?? expandPlannedSession(program, program.startDate, definition)
   const timeline = buildProgramTimeline(program, definition)
   const programmeWeekIndex = positiveModulo(Math.floor(program.currentWeekIndex / definition.daysPerWeek), definition.durationWeeks)
   const currentSessionInWeek = positiveModulo(program.currentWeekIndex, definition.daysPerWeek)
   const week = definition.weeks[programmeWeekIndex]
-  const mainMovement = today.plannedSession.movements.find((movement) => movement.role === 'main')
-  const variationCount = today.plannedSession.movements.filter((movement) => movement.role === 'variation').length
-  const accessoryCount = today.plannedSession.movements.filter((movement) => movement.role === 'accessory').length
+  const mainMovement = plannedSession.movements.find((movement) => movement.role === 'main')
+  const nextSessionMovements = plannedSession.movements.map((movement) => ({
+    role: movement.role,
+    movementName: movement.movementName,
+    targetSummary: movement.targetSummary,
+  }))
+  const mainCount = nextSessionMovements.filter((movement) => movement.role === 'main').length
+  const variationCount = plannedSession.movements.filter((movement) => movement.role === 'variation').length
+  const accessoryCount = plannedSession.movements.filter((movement) => movement.role === 'accessory').length
   const activeSessionId = today.activeSession?.sessionId
   const completedSessionId = today.completedSession?.sessionId
+  const completedPlannedSession = today.completedSession?.id === plannedSession.id
+  const nextSessionStatus = today.activeSession ? 'in_progress' : completedPlannedSession ? 'completed' : 'planned'
 
   return {
     activeProgram: program,
@@ -54,10 +63,10 @@ export function buildProgramOverview({
       phaseKey: week?.phaseKey ?? 'current',
       phaseLabel: week?.phaseLabel ?? 'Current phase',
       waveLabel: week?.waveLabel ?? null,
-      weekLabel: today.plannedSession.weekLabel,
+      weekLabel: plannedSession.weekLabel,
       weekSummary: week?.summary ?? timeline.weeks[timeline.currentWeekIndex]?.summary ?? 'Current training week.',
       focus: week?.focus ?? mainMovement?.targetSummary ?? 'Complete the planned session.',
-      hardness: today.plannedSession.hardness,
+      hardness: plannedSession.hardness,
       weekNumber: programmeWeekIndex + 1,
       totalWeeks: definition.durationWeeks,
       sessionNumber: currentSessionInWeek + 1,
@@ -65,39 +74,45 @@ export function buildProgramOverview({
       progressPercent: Math.round(((program.currentWeekIndex + 1) / (definition.durationWeeks * definition.daysPerWeek)) * 100),
     },
     nextSession: {
-      title: today.plannedSession.title,
-      scheduledDate: today.plannedSession.scheduledDate,
+      title: plannedSession.title,
+      scheduledDate: plannedSession.scheduledDate,
       mainMovementName: mainMovement?.movementName ?? 'No main movement',
-      keyPrescription: mainMovement?.targetSummary ?? today.plannedSession.movements[0]?.targetSummary ?? 'Planned work',
+      movementSummary: nextSessionMovements.map((movement) => movement.movementName).join(', ') || 'No movements',
+      keyPrescription: mainMovement?.targetSummary ?? plannedSession.movements[0]?.targetSummary ?? 'Planned work',
+      movements: nextSessionMovements,
+      mainCount,
       variationCount,
       accessoryCount,
-      status: today.activeSession ? 'in_progress' : today.completedSession ? 'completed' : 'planned',
+      status: nextSessionStatus,
       href: activeSessionId
         ? `/sessions/${activeSessionId}`
-        : completedSessionId
+        : completedPlannedSession && completedSessionId
           ? `/sessions/${completedSessionId}/summary`
           : '/today',
     },
     recentSessions,
-    anchors: buildAnchorOverview(program, today.pendingDecisions, acceptedDecisions),
+    stateValues: buildStateOverview(program, today.pendingDecisions, acceptedDecisions),
     accessoryPlan: buildAccessoryPlan(program),
     bodyLoad,
     pendingDecisions: today.pendingDecisions,
   }
 }
 
-function buildAnchorOverview(
+function buildStateOverview(
   program: ProgramInstance,
   pendingDecisions: ProgressionDecision[],
   acceptedDecisions: ProgressionDecision[],
-): ProgramAnchorOverview[] {
-  return program.anchors.map((anchor): ProgramAnchorOverview => ({
-    movementId: anchor.movementId,
-    movementName: getMovementName(anchor.movementId),
-    value: anchor.value,
+): ProgramStateOverview[] {
+  return program.stateValues.map((state): ProgramStateOverview => ({
+    movementId: state.movementId,
+    movementName: getMovementName(state.movementId),
+    stateKey: state.key,
+    stateType: state.type,
+    label: state.label ?? null,
+    value: state.value,
     units: program.units,
-    pendingDecision: pendingDecisions.find((decision) => decision.movementId === anchor.movementId) ?? null,
-    lastAcceptedDecision: acceptedDecisions.find((decision) => decision.movementId === anchor.movementId) ?? null,
+    pendingDecision: pendingDecisions.find((decision) => decision.stateKey === state.key) ?? null,
+    lastAcceptedDecision: acceptedDecisions.find((decision) => decision.stateKey === state.key) ?? null,
   }))
 }
 

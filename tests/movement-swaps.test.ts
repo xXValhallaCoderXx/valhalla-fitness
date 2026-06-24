@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { buildMovementSwapOptions } from '../src/lib/movements'
+import { listFallbackTemplateDefinitions } from '../src/lib/template-definitions'
+
+function resolveMovementId(movementId: string | { default: string; byPhase?: Record<string, string> }, phaseKey: string) {
+  if (typeof movementId === 'string') return movementId
+  return movementId.byPhase?.[phaseKey] ?? movementId.default
+}
 
 describe('movement swap options', () => {
   it('blocks main lift swaps', () => {
@@ -36,5 +42,32 @@ describe('movement swap options', () => {
 
     expect(options[0]?.source).toBe('rule')
     expect(firstRelatedIndex).toBeGreaterThan(lastSuggestedIndex)
+  })
+
+  it('has programme-level suggestions for every built-in accessory and variation slot', () => {
+    const missing: string[] = []
+
+    for (const definition of listFallbackTemplateDefinitions()) {
+      const phaseKeys = Array.from(new Set(definition.weeks.map((week) => week.phaseKey)))
+      for (const session of definition.sessions) {
+        for (const slot of session.slots) {
+          if (slot.role !== 'accessory' && slot.role !== 'variation') continue
+          for (const phaseKey of phaseKeys) {
+            const movementId = resolveMovementId(slot.movementId, phaseKey)
+            const options = buildMovementSwapOptions({
+              movementId,
+              role: slot.role,
+              templateId: definition.id,
+              phaseKey,
+              slotId: `slot-${session.id}-${slot.id}`,
+            }).filter((option) => option.allowedScopes.includes('phase_slot'))
+
+            if (!options.length) missing.push(`${definition.id}/${session.id}/${slot.id}/${phaseKey}/${movementId}`)
+          }
+        }
+      }
+    }
+
+    expect(missing).toEqual([])
   })
 })
