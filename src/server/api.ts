@@ -92,12 +92,33 @@ function normalizeProgramStateDefaults(input: unknown, units: Unit): ProgramStat
   const fallback = defaultProgramStateDefaults(units)
   if (!input || typeof input !== 'object' || Array.isArray(input)) return fallback
   const values = input as Record<string, unknown>
-  return Object.fromEntries(
-    Object.entries(fallback).map(([key, fallbackValue]) => {
-      const value = Number(values[key])
-      return [key, Number.isFinite(value) && value > 0 ? value : fallbackValue]
-    }),
-  )
+  const normalized: ProgramStateDefaults = { ...fallback }
+  for (const [key, rawValue] of Object.entries(values)) {
+    normalized[key] = normalizeNullableLoadDefault(rawValue)
+  }
+  return normalized
+}
+
+function normalizeNullableLoadDefault(value: unknown) {
+  if (value === null || value === undefined || value === '') return null
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null
+}
+
+function validProgramStateValues(
+  definition: TemplateDefinition,
+  stateValues: ProgramStateInput[],
+): Array<ProgramStateInput & { value: number }> {
+  const requiredKeys = new Set(definition.requiredState.map((state) => state.key))
+  const requiredStateValues = stateValues.filter((state) => requiredKeys.has(state.key))
+  validateRequiredState(definition, requiredStateValues)
+  return requiredStateValues.map((state) => {
+    const value = Number(state.value)
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new Error(`Missing valid programme state for ${state.label ?? getMovementName(state.movementId)}`)
+    }
+    return { ...state, value }
+  })
 }
 
 function normalizeTemplateSource(row: any): ProgramTemplateSummary['source'] {
@@ -1207,7 +1228,7 @@ export const startProgramFn = createServerFn({ method: 'POST' })
           templateVersion.definition.requiredState,
           normalizeProgramStateDefaults(profile.program_state_defaults, units),
         )
-    validateRequiredState(templateVersion.definition, stateValues)
+    const persistedStateValues = validProgramStateValues(templateVersion.definition, stateValues)
 
     const { data: activePrograms, error: activeProgramError } = await supabase
       .from('program_instances')
@@ -1262,9 +1283,9 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       .single()
     if (error) throw new Error(error.message)
 
-    if (stateValues.length) {
+    if (persistedStateValues.length) {
       const { error: stateInsertError } = await supabase.from('program_state_values').insert(
-        stateValues.map((state) => ({
+        persistedStateValues.map((state) => ({
           user_id: user.id,
           program_instance_id: instance.id,
           key: state.key,

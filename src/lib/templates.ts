@@ -100,30 +100,33 @@ export function defaultStateValues(
 ): ProgramStateInput[] {
   return requiredState.map((state) => ({
     ...state,
-    value: stateDefaultValue(state, unit, defaults),
+    value: stateDefaultValue(state, defaults),
     unit,
   }))
 }
 
 export function defaultProgramStateDefaults(unit: Unit = 'kg'): ProgramStateDefaults {
-  const values =
-    unit === 'kg'
-      ? { squat: 165, bench_press: 110, deadlift: 190, overhead_press: 75, barbell_row: 60 }
-      : { squat: 365, bench_press: 245, deadlift: 420, overhead_press: 165, barbell_row: 135 }
+  void unit
   const defaults: ProgramStateDefaults = {}
-  for (const state of [
-    ...requiredTrainingMaxState(),
-    ...requiredWorkingLoadState(['squat', 'bench_press', 'overhead_press', 'deadlift', 'barbell_row']),
-  ]) {
-    defaults[state.key] = values[state.movementId as keyof typeof values] ?? (unit === 'kg' ? 60 : 135)
+  for (const state of defaultProgramStateRequirements()) {
+    defaults[state.key] = null
   }
   return defaults
 }
 
-function stateDefaultValue(state: ProgramStateRequirement, unit: Unit, defaults: ProgramStateDefaults) {
-  const value = Number(defaults[state.key])
+export function defaultProgramStateRequirements(): ProgramStateRequirement[] {
+  return [
+    ...requiredTrainingMaxState(),
+    ...requiredWorkingLoadState(['squat', 'bench_press', 'overhead_press', 'deadlift', 'barbell_row']),
+  ]
+}
+
+function stateDefaultValue(state: ProgramStateRequirement, defaults: ProgramStateDefaults) {
+  const rawValue = defaults[state.key]
+  if (rawValue === null || rawValue === undefined) return null
+  const value = Number(rawValue)
   if (Number.isFinite(value) && value > 0) return value
-  return defaultProgramStateDefaults(unit)[state.key] ?? (unit === 'kg' ? 60 : 135)
+  return null
 }
 
 export function expandPlannedSession(

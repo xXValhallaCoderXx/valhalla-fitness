@@ -103,17 +103,21 @@ function buildStateOverview(
   pendingDecisions: ProgressionDecision[],
   acceptedDecisions: ProgressionDecision[],
 ): ProgramStateOverview[] {
-  return program.stateValues.map((state): ProgramStateOverview => ({
-    movementId: state.movementId,
-    movementName: getMovementName(state.movementId),
-    stateKey: state.key,
-    stateType: state.type,
-    label: state.label ?? null,
-    value: state.value,
-    units: program.units,
-    pendingDecision: pendingDecisions.find((decision) => decision.stateKey === state.key) ?? null,
-    lastAcceptedDecision: acceptedDecisions.find((decision) => decision.stateKey === state.key) ?? null,
-  }))
+  return program.stateValues
+    .filter((state): state is ProgramInstance['stateValues'][number] & { value: number } =>
+      typeof state.value === 'number' && Number.isFinite(state.value) && state.value > 0,
+    )
+    .map((state): ProgramStateOverview => ({
+      movementId: state.movementId,
+      movementName: getMovementName(state.movementId),
+      stateKey: state.key,
+      stateType: state.type,
+      label: state.label ?? null,
+      value: state.value,
+      units: program.units,
+      pendingDecision: pendingDecisions.find((decision) => decision.stateKey === state.key) ?? null,
+      lastAcceptedDecision: acceptedDecisions.find((decision) => decision.stateKey === state.key) ?? null,
+    }))
 }
 
 function buildAccessoryPlan(program: ProgramInstance): ProgramAccessoryPlan[] {

@@ -7,6 +7,8 @@ import {
   evaluateTrainingMaxBand,
 } from './progression'
 
+type ValidProgramState = ProgramInstance['stateValues'][number] & { value: number }
+
 function hasNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -121,9 +123,11 @@ function stateForMovement(
   activeProgram: ProgramInstance,
   movementId: string,
   type: 'training_max' | 'working_load',
-) {
-  return activeProgram.stateValues.find((state) => state.key === programStateKey(movementId, type)) ??
+): ValidProgramState | null {
+  const state = activeProgram.stateValues.find((state) => state.key === programStateKey(movementId, type)) ??
     activeProgram.stateValues.find((state) => state.movementId === movementId && state.type === type)
+  if (!state || !hasNumber(state.value) || state.value <= 0) return null
+  return state as ValidProgramState
 }
 
 function simpleLinearIncrement(activeProgram: ProgramInstance, movementId: string) {

@@ -31,6 +31,7 @@ export const customProgramMethodologies: Record<
     shortLabel: string
     description: string
     tooltip: string
+    regulationSummary: string
     progressionLabel: string
     complexity: string
     tag: string
@@ -41,6 +42,7 @@ export const customProgramMethodologies: Record<
     shortLabel: 'Logger only',
     description: 'Structured sessions repeat as written and loads are chosen while training.',
     tooltip: 'No automatic recommendations are created; workouts are logged for history only.',
+    regulationSummary: 'Sheetless will not regulate loads or progressions. Every set uses a user-selected load.',
     progressionLabel: 'Logger only',
     complexity: 'Custom',
     tag: 'logger',
@@ -50,6 +52,7 @@ export const customProgramMethodologies: Record<
     shortLabel: 'TM Wave',
     description: 'Training-max state drives percentage main work and cycle-to-cycle recommendations.',
     tooltip: 'Regulates only main-lift training-max changes through the training-max band rule.',
+    regulationSummary: 'Sheetless regulates main-lift training maxes from the cycle top sets.',
     progressionLabel: 'Training-max band',
     complexity: 'Intermediate',
     tag: 'training max',
@@ -59,6 +62,7 @@ export const customProgramMethodologies: Record<
     shortLabel: 'Plus-set wave',
     description: 'Base-to-peak waves use anchored percentages and plus-set regulation for main lifts.',
     tooltip: 'Regulates main-lift plus sets with plus_set_wave; variation and phase structure are planned only in v1.',
+    regulationSummary: 'Sheetless regulates main-lift training maxes from plus sets; variations and accessories stay planned.',
     progressionLabel: 'Plus-set wave',
     complexity: 'Advanced',
     tag: 'wave',
@@ -68,11 +72,28 @@ export const customProgramMethodologies: Record<
     shortLabel: 'Linear',
     description: 'Repeat fixed sets and reps, then recommend conservative load increases after completed work.',
     tooltip: 'Regulates main lifts only when all target work is completed at or above target reps and RIR.',
+    regulationSummary: 'Sheetless regulates main-lift working loads after completed 3x5 work.',
     progressionLabel: 'Linear completion',
     complexity: 'Beginner',
     tag: 'linear',
   },
 }
+
+const loggerExerciseSchema = z.object({
+  movementId: z.string().min(1),
+  setCount: z.coerce.number().int().min(1).max(10),
+  repMin: z.coerce.number().int().min(1).max(50),
+  repMax: z.coerce.number().int().min(1).max(50),
+  targetRir: z.coerce.number().min(0).max(10).nullable().optional(),
+}).superRefine((exercise, context) => {
+  if (exercise.repMin > exercise.repMax) {
+    context.addIssue({
+      code: 'custom',
+      path: ['repMax'],
+      message: 'repMax must be greater than or equal to repMin',
+    })
+  }
+})
 
 const accessorySchema = z.object({
   movementId: z.string().min(1),
@@ -99,6 +120,7 @@ const builderSessionSchema = z.object({
   mainTargetReps: z.coerce.number().int().min(1).max(30),
   mainTargetRir: z.coerce.number().min(0).max(10).nullable().optional(),
   accessories: z.array(accessorySchema).max(6),
+  loggerExercises: z.array(loggerExerciseSchema).max(12).default([]),
 })
 
 export const customProgramBuilderInputSchema = z.object({
@@ -169,13 +191,13 @@ export function createDefaultCustomProgramBuilderInput({
     sessions: Array.from({ length: normalizedDaysPerWeek }, (_, index) => {
       const day = dayDefaults[index % dayDefaults.length]!
       return {
-        title: customSessionTitle(index, day.mainMovementId, movementCatalog),
+        title: methodology === 'none' ? `Day ${index + 1}` : customSessionTitle(index, day.mainMovementId, movementCatalog),
         mainMovementId: day.mainMovementId,
         variationMovementId: day.variationMovementId,
         mainSetCount: methodology === 'simple_linear' ? 3 : 4,
         mainTargetReps: methodology === 'simple_linear' ? 5 : 8,
         mainTargetRir: methodology === 'none' ? 2 : 1,
-        accessories: [
+        accessories: methodology === 'none' ? [] : [
           {
             movementId: day.accessoryMovementId,
             setCount: 3,
@@ -184,6 +206,24 @@ export function createDefaultCustomProgramBuilderInput({
             progressionMethod: 'history_only',
           },
         ],
+        loggerExercises: methodology === 'none'
+          ? [
+              {
+                movementId: day.mainMovementId,
+                setCount: 3,
+                repMin: 5,
+                repMax: 5,
+                targetRir: 2,
+              },
+              {
+                movementId: day.accessoryMovementId,
+                setCount: 3,
+                repMin: 10,
+                repMax: 15,
+                targetRir: 2,
+              },
+            ]
+          : [],
       }
     }),
   }
@@ -199,11 +239,20 @@ export function normalizeCustomProgramBuilderInput(
   }
 
   for (const session of parsed.sessions) {
-    const mainMovement = assertMovementExists(catalog, session.mainMovementId, 'main movement')
-    if (!mainMovement.isCompetition) {
-      throw new Error('Main slots must use a main lift from the catalog.')
+    if (parsed.methodology === 'none') {
+      if (!session.loggerExercises.length) {
+        throw new Error('Logger-only days need at least one exercise.')
+      }
+      for (const exercise of session.loggerExercises) {
+        assertMovementExists(catalog, exercise.movementId, 'logger exercise')
+      }
+      continue
     }
-    if (session.variationMovementId) {
+
+    const mainMovement = assertMovementExists(catalog, session.mainMovementId, 'main movement')
+    if (!mainMovement.isCompetition) throw new Error('Main slots must use a main lift from the catalog.')
+
+    if (parsed.methodology === 'plus_set_wave' && session.variationMovementId) {
       assertMovementExists(catalog, session.variationMovementId, 'variation movement')
     }
     for (const accessory of session.accessories) {
@@ -218,14 +267,26 @@ export function normalizeCustomProgramBuilderInput(
     ...parsed,
     sessions: parsed.sessions.map((session, index) => ({
       ...session,
-      title: customSessionTitle(index, session.mainMovementId, catalog),
-      variationMovementId: session.variationMovementId || null,
+      title: parsed.methodology === 'none'
+        ? session.title.trim() || `Day ${index + 1}`
+        : customSessionTitle(index, session.mainMovementId, catalog),
+      variationMovementId: parsed.methodology === 'plus_set_wave' ? session.variationMovementId || null : null,
+      mainSetCount: parsed.methodology === 'simple_linear' ? 3 : session.mainSetCount,
+      mainTargetReps: parsed.methodology === 'simple_linear' ? 5 : session.mainTargetReps,
       mainTargetRir: session.mainTargetRir ?? defaultMainTargetRir(parsed.methodology),
-      accessories: session.accessories.map((accessory) => ({
-        ...accessory,
-        targetRir: null,
-        progressionMethod: 'history_only',
-      })),
+      accessories: parsed.methodology === 'none'
+        ? []
+        : session.accessories.map((accessory) => ({
+            ...accessory,
+            targetRir: null,
+            progressionMethod: 'history_only',
+          })),
+      loggerExercises: parsed.methodology === 'none'
+        ? session.loggerExercises.map((exercise) => ({
+            ...exercise,
+            targetRir: exercise.targetRir ?? null,
+          }))
+        : [],
     })),
   }
 }
@@ -255,6 +316,21 @@ export function buildCustomProgramTemplateDefinition({
   const durationWeeks = normalized.methodology === 'training_max_wave' ? 4 : normalized.methodology === 'plus_set_wave' ? 18 : 1
   const sessions = normalized.sessions.map((session, index): TemplateDefinition['sessions'][number] => {
     const sessionKey = `day-${index + 1}`
+    if (normalized.methodology === 'none') {
+      const slots: TemplateDefinition['sessions'][number]['slots'] = session.loggerExercises.map((exercise, exerciseIndex) => ({
+        id: `exercise-${exerciseIndex + 1}`,
+        role: loggerExerciseRole(exercise.movementId, catalog),
+        movementId: exercise.movementId,
+        prescriptionId: `${sessionKey}-exercise-${exerciseIndex + 1}`,
+      }))
+      return {
+        id: sessionKey,
+        title: session.title,
+        estimatedMinutes: 25 + slots.length * 8,
+        slots,
+      }
+    }
+
     const anchorMovementId = anchorMovementIdFor(session.mainMovementId, catalog)
     const slots: TemplateDefinition['sessions'][number]['slots'] = [
       {
@@ -357,6 +433,13 @@ function buildPrescriptionsForWeek(
   const prescriptions: TemplateDefinition['weeks'][number]['prescriptions'] = {}
   input.sessions.forEach((session, sessionIndex) => {
     const sessionKey = `day-${sessionIndex + 1}`
+    if (input.methodology === 'none') {
+      session.loggerExercises.forEach((exercise, exerciseIndex) => {
+        prescriptions[`${sessionKey}-exercise-${exerciseIndex + 1}`] = loggerExercisePrescription(exercise)
+      })
+      return
+    }
+
     prescriptions[`${sessionKey}-main`] = mainPrescription(input.methodology, session, weekIndex)
     if (session.variationMovementId) {
       prescriptions[`${sessionKey}-variation`] = variationPrescription(input.methodology, session, weekIndex)
@@ -447,6 +530,23 @@ function accessoryPrescription(
       targetRepMin: accessory.repMin,
       targetRepMax: accessory.repMax,
       label: `${accessory.repMin}-${accessory.repMax}`,
+    }),
+  }
+}
+
+function loggerExercisePrescription(
+  exercise: NormalizedCustomProgramBuilderInput['sessions'][number]['loggerExercises'][number],
+): PrescriptionDefinition {
+  const repText = exercise.repMin === exercise.repMax ? `${exercise.repMin}` : `${exercise.repMin}-${exercise.repMax}`
+  const rirText = typeof exercise.targetRir === 'number' ? ` @ RIR ${exercise.targetRir}` : ''
+  return {
+    targetSummary: `${exercise.setCount}x${repText}${rirText} · choose load`,
+    sets: repeatedSets(exercise.setCount, {
+      targetLoad: userSelected(),
+      targetRepMin: exercise.repMin,
+      targetRepMax: exercise.repMax,
+      targetRir: exercise.targetRir,
+      label: repText,
     }),
   }
 }
@@ -616,6 +716,10 @@ function repeatedSets(
 function anchorMovementIdFor(movementId: string, catalog: Record<string, Movement>) {
   const movement = catalog[movementId]
   return movement?.variationOf ?? movementId
+}
+
+function loggerExerciseRole(movementId: string, catalog: Record<string, Movement>) {
+  return catalog[movementId]?.isCompetition ? 'main' as const : 'accessory' as const
 }
 
 function assertMovementExists(catalog: Record<string, Movement>, movementId: string, label: string) {

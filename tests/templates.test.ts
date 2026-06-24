@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { buildAccessoryInitialSets, parseAccessoryRepTarget } from '../src/lib/accessories'
 import { movementCatalog } from '../src/lib/movements'
-import { expandPlannedSession, programForNextUncompletedSession } from '../src/lib/templates'
-import { listFallbackTemplateDefinitions } from '../src/lib/template-definitions'
-import { findMissingTemplateMovementIds, validateTemplateDefinition } from '../src/lib/template-engine'
+import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, programForNextUncompletedSession } from '../src/lib/templates'
+import { getFallbackTemplateDefinition, listFallbackTemplateDefinitions } from '../src/lib/template-definitions'
+import { findMissingTemplateMovementIds, validateRequiredState, validateTemplateDefinition } from '../src/lib/template-engine'
 import type { ProgramInstance } from '../src/types/training'
 
 const program: ProgramInstance = {
@@ -27,6 +27,25 @@ const program: ProgramInstance = {
 }
 
 describe('planned session progression', () => {
+  it('keeps missing profile loads unset and blocks templates that require them', () => {
+    const definition = getFallbackTemplateDefinition('generic_alternating_5x5_lp')
+    const stateValues = defaultStateValues('kg', definition.requiredState, defaultProgramStateDefaults('kg'))
+
+    expect(stateValues.every((state) => state.value === null)).toBe(true)
+    expect(() => validateRequiredState(definition, stateValues)).toThrow('Missing valid programme state')
+  })
+
+  it('preserves saved load defaults without filling missing keys', () => {
+    const definition = getFallbackTemplateDefinition('generic_alternating_5x5_lp')
+    const stateValues = defaultStateValues('kg', definition.requiredState, {
+      ...defaultProgramStateDefaults('kg'),
+      squat_working_load: 60,
+    })
+
+    expect(stateValues.find((state) => state.key === 'squat_working_load')?.value).toBe(60)
+    expect(stateValues.find((state) => state.key === 'bench_press_working_load')?.value).toBeNull()
+  })
+
   it('validates all fallback template definitions', () => {
     for (const definition of listFallbackTemplateDefinitions()) {
       expect(validateTemplateDefinition(definition)).toMatchObject({ ok: true })

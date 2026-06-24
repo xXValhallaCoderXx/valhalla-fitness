@@ -159,6 +159,10 @@ function LoadedTemplateStartRoute({
         : [],
     [stateValues, template.requiredState],
   )
+  const missingRequiredState = useMemo(
+    () => visibleState.filter((state) => !hasUsableStateValue(state.value)),
+    [visibleState],
+  )
 
   const startMutation = useMutation({
     mutationFn: (input: { replaceActiveProgram?: boolean }) => {
@@ -252,6 +256,11 @@ function LoadedTemplateStartRoute({
 
   const requestStartProgram = () => {
     setStartError(null)
+    if (missingRequiredState.length) {
+      setStartError(missingRequiredLoadMessage(missingRequiredState))
+      setShowDefaultsModal(true)
+      return
+    }
     if (shouldConfirmProgramStart(today)) {
       setShowSwitchConfirm(true)
       return
@@ -261,6 +270,12 @@ function LoadedTemplateStartRoute({
 
   const confirmSwitch = () => {
     setStartError(null)
+    if (missingRequiredState.length) {
+      setStartError(missingRequiredLoadMessage(missingRequiredState))
+      setShowSwitchConfirm(false)
+      setShowDefaultsModal(true)
+      return
+    }
     startMutation.mutate({ replaceActiveProgram: true })
   }
 
@@ -355,6 +370,7 @@ function LoadedTemplateStartRoute({
           units={me.units}
           rounding={me.rounding}
           visibleState={visibleState}
+          missingRequiredState={missingRequiredState}
           customizationCount={customizationCount}
           hasActiveProgram={Boolean(today.activeProgram)}
           startError={startError}
@@ -375,7 +391,7 @@ function LoadedTemplateStartRoute({
             <div className="min-w-0 text-xs">
               <p className="truncate font-extrabold">{template.name}</p>
               <p className="truncate text-[var(--mantine-color-dimmed)]">
-                {defaultsSummary(me.units, me.rounding, visibleState.length)}
+                {defaultsSummary(me.units, me.rounding, visibleState)}
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
@@ -383,7 +399,7 @@ function LoadedTemplateStartRoute({
                 <Settings size={14} />
                 Defaults
               </Button>
-              <Button disabled={startMutation.isPending} onClick={requestStartProgram}>
+              <Button disabled={startMutation.isPending || missingRequiredState.length > 0} onClick={requestStartProgram}>
                 <Check size={16} />
                 Start
               </Button>
@@ -397,6 +413,7 @@ function LoadedTemplateStartRoute({
         units={me.units}
         rounding={me.rounding}
         visibleState={visibleState}
+        missingRequiredState={missingRequiredState}
         onClose={() => setShowDefaultsModal(false)}
       />
       <ProgrammeInfoModal
@@ -695,6 +712,7 @@ function StartSummaryPanel({
   units,
   rounding,
   visibleState,
+  missingRequiredState,
   customizationCount,
   hasActiveProgram,
   startError,
@@ -706,6 +724,7 @@ function StartSummaryPanel({
   units: Unit
   rounding: number
   visibleState: ProgramStateInput[]
+  missingRequiredState: ProgramStateInput[]
   customizationCount: number
   hasActiveProgram: boolean
   startError: string | null
@@ -717,7 +736,7 @@ function StartSummaryPanel({
     <Card className={`space-y-4 p-4 ${className ?? ''}`}>
       <div>
         <p className="vf-section-label">Programme defaults</p>
-        <p className="mt-1 text-sm font-extrabold">{defaultsSummary(units, rounding, visibleState.length)}</p>
+        <p className="mt-1 text-sm font-extrabold">{defaultsSummary(units, rounding, visibleState)}</p>
         <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
           New programmes copy your saved settings.
         </p>
@@ -740,13 +759,19 @@ function StartSummaryPanel({
         </p>
       ) : null}
 
+      {missingRequiredState.length ? (
+        <p className="rounded-md border border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-3 text-xs text-[var(--vf-warning-text)]">
+          Add {missingRequiredState.length} required load{missingRequiredState.length === 1 ? '' : 's'} in Settings before starting.
+        </p>
+      ) : null}
+
       {startError ? (
         <p className="rounded-md border border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] p-3 text-xs text-[var(--vf-danger-text)]">
           {startError}
         </p>
       ) : null}
 
-      <Button className="w-full" disabled={isPending} onClick={onStart}>
+      <Button className="w-full" disabled={isPending || missingRequiredState.length > 0} onClick={onStart}>
         <Check size={16} />
         Start programme
       </Button>
@@ -759,12 +784,14 @@ function DefaultsModal({
   units,
   rounding,
   visibleState,
+  missingRequiredState,
   onClose,
 }: {
   opened: boolean
   units: Unit
   rounding: number
   visibleState: ProgramStateInput[]
+  missingRequiredState: ProgramStateInput[]
   onClose: () => void
 }) {
   return (
@@ -776,20 +803,32 @@ function DefaultsModal({
           <StartInfoMetric label="Starting loads" value={visibleState.length || 'None'} />
         </div>
 
+        {missingRequiredState.length ? (
+          <p className="rounded-md border border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-3 text-sm text-[var(--vf-warning-text)]">
+            {missingRequiredLoadMessage(missingRequiredState)}
+          </p>
+        ) : null}
+
         {visibleState.length ? (
           <div>
-            <p className="vf-section-label">Saved starting loads</p>
+            <p className="vf-section-label">Saved programme loads</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {visibleState.map((state) => (
                 <div
                   key={state.key}
-                  className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3"
+                  className={`rounded-md border p-3 ${
+                    hasUsableStateValue(state.value)
+                      ? 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)]'
+                      : 'border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)]'
+                  }`}
                 >
                   <p className="truncate text-sm font-extrabold">{getMovementName(state.movementId)}</p>
                   <p className="mt-0.5 text-[10px] font-bold uppercase text-[var(--mantine-color-dimmed)]">
                     {state.type.replaceAll('_', ' ')}
                   </p>
-                  <p className="mt-1 text-sm font-black">{state.value} {units}</p>
+                  <p className="mt-1 text-sm font-black">
+                    {hasUsableStateValue(state.value) ? `${state.value} ${units}` : 'Unset'}
+                  </p>
                 </div>
               ))}
             </div>
@@ -802,7 +841,7 @@ function DefaultsModal({
 
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="default" onClick={onClose}>Close</Button>
-          <Button component="a" href="/settings#starting-loads" onClick={onClose}>
+          <Button component="a" href="/settings#programme-loads" onClick={onClose}>
             <Settings size={14} />
             Open Settings
           </Button>
@@ -881,11 +920,23 @@ function stateValuesForProfileTemplate(template: ProgramTemplateSummary, profile
   return defaultStateValues(profile.units, template.requiredState, profile.programStateDefaults)
 }
 
-function defaultsSummary(units: Unit, rounding: number, loadCount: number) {
-  const loadSummary = loadCount
-    ? `${loadCount} starting load${loadCount === 1 ? '' : 's'} saved`
+function hasUsableStateValue(value: number | null) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function defaultsSummary(units: Unit, rounding: number, stateValues: ProgramStateInput[]) {
+  const missingCount = stateValues.filter((state) => !hasUsableStateValue(state.value)).length
+  const loadSummary = stateValues.length
+    ? missingCount
+      ? `${missingCount} load${missingCount === 1 ? '' : 's'} unset`
+      : `${stateValues.length} starting load${stateValues.length === 1 ? '' : 's'} saved`
     : 'no starting loads required'
   return `${units} - round ${rounding} - ${loadSummary}`
+}
+
+function missingRequiredLoadMessage(stateValues: ProgramStateInput[]) {
+  const labels = stateValues.map((state) => `${getMovementName(state.movementId)} ${state.type.replaceAll('_', ' ')}`)
+  return `Missing required programme load${labels.length === 1 ? '' : 's'}: ${labels.join(', ')}.`
 }
 
 function compactWeekPreviewOptions(weeks: ProgramSetupOptions['previewWeeks']): WeekPreviewOption[] {

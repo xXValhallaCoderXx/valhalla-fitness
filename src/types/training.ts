@@ -18,7 +18,7 @@ export type ProgramTemplateOrigin = 'system_default' | 'licensed_partner' | 'use
 
 export type ProgramCustomizationStatus = 'default' | 'customized'
 
-export type ProgramStateDefaults = Record<string, number>
+export type ProgramStateDefaults = Record<string, number | null>
 
 export type Movement = {
   id: string
@@ -66,7 +66,7 @@ export type ProgramStateRequirement = {
 }
 
 export type ProgramStateInput = ProgramStateRequirement & {
-  value: number
+  value: number | null
   unit?: Unit
 }
 

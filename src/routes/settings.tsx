@@ -1,11 +1,12 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Badge, Button, Card, TextInput } from '@mantine/core'
+import { Badge, Button, Card, Modal, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User } from 'lucide-react'
+import { Calculator, Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { getMovementName } from '~/lib/movements'
+import { e1rm, mround } from '~/lib/progression'
 import { authUserQueryOptions, meQueryOptions } from '~/lib/query-options'
 import { loadRouteQuery } from '~/lib/route-loading'
 import { defaultProgramStateDefaults } from '~/lib/templates'
@@ -39,22 +40,37 @@ const themeOptions: Array<{
 
 const settingsSections = [
   { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
-  { id: 'starting-loads', label: 'Starting Loads', icon: Gauge },
+  { id: 'programme-loads', label: 'Programme Loads', icon: Gauge },
   { id: 'equipment', label: 'Equipment', icon: Dumbbell },
   { id: 'data-sync', label: 'Data & Sync', icon: Cloud },
   { id: 'account', label: 'Account', icon: User },
 ]
 
-const startingLoadSections = [
+type LoadDefaultsTab = 'working_loads' | 'training_maxes'
+
+type LoadHelperState = {
+  key: string
+  label: string
+  type: 'working_load' | 'training_max'
+} | null
+
+const programmeLoadSections: Array<{
+  id: LoadDefaultsTab
+  label: string
+  description: string
+  keys: string[]
+}> = [
   {
-    label: 'Training Maxes',
-    description: 'Used by training-max and wave templates.',
-    keys: ['squat_training_max', 'bench_press_training_max', 'deadlift_training_max', 'overhead_press_training_max'],
+    id: 'working_loads',
+    label: 'Working Loads',
+    description: 'Used by linear/current-load templates.',
+    keys: ['squat_working_load', 'bench_press_working_load', 'overhead_press_working_load', 'deadlift_working_load', 'barbell_row_working_load'],
   },
   {
-    label: 'Working Loads',
-    description: 'Used by beginner linear templates.',
-    keys: ['squat_working_load', 'bench_press_working_load', 'overhead_press_working_load', 'deadlift_working_load', 'barbell_row_working_load'],
+    id: 'training_maxes',
+    label: 'Training Maxes',
+    description: 'Conservative anchors for percentage and wave templates.',
+    keys: ['squat_training_max', 'bench_press_training_max', 'deadlift_training_max', 'overhead_press_training_max'],
   },
 ]
 
@@ -102,6 +118,8 @@ function SettingsForm({ me }: { me: UserProfile }) {
   const [programStateDefaults, setProgramStateDefaults] = useState<ProgramStateDefaults>(
     me?.programStateDefaults ?? defaultProgramStateDefaults(me?.units ?? 'kg'),
   )
+  const [activeLoadTab, setActiveLoadTab] = useState<LoadDefaultsTab>('working_loads')
+  const [loadHelper, setLoadHelper] = useState<LoadHelperState>(null)
 
   const hasPendingChanges = useMemo(
     () =>
@@ -167,12 +185,14 @@ function SettingsForm({ me }: { me: UserProfile }) {
     if (currentWasUnitDefault) setProgramStateDefaults(defaultProgramStateDefaults(nextUnits))
   }
 
-  const updateProgramStateDefault = (key: string, value: number) => {
+  const updateProgramStateDefault = (key: string, value: number | null) => {
     setProgramStateDefaults((current) => ({
       ...current,
       [key]: value,
     }))
   }
+
+  const activeLoadSection = programmeLoadSections.find((section) => section.id === activeLoadTab) ?? programmeLoadSections[0]!
 
   const signOutMutation = useMutation({
     mutationFn: async () => {
@@ -300,42 +320,84 @@ function SettingsForm({ me }: { me: UserProfile }) {
             </Card>
           </section>
 
-          <section id="starting-loads" className="scroll-mt-24">
+          <section id="programme-loads" className="scroll-mt-24">
             <div className="mb-2">
-              <h2 className="text-sm font-extrabold">Starting Loads</h2>
+              <h2 className="text-sm font-extrabold">Programme Loads</h2>
               <p className="text-[10px] text-[var(--mantine-color-dimmed)]">
-                New programmes copy these defaults. Active programmes keep their own saved values.
+                New programmes copy only the loads their methodology requires. Active programmes keep their own saved values.
               </p>
             </div>
             <Card className="space-y-4 p-4">
-              {startingLoadSections.map((section) => (
-                <div key={section.label} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-                  <div className="mb-3">
-                    <p className="vf-section-label">{section.label}</p>
-                    <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{section.description}</p>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {section.keys.map((key) => (
-                      <label key={key} className="grid gap-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
-                          {startingLoadLabel(key)}
-                        </span>
+              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar sm:flex-wrap sm:overflow-visible sm:pb-0">
+                {programmeLoadSections.map((section) => (
+                  <button
+                    key={section.id}
+                    type="button"
+                    className={`min-h-9 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-bold transition ${
+                      activeLoadTab === section.id
+                        ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-primary-color-filled)] text-white'
+                        : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)] hover:border-[var(--vf-action-border)] hover:text-[var(--mantine-color-text)]'
+                    }`}
+                    onClick={() => setActiveLoadTab(section.id)}
+                  >
+                    {section.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+                <div className="mb-3">
+                  <p className="vf-section-label">{activeLoadSection.label}</p>
+                  <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{activeLoadSection.description}</p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {activeLoadSection.keys.map((key) => {
+                    const value = programStateDefaults[key] ?? null
+                    const label = startingLoadLabel(key)
+                    const type = key.endsWith('_training_max') ? 'training_max' : 'working_load'
+                    return (
+                      <div key={key} className="grid gap-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+                            {label}
+                          </span>
+                          <Badge color={hasLoadDefault(value) ? 'success' : 'warning'} size="xs">
+                            {hasLoadDefault(value) ? 'Set' : 'Unset'}
+                          </Badge>
+                        </div>
                         <span className="relative block">
                           <TextInput
-                            classNames={{ input: 'pr-12 text-right' }}
+                            classNames={{ input: 'pr-24 text-right' }}
                             type="number"
-                            value={programStateDefaults[key] ?? ''}
-                            onChange={(event) => updateProgramStateDefault(key, Number(event.target.value))}
+                            placeholder="Unset"
+                            value={value ?? ''}
+                            onChange={(event) => updateProgramStateDefault(key, loadDefaultFromInput(event.target.value))}
                           />
-                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--mantine-color-dimmed)]">
+                          <span className="pointer-events-none absolute right-14 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--mantine-color-dimmed)]">
                             {units}
                           </span>
+                          <button
+                            type="button"
+                            aria-label={`Clear ${label}`}
+                            className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--vf-surface-2)] hover:text-[var(--mantine-color-text)]"
+                            onClick={() => updateProgramStateDefault(key, null)}
+                          >
+                            <X size={14} />
+                          </button>
                         </span>
-                      </label>
-                    ))}
-                  </div>
+                        <Button
+                          variant="default"
+                          size="xs"
+                          onClick={() => setLoadHelper({ key, label, type })}
+                        >
+                          <Calculator size={14} />
+                          Helper
+                        </Button>
+                      </div>
+                    )
+                  })}
                 </div>
-              ))}
+              </div>
             </Card>
           </section>
 
@@ -406,7 +468,147 @@ function SettingsForm({ me }: { me: UserProfile }) {
           </section>
         </div>
       </div>
+
+      <LoadHelperModal
+        helper={loadHelper}
+        units={units}
+        rounding={rounding}
+        onApply={(key, value) => updateProgramStateDefault(key, value)}
+        onClose={() => setLoadHelper(null)}
+      />
     </Page>
+  )
+}
+
+function LoadHelperModal({
+  helper,
+  units,
+  rounding,
+  onApply,
+  onClose,
+}: {
+  helper: LoadHelperState
+  units: Unit
+  rounding: number
+  onApply: (key: string, value: number) => void
+  onClose: () => void
+}) {
+  return (
+    <Modal opened={Boolean(helper)} onClose={onClose} title={helper?.type === 'training_max' ? 'Estimate training max' : 'Set working load'} size="md">
+      {helper ? (
+        <LoadHelperForm
+          key={helper.key}
+          helper={helper}
+          units={units}
+          rounding={rounding}
+          onApply={onApply}
+          onClose={onClose}
+        />
+      ) : null}
+    </Modal>
+  )
+}
+
+function LoadHelperForm({
+  helper,
+  units,
+  rounding,
+  onApply,
+  onClose,
+}: {
+  helper: NonNullable<LoadHelperState>
+  units: Unit
+  rounding: number
+  onApply: (key: string, value: number) => void
+  onClose: () => void
+}) {
+  const [knownLoad, setKnownLoad] = useState('')
+  const [knownReps, setKnownReps] = useState('5')
+  const [knownRir, setKnownRir] = useState('1')
+  const [workingLoad, setWorkingLoad] = useState('')
+  const knownLoadValue = loadDefaultFromInput(knownLoad)
+  const knownRepsValue = integerFromInput(knownReps)
+  const knownRirValue = numberFromInput(knownRir)
+  const estimatedMax =
+    helper.type === 'training_max' && knownLoadValue && knownRepsValue
+      ? e1rm(knownLoadValue, knownRepsValue, knownRirValue ?? 0)
+      : null
+  const trainingMaxSuggestion = estimatedMax ? mround(estimatedMax * 0.9, rounding) : null
+  const workingLoadSuggestion = loadDefaultFromInput(workingLoad)
+  const suggestion = helper.type === 'training_max' ? trainingMaxSuggestion : workingLoadSuggestion
+
+  const applySuggestion = () => {
+    if (!suggestion) return
+    onApply(helper.key, suggestion)
+    onClose()
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-extrabold">{helper.label}</p>
+        <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+          {helper.type === 'training_max'
+            ? 'Use a known set to estimate e1RM, then copy a conservative 90% training max rounded to your profile setting.'
+            : 'Use the load you can currently use for the planned work. Linear templates copy this as the starting working load.'}
+        </p>
+      </div>
+
+      {helper.type === 'training_max' ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <TextInput
+            type="number"
+            label="Known load"
+            value={knownLoad}
+            rightSection={<span className="text-xs font-bold text-[var(--mantine-color-dimmed)]">{units}</span>}
+            onChange={(event) => setKnownLoad(event.target.value)}
+          />
+          <TextInput
+            type="number"
+            label="Reps"
+            value={knownReps}
+            onChange={(event) => setKnownReps(event.target.value)}
+          />
+          <TextInput
+            type="number"
+            label="RIR"
+            value={knownRir}
+            onChange={(event) => setKnownRir(event.target.value)}
+          />
+        </div>
+      ) : (
+        <TextInput
+          type="number"
+          label="Current working load"
+          value={workingLoad}
+          rightSection={<span className="text-xs font-bold text-[var(--mantine-color-dimmed)]">{units}</span>}
+          onChange={(event) => setWorkingLoad(event.target.value)}
+        />
+      )}
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {helper.type === 'training_max' ? (
+          <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Estimated 1RM</p>
+            <p className="mt-1 text-sm font-extrabold">
+              {estimatedMax ? `${formatLoadDefault(mround(estimatedMax, rounding))} ${units}` : 'Enter a set'}
+            </p>
+          </div>
+        ) : null}
+        <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Suggested value</p>
+          <p className="mt-1 text-sm font-extrabold">{suggestion ? `${formatLoadDefault(suggestion)} ${units}` : 'Unset'}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button variant="default" onClick={onClose}>Cancel</Button>
+        <Button disabled={!suggestion} onClick={applySuggestion}>
+          <Calculator size={14} />
+          Apply
+        </Button>
+      </div>
+    </div>
   )
 }
 
@@ -420,9 +622,35 @@ function sameStringSet(left: string[], right: string[]) {
 function sameNumberRecord(left: ProgramStateDefaults, right: ProgramStateDefaults) {
   const keys = new Set([...Object.keys(left), ...Object.keys(right)])
   for (const key of keys) {
-    if (Number(left[key]) !== Number(right[key])) return false
+    if ((left[key] ?? null) !== (right[key] ?? null)) return false
   }
   return true
+}
+
+function hasLoadDefault(value: number | null) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function loadDefaultFromInput(value: string) {
+  if (!value.trim()) return null
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null
+}
+
+function numberFromInput(value: string) {
+  if (!value.trim()) return null
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function integerFromInput(value: string) {
+  const numeric = numberFromInput(value)
+  if (numeric === null || numeric <= 0) return null
+  return Math.round(numeric)
+}
+
+function formatLoadDefault(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }
 
 function startingLoadLabel(key: string) {
