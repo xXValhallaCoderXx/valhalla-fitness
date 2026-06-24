@@ -1,10 +1,10 @@
 import type { MovementSlot, ProgramInstance, ProgressionDecision, SetLog, WorkoutSession } from '~/types/training'
 import { programStateKey } from './template-engine'
 import {
-  evaluate531TmBand,
   evaluateAccessoryDoubleProgression,
-  evaluateBullmastiffPlusSet,
+  evaluatePlusSetWave,
   evaluateSimpleLinearCompletion,
+  evaluateTrainingMaxBand,
 } from './progression'
 
 function hasNumber(value: unknown): value is number {
@@ -40,6 +40,14 @@ export function usesAccessoryAutoregulation(movement: MovementSlot) {
   return movement.progressionRuleId === 'accessory_double_progression'
 }
 
+function isPlusSetWaveRule(ruleId: string) {
+  return ruleId === 'plus_set_wave' || ruleId === 'bullmastiff_plus_set'
+}
+
+function isTrainingMaxBandRule(ruleId: string) {
+  return ruleId === 'training_max_band' || ruleId === 'healthy_531_tm_band'
+}
+
 export function accessoryOutcomeSummary(movement: MovementSlot) {
   if (!usesAccessoryAutoregulation(movement)) return 'History only - no auto-regulation'
   return accessoryOutcome(movement)
@@ -57,11 +65,11 @@ export function buildProgressionDecisionsForSession(
 
       const topSetWithReps = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedReps(set))
       const topSetWithRir = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedRepsAndRir(set))
-      if (ruleId === 'bullmastiff_plus_set' && topSetWithReps) {
+      if (isPlusSetWaveRule(ruleId) && topSetWithReps) {
         const state = stateForMovement(activeProgram, movement.movementId, 'training_max')
         if (!state) continue
         decisions.push(
-          evaluateBullmastiffPlusSet(
+          evaluatePlusSetWave(
             topSetWithReps,
             topSetWithReps.targetReps ?? 1,
             state.value,
@@ -71,10 +79,10 @@ export function buildProgressionDecisionsForSession(
           ),
         )
       }
-      if (ruleId === 'healthy_531_tm_band' && topSetWithRir) {
+      if (isTrainingMaxBandRule(ruleId) && topSetWithRir) {
         const state = stateForMovement(activeProgram, movement.movementId, 'training_max')
         if (!state) continue
-        decisions.push(evaluate531TmBand([topSetWithRir], state.value, activeProgram.rounding, movement.movementId, state.key))
+        decisions.push(evaluateTrainingMaxBand([topSetWithRir], state.value, activeProgram.rounding, movement.movementId, state.key))
       }
       if (ruleId === 'simple_linear_completion') {
         const state = stateForMovement(activeProgram, movement.movementId, 'working_load')

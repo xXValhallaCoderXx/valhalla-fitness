@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  compute531FslSets,
   e1rm,
-  evaluate531TmBand,
   evaluateAccessoryDoubleProgression,
-  evaluateBullmastiffPlusSet,
+  evaluatePlusSetWave,
+  evaluateTrainingMaxBand,
+  computeTrainingMaxWaveSets,
   mround,
 } from '../src/lib/progression'
 
@@ -18,8 +18,8 @@ describe('progression engine', () => {
     expect(Math.round(e1rm(180, 3, 2))).toBe(210)
   })
 
-  it('generates 5/3/1 FSL week weights', () => {
-    const week1 = compute531FslSets(190, 0, 2.5)
+  it('generates training-max wave week weights', () => {
+    const week1 = computeTrainingMaxWaveSets(190, 0, 2.5)
     expect(week1.slice(0, 3).map((set) => [set.targetLoad, set.targetReps, set.isAmrap])).toEqual([
       [122.5, 5, false],
       [142.5, 5, false],
@@ -29,34 +29,35 @@ describe('progression engine', () => {
     expect(week1.filter((set) => set.isBackoff).every((set) => set.targetLoad === 122.5)).toBe(true)
   })
 
-  it('evaluates 5/3/1 TM bands', () => {
+  it('evaluates training-max bands', () => {
     expect(
-      evaluate531TmBand([{ actualReps: 4, actualRir: 2, targetReps: 5 }], 190, 2.5, 'deadlift', 'deadlift_training_max')
+      evaluateTrainingMaxBand([{ actualReps: 4, actualRir: 2, targetReps: 5 }], 190, 2.5, 'deadlift', 'deadlift_training_max')
         .ruleId,
-    ).toBe('healthy_531_tm_reset')
+    ).toBe('training_max_reset')
     expect(
-      evaluate531TmBand([{ actualReps: 5, actualRir: 1, targetReps: 5 }], 190, 2.5, 'deadlift', 'deadlift_training_max')
+      evaluateTrainingMaxBand([{ actualReps: 5, actualRir: 1, targetReps: 5 }], 190, 2.5, 'deadlift', 'deadlift_training_max')
         .ruleId,
-    ).toBe('healthy_531_tm_hold')
+    ).toBe('training_max_hold')
     expect(
-      evaluate531TmBand([{ actualReps: 5, actualRir: 2, targetReps: 5 }], 190, 2.5, 'deadlift', 'deadlift_training_max')
+      evaluateTrainingMaxBand([{ actualReps: 5, actualRir: 2, targetReps: 5 }], 190, 2.5, 'deadlift', 'deadlift_training_max')
         .recommendedValue,
     ).toBe(195)
     expect(
-      evaluate531TmBand([{ actualReps: 7, actualRir: 2, targetReps: 5 }], 190, 2.5, 'deadlift', 'deadlift_training_max')
+      evaluateTrainingMaxBand([{ actualReps: 7, actualRir: 2, targetReps: 5 }], 190, 2.5, 'deadlift', 'deadlift_training_max')
         .recommendedValue,
     ).toBe(197.5)
   })
 
-  it('evaluates Bullmastiff plus-set jumps', () => {
-    const decision = evaluateBullmastiffPlusSet({ actualReps: 9, actualRir: 2 }, 6, 200, 2.5, 'squat', 'squat_training_max')
+  it('evaluates plus-set wave jumps', () => {
+    const decision = evaluatePlusSetWave({ actualReps: 9, actualRir: 2 }, 6, 200, 2.5, 'squat', 'squat_training_max')
     expect(decision.recommendedValue).toBe(205)
+    expect(decision.ruleId).toBe('plus_set_wave')
     expect(decision.inputSummary).toContain('9 reps at RIR 2')
     expect(decision.recommendation).toContain('3 extra reps')
   })
 
-  it('keeps Bullmastiff load unchanged when RIR is high but no extra reps were logged', () => {
-    const decision = evaluateBullmastiffPlusSet({ actualReps: 6, actualRir: 4 }, 6, 200, 2.5, 'squat', 'squat_training_max')
+  it('keeps plus-set wave load unchanged when RIR is high but no extra reps were logged', () => {
+    const decision = evaluatePlusSetWave({ actualReps: 6, actualRir: 4 }, 6, 200, 2.5, 'squat', 'squat_training_max')
     expect(decision.recommendedValue).toBe(200)
     expect(decision.inputSummary).toContain('6 reps at RIR 4')
     expect(decision.recommendation).toContain('no extra reps')

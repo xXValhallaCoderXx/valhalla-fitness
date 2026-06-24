@@ -18,6 +18,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as TemplatesTemplateIdStartRouteImport } from './routes/templates.$templateId.start'
 import { Route as SessionsSessionIdSummaryRouteImport } from './routes/sessions.$sessionId.summary'
 
 const TodayRoute = TodayRouteImport.update({
@@ -65,6 +66,12 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/callback',
   getParentRoute: () => AuthRoute,
 } as any)
+const TemplatesTemplateIdStartRoute =
+  TemplatesTemplateIdStartRouteImport.update({
+    id: '/$templateId/start',
+    path: '/$templateId/start',
+    getParentRoute: () => TemplatesRoute,
+  } as any)
 const SessionsSessionIdSummaryRoute =
   SessionsSessionIdSummaryRouteImport.update({
     id: '/summary',
@@ -78,11 +85,12 @@ export interface FileRoutesByFullPath {
   '/history': typeof HistoryRoute
   '/program': typeof ProgramRoute
   '/settings': typeof SettingsRoute
-  '/templates': typeof TemplatesRoute
+  '/templates': typeof TemplatesRouteWithChildren
   '/today': typeof TodayRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRouteWithChildren
   '/sessions/$sessionId/summary': typeof SessionsSessionIdSummaryRoute
+  '/templates/$templateId/start': typeof TemplatesTemplateIdStartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -90,11 +98,12 @@ export interface FileRoutesByTo {
   '/history': typeof HistoryRoute
   '/program': typeof ProgramRoute
   '/settings': typeof SettingsRoute
-  '/templates': typeof TemplatesRoute
+  '/templates': typeof TemplatesRouteWithChildren
   '/today': typeof TodayRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRouteWithChildren
   '/sessions/$sessionId/summary': typeof SessionsSessionIdSummaryRoute
+  '/templates/$templateId/start': typeof TemplatesTemplateIdStartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -103,11 +112,12 @@ export interface FileRoutesById {
   '/history': typeof HistoryRoute
   '/program': typeof ProgramRoute
   '/settings': typeof SettingsRoute
-  '/templates': typeof TemplatesRoute
+  '/templates': typeof TemplatesRouteWithChildren
   '/today': typeof TodayRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRouteWithChildren
   '/sessions/$sessionId/summary': typeof SessionsSessionIdSummaryRoute
+  '/templates/$templateId/start': typeof TemplatesTemplateIdStartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/sessions/$sessionId'
     | '/sessions/$sessionId/summary'
+    | '/templates/$templateId/start'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -134,6 +145,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/sessions/$sessionId'
     | '/sessions/$sessionId/summary'
+    | '/templates/$templateId/start'
   id:
     | '__root__'
     | '/'
@@ -146,6 +158,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/sessions/$sessionId'
     | '/sessions/$sessionId/summary'
+    | '/templates/$templateId/start'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -154,7 +167,7 @@ export interface RootRouteChildren {
   HistoryRoute: typeof HistoryRoute
   ProgramRoute: typeof ProgramRoute
   SettingsRoute: typeof SettingsRoute
-  TemplatesRoute: typeof TemplatesRoute
+  TemplatesRoute: typeof TemplatesRouteWithChildren
   TodayRoute: typeof TodayRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRouteWithChildren
 }
@@ -224,6 +237,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/templates/$templateId/start': {
+      id: '/templates/$templateId/start'
+      path: '/$templateId/start'
+      fullPath: '/templates/$templateId/start'
+      preLoaderRoute: typeof TemplatesTemplateIdStartRouteImport
+      parentRoute: typeof TemplatesRoute
+    }
     '/sessions/$sessionId/summary': {
       id: '/sessions/$sessionId/summary'
       path: '/summary'
@@ -244,6 +264,18 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface TemplatesRouteChildren {
+  TemplatesTemplateIdStartRoute: typeof TemplatesTemplateIdStartRoute
+}
+
+const TemplatesRouteChildren: TemplatesRouteChildren = {
+  TemplatesTemplateIdStartRoute: TemplatesTemplateIdStartRoute,
+}
+
+const TemplatesRouteWithChildren = TemplatesRoute._addFileChildren(
+  TemplatesRouteChildren,
+)
+
 interface SessionsSessionIdRouteChildren {
   SessionsSessionIdSummaryRoute: typeof SessionsSessionIdSummaryRoute
 }
@@ -261,7 +293,7 @@ const rootRouteChildren: RootRouteChildren = {
   HistoryRoute: HistoryRoute,
   ProgramRoute: ProgramRoute,
   SettingsRoute: SettingsRoute,
-  TemplatesRoute: TemplatesRoute,
+  TemplatesRoute: TemplatesRouteWithChildren,
   TodayRoute: TodayRoute,
   SessionsSessionIdRoute: SessionsSessionIdRouteWithChildren,
 }

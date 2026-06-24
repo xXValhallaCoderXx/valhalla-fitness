@@ -9,7 +9,7 @@ const program: ProgramInstance = {
   id: 'program-1',
   templateId: 'bromley-bullmastiff',
   templateVersionId: 'template-version-1',
-  title: 'Bromley Bullmastiff',
+  title: 'Old School Wave Powerbuilding',
   status: 'active',
   startDate: '2026-06-21',
   units: 'kg',
@@ -42,7 +42,7 @@ describe('program overview model', () => {
       recentSessions: [
         {
           id: 'session-1',
-          title: 'Bullmastiff Squat',
+          title: 'Squat Wave',
           scheduledDate: '2026-06-21',
           completedAt: '2026-06-21T12:00:00.000Z',
           completedSetCount: 8,
@@ -61,7 +61,7 @@ describe('program overview model', () => {
       sessionNumber: 2,
     })
     expect(overview.nextSession).toMatchObject({
-      title: 'Bullmastiff Bench',
+      title: 'Bench Wave',
       mainMovementName: 'Bench Press',
       movementSummary: 'Bench Press, Close-Grip Bench Press, Chest-Supported Row, Triceps Pressdown',
       mainCount: 1,
@@ -78,7 +78,7 @@ describe('program overview model', () => {
     const lpProgram: ProgramInstance = {
       ...program,
       templateId: 'generic_alternating_5x5_lp',
-      title: 'Alternating 5x5 LP',
+      title: 'Beginner 5x5 Linear',
       currentWeekIndex: 1,
       stateValues: [
         { key: 'squat_working_load', movementId: 'squat', type: 'working_load', value: 60 },
@@ -114,10 +114,10 @@ describe('program overview model', () => {
 
     expect(overview.nextSession).toMatchObject({
       title: 'Day 2',
-      movementSummary: 'Squat, Overhead Press, Deadlift',
+      movementSummary: 'Squat, Overhead Press, Deadlift, Lat Pulldown, Sit-Up',
       keyPrescription: '5x5 @ current working load',
       mainCount: 3,
-      accessoryCount: 0,
+      accessoryCount: 2,
       status: 'planned',
       href: '/today',
     })
@@ -125,6 +125,8 @@ describe('program overview model', () => {
       'Squat',
       'Overhead Press',
       'Deadlift',
+      'Lat Pulldown',
+      'Sit-Up',
     ])
   })
 })

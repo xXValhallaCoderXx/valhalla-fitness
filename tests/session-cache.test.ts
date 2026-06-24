@@ -6,7 +6,7 @@ const session: WorkoutSession = {
   sessionId: 'session-1',
   id: 'planned-1',
   title: 'Deadlift',
-  programTitle: 'Healthy 5/3/1 FSL',
+  programTitle: 'Training Max Wave',
   templateId: 'healthy-531-fsl',
   weekIndex: 0,
   weekLabel: 'Week 1',

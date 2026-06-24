@@ -6,8 +6,8 @@ This document is a handoff for researching public, popular strength programmes a
 
 ## Source And IP Policy
 
-- Do not add new Bromley-derived templates or expand existing Bromley coverage unless licensing is explicitly cleared.
-- Treat the current Bromley templates in the repo as source-sensitive. Before shipping changes to them, make a separate product and licensing decision.
+- Do not add coach-branded templates or expand coach-derived coverage unless licensing is explicitly cleared.
+- Treat Sheetless built-ins as original neutral templates. Use public programmes only as research inputs for generic primitives such as training-max waves, plus sets, volume/intensity waves, and linear progression.
 - Public articles, official programme pages, and author-owned public posts can be used as research sources, but a public web summary is not a license grant.
 - Do not copy long proprietary tables from books, paid spreadsheets, apps, private forums, or subscriber-only content.
 - Cite every source URL used for a programme. Prefer official or author-owned sources over third-party summaries.
@@ -44,7 +44,7 @@ Prescription sets:
 - `targetLoad.kind = "fixed"` uses fixed kg/lb values.
 - `targetLoad.kind = "user_selected"` leaves load blank for the lifter.
 - Sets can use `targetReps`, `targetRepMin`, `targetRepMax`, `targetRir`, `targetRpe`, `isTopSet`, `isAmrap`, `isBackoff`, and `label`.
-- `progressionRuleId` is optional per prescription. Existing examples include `healthy_531_tm_band`, `simple_linear_completion`, and `accessory_double_progression`.
+- `progressionRuleId` is optional per prescription. Existing examples include `training_max_band`, `plus_set_wave`, `simple_linear_completion`, and `accessory_double_progression`.
 
 Validation requirements:
 
@@ -131,18 +131,18 @@ These notes are not final research conclusions. They are starting hypotheses for
 - The DSL can express ramped percentage sets and weekly prescriptions.
 - The main question is progression: confirm whether a fixed weekly percentage jump can be encoded with existing percent loads, or whether a new weekly anchor-increase rule is needed.
 
-### Basic 5/3/1
+### Training-Max Wave Research
 
 - Likely fit: exact.
-- The repo already has `Healthy 5/3/1 FSL`, `healthy_531_tm_band`, and 4-week percentage prescriptions.
-- Research should separate the basic 5/3/1 main work from supplemental templates so we can offer a plain base programme without overloading FSL assumptions.
+- The repo already has `Training Max Wave`, `training_max_band`, and 4-week percentage prescriptions.
+- Research should separate public training-max wave principles from branded supplemental templates so Sheetless can offer original neutral programmes.
 
-### 5/3/1 Boring But Big
+### High-Volume Supplemental Wave
 
 - Likely fit: exact or small extension needed.
-- Public Wendler material describes 5/3/1 main work plus 5x10 supplemental work and simple assistance categories.
-- The current DSL can express 5/3/1 main work and 5x10 percent or user-selected supplemental slots.
-- Confirm whether BBB should be a separate template or a variant of the existing 5/3/1 template.
+- Public high-volume strength material often combines percentage main work, 5x10-style supplemental work, and simple assistance categories.
+- The current DSL can express training-max main work and 5x10 percent or user-selected supplemental slots.
+- Keep implementation names neutral unless a branded template is licensed.
 
 ## Expected Research Output
 

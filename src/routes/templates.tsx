@@ -1,22 +1,20 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Badge, Button, Card, NumberInput, Select, TextInput, Tooltip } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Outlet, useRouter, useRouterState } from '@tanstack/react-router'
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Lock, Plus, RotateCcw, Search, Trash2 } from 'lucide-react'
-import { useEffect, useId, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
+import { useId, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import {
   createDefaultCustomProgramBuilderInput,
   customProgramMethodologies,
   type CustomProgramBuilderInput,
   type CustomProgramMethodology,
 } from '~/lib/custom-templates'
-import { shouldConfirmProgramStart } from '~/lib/program-switch'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { getMovementName, movementCatalog } from '~/lib/movements'
-import { defaultStateValues } from '~/lib/templates'
-import { meQueryOptions, templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
+import { templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
 import { loadRouteQueries, loadRouteQuery } from '~/lib/route-loading'
-import { createCustomProgramTemplateFn, startProgramFn } from '~/server/api'
+import { createCustomProgramTemplateFn } from '~/server/api'
 import type {
   ProgramStateInput,
   ProgramSetupOptions,
@@ -26,28 +24,29 @@ import type {
   ProgramTemplateSummary,
   TodayPayload,
   Unit,
-  UserProfile,
 } from '~/types/training'
-import { ConfirmDialog, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
 
 export const Route = createFileRoute('/templates')({
   loader: async ({ context }) => {
     await loadRouteQuery(context.queryClient, templatesQueryOptions())
     if ((context as any).user) {
-      await loadRouteQueries(context.queryClient, [meQueryOptions(), todayQueryOptions()])
+      await loadRouteQueries(context.queryClient, [todayQueryOptions()])
     }
   },
   component: TemplatesRoute,
 })
 
 function TemplatesRoute() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  if (pathname !== '/templates') return <Outlet />
+  return <TemplatesIndexRoute />
+}
+
+function TemplatesIndexRoute() {
   const router = useRouter()
   const user = (Route.useRouteContext() as any).user
   const templatesQuery = useQuery(templatesQueryOptions())
-  const meQuery = useQuery({
-    ...meQueryOptions(),
-    enabled: Boolean(user),
-  })
   const todayQuery = useQuery({
     ...todayQueryOptions(),
     enabled: Boolean(user),
@@ -69,19 +68,10 @@ function TemplatesRoute() {
     )
   }
 
-  if (meQuery.isPending || todayQuery.isPending) return <PageSkeleton />
-  if (meQuery.isError) return <PageLoadError error={meQuery.error} onRetry={() => void meQuery.refetch()} />
+  if (todayQuery.isPending) return <PageSkeleton />
   if (todayQuery.isError) return <PageLoadError error={todayQuery.error} onRetry={() => void todayQuery.refetch()} />
 
-  if (!meQuery.data) {
-    return (
-      <Page>
-        <EmptyState title="Profile unavailable">Sign in again to start a program.</EmptyState>
-      </Page>
-    )
-  }
-
-  return <AuthedTemplates templates={templatesQuery.data} me={meQuery.data} today={todayQuery.data} />
+  return <AuthedTemplates templates={templatesQuery.data} today={todayQuery.data} />
 }
 
 type WizardStep = 'basics' | 'movements' | 'accessories' | 'review'
@@ -90,34 +80,18 @@ type AccessoryAdditionDraft = ProgramStartAccessoryAdditionInput & {
   clientId: string
 }
 
-function stateValuesForTemplate(template: ProgramTemplateSummary, unit: Unit): ProgramStateInput[] {
-  if (!template.requiredState.length) return []
-  return defaultStateValues(unit, template.requiredState)
-}
-
 function AuthedTemplates({
   today,
   templates,
-  me,
 }: {
   today: TodayPayload
   templates: ProgramTemplateSummary[]
-  me: UserProfile
 }) {
   const router = useRouter()
-  const setupTitleId = useId()
   const builderTitleId = useId()
   const [filter, setFilter] = useState('All')
   const [query, setQuery] = useState('')
-  const [selected, setSelected] = useState<ProgramTemplateSummary | null>(null)
-  const [showSetup, setShowSetup] = useState(false)
   const [showBuilder, setShowBuilder] = useState(false)
-  const units = me.units
-  const rounding = me.rounding
-  const [stateValues, setStateValues] = useState<ProgramStateInput[]>([])
-  const [showSwitchConfirm, setShowSwitchConfirm] = useState(false)
-  const [startError, setStartError] = useState<string | null>(null)
-  const activeSessionId = today.activeSession?.sessionId
   const activeTemplateId = today.activeProgram?.templateId ?? null
 
   const filtered = useMemo(() => {
@@ -135,114 +109,17 @@ function AuthedTemplates({
     ? filtered.filter((template) => template.id !== activeTemplateId)
     : filtered
 
-  const startMutation = useMutation({
-    mutationFn: (input: { replaceActiveProgram?: boolean }) => {
-      if (!selected) throw new Error('No template selected')
-      const startStateValues = selected.requiredState.length
-        ? stateValues.filter((state) => selected.requiredState.some((required) => required.key === state.key))
-        : []
-      return startProgramFn({
-        data: {
-          templateId: selected.id,
-          stateValues: startStateValues,
-          replaceActiveProgram: input.replaceActiveProgram,
-        },
-      })
-    },
-    onMutate: () => {
-      setStartError(null)
-    },
-    onError: (error) => {
-      if (error instanceof Error && error.message === 'Active program in progress') {
-        setShowSwitchConfirm(true)
-        return
-      }
-      const message = getApiErrorMessage(error, 'Unable to start program')
-      setStartError(message)
-      notifications.show({ color: 'danger', title: 'Could not start program', message })
-    },
-    onSuccess: async () => {
-      notifications.show({ color: 'success', title: 'Program started', message: 'Your next workout is ready.' })
-      setShowSwitchConfirm(false)
-      setShowSetup(false)
-      setSelected(null)
-      const queryClient = router.options.context.queryClient
-      const invalidations = [
-        queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
-        queryClient.invalidateQueries({ queryKey: ['today'] }),
-        queryClient.invalidateQueries({ queryKey: ['programOverview'] }),
-        queryClient.invalidateQueries({ queryKey: ['history'] }),
-      ]
-      if (activeSessionId) {
-        invalidations.push(
-          queryClient.invalidateQueries({ queryKey: ['session', activeSessionId] }),
-        )
-      }
-      await Promise.all(invalidations)
-      await router.invalidate()
-      await router.navigate({ to: '/today' })
-    },
-  })
-
   const selectTemplate = (template: ProgramTemplateSummary) => {
-    setSelected(template)
-    setStateValues(stateValuesForTemplate(template, units))
-    setShowSetup(true)
-    setShowSwitchConfirm(false)
-    setStartError(null)
+    void router.navigate({ to: '/templates/$templateId/start', params: { templateId: template.id } })
   }
 
   const handleCustomTemplateCreated = async (template: ProgramTemplateSummary) => {
     notifications.show({ color: 'success', title: 'Programme created', message: `${template.name} is ready to start.` })
     setShowBuilder(false)
-    setSelected(template)
-    setStateValues(stateValuesForTemplate(template, units))
-    setShowSetup(true)
     await router.invalidate()
     await router.options.context.queryClient.invalidateQueries({ queryKey: ['templates'] })
+    await router.navigate({ to: '/templates/$templateId/start', params: { templateId: template.id } })
   }
-
-  const closeSetup = () => {
-    setSelected(null)
-    setShowSetup(false)
-    setShowSwitchConfirm(false)
-    setStartError(null)
-  }
-
-  const requestStartProgram = () => {
-    setStartError(null)
-    if (shouldConfirmProgramStart(today)) {
-      setShowSetup(false)
-      setShowSwitchConfirm(true)
-      return
-    }
-    startMutation.mutate({})
-  }
-
-  const confirmSwitch = () => {
-    setStartError(null)
-    startMutation.mutate({ replaceActiveProgram: true })
-  }
-
-  const cancelSwitch = () => {
-    setShowSwitchConfirm(false)
-    setShowSetup(Boolean(selected))
-  }
-
-  useEffect(() => {
-    if (!selected || !showSetup || startMutation.isPending) return
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      setSelected(null)
-      setShowSetup(false)
-      setShowSwitchConfirm(false)
-      setStartError(null)
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selected, showSetup, startMutation.isPending])
 
   return (
     <Page className="max-w-[1180px] md:px-8 lg:px-10">
@@ -263,6 +140,11 @@ function AuthedTemplates({
         Select a structured program to start your next training cycle.
       </PageHeader>
 
+      <p className="mb-4 max-w-4xl rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+        Built-in programs are original Sheetless programming tools and are not official, affiliated, or endorsed
+        templates from any coach, author, book, or program.
+      </p>
+
       <div className="mb-5 space-y-3 md:mb-6">
         <div className="max-w-4xl">
           <TextInput
@@ -273,7 +155,7 @@ function AuthedTemplates({
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar sm:flex-wrap sm:overflow-visible sm:pb-0">
-          {['All', 'Custom', '5/3/1', 'Bromley', 'Base', 'Peak', 'High volume', 'Low volume'].map((item) => (
+          {['All', 'Custom', 'Linear', 'Training max', 'Wave', 'Volume', 'Peak', 'High volume'].map((item) => (
             <button
               key={item}
               className={`min-h-8 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-bold transition ${
@@ -337,154 +219,7 @@ function AuthedTemplates({
           </div>
         </div>
       ) : null}
-
-      {selected && showSetup ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-black/60 p-3 sm:items-center sm:justify-center"
-          onClick={() => {
-            if (!startMutation.isPending) closeSetup()
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={setupTitleId}
-            className="w-full max-w-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <ProgramStartWizard
-              titleId={setupTitleId}
-              template={selected}
-              units={units}
-              rounding={rounding}
-              stateValues={stateValues}
-              requiredState={selected.requiredState}
-              isPending={startMutation.isPending}
-              startError={startError}
-              onClose={closeSetup}
-              onStateValuesChange={setStateValues}
-              onStart={requestStartProgram}
-            />
-          </div>
-        </div>
-      ) : null}
-      <ConfirmDialog
-        open={showSwitchConfirm}
-        title="Replace active program?"
-        confirmLabel="Replace program"
-        confirmVariant="danger"
-        isPending={startMutation.isPending}
-        onCancel={cancelSwitch}
-        onConfirm={confirmSwitch}
-      >
-        <div className="space-y-2">
-          <p>
-            {today.activeProgram ? (
-              <>
-                You already have{' '}
-                <span className="font-semibold text-[var(--mantine-color-text)]">{today.activeProgram.title}</span> active.
-              </>
-            ) : (
-              'You already have an active program.'
-            )}
-          </p>
-          <p>
-            Starting <span className="font-semibold text-[var(--mantine-color-text)]">{selected?.name ?? 'a new program'}</span>{' '}
-            will archive the current program and make this your new active program.
-          </p>
-          {today.activeSession ? (
-            <p>
-              Your workout in progress will be marked as abandoned. Any lifts that have already been saved will be
-              retained.
-            </p>
-          ) : null}
-        </div>
-      </ConfirmDialog>
     </Page>
-  )
-}
-
-function ProgramStartWizard({
-  titleId,
-  template,
-  units,
-  rounding,
-  stateValues,
-  requiredState,
-  isPending,
-  startError,
-  onClose,
-  onStateValuesChange,
-  onStart,
-}: {
-  titleId: string
-  template: ProgramTemplateSummary
-  units: Unit
-  rounding: number
-  stateValues: ProgramStateInput[]
-  requiredState: ProgramTemplateSummary['requiredState']
-  isPending: boolean
-  startError: string | null
-  onClose: () => void
-  onStateValuesChange: Dispatch<SetStateAction<ProgramStateInput[]>>
-  onStart: () => void
-}) {
-  return (
-    <Card className="max-h-[92vh] overflow-hidden p-0">
-      <div className="border-b border-[var(--mantine-color-default-border)] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 id={titleId} className="truncate text-lg font-bold">
-                {template.name}
-              </h2>
-              <Badge color={template.origin === 'coach_authored' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
-            </div>
-            <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">{template.description}</p>
-          </div>
-          <Button color="neutral" variant="subtle" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <StartInfoMetric label="Schedule" value={`${template.daysPerWeek} days/wk`} />
-          <StartInfoMetric label="Progression" value={template.progressionLabel} />
-          <StartInfoMetric label="Complexity" value={template.complexity} />
-        </div>
-      </div>
-
-      <div className="max-h-[58vh] overflow-y-auto p-4">
-        <BasicsStep
-          units={units}
-          rounding={rounding}
-          stateValues={stateValues}
-          requiredState={requiredState}
-          onStateValuesChange={onStateValuesChange}
-        />
-      </div>
-
-      <div className="border-t border-[var(--mantine-color-default-border)] p-4">
-        {startError ? (
-          <p className="mb-3 rounded-lg border border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] p-3 text-sm text-[var(--vf-danger-text)]">
-            {startError}
-          </p>
-        ) : null}
-        <Button className="w-full" disabled={isPending} onClick={onStart}>
-          <Check size={16} />
-          Start program
-        </Button>
-      </div>
-    </Card>
-  )
-}
-
-function StartInfoMetric({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{label}</p>
-      <p className="mt-1 text-sm font-extrabold">{value}</p>
-    </div>
   )
 }
 
@@ -548,8 +283,8 @@ function resizeCustomSessions(
 }
 
 function mainWorkSummary(methodology: CustomProgramMethodology, session: CustomProgramBuilderInput['sessions'][number]) {
-  if (methodology === '531') return '5/3/1 percentage work'
-  if (methodology === 'bromley') return 'Bromley wave work'
+  if (methodology === 'training_max_wave') return 'Training-max wave work'
+  if (methodology === 'plus_set_wave') return 'Plus-set wave work'
   return `${session.mainSetCount}x${session.mainTargetReps} main work`
 }
 
@@ -1467,6 +1202,19 @@ function AccessoriesStep({
     ? sourceSlotId
     : selectedSession?.accessoryPrescriptions[0]?.sourceSlotId ?? ''
 
+  if (!firstSession) {
+    return (
+      <div className="grid gap-4">
+        <div>
+          <p className="vf-section-label">Add accessory slots</p>
+          <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
+            This programme does not have accessory prescriptions to copy.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   const canAdd = Boolean(selectedSession && effectiveSourceSlotId && movementId)
   return (
     <div className="grid gap-4">
@@ -1655,7 +1403,7 @@ function TemplateCard({
     <Card className={`group flex min-h-[16rem] flex-col gap-4 p-4 vf-card-hover ${isActive ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)]' : ''}`}>
       <div className="flex flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge color={template.sourceLabel === 'Bromley' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
+          <Badge color={template.origin === 'licensed_partner' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
           {isActive ? <Badge color="success">Active</Badge> : null}
           <span className="text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">{template.daysPerWeek} days/wk</span>
           <Badge color="action" className="normal-case sm:ml-auto">

@@ -89,7 +89,7 @@ Add a guided custom programme builder that lets users create constrained program
 
 - Add `Create programme` entry point on the templates/programmes page.
 - Use a guided builder with these steps:
-  - Goal and methodology: choose `None (logger only)`, `5/3/1-style`, `Bromley base/peak`, or `Simple linear progression`.
+  - Goal and methodology: choose `None (logger only)`, `Training Max Wave`, `Plus-Set Wave Block`, or `Simple linear progression`.
   - Schedule: choose 3 or 4 days per week.
   - Movements: choose day titles, main lift slots, optional variations, set count, and rep targets where the methodology allows it.
   - Accessories: choose curated accessory movements, set count, rep targets, and optional accessory methodology.
@@ -121,12 +121,12 @@ Add a guided custom programme builder that lets users create constrained program
 
 ### Builder Presets
 
-- `5/3/1-style`
+- `Training Max Wave`
   - 4 days/week.
   - Main lift per day.
   - Training max anchors.
-  - Options for FSL-style backoff and simple accessory slots.
-- `Bromley base/peak`
+  - Options for back-off work and simple accessory slots.
+- `Plus-Set Wave Block`
   - 4 days/week.
   - Base and peak phases.
   - Variation slots by phase.

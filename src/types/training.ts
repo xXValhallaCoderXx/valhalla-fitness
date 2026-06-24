@@ -14,9 +14,11 @@ export type AccessoryProgressionMethod = 'history_only' | 'double_progression'
 
 export type SubstitutionReason = 'equipment_missing' | 'crowded_gym' | 'preference' | 'fatigue' | 'other'
 
-export type ProgramTemplateOrigin = 'system_default' | 'coach_authored' | 'user_created'
+export type ProgramTemplateOrigin = 'system_default' | 'licensed_partner' | 'user_created'
 
 export type ProgramCustomizationStatus = 'default' | 'customized'
+
+export type ProgramStateDefaults = Record<string, number>
 
 export type Movement = {
   id: string
@@ -36,12 +38,13 @@ export type UserProfile = {
   rounding: number
   equipmentProfile: string[]
   themePreference: ThemePreference
+  programStateDefaults: ProgramStateDefaults
 }
 
 export type ProgramTemplateSummary = {
   id: string
   name: string
-  source: 'healthy_531' | 'bromley_base_strength' | 'linear_strength' | 'custom_import'
+  source: 'linear_strength' | 'training_max_wave' | 'wave_powerbuilding' | 'volume_strength' | 'custom_program'
   sourceLabel: string
   origin: ProgramTemplateOrigin
   description: string
@@ -234,6 +237,42 @@ export type ProgramSetupAccessoryPrescriptionOption = {
   targetSummary: string
 }
 
+export type ProgramSetupPreviewMovement = {
+  slotId: string
+  templateSlotId: string
+  phaseKey: string
+  phaseLabel: string
+  setupPhaseKey: string
+  role: MovementRole
+  roleLabel: string
+  defaultMovementId: string
+  defaultMovementName: string
+  targetSummary: string
+  progressionRuleId?: string | null
+  replacementOptions: MovementSwapOption[]
+}
+
+export type ProgramSetupPreviewSession = {
+  id: string
+  label: string
+  title: string
+  estimatedMinutes: number
+  movementSummary: string
+  keyPrescription: string
+  movements: ProgramSetupPreviewMovement[]
+}
+
+export type ProgramSetupPreviewWeek = {
+  index: number
+  label: string
+  phaseKey: string
+  phaseLabel: string
+  subtitle: string
+  summary: string
+  hardness: 'Light' | 'Medium' | 'Hard' | 'Deload'
+  sessions: ProgramSetupPreviewSession[]
+}
+
 export type ProgramSetupSessionOption = {
   id: string
   title: string
@@ -246,6 +285,7 @@ export type ProgramSetupOptions = {
   templateName: string
   origin: ProgramTemplateOrigin
   sessions: ProgramSetupSessionOption[]
+  previewWeeks: ProgramSetupPreviewWeek[]
   accessoryCatalog: Array<{
     movementId: string
     movementName: string

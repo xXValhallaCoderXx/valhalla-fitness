@@ -82,10 +82,24 @@ function alternating5x5Sessions(): TemplateDefinition['sessions'] {
 
 function alternating5x5Session(id: string, title: string): TemplateDefinition['sessions'][number] {
   const isMiddleSession = id === 'day-2'
+  const accessories = isMiddleSession
+    ? [
+        ['accessory-1', 'lat_pulldown', 'vertical-pull'],
+        ['accessory-2', 'sit_up', 'trunk-assistance'],
+      ] as const
+    : id === 'day-1'
+      ? [
+          ['accessory-1', 'chin_up', 'vertical-pull'],
+          ['accessory-2', 'back_extension', 'trunk-assistance'],
+        ] as const
+      : [
+          ['accessory-1', 'pull_up', 'vertical-pull'],
+          ['accessory-2', 'cable_crunch', 'trunk-assistance'],
+        ] as const
   return {
     id,
     title,
-    estimatedMinutes: isMiddleSession ? 55 : 65,
+    estimatedMinutes: isMiddleSession ? 65 : 70,
     slots: [
       {
         id: 'squat',
@@ -109,6 +123,12 @@ function alternating5x5Session(id: string, title: string): TemplateDefinition['s
           : { default: 'barbell_row', byPhase: { starts_with_b: 'deadlift' } },
         prescriptionId: isMiddleSession ? 'middle-pull' : 'outer-pull',
       },
+      ...accessories.map(([slotId, movementId, prescriptionId]) => ({
+        id: slotId,
+        role: 'accessory' as const,
+        movementId,
+        prescriptionId,
+      })),
     ],
   }
 }
@@ -125,6 +145,8 @@ function alternating5x5Weeks(): TemplateDefinition['weeks'] {
         'five-by-five': fiveByFivePrescription(),
         'outer-pull': fiveByFivePrescription(),
         'middle-pull': oneByFivePrescription(),
+        'vertical-pull': accessoryPrescription(3, 6, 10),
+        'trunk-assistance': accessoryPrescription(3, 10, 15),
       },
     },
     {
@@ -137,6 +159,8 @@ function alternating5x5Weeks(): TemplateDefinition['weeks'] {
         'five-by-five': fiveByFivePrescription(),
         'outer-pull': oneByFivePrescription(),
         'middle-pull': fiveByFivePrescription(),
+        'vertical-pull': accessoryPrescription(3, 6, 10),
+        'trunk-assistance': accessoryPrescription(3, 10, 15),
       },
     },
   ]
@@ -158,55 +182,55 @@ function requiredWorkingLoadState(movementIds: readonly string[]): TemplateDefin
   }))
 }
 
-function healthy531Weeks(): TemplateDefinition['weeks'] {
+function trainingMaxWaveWeeks(): TemplateDefinition['weeks'] {
   const weeks = [
     {
       label: 'Week 1',
       phaseKey: 'cycle',
       phaseLabel: '5s week',
-      summary: '65%x5, 75%x5, 85%x5+ with First Set Last 5x5.',
+      summary: '65%x5, 75%x5, 85%x5+ with back-off 5x5.',
       hardness: 'Medium' as const,
       sets: [
         { targetLoad: percent(0.65), targetReps: 5, label: '5' },
         { targetLoad: percent(0.75), targetReps: 5, label: '5' },
         { targetLoad: percent(0.85), targetReps: 5, targetRir: 2, isTopSet: true, isAmrap: true, label: '5+' },
-        ...repeatedSets(5, { targetLoad: percent(0.65), targetReps: 5, targetRir: 2, isBackoff: true, label: 'FSL' }),
+        ...repeatedSets(5, { targetLoad: percent(0.65), targetReps: 5, targetRir: 2, isBackoff: true, label: 'Back-off' }),
       ],
-      targetSummary: '65%x5 · 75%x5 · 85%x5+ · FSL 5x5',
+      targetSummary: '65%x5 · 75%x5 · 85%x5+ · back-off 5x5',
     },
     {
       label: 'Week 2',
       phaseKey: 'cycle',
       phaseLabel: '3s week',
-      summary: '70%x3, 80%x3, 90%x3+ with First Set Last 5x5.',
+      summary: '70%x3, 80%x3, 90%x3+ with back-off 5x5.',
       hardness: 'Medium' as const,
       sets: [
         { targetLoad: percent(0.7), targetReps: 3, label: '3' },
         { targetLoad: percent(0.8), targetReps: 3, label: '3' },
         { targetLoad: percent(0.9), targetReps: 3, targetRir: 2, isTopSet: true, isAmrap: true, label: '3+' },
-        ...repeatedSets(5, { targetLoad: percent(0.65), targetReps: 5, targetRir: 2, isBackoff: true, label: 'FSL' }),
+        ...repeatedSets(5, { targetLoad: percent(0.65), targetReps: 5, targetRir: 2, isBackoff: true, label: 'Back-off' }),
       ],
-      targetSummary: '70%x3 · 80%x3 · 90%x3+ · FSL 5x5',
+      targetSummary: '70%x3 · 80%x3 · 90%x3+ · back-off 5x5',
     },
     {
       label: 'Week 3',
       phaseKey: 'cycle',
-      phaseLabel: '5/3/1 week',
-      summary: '75%x5, 85%x3, 95%x1+ with First Set Last 5x5.',
+      phaseLabel: 'Peak week',
+      summary: '75%x5, 85%x3, 95%x1+ with back-off 5x5.',
       hardness: 'Hard' as const,
       sets: [
         { targetLoad: percent(0.75), targetReps: 5, label: '5' },
         { targetLoad: percent(0.85), targetReps: 3, label: '3' },
         { targetLoad: percent(0.95), targetReps: 1, targetRir: 2, isTopSet: true, isAmrap: true, label: '1+' },
-        ...repeatedSets(5, { targetLoad: percent(0.65), targetReps: 5, targetRir: 2, isBackoff: true, label: 'FSL' }),
+        ...repeatedSets(5, { targetLoad: percent(0.65), targetReps: 5, targetRir: 2, isBackoff: true, label: 'Back-off' }),
       ],
-      targetSummary: '75%x5 · 85%x3 · 95%x1+ · FSL 5x5',
+      targetSummary: '75%x5 · 85%x3 · 95%x1+ · back-off 5x5',
     },
     {
       label: 'Week 4',
       phaseKey: 'cycle',
       phaseLabel: 'Deload',
-      summary: '40%x5, 50%x5, 60%x5 deload work without FSL back-off sets.',
+      summary: '40%x5, 50%x5, 60%x5 deload work without back-off sets.',
       hardness: 'Deload' as const,
       sets: [
         { targetLoad: percent(0.4), targetReps: 5, label: '5' },
@@ -226,7 +250,7 @@ function healthy531Weeks(): TemplateDefinition['weeks'] {
     prescriptions: {
       main: {
         targetSummary: week.targetSummary,
-        progressionRuleId: 'healthy_531_tm_band',
+        progressionRuleId: 'training_max_band',
         sets: week.sets,
       },
       'accessory-1': accessoryPrescription(4, 8, 12, 55),
@@ -236,7 +260,7 @@ function healthy531Weeks(): TemplateDefinition['weeks'] {
   }))
 }
 
-function bullmastiffWeeks(): TemplateDefinition['weeks'] {
+function plusSetWaveWeeks(): TemplateDefinition['weeks'] {
   return Array.from({ length: 18 }, (_, weekIndex) => {
     const isPeak = weekIndex >= 9
     const phaseKey = isPeak ? 'peak' : 'base'
@@ -263,7 +287,7 @@ function bullmastiffWeeks(): TemplateDefinition['weeks'] {
       prescriptions: {
         main: {
           targetSummary: `${mainSetCount} sets x ${mainReps}+ @ ${mainPercentLabel}%`,
-          progressionRuleId: 'bullmastiff_plus_set',
+          progressionRuleId: 'plus_set_wave',
           sets: repeatedSets(
             mainSetCount,
             {
@@ -280,7 +304,7 @@ function bullmastiffWeeks(): TemplateDefinition['weeks'] {
         },
         variation: {
           targetSummary: `${variationSetCount} sets x ${variationReps} @ ${variationPercentLabel}%`,
-          progressionRuleId: 'bromley_step_load',
+          progressionRuleId: 'wave_step_load',
           sets: repeatedSets(variationSetCount, {
             targetLoad: percent(variationPercent),
             targetReps: variationReps,
@@ -328,7 +352,7 @@ function seventiesWeeks(): TemplateDefinition['weeks'] {
         prescriptions: {
           main: {
             targetSummary: `${mainSets}x${mainReps} @ ${Math.round(low * 100)}${high ? `-${Math.round(high * 100)}` : ''}%`,
-            progressionRuleId: 'bromley_step_load',
+            progressionRuleId: 'wave_step_load',
             sets: repeatedSets(mainSets, {
               targetLoad: percent(low, high),
               targetReps: mainReps,
@@ -338,7 +362,7 @@ function seventiesWeeks(): TemplateDefinition['weeks'] {
           },
           variation: {
             targetSummary: `${variationSets}x${variationReps} @ RPE 6-7`,
-            progressionRuleId: 'bromley_variation_step_sets',
+            progressionRuleId: 'variation_step_sets',
             sets: repeatedSets(variationSets, {
               targetLoad: userSelected(),
               targetReps: variationReps,
@@ -381,7 +405,7 @@ function seventiesWeeks(): TemplateDefinition['weeks'] {
           targetSummary: mainPercent
             ? `${mainSets}x${mainReps}${weekInWave === 1 ? '+' : ''} @ ${Math.round(mainPercent * 100)}%`
             : `Max ${mainReps}`,
-          progressionRuleId: 'bromley_peak_top_set',
+          progressionRuleId: 'peak_top_set',
           sets: repeatedSets(
             mainSets,
             {
@@ -395,7 +419,7 @@ function seventiesWeeks(): TemplateDefinition['weeks'] {
         },
         variation: {
           targetSummary: `${variationSets}x${variationReps} @ ${Math.round(variationPercent * 100)}%`,
-          progressionRuleId: 'bromley_peak_variation',
+          progressionRuleId: 'peak_variation',
           sets: repeatedSets(variationSets, {
             targetLoad: percent(variationPercent),
             targetReps: variationReps,
@@ -431,7 +455,7 @@ function volumeIntensityWeeks(): TemplateDefinition['weeks'] {
       prescriptions: {
         volume: {
           targetSummary: `${week.volumeSets}x${week.volumeReps} @ ${Math.round(week.volumePercent * 100)}%`,
-          progressionRuleId: 'bromley_volume_track',
+          progressionRuleId: 'volume_track',
           sets: repeatedSets(week.volumeSets, {
             targetLoad: percent(week.volumePercent),
             targetReps: week.volumeReps,
@@ -441,7 +465,7 @@ function volumeIntensityWeeks(): TemplateDefinition['weeks'] {
         },
         intensity: {
           targetSummary: isPeak ? `Top ${week.topReps} @ RPE 7` : week.intensityLabel ?? 'Intensity top set',
-          progressionRuleId: 'bromley_intensity_track',
+          progressionRuleId: 'intensity_track',
           sets: [
             {
               targetLoad: isPeak ? userSelected() : percent(week.intensityPercent ?? 0.65),
@@ -467,7 +491,7 @@ export const fallbackTemplateDefinitions: Record<string, TemplateDefinition> = {
   'generic_alternating_5x5_lp': {
     schemaVersion: '2026.06.dsl',
     id: 'generic_alternating_5x5_lp',
-    name: 'Alternating 5x5 LP',
+    name: 'Beginner 5x5 Linear',
     durationWeeks: 2,
     daysPerWeek: 3,
     requiredState: requiredWorkingLoadState(alternating5x5MovementIds),
@@ -476,6 +500,7 @@ export const fallbackTemplateDefinitions: Record<string, TemplateDefinition> = {
     weeks: alternating5x5Weeks(),
     progressionRules: {
       main: 'simple_linear_completion',
+      accessory: 'accessory_double_progression',
     },
     progressionConfig: {
       simple_linear_completion: {
@@ -492,11 +517,11 @@ export const fallbackTemplateDefinitions: Record<string, TemplateDefinition> = {
   'healthy-531-fsl': {
     schemaVersion: '2026.06.dsl',
     id: 'healthy-531-fsl',
-    name: 'Healthy 5/3/1 FSL',
+    name: 'Training Max Wave',
     durationWeeks: 4,
     daysPerWeek: 4,
     requiredState: requiredTrainingMaxState(),
-    timelineDescription: '4-week 5/3/1 cycle with four main-lift sessions per week.',
+    timelineDescription: '4-week training-max percentage wave with four main-lift sessions per week.',
     sessions: [
       healthySession('squat-day', 'Squat + Lower Accessories', 'squat', [
         ['accessory-1', 'accessory', 'leg_press'],
@@ -519,75 +544,75 @@ export const fallbackTemplateDefinitions: Record<string, TemplateDefinition> = {
         ['accessory-3', 'accessory', 'dumbbell_row'],
       ]),
     ],
-    weeks: healthy531Weeks(),
+    weeks: trainingMaxWaveWeeks(),
     progressionRules: {
-      main: 'healthy_531_tm_band',
+      main: 'training_max_band',
       accessory: 'accessory_double_progression',
     },
   },
   'bromley-bullmastiff': {
     schemaVersion: '2026.06.dsl',
     id: 'bromley-bullmastiff',
-    name: 'Bromley Bullmastiff',
+    name: 'Old School Wave Powerbuilding',
     durationWeeks: 18,
     daysPerWeek: 4,
     requiredState: requiredTrainingMaxState(),
-    timelineDescription: '18-week source structure: 9 base weeks, then 9 peak weeks. Each phase uses three 3-week waves.',
+    timelineDescription: '18-week wave structure: 9 base weeks, then 9 peak weeks. Each phase uses three 3-week waves.',
     sessions: [
-      bullSession('bull-squat', 'Bullmastiff Squat', 'squat', 'front_squat', 'pause_squat', ['leg_press', 'hamstring_curl']),
-      bullSession('bull-bench', 'Bullmastiff Bench', 'bench_press', 'close_grip_bench_press', 'board_press', ['chest_supported_row', 'triceps_pressdown']),
-      bullSession('bull-deadlift', 'Bullmastiff Deadlift', 'deadlift', 'stiff_leg_deadlift', 'low_trap_bar_deadlift', ['back_extension', 'cable_crunch']),
-      bullSession('bull-press', 'Bullmastiff Overhead Press', 'overhead_press', 'behind_neck_press', 'seated_pin_press', ['lat_pulldown', 'face_pull']),
+      waveSession('wave-squat', 'Squat Wave', 'squat', 'front_squat', 'pause_squat', ['leg_press', 'hamstring_curl']),
+      waveSession('wave-bench', 'Bench Wave', 'bench_press', 'close_grip_bench_press', 'board_press', ['chest_supported_row', 'triceps_pressdown']),
+      waveSession('wave-deadlift', 'Deadlift Wave', 'deadlift', 'stiff_leg_deadlift', 'low_trap_bar_deadlift', ['back_extension', 'cable_crunch']),
+      waveSession('wave-press', 'Press Wave', 'overhead_press', 'behind_neck_press', 'seated_pin_press', ['lat_pulldown', 'face_pull']),
     ],
-    weeks: bullmastiffWeeks(),
+    weeks: plusSetWaveWeeks(),
     progressionRules: {
-      main: 'bullmastiff_plus_set',
-      variation: 'bromley_step_load',
+      main: 'plus_set_wave',
+      variation: 'wave_step_load',
       accessory: 'accessory_double_progression',
     },
   },
   'bromley-70s-powerlifter': {
     schemaVersion: '2026.06.dsl',
     id: 'bromley-70s-powerlifter',
-    name: 'Bromley 70s Powerlifter',
+    name: 'Classic Volume Strength',
     durationWeeks: 18,
     daysPerWeek: 4,
     requiredState: requiredTrainingMaxState(),
     timelineDescription: '18-week upper/lower plan with three volumizing waves followed by three intensifying waves.',
     sessions: [
-      seventiesSession('70s-bench', '70s Bench', 'bench_press', 'wide_grip_bench_press', 'pause_bench_press', 'incline_bench_press', 'floor_press', ['t_bar_row', 'barbell_curl', 'jm_press']),
-      seventiesSession('70s-squat', '70s Squat', 'squat', 'wide_stance_squat', 'pause_squat', 'front_squat', 'high_box_squat', ['lunge', 'leg_press', 'sit_up']),
-      seventiesSession('70s-press', '70s Overhead Press', 'overhead_press', 'wide_grip_overhead_press', 'push_press', 'behind_neck_press', 'standing_pin_press', ['upright_row', 'rope_pressdown', 'side_bend']),
-      seventiesSession('70s-deadlift', '70s Deadlift', 'deadlift', 'romanian_deadlift', 'block_deadlift', 'good_morning', 'sumo_deadlift', ['pendlay_row', 'hamstring_curl', 'ab_wheel_rollout']),
+      seventiesSession('volume-bench', 'Bench Volume', 'bench_press', 'wide_grip_bench_press', 'pause_bench_press', 'incline_bench_press', 'floor_press', ['t_bar_row', 'barbell_curl', 'jm_press']),
+      seventiesSession('volume-squat', 'Squat Volume', 'squat', 'wide_stance_squat', 'pause_squat', 'front_squat', 'high_box_squat', ['lunge', 'leg_press', 'sit_up']),
+      seventiesSession('volume-press', 'Press Volume', 'overhead_press', 'wide_grip_overhead_press', 'push_press', 'behind_neck_press', 'standing_pin_press', ['upright_row', 'rope_pressdown', 'side_bend']),
+      seventiesSession('volume-deadlift', 'Deadlift Volume', 'deadlift', 'romanian_deadlift', 'block_deadlift', 'good_morning', 'sumo_deadlift', ['pendlay_row', 'hamstring_curl', 'ab_wheel_rollout']),
     ],
     weeks: seventiesWeeks(),
     progressionRules: {
-      main: 'bromley_step_load',
-      variation: 'bromley_variation_step_sets',
+      main: 'wave_step_load',
+      variation: 'variation_step_sets',
       accessory: 'accessory_double_progression',
     },
   },
   'bromley-volume-intensity': {
     schemaVersion: '2026.06.dsl',
     id: 'bromley-volume-intensity',
-    name: 'Bromley Volume/Intensity',
+    name: 'Volume-Intensity Strength',
     durationWeeks: 6,
     daysPerWeek: 3,
     requiredState: requiredTrainingMaxState(),
     timelineDescription: '3-day whole-body program alternating a 3-week volumizing wave with a 3-week top-set wave.',
     sessions: [
-      volumeIntensitySession('vi-monday', 'Volume/Intensity Monday', [
+      volumeIntensitySession('vi-monday', 'Volume-Intensity Monday', [
         ['squat-volume', 'main', 'squat', 'volume'],
         ['deadlift-intensity', 'main', 'deadlift', 'intensity'],
         ['bench-intensity', 'main', 'bench_press', 'intensity'],
         ['row', 'accessory', 'barbell_row', 'row'],
       ]),
-      volumeIntensitySession('vi-wednesday', 'Volume/Intensity Wednesday', [
+      volumeIntensitySession('vi-wednesday', 'Volume-Intensity Wednesday', [
         ['squat-intensity', 'main', 'squat', 'intensity'],
         ['press-volume', 'main', 'overhead_press', 'volume'],
         ['chinup', 'accessory', 'chin_up', 'chinup'],
       ]),
-      volumeIntensitySession('vi-friday', 'Volume/Intensity Friday', [
+      volumeIntensitySession('vi-friday', 'Volume-Intensity Friday', [
         ['bench-volume', 'main', 'bench_press', 'volume'],
         ['row', 'accessory', 'barbell_row', 'row'],
         ['chinup', 'accessory', 'chin_up', 'chinup'],
@@ -595,8 +620,8 @@ export const fallbackTemplateDefinitions: Record<string, TemplateDefinition> = {
     ],
     weeks: volumeIntensityWeeks(),
     progressionRules: {
-      volume: 'bromley_volume_track',
-      intensity: 'bromley_intensity_track',
+      volume: 'volume_track',
+      intensity: 'intensity_track',
       accessory: 'accessory_double_progression',
     },
   },
@@ -641,7 +666,7 @@ function healthySession(
   }
 }
 
-function bullSession(
+function waveSession(
   id: string,
   title: string,
   mainMovementId: string,

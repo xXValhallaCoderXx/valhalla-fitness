@@ -1,6 +1,7 @@
 import type {
   PlannedSession,
   ProgramInstance,
+  ProgramStateDefaults,
   ProgramStateInput,
   ProgramStateRequirement,
   ProgramTemplateSummary,
@@ -19,12 +20,12 @@ import {
 export const templateCatalog: ProgramTemplateSummary[] = [
   {
     id: 'generic_alternating_5x5_lp',
-    name: 'Alternating 5x5 LP',
+    name: 'Beginner 5x5 Linear',
     source: 'linear_strength',
     sourceLabel: 'Linear Strength',
     origin: 'system_default',
     description:
-      'Three-day beginner linear progression alternating A/B sessions with 5x5 work and a 1x5 deadlift.',
+      'Three-day beginner linear progression alternating A/B sessions with 5x5 work, a 1x5 deadlift, and simple suggested accessories.',
     daysPerWeek: 3,
     progressionLabel: 'Working-load LP',
     complexity: 'Beginner',
@@ -34,59 +35,59 @@ export const templateCatalog: ProgramTemplateSummary[] = [
   },
   {
     id: 'healthy-531-fsl',
-    name: 'Healthy 5/3/1 FSL',
-    source: 'healthy_531',
-    sourceLabel: 'Healthy 5/3/1',
+    name: 'Training Max Wave',
+    source: 'training_max_wave',
+    sourceLabel: 'Training Max Wave',
     origin: 'system_default',
     description:
-      '4-week 5/3/1 training-max progression with First Set Last supplemental work and structured accessories.',
+      '4-week training-max percentage wave with back-off work and structured accessories.',
     daysPerWeek: 4,
-    progressionLabel: 'TM progression + FSL',
+    progressionLabel: 'Training-max wave',
     complexity: 'Intermediate',
-    tags: ['5/3/1', 'base'],
+    tags: ['training max', 'wave', 'strength'],
     requiredState: requiredTrainingMaxState(),
     available: true,
   },
   {
     id: 'bromley-bullmastiff',
-    name: 'Bromley Bullmastiff',
-    source: 'bromley_base_strength',
-    sourceLabel: 'Bromley',
-    origin: 'coach_authored',
+    name: 'Old School Wave Powerbuilding',
+    source: 'wave_powerbuilding',
+    sourceLabel: 'Wave Powerbuilding',
+    origin: 'system_default',
     description:
-      '18-week upper/lower Bullmastiff structure with base and peak phases, autoregulated plus sets, variations, and bodybuilding accessories.',
+      '18-week upper/lower wave structure with base and peak phases, plus-set regulation, variations, and bodybuilding accessories.',
     daysPerWeek: 4,
-    progressionLabel: '18-week plus-set waves',
+    progressionLabel: 'Plus-set waves',
     complexity: 'Advanced',
-    tags: ['bromley', 'base', 'high volume'],
+    tags: ['wave', 'powerbuilding', 'high volume'],
     requiredState: requiredTrainingMaxState(),
     available: true,
   },
   {
     id: 'bromley-70s-powerlifter',
-    name: 'Bromley 70s Powerlifter',
-    source: 'bromley_base_strength',
-    sourceLabel: 'Bromley',
-    origin: 'coach_authored',
+    name: 'Classic Volume Strength',
+    source: 'volume_strength',
+    sourceLabel: 'Volume Strength',
+    origin: 'system_default',
     description: '18-week upper/lower plan with volumizing waves, intensifying waves, variations, and bodybuilding layers.',
     daysPerWeek: 4,
     progressionLabel: 'Base-to-peak waves',
     complexity: 'Advanced',
-    tags: ['bromley', 'base', 'peak'],
+    tags: ['volume', 'strength', 'peak'],
     requiredState: requiredTrainingMaxState(),
     available: true,
   },
   {
     id: 'bromley-volume-intensity',
-    name: 'Bromley Volume/Intensity',
-    source: 'bromley_base_strength',
-    sourceLabel: 'Bromley',
-    origin: 'coach_authored',
+    name: 'Volume-Intensity Strength',
+    source: 'volume_strength',
+    sourceLabel: 'Volume Strength',
+    origin: 'system_default',
     description: 'Three-day whole-body split alternating a 3-week volume wave with a 3-week top-set wave.',
     daysPerWeek: 3,
     progressionLabel: 'Alternating volume/intensity waves',
     complexity: 'Intermediate',
-    tags: ['bromley', 'base'],
+    tags: ['volume', 'intensity', 'strength'],
     requiredState: requiredTrainingMaxState(),
     available: true,
   },
@@ -95,16 +96,34 @@ export const templateCatalog: ProgramTemplateSummary[] = [
 export function defaultStateValues(
   unit: Unit = 'kg',
   requiredState: ProgramStateRequirement[] = requiredTrainingMaxState(),
+  defaults: ProgramStateDefaults = defaultProgramStateDefaults(unit),
 ): ProgramStateInput[] {
+  return requiredState.map((state) => ({
+    ...state,
+    value: stateDefaultValue(state, unit, defaults),
+    unit,
+  }))
+}
+
+export function defaultProgramStateDefaults(unit: Unit = 'kg'): ProgramStateDefaults {
   const values =
     unit === 'kg'
       ? { squat: 165, bench_press: 110, deadlift: 190, overhead_press: 75, barbell_row: 60 }
       : { squat: 365, bench_press: 245, deadlift: 420, overhead_press: 165, barbell_row: 135 }
-  return requiredState.map((state) => ({
-    ...state,
-    value: values[state.movementId as keyof typeof values] ?? (unit === 'kg' ? 60 : 135),
-    unit,
-  }))
+  const defaults: ProgramStateDefaults = {}
+  for (const state of [
+    ...requiredTrainingMaxState(),
+    ...requiredWorkingLoadState(['squat', 'bench_press', 'overhead_press', 'deadlift', 'barbell_row']),
+  ]) {
+    defaults[state.key] = values[state.movementId as keyof typeof values] ?? (unit === 'kg' ? 60 : 135)
+  }
+  return defaults
+}
+
+function stateDefaultValue(state: ProgramStateRequirement, unit: Unit, defaults: ProgramStateDefaults) {
+  const value = Number(defaults[state.key])
+  if (Number.isFinite(value) && value > 0) return value
+  return defaultProgramStateDefaults(unit)[state.key] ?? (unit === 'kg' ? 60 : 135)
 }
 
 export function expandPlannedSession(

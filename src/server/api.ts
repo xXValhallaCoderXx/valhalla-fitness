@@ -15,6 +15,7 @@ import type {
   ProgramMovementOverride,
   ProgramOverview,
   ProgramRecentSessionSummary,
+  ProgramStateDefaults,
   ProgramSetupOptions,
   ProgramStartAccessoryAdditionInput,
   ProgramStartMovementOverrideInput,
@@ -41,7 +42,7 @@ import {
   isAccessoryProgressionMethod,
   parseAccessoryRepTarget,
 } from '~/lib/accessories'
-import { defaultStateValues, expandPlannedSession, getFallbackTemplateDefinition, programForNextUncompletedSession, templateCatalog } from '~/lib/templates'
+import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, getFallbackTemplateDefinition, programForNextUncompletedSession, templateCatalog } from '~/lib/templates'
 import {
   parseTemplateDefinition,
   validateRequiredState,
@@ -55,6 +56,7 @@ import {
 import { e1rm, mround } from '~/lib/progression'
 import { accessoryOutcomeSummary, buildProgressionDecisionsForSession } from '~/lib/progression-decisions'
 import { buildMovementSwapOptions, defaultMovementReplacementRules, getMovementName, movementCatalog } from '~/lib/movements'
+import { buildProgramStartPreview } from '~/lib/program-start-preview'
 import {
   buildHistoryDashboard,
   type HistorySessionInput,
@@ -86,26 +88,60 @@ async function ensureProfile() {
   return data
 }
 
+function normalizeProgramStateDefaults(input: unknown, units: Unit): ProgramStateDefaults {
+  const fallback = defaultProgramStateDefaults(units)
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return fallback
+  const values = input as Record<string, unknown>
+  return Object.fromEntries(
+    Object.entries(fallback).map(([key, fallbackValue]) => {
+      const value = Number(values[key])
+      return [key, Number.isFinite(value) && value > 0 ? value : fallbackValue]
+    }),
+  )
+}
+
+function normalizeTemplateSource(row: any): ProgramTemplateSummary['source'] {
+  if (row.source === 'custom_import') return 'custom_program'
+  if (row.source === 'healthy_531') return 'training_max_wave'
+  if (row.source === 'bromley_base_strength') {
+    return row.id === 'bromley-70s-powerlifter' || row.id === 'bromley-volume-intensity'
+      ? 'volume_strength'
+      : 'wave_powerbuilding'
+  }
+  if (
+    row.source === 'linear_strength' ||
+    row.source === 'training_max_wave' ||
+    row.source === 'wave_powerbuilding' ||
+    row.source === 'volume_strength' ||
+    row.source === 'custom_program'
+  ) {
+    return row.source
+  }
+  return 'linear_strength'
+}
+
+function sourceLabelFor(source: ProgramTemplateSummary['source']) {
+  if (source === 'custom_program') return 'Custom'
+  if (source === 'linear_strength') return 'Linear Strength'
+  if (source === 'training_max_wave') return 'Training Max Wave'
+  if (source === 'wave_powerbuilding') return 'Wave Powerbuilding'
+  return 'Volume Strength'
+}
+
+function normalizeTemplateOrigin(row: any, source: ProgramTemplateSummary['source']): ProgramTemplateOrigin {
+  if (row.origin === 'user_created' || source === 'custom_program') return 'user_created'
+  if (row.origin === 'licensed_partner') return 'licensed_partner'
+  return 'system_default'
+}
+
 function mapTemplateRow(row: any, available = true, definition?: TemplateDefinition | null): ProgramTemplateSummary {
-  const origin: ProgramTemplateOrigin =
-    row.origin ??
-    (row.source === 'custom_import'
-      ? 'user_created'
-      : row.source === 'bromley_base_strength'
-        ? 'coach_authored'
-        : 'system_default')
+  const source = normalizeTemplateSource(row)
+  const origin = normalizeTemplateOrigin(row, source)
   return {
     id: row.id,
     name: row.name,
-    source: row.source,
-    sourceLabel:
-      row.source === 'bromley_base_strength'
-        ? 'Bromley'
-        : row.source === 'custom_import'
-          ? 'Custom'
-          : row.source === 'linear_strength'
-            ? 'Linear Strength'
-            : 'Healthy 5/3/1',
+    source,
+    sourceLabel: sourceLabelFor(source),
     origin,
     description: row.description,
     daysPerWeek: row.days_per_week,
@@ -325,6 +361,12 @@ function buildProgramSetupOptions({
     templateId: template.id,
     templateName: template.name,
     origin: template.origin,
+    previewWeeks: buildProgramStartPreview({
+      templateId: template.id,
+      definition,
+      catalog,
+      rules,
+    }),
     accessoryCatalog,
     sessions: definition.sessions.map((session) => {
       const accessoryPrescriptions = session.slots
@@ -888,6 +930,7 @@ export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promi
     rounding: Number(profile.rounding),
     equipmentProfile: profile.equipment_profile ?? [],
     themePreference: (profile.theme_preference ?? 'system') as ThemePreference,
+    programStateDefaults: normalizeProgramStateDefaults(profile.program_state_defaults, profile.units as Unit),
   }
 })
 
@@ -898,10 +941,12 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
       rounding: number
       equipmentProfile: string[]
       themePreference: ThemePreference
+      programStateDefaults: ProgramStateDefaults
     }) => data,
   )
   .handler(async ({ data }) => {
     const { supabase, user } = await requireUser()
+    const programStateDefaults = normalizeProgramStateDefaults(data.programStateDefaults, data.units)
     const { error } = await supabase
       .from('profiles')
       .update({
@@ -909,6 +954,7 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
         rounding: data.rounding,
         equipment_profile: data.equipmentProfile,
         theme_preference: data.themePreference,
+        program_state_defaults: programStateDefaults,
       })
       .eq('id', user.id)
     if (error) throw new Error(error.message)
@@ -1050,7 +1096,7 @@ export const createCustomProgramTemplateFn = createServerFn({ method: 'POST' })
       .insert({
         id: generated.metadata.id,
         name: generated.metadata.name,
-        source: 'custom_import',
+        source: 'custom_program',
         origin: 'user_created',
         created_by: user.id,
         description: generated.metadata.description,
@@ -1154,7 +1200,13 @@ export const startProgramFn = createServerFn({ method: 'POST' })
         : 'default'
     const units = (data.units ?? profile.units) as Unit
     const rounding = data.rounding ?? Number(profile.rounding)
-    const stateValues = data.stateValues ? data.stateValues : defaultStateValues(units, templateVersion.definition.requiredState)
+    const stateValues = data.stateValues
+      ? data.stateValues
+      : defaultStateValues(
+          units,
+          templateVersion.definition.requiredState,
+          normalizeProgramStateDefaults(profile.program_state_defaults, units),
+        )
     validateRequiredState(templateVersion.definition, stateValues)
 
     const { data: activePrograms, error: activeProgramError } = await supabase
@@ -1756,7 +1808,7 @@ function phaseKeyForSnapshot(snapshot: PlannedSession, movement?: MovementSlot |
   if (movement?.phaseKey) return movement.phaseKey
   const snapshotPhaseKey = snapshot.movements.find((item) => item.phaseKey)?.phaseKey
   if (snapshotPhaseKey) return snapshotPhaseKey
-  if (snapshot.templateId === 'bromley-bullmastiff') {
+  if (snapshot.templateId === 'old_school_wave_powerbuilding' || snapshot.templateId === 'bromley-bullmastiff') {
     return snapshot.weekLabel.toLowerCase().startsWith('peak') ? 'peak' : 'base'
   }
   return 'cycle'

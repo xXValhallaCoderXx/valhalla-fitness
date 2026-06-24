@@ -8,7 +8,7 @@ import {
 } from './template-engine'
 import { movementCatalog } from './movements'
 
-export const customProgramMethodologySchema = z.enum(['none', '531', 'bromley', 'simple_linear'])
+export const customProgramMethodologySchema = z.enum(['none', 'training_max_wave', 'plus_set_wave', 'simple_linear'])
 
 export type CustomProgramMethodology = z.infer<typeof customProgramMethodologySchema>
 
@@ -45,23 +45,23 @@ export const customProgramMethodologies: Record<
     complexity: 'Custom',
     tag: 'logger',
   },
-  '531': {
-    label: '5/3/1-style',
-    shortLabel: '5/3/1',
-    description: 'Training-max state drives percentage main work and 5/3/1 TM recommendations.',
-    tooltip: 'Regulates only main-lift training-max changes through the healthy 5/3/1 TM band rule.',
-    progressionLabel: '5/3/1 TM band',
+  training_max_wave: {
+    label: 'Training Max Wave',
+    shortLabel: 'TM Wave',
+    description: 'Training-max state drives percentage main work and cycle-to-cycle recommendations.',
+    tooltip: 'Regulates only main-lift training-max changes through the training-max band rule.',
+    progressionLabel: 'Training-max band',
     complexity: 'Intermediate',
-    tag: '5/3/1',
+    tag: 'training max',
   },
-  bromley: {
-    label: 'Bromley base/peak',
-    shortLabel: 'Bromley',
+  plus_set_wave: {
+    label: 'Plus-Set Wave Block',
+    shortLabel: 'Plus-set wave',
     description: 'Base-to-peak waves use anchored percentages and plus-set regulation for main lifts.',
-    tooltip: 'Regulates main-lift plus sets with bullmastiff_plus_set; variation and phase structure are planned only in v1.',
-    progressionLabel: 'Bromley plus set',
+    tooltip: 'Regulates main-lift plus sets with plus_set_wave; variation and phase structure are planned only in v1.',
+    progressionLabel: 'Plus-set wave',
     complexity: 'Advanced',
-    tag: 'bromley',
+    tag: 'wave',
   },
   simple_linear: {
     label: 'Simple linear progression',
@@ -141,22 +141,22 @@ export function createDefaultCustomProgramBuilderInput({
   const dayDefaults = [
     {
       mainMovementId: 'squat',
-      variationMovementId: methodology === 'bromley' ? 'front_squat' : null,
+      variationMovementId: methodology === 'plus_set_wave' ? 'front_squat' : null,
       accessoryMovementId: 'leg_press',
     },
     {
       mainMovementId: 'bench_press',
-      variationMovementId: methodology === 'bromley' ? 'close_grip_bench_press' : null,
+      variationMovementId: methodology === 'plus_set_wave' ? 'close_grip_bench_press' : null,
       accessoryMovementId: 'chest_supported_row',
     },
     {
       mainMovementId: 'deadlift',
-      variationMovementId: methodology === 'bromley' ? 'romanian_deadlift' : null,
+      variationMovementId: methodology === 'plus_set_wave' ? 'romanian_deadlift' : null,
       accessoryMovementId: 'hamstring_curl',
     },
     {
       mainMovementId: 'overhead_press',
-      variationMovementId: methodology === 'bromley' ? 'push_press' : null,
+      variationMovementId: methodology === 'plus_set_wave' ? 'push_press' : null,
       accessoryMovementId: 'face_pull',
     },
   ]
@@ -252,7 +252,7 @@ export function buildCustomProgramTemplateDefinition({
           movementId,
           type: normalized.methodology === 'simple_linear' ? 'working_load' as const : 'training_max' as const,
         }))
-  const durationWeeks = normalized.methodology === '531' ? 4 : normalized.methodology === 'bromley' ? 18 : 1
+  const durationWeeks = normalized.methodology === 'training_max_wave' ? 4 : normalized.methodology === 'plus_set_wave' ? 18 : 1
   const sessions = normalized.sessions.map((session, index): TemplateDefinition['sessions'][number] => {
     const sessionKey = `day-${index + 1}`
     const anchorMovementId = anchorMovementIdFor(session.mainMovementId, catalog)
@@ -316,7 +316,7 @@ export function buildCustomProgramTemplateDefinition({
     metadata: {
       id: templateId,
       name: normalized.name,
-      source: 'custom_import',
+      source: 'custom_program',
       sourceLabel: 'Custom',
       origin: 'user_created',
       description,
@@ -376,8 +376,8 @@ function mainPrescription(
   session: NormalizedCustomProgramBuilderInput['sessions'][number],
   weekIndex: number,
 ): PrescriptionDefinition {
-  if (methodology === '531') return main531Prescription(weekIndex)
-  if (methodology === 'bromley') return bromleyMainPrescription(weekIndex)
+  if (methodology === 'training_max_wave') return mainTrainingMaxWavePrescription(weekIndex)
+  if (methodology === 'plus_set_wave') return plusSetWaveMainPrescription(weekIndex)
   if (methodology === 'simple_linear') {
     return {
       targetSummary: `${session.mainSetCount}x${session.mainTargetReps} @ current load`,
@@ -407,7 +407,7 @@ function variationPrescription(
   session: NormalizedCustomProgramBuilderInput['sessions'][number],
   weekIndex: number,
 ): PrescriptionDefinition {
-  if (methodology === 'bromley') {
+  if (methodology === 'plus_set_wave') {
     const isPeak = weekIndex >= 9
     const waveIndex = Math.floor((weekIndex % 9) / 3)
     const weekInWave = weekIndex % 3
@@ -451,33 +451,33 @@ function accessoryPrescription(
   }
 }
 
-function main531Prescription(weekIndex: number): PrescriptionDefinition {
+function mainTrainingMaxWavePrescription(weekIndex: number): PrescriptionDefinition {
   const weeks = [
     {
-      summary: '65%x5 · 75%x5 · 85%x5+ · FSL 5x5',
+      summary: '65%x5 · 75%x5 · 85%x5+ · back-off 5x5',
       sets: [
         { targetLoad: percent(0.65), targetReps: 5, label: '5' },
         { targetLoad: percent(0.75), targetReps: 5, label: '5' },
         { targetLoad: percent(0.85), targetReps: 5, targetRir: 2, isTopSet: true, isAmrap: true, label: '5+' },
-        ...repeatedSets(5, { targetLoad: percent(0.65), targetReps: 5, targetRir: 2, isBackoff: true, label: 'FSL' }),
+        ...repeatedSets(5, { targetLoad: percent(0.65), targetReps: 5, targetRir: 2, isBackoff: true, label: 'Back-off' }),
       ],
     },
     {
-      summary: '70%x3 · 80%x3 · 90%x3+ · FSL 5x5',
+      summary: '70%x3 · 80%x3 · 90%x3+ · back-off 5x5',
       sets: [
         { targetLoad: percent(0.7), targetReps: 3, label: '3' },
         { targetLoad: percent(0.8), targetReps: 3, label: '3' },
         { targetLoad: percent(0.9), targetReps: 3, targetRir: 2, isTopSet: true, isAmrap: true, label: '3+' },
-        ...repeatedSets(5, { targetLoad: percent(0.65), targetReps: 5, targetRir: 2, isBackoff: true, label: 'FSL' }),
+        ...repeatedSets(5, { targetLoad: percent(0.65), targetReps: 5, targetRir: 2, isBackoff: true, label: 'Back-off' }),
       ],
     },
     {
-      summary: '75%x5 · 85%x3 · 95%x1+ · FSL 5x5',
+      summary: '75%x5 · 85%x3 · 95%x1+ · back-off 5x5',
       sets: [
         { targetLoad: percent(0.75), targetReps: 5, label: '5' },
         { targetLoad: percent(0.85), targetReps: 3, label: '3' },
         { targetLoad: percent(0.95), targetReps: 1, targetRir: 2, isTopSet: true, isAmrap: true, label: '1+' },
-        ...repeatedSets(5, { targetLoad: percent(0.65), targetReps: 5, targetRir: 2, isBackoff: true, label: 'FSL' }),
+        ...repeatedSets(5, { targetLoad: percent(0.65), targetReps: 5, targetRir: 2, isBackoff: true, label: 'Back-off' }),
       ],
     },
     {
@@ -492,12 +492,12 @@ function main531Prescription(weekIndex: number): PrescriptionDefinition {
   const week = weeks[weekIndex % weeks.length]
   return {
     targetSummary: week.summary,
-    progressionRuleId: 'healthy_531_tm_band',
+    progressionRuleId: 'training_max_band',
     sets: week.sets,
   }
 }
 
-function bromleyMainPrescription(weekIndex: number): PrescriptionDefinition {
+function plusSetWaveMainPrescription(weekIndex: number): PrescriptionDefinition {
   const isPeak = weekIndex >= 9
   const phaseWeekIndex = weekIndex % 9
   const waveIndex = Math.floor(phaseWeekIndex / 3)
@@ -508,7 +508,7 @@ function bromleyMainPrescription(weekIndex: number): PrescriptionDefinition {
   const percentLabel = Math.round(mainPercent * 100)
   return {
     targetSummary: `${mainSetCount}x${mainReps}+ @ ${percentLabel}%`,
-    progressionRuleId: 'bullmastiff_plus_set',
+    progressionRuleId: 'plus_set_wave',
     sets: repeatedSets(
       mainSetCount,
       {
@@ -526,16 +526,16 @@ function bromleyMainPrescription(weekIndex: number): PrescriptionDefinition {
 }
 
 function phaseFor(methodology: CustomProgramMethodology, weekIndex: number): CustomPhase {
-  if (methodology === '531') {
-    const phaseLabels = ['5s week', '3s week', '5/3/1 week', 'Deload']
+  if (methodology === 'training_max_wave') {
+    const phaseLabels = ['5s week', '3s week', 'Peak week', 'Deload']
     return {
       key: 'cycle',
       label: phaseLabels[weekIndex % 4] ?? 'Cycle',
-      summary: '5/3/1-style percentage work with first-set-last backoff work.',
+      summary: 'Training-max percentage work with back-off work.',
       hardness: weekIndex % 4 === 3 ? 'Deload' as const : weekIndex % 4 === 2 ? 'Hard' as const : 'Medium' as const,
     }
   }
-  if (methodology === 'bromley') {
+  if (methodology === 'plus_set_wave') {
     const isPeak = weekIndex >= 9
     const phaseWeekIndex = weekIndex % 9
     const waveIndex = Math.floor(phaseWeekIndex / 3)
@@ -568,14 +568,14 @@ function phaseFor(methodology: CustomProgramMethodology, weekIndex: number): Cus
 
 function progressionRulesFor(methodology: CustomProgramMethodology): TemplateDefinition['progressionRules'] {
   if (methodology === 'none') return undefined
-  if (methodology === '531') {
+  if (methodology === 'training_max_wave') {
     return {
-      main: 'healthy_531_tm_band',
+      main: 'training_max_band',
     }
   }
-  if (methodology === 'bromley') {
+  if (methodology === 'plus_set_wave') {
     return {
-      main: 'bullmastiff_plus_set',
+      main: 'plus_set_wave',
     }
   }
   return {

@@ -2,14 +2,16 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Badge, Button, Card, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { Cloud, Dumbbell, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User } from 'lucide-react'
+import { Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
+import { getMovementName } from '~/lib/movements'
 import { authUserQueryOptions, meQueryOptions } from '~/lib/query-options'
 import { loadRouteQuery } from '~/lib/route-loading'
+import { defaultProgramStateDefaults } from '~/lib/templates'
 import { signOutFn } from '~/server/auth'
 import { updateSettingsFn } from '~/server/api'
-import type { ThemePreference, Unit, UserProfile } from '~/types/training'
+import type { ProgramStateDefaults, ThemePreference, Unit, UserProfile } from '~/types/training'
 import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
 
 const equipmentOptions = [
@@ -37,9 +39,23 @@ const themeOptions: Array<{
 
 const settingsSections = [
   { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
+  { id: 'starting-loads', label: 'Starting Loads', icon: Gauge },
   { id: 'equipment', label: 'Equipment', icon: Dumbbell },
   { id: 'data-sync', label: 'Data & Sync', icon: Cloud },
   { id: 'account', label: 'Account', icon: User },
+]
+
+const startingLoadSections = [
+  {
+    label: 'Training Maxes',
+    description: 'Used by training-max and wave templates.',
+    keys: ['squat_training_max', 'bench_press_training_max', 'deadlift_training_max', 'overhead_press_training_max'],
+  },
+  {
+    label: 'Working Loads',
+    description: 'Used by beginner linear templates.',
+    keys: ['squat_working_load', 'bench_press_working_load', 'overhead_press_working_load', 'deadlift_working_load', 'barbell_row_working_load'],
+  },
 ]
 
 export const Route = createFileRoute('/settings')({
@@ -83,6 +99,9 @@ function SettingsForm({ me }: { me: UserProfile }) {
   const [rounding, setRounding] = useState(me?.rounding ?? 2.5)
   const [equipmentProfile, setEquipmentProfile] = useState<string[]>(me?.equipmentProfile ?? [])
   const [themePreference, setThemePreference] = useState<ThemePreference>(me?.themePreference ?? 'system')
+  const [programStateDefaults, setProgramStateDefaults] = useState<ProgramStateDefaults>(
+    me?.programStateDefaults ?? defaultProgramStateDefaults(me?.units ?? 'kg'),
+  )
 
   const hasPendingChanges = useMemo(
     () =>
@@ -90,8 +109,9 @@ function SettingsForm({ me }: { me: UserProfile }) {
       (units !== me?.units ||
         rounding !== me?.rounding ||
         themePreference !== (me?.themePreference ?? 'system') ||
+        !sameNumberRecord(programStateDefaults, me?.programStateDefaults ?? defaultProgramStateDefaults(me?.units ?? units)) ||
         !sameStringSet(equipmentProfile, me?.equipmentProfile ?? [])),
-    [equipmentProfile, me, rounding, themePreference, units],
+    [equipmentProfile, me, programStateDefaults, rounding, themePreference, units],
   )
 
   useEffect(() => {
@@ -109,6 +129,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
           rounding,
           equipmentProfile,
           themePreference,
+          programStateDefaults,
         },
       }),
     onSuccess: (next) => {
@@ -118,6 +139,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
         setRounding(next.rounding)
         setEquipmentProfile(next.equipmentProfile)
         setThemePreference(next.themePreference)
+        setProgramStateDefaults(next.programStateDefaults)
       }
       notifications.show({ color: 'success', title: 'Settings saved', message: 'Your preferences were updated.' })
     },
@@ -136,6 +158,20 @@ function SettingsForm({ me }: { me: UserProfile }) {
     setRounding(me.rounding)
     setEquipmentProfile(me.equipmentProfile ?? [])
     setThemePreference(me.themePreference ?? 'system')
+    setProgramStateDefaults(me.programStateDefaults ?? defaultProgramStateDefaults(me.units))
+  }
+
+  const handleUnitsChange = (nextUnits: Unit) => {
+    const currentWasUnitDefault = sameNumberRecord(programStateDefaults, defaultProgramStateDefaults(units))
+    setUnits(nextUnits)
+    if (currentWasUnitDefault) setProgramStateDefaults(defaultProgramStateDefaults(nextUnits))
+  }
+
+  const updateProgramStateDefault = (key: string, value: number) => {
+    setProgramStateDefaults((current) => ({
+      ...current,
+      [key]: value,
+    }))
   }
 
   const signOutMutation = useMutation({
@@ -250,7 +286,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
                   <select
                     className="min-h-10 rounded-[var(--mantine-radius-md)] border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 font-medium"
                     value={units}
-                    onChange={(event) => setUnits(event.target.value as Unit)}
+                    onChange={(event) => handleUnitsChange(event.target.value as Unit)}
                   >
                     <option value="kg">kg</option>
                     <option value="lb">lb</option>
@@ -261,6 +297,45 @@ function SettingsForm({ me }: { me: UserProfile }) {
                   <TextInput type="number" value={rounding} onChange={(event) => setRounding(Number(event.target.value))} />
                 </label>
               </div>
+            </Card>
+          </section>
+
+          <section id="starting-loads" className="scroll-mt-24">
+            <div className="mb-2">
+              <h2 className="text-sm font-extrabold">Starting Loads</h2>
+              <p className="text-[10px] text-[var(--mantine-color-dimmed)]">
+                New programmes copy these defaults. Active programmes keep their own saved values.
+              </p>
+            </div>
+            <Card className="space-y-4 p-4">
+              {startingLoadSections.map((section) => (
+                <div key={section.label} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+                  <div className="mb-3">
+                    <p className="vf-section-label">{section.label}</p>
+                    <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{section.description}</p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {section.keys.map((key) => (
+                      <label key={key} className="grid gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+                          {startingLoadLabel(key)}
+                        </span>
+                        <span className="relative block">
+                          <TextInput
+                            classNames={{ input: 'pr-12 text-right' }}
+                            type="number"
+                            value={programStateDefaults[key] ?? ''}
+                            onChange={(event) => updateProgramStateDefault(key, Number(event.target.value))}
+                          />
+                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--mantine-color-dimmed)]">
+                            {units}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </Card>
           </section>
 
@@ -340,6 +415,20 @@ function sameStringSet(left: string[], right: string[]) {
   const normalizedLeft = [...left].sort()
   const normalizedRight = [...right].sort()
   return normalizedLeft.every((value, index) => value === normalizedRight[index])
+}
+
+function sameNumberRecord(left: ProgramStateDefaults, right: ProgramStateDefaults) {
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)])
+  for (const key of keys) {
+    if (Number(left[key]) !== Number(right[key])) return false
+  }
+  return true
+}
+
+function startingLoadLabel(key: string) {
+  const type = key.endsWith('_training_max') ? 'training max' : 'working load'
+  const movementId = key.replace(/_(training_max|working_load)$/, '')
+  return `${getMovementName(movementId)} ${type}`
 }
 
 function formatEquipmentLabel(value: string) {

@@ -36,7 +36,7 @@ const week531 = [
   ],
 ] as const
 
-export function compute531FslSets(anchor: number, weekIndex: number, rounding: number) {
+export function computeTrainingMaxWaveSets(anchor: number, weekIndex: number, rounding: number) {
   const week = week531[weekIndex % 4]
   const main = week.map((target, index): SetTarget => ({
     id: `main-${index + 1}`,
@@ -51,23 +51,23 @@ export function compute531FslSets(anchor: number, weekIndex: number, rounding: n
 
   if (weekIndex % 4 === 3) return main
 
-  const fslLoad = mround(anchor * 0.65, rounding)
-  const fsl = Array.from({ length: 5 }, (_, index): SetTarget => ({
-    id: `fsl-${index + 1}`,
+  const backoffLoad = mround(anchor * 0.65, rounding)
+  const backoff = Array.from({ length: 5 }, (_, index): SetTarget => ({
+    id: `backoff-${index + 1}`,
     setIndex: main.length + index + 1,
-    targetLoad: fslLoad,
+    targetLoad: backoffLoad,
     targetReps: 5,
     targetRir: 2,
     isBackoff: true,
-    label: 'FSL',
+    label: 'Back-off',
   }))
 
-  return [...main, ...fsl]
+  return [...main, ...backoff]
 }
 
 export type TopSetResult = Pick<SetLog, 'actualReps' | 'actualRir' | 'targetReps'>
 
-export function evaluate531TmBand(
+export function evaluateTrainingMaxBand(
   cycleTopSets: TopSetResult[],
   currentTm: number,
   rounding: number,
@@ -101,12 +101,12 @@ export function evaluate531TmBand(
   }
 
   return {
-    id: `pending-531-${movementId}`,
+    id: `pending-training-max-${movementId}`,
     movementId,
     movementName: getMovementName(movementId),
     stateKey,
     stateType: 'training_max',
-    ruleId: `healthy_531_tm_${band}`,
+    ruleId: `training_max_${band}`,
     scope: 'cycle',
     status: 'pending',
     inputSummary: `${getMovementName(movementId)} cycle top sets evaluated as ${band}.`,
@@ -119,7 +119,7 @@ export function evaluate531TmBand(
   }
 }
 
-export function evaluateBullmastiffPlusSet(
+export function evaluatePlusSetWave(
   setLog: Pick<SetLog, 'actualReps' | 'actualRir'>,
   baselineReps: number,
   anchor: number,
@@ -133,12 +133,12 @@ export function evaluateBullmastiffPlusSet(
   const jump = extraReps * anchor * 0.01
   const recommended = mround(anchor + jump, rounding)
   return {
-    id: `pending-bullmastiff-${movementId}`,
+    id: `pending-plus-set-wave-${movementId}`,
     movementId,
     movementName: getMovementName(movementId),
     stateKey,
     stateType: 'training_max',
-    ruleId: 'bullmastiff_plus_set',
+    ruleId: 'plus_set_wave',
     scope: 'wave',
     status: 'pending',
     inputSummary: `${actualReps} reps${hasActualRir ? ` at RIR ${setLog.actualRir}` : ''} against a ${baselineReps}-rep baseline.`,

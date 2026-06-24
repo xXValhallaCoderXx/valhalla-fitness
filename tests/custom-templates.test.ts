@@ -12,7 +12,7 @@ import type { ProgramInstance, WorkoutSession } from '../src/types/training'
 function build(methodology: CustomProgramMethodology, templateId = `custom-${methodology}`) {
   return buildCustomProgramTemplateDefinition({
     templateId,
-    input: createDefaultCustomProgramBuilderInput({ methodology, daysPerWeek: methodology === '531' ? 4 : 3 }),
+    input: createDefaultCustomProgramBuilderInput({ methodology, daysPerWeek: methodology === 'training_max_wave' ? 4 : 3 }),
   })
 }
 
@@ -67,7 +67,7 @@ function firstSessionFor(definition: TemplateDefinition): WorkoutSession {
 
 describe('custom programme templates', () => {
   it('generates valid template definitions for all supported methodologies', () => {
-    for (const methodology of ['none', '531', 'bromley', 'simple_linear'] as const) {
+    for (const methodology of ['none', 'training_max_wave', 'plus_set_wave', 'simple_linear'] as const) {
       const generated = build(methodology)
       expect(validateTemplateDefinition(generated.definition)).toMatchObject({ ok: true })
       expect(generated.metadata.origin).toBe('user_created')
@@ -103,7 +103,7 @@ describe('custom programme templates', () => {
   })
 
   it('keeps custom accessories history-only without target RIR prescriptions', () => {
-    const input = createDefaultCustomProgramBuilderInput({ methodology: '531', daysPerWeek: 5 })
+    const input = createDefaultCustomProgramBuilderInput({ methodology: 'training_max_wave', daysPerWeek: 5 })
     input.sessions[0]!.accessories[0] = {
       ...input.sessions[0]!.accessories[0]!,
       targetRir: 4,
@@ -163,24 +163,68 @@ describe('custom programme templates', () => {
     expect(decisions).toEqual([])
   })
 
-  it('uses movement progression rule ids for custom 5/3/1 decisions', () => {
-    const { definition } = build('531')
+  it('uses movement progression rule ids for custom training-max wave decisions', () => {
+    const { definition } = build('training_max_wave')
     const program = programFor(definition)
     const decisions = buildProgressionDecisionsForSession(
       completeMainWork(firstSessionFor(definition)),
       program,
     )
-    expect(decisions.map((decision) => decision.ruleId)).toContain('healthy_531_tm_standard')
+    expect(decisions.map((decision) => decision.ruleId)).toContain('training_max_standard')
   })
 
-  it('uses movement progression rule ids for custom Bromley plus-set decisions', () => {
-    const { definition } = build('bromley')
+  it('uses movement progression rule ids for custom plus-set wave decisions', () => {
+    const { definition } = build('plus_set_wave')
     const program = programFor(definition)
     const decisions = buildProgressionDecisionsForSession(
       completeMainWork(firstSessionFor(definition)),
       program,
     )
-    expect(decisions.map((decision) => decision.ruleId)).toContain('bullmastiff_plus_set')
+    expect(decisions.map((decision) => decision.ruleId)).toContain('plus_set_wave')
+  })
+
+  it('keeps legacy progression rule ids compatible with pinned snapshots', () => {
+    const trainingMax = build('training_max_wave').definition
+    const legacyTrainingMax: TemplateDefinition = {
+      ...trainingMax,
+      weeks: trainingMax.weeks.map((week) => ({
+        ...week,
+        prescriptions: {
+          ...week.prescriptions,
+          main: {
+            ...week.prescriptions.main!,
+            progressionRuleId: 'healthy_531_tm_band',
+          },
+        },
+      })),
+    }
+    const plusSet = build('plus_set_wave').definition
+    const legacyPlusSet: TemplateDefinition = {
+      ...plusSet,
+      weeks: plusSet.weeks.map((week) => ({
+        ...week,
+        prescriptions: {
+          ...week.prescriptions,
+          main: {
+            ...week.prescriptions.main!,
+            progressionRuleId: 'bullmastiff_plus_set',
+          },
+        },
+      })),
+    }
+
+    expect(
+      buildProgressionDecisionsForSession(
+        completeMainWork(firstSessionFor(legacyTrainingMax)),
+        programFor(legacyTrainingMax),
+      ).map((decision) => decision.ruleId),
+    ).toContain('training_max_standard')
+    expect(
+      buildProgressionDecisionsForSession(
+        completeMainWork(firstSessionFor(legacyPlusSet)),
+        programFor(legacyPlusSet),
+      ).map((decision) => decision.ruleId),
+    ).toContain('plus_set_wave')
   })
 
   it('uses simple linear completion decisions for custom linear templates', () => {
