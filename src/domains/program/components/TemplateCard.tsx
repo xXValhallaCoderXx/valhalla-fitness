@@ -15,20 +15,29 @@ export function TemplateCard({
 }) {
   return (
     <Card
-      className="group flex h-full min-h-[13rem] flex-col gap-4 vf-card-hover"
-      p="md"
+      className="group flex h-full min-h-[12rem] flex-col gap-3 overflow-hidden vf-card-hover"
+      p="sm"
+      radius="md"
       style={{
-        borderColor: isActive ? 'var(--vf-success-border)' : undefined,
-        backgroundColor: isActive ? 'var(--vf-success-soft)' : undefined,
+        borderColor: isActive ? 'var(--vf-action-border)' : undefined,
       }}
     >
-      <div className="flex flex-1 flex-col gap-4">
+      <div
+        aria-hidden="true"
+        style={{
+          height: 3,
+          margin: '-0.625rem -0.625rem 0',
+          backgroundColor: sourceColor(template),
+        }}
+      />
+
+      <div className="flex flex-1 flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <Badge color={template.origin === 'licensed_partner' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
+            <Badge color={template.origin === 'user_created' ? 'accent' : 'neutral'}>{template.sourceLabel}</Badge>
             <Caption fw={600}>{template.daysPerWeek} days/wk</Caption>
           </div>
-          {isActive ? <Badge color="success">Active</Badge> : null}
+          {isActive ? <Badge color="action" variant="filled">Active</Badge> : null}
         </div>
 
         <div>
@@ -48,9 +57,9 @@ export function TemplateCard({
           </div>
         </Panel>
 
-        <div className="mt-auto flex flex-wrap gap-1.5">
+        <div className="mt-auto flex flex-wrap gap-1">
           {template.tags.slice(0, 3).map((tag) => (
-            <Panel key={tag} surface="inset" px={6} py={2}>
+            <Panel key={tag} surface="inset" px={6} py={1}>
               <Caption size="0.625rem" fw={700}>
                 {tag}
               </Caption>
@@ -60,7 +69,7 @@ export function TemplateCard({
       </div>
 
       {isActive ? (
-        <Button color="success" variant="light" disabled>
+        <Button color="action" variant="light" disabled>
           <Check size={16} />
           Active Program
         </Button>
@@ -77,6 +86,14 @@ export function TemplateCard({
       )}
     </Card>
   )
+}
+
+function sourceColor(template: ProgramTemplateSummary) {
+  if (template.origin === 'user_created') return 'var(--vf-accent-text)'
+  if (template.source === 'training_max_wave') return 'var(--vf-action-text)'
+  if (template.source === 'wave_powerbuilding') return 'var(--vf-warning-text)'
+  if (template.source === 'volume_strength') return 'var(--vf-accent-text)'
+  return 'var(--mantine-color-dimmed)'
 }
 
 function TemplateMetric({ label, value }: { label: string; value: string | number }) {
