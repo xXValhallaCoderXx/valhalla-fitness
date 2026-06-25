@@ -1,7 +1,7 @@
 import { ActionIcon, Badge, Button, Card, NumberInput, Select, TextInput, Tooltip } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation } from '@tanstack/react-query'
-import { Check, ChevronLeft, ChevronRight, Info, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Info, Plus, Trash2, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import { getMovementName } from '~/domains/movement/lib/movements'
@@ -231,24 +231,27 @@ export function CustomProgramBuilder({
               Build a constrained template from supported methodology presets.
             </Text>
           </div>
-          <Button color="neutral" variant="subtle" onClick={onClose} disabled={mutation.isPending}>
-            Close
-          </Button>
+          <Tooltip label="Close">
+            <ActionIcon
+              color="neutral"
+              variant="subtle"
+              size="lg"
+              aria-label="Close"
+              className="shrink-0"
+              onClick={onClose}
+              disabled={mutation.isPending}
+            >
+              <X size={18} />
+            </ActionIcon>
+          </Tooltip>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-          {steps.map((item, index) => (
-            <Button
-              key={item.id}
-              variant={step === item.id ? 'filled' : 'default'}
-              className="min-w-0"
-              disabled={mutation.isPending}
-              onClick={() => setStep(item.id)}
-            >
-              {index + 1}. {item.label}
-            </Button>
-          ))}
-        </div>
+        <BuilderStepNavigation
+          steps={steps}
+          currentStep={step}
+          disabled={mutation.isPending}
+          onStepChange={setStep}
+        />
         {step !== 'methodology' ? <CurrentPlanSummary draft={draft} /> : null}
       </div>
 
@@ -304,6 +307,81 @@ export function CustomProgramBuilder({
         </div>
       </div>
     </Card>
+  )
+}
+
+function BuilderStepNavigation({
+  steps,
+  currentStep,
+  disabled,
+  onStepChange,
+}: {
+  steps: Array<{ id: CustomBuilderStep; label: string }>
+  currentStep: CustomBuilderStep
+  disabled: boolean
+  onStepChange: (step: CustomBuilderStep) => void
+}) {
+  return (
+    <>
+      <div className="mt-3 flex gap-1 overflow-x-auto pb-1 no-scrollbar md:hidden">
+        {steps.map((item, index) => (
+          <BuilderMobileStepTab
+            key={item.id}
+            index={index}
+            label={item.label}
+            active={currentStep === item.id}
+            disabled={disabled}
+            onClick={() => onStepChange(item.id)}
+          />
+        ))}
+      </div>
+      <div className="mt-4 hidden gap-2 md:grid md:grid-cols-4">
+        {steps.map((item, index) => (
+          <Button
+            key={item.id}
+            variant={currentStep === item.id ? 'filled' : 'default'}
+            className="min-w-0"
+            disabled={disabled}
+            onClick={() => onStepChange(item.id)}
+          >
+            {index + 1}. {item.label}
+          </Button>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function BuilderMobileStepTab({
+  index,
+  label,
+  active,
+  disabled,
+  onClick,
+}: {
+  index: number
+  label: string
+  active: boolean
+  disabled: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="min-h-8 min-w-[6.75rem] shrink-0 rounded-md px-2"
+      style={{
+        backgroundColor: active ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default)',
+        border: '1px solid var(--mantine-color-default-border)',
+        color: active ? 'var(--mantine-color-white)' : 'var(--mantine-color-text)',
+        opacity: disabled ? 0.55 : 1,
+      }}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <Caption component="span" fw={900} truncate c="inherit">
+        {index + 1}. {label}
+      </Caption>
+    </button>
   )
 }
 
