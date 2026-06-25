@@ -164,6 +164,21 @@ input[type="number"]::-webkit-outer-spin-button {
   border-radius: var(--mantine-radius-md);
 }
 
+.vf-body-load-map {
+  aspect-ratio: 300 / 420;
+  display: block;
+  height: auto;
+  margin-inline: auto;
+  max-width: 22rem;
+  width: 100%;
+}
+
+@media (min-width: 64rem) {
+  .vf-body-load-map {
+    max-width: 24rem;
+  }
+}
+
 .vf-stat-strip {
   display: grid;
   gap: 0.5rem;

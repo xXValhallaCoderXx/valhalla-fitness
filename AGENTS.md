@@ -2,7 +2,21 @@
 
 ## Project Structure & Module Organization
 
-This is `sheetless`, a TanStack Start/Vite React 19 + TypeScript app backed by Supabase. Application code lives in `src/`: routes use TanStack file-route naming in `src/routes/`, server functions stay in `src/server/`, shared logic lives in `src/lib/`, and shared types live in `src/types/`. Shared UI belongs in `src/components/`; domain UI belongs in `src/features/{feature}/components/`. Global styles are in `src/styles/`. Tests are in `tests/`, browser specs in `tests/e2e/`, assets in `public/pwa/`, and migrations in `supabase/migrations/`.
+This is `sheetless`, a TanStack Start/Vite React 19 + TypeScript app backed by Supabase. Code is organized **by domain**, not by file type.
+
+- `src/domains/{account,program,session,history,movement}/` — each domain owns its slice end to end:
+  - `components/` — domain UI (organisms), PascalCase files.
+  - `server/` — `createServerFn` handlers + Supabase data access (kebab-case files).
+  - `lib/` — pure domain logic (kebab-case files).
+  - `types.ts` — domain types shared by that domain's server and client.
+  - `queries.ts` — React Query `queryOptions` for the domain.
+  - `index.ts` — public barrel (types, queries, components). Never re-export server-only modules here so the client never bundles server code.
+- `src/components/atoms` + `src/components/molecules` — shared, non-domain UI (PascalCase).
+- `src/shared/{lib,server,types}` — cross-cutting helpers used by 3+ domains (e.g. `cn`, `dates`, `api-error`, `math`, `supabase`, `require-user`).
+- `src/routes/` — thin TanStack file-route wrappers over domain components (this is the one folder that stays file-type based; required by the router). Never edit `src/routeTree.gen.ts`.
+- `src/styles/` — Mantine theme + global base CSS. Tests in `tests/` (unit) and `tests/e2e/` (Playwright); migrations in `supabase/migrations/`.
+
+Where to add new code: put it in the owning domain. Promote to `src/shared/*` only when 3+ domains need it. New shared UI primitives go in `atoms`/`molecules`; domain-specific UI goes in that domain's `components/`.
 
 ## Build, Test, and Development Commands
 
@@ -17,7 +31,19 @@ This is `sheetless`, a TanStack Start/Vite React 19 + TypeScript app backed by S
 
 ## Coding Style & Naming Conventions
 
-Use strict TypeScript, ES modules, React JSX, two-space indentation, single quotes, and the existing semicolon-free style. Prefer the `~/` alias for imports from `src/`. Do not edit `src/routeTree.gen.ts` manually. Follow existing React Query and `createServerFn` patterns. Mantine is the primary UI layer; Tailwind may be used for layout. Keep compatibility shims such as `src/components/ui.tsx` stable unless a migration explicitly touches them.
+Use strict TypeScript, ES modules, React JSX, two-space indentation, single quotes, and the existing semicolon-free style. Prefer the `~/` alias for imports from `src/`. Do not edit `src/routeTree.gen.ts` manually. Follow existing React Query and `createServerFn` patterns.
+
+Naming: React components use PascalCase for both the file and the export (`PendingReview.tsx`). Utility, server, lib, query, and type files use kebab-case (`program-overview.ts`, `require-user.ts`). Hooks are `useThing.ts`. Routes keep TanStack file-route names.
+
+### UI & styling (enforced)
+
+Mantine is the only styling system. Use Mantine components, theme tokens, and the shared `atoms`/`molecules`.
+
+- Tailwind is for **layout only**: flex/grid, `gap`, margin/padding, sizing, position, overflow, alignment.
+- Do **not** use Tailwind/inline utilities for typography (`font-*`, `text-<size>`, leading/tracking), color, background, or border-color. An ESLint rule warns on these.
+- Replace those with atoms/molecules and Mantine props: `Text` (with `tone`/`fw`/`size`/`truncate`), `Heading`, `SectionLabel`, `StatValue`, `Caption`, `Panel`, `StatCard`, and Mantine props like `c`, `bg`, `fw`, `size`, `variant`.
+- `--vf-*` are theme tokens; consume them through components/Mantine props, never as inline `text-[var(--…)]`.
+- Import shared UI from `~/components` (atoms + molecules). There are no `~/components/ui` or `~/components/workout` shims.
 
 ## Testing Guidelines
 

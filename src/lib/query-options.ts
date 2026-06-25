@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
-import { fetchUserFn } from '~/server/auth'
+import { fetchUserFn } from '~/domains/account/server/auth'
 import {
   getActiveProgramFn,
   getHistoryDashboardFn,

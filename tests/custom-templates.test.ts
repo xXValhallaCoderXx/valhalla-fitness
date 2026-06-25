@@ -3,11 +3,11 @@ import {
   buildCustomProgramTemplateDefinition,
   createDefaultCustomProgramBuilderInput,
   type CustomProgramMethodology,
-} from '../src/lib/custom-templates'
-import { buildProgressionDecisionsForSession } from '../src/lib/progression-decisions'
-import { expandPlannedSession } from '../src/lib/templates'
-import { validateTemplateDefinition, type TemplateDefinition } from '../src/lib/template-engine'
-import type { ProgramInstance, WorkoutSession } from '../src/types/training'
+} from '../src/domains/program/lib/custom-templates'
+import { buildProgressionDecisionsForSession } from '../src/domains/program/lib/progression-decisions'
+import { expandPlannedSession } from '../src/domains/program/lib/templates'
+import { validateTemplateDefinition, type TemplateDefinition } from '../src/domains/program/lib/template-engine'
+import type { ProgramInstance, WorkoutSession } from '../src/shared/types'
 
 function build(methodology: CustomProgramMethodology, templateId = `custom-${methodology}`) {
   return buildCustomProgramTemplateDefinition({
@@ -142,8 +142,72 @@ describe('custom programme templates', () => {
     ).toBe(true)
   })
 
+  it('builds logger-only templates from free-form exercise days', () => {
+    const input = createDefaultCustomProgramBuilderInput({ methodology: 'none', daysPerWeek: 1 })
+    input.sessions[0] = {
+      ...input.sessions[0]!,
+      title: 'Upper log',
+      loggerExercises: [
+        { movementId: 'bench_press', setCount: 4, repMin: 6, repMax: 8, targetRir: 2 },
+        { movementId: 'face_pull', setCount: 3, repMin: 12, repMax: 20, targetRir: 3 },
+      ],
+    }
+
+    const { definition } = buildCustomProgramTemplateDefinition({
+      templateId: 'custom-logger-free-form',
+      input,
+    })
+
+    expect(definition.requiredState).toEqual([])
+    expect(definition.progressionRules).toBeUndefined()
+    expect(definition.sessions[0]?.title).toBe('Upper log')
+    expect(definition.sessions[0]?.slots.map((slot) => slot.movementId)).toEqual(['bench_press', 'face_pull'])
+    expect(definition.sessions[0]?.slots.map((slot) => slot.role)).toEqual(['main', 'accessory'])
+    expect(Object.values(definition.weeks[0]!.prescriptions).flatMap((prescription) => prescription.sets)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetLoad: { kind: 'user_selected' },
+          targetRepMin: 6,
+          targetRepMax: 8,
+          targetRir: 2,
+        }),
+        expect.objectContaining({
+          targetLoad: { kind: 'user_selected' },
+          targetRepMin: 12,
+          targetRepMax: 20,
+          targetRir: 3,
+        }),
+      ]),
+    )
+  })
+
+  it('requests the correct load state type for regulated custom methodologies', () => {
+    expect(build('simple_linear').definition.requiredState.every((state) => state.type === 'working_load')).toBe(true)
+    expect(build('training_max_wave').definition.requiredState.every((state) => state.type === 'training_max')).toBe(true)
+    expect(build('plus_set_wave').definition.requiredState.every((state) => state.type === 'training_max')).toBe(true)
+  })
+
+  it('keeps simple linear main work on the structured 3x5 preset', () => {
+    const input = createDefaultCustomProgramBuilderInput({ methodology: 'simple_linear', daysPerWeek: 1 })
+    input.sessions[0] = {
+      ...input.sessions[0]!,
+      mainSetCount: 8,
+      mainTargetReps: 12,
+    }
+
+    const { definition } = buildCustomProgramTemplateDefinition({
+      templateId: 'custom-linear-structured',
+      input,
+    })
+
+    const main = definition.weeks[0]?.prescriptions['day-1-main']
+    expect(main?.targetSummary).toBe('3x5 @ current load')
+    expect(main?.sets).toHaveLength(3)
+    expect(main?.sets.every((set) => set.targetReps === 5 && set.targetLoad?.kind === 'state')).toBe(true)
+  })
+
   it('rejects invalid movement ids before generating DSL', () => {
-    const input = createDefaultCustomProgramBuilderInput()
+    const input = createDefaultCustomProgramBuilderInput({ methodology: 'simple_linear' })
     input.sessions[0]!.mainMovementId = 'not_a_movement'
     expect(() =>
       buildCustomProgramTemplateDefinition({

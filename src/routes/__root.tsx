@@ -10,9 +10,9 @@ import {
   createRootRouteWithContext,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-import type { AuthUser } from '~/server/auth'
+import type { AuthUser } from '~/domains/account/server/auth'
 import { authUserQueryOptions, meQueryOptions } from '~/lib/query-options'
-import type { ThemePreference, UserProfile } from '~/types/training'
+import type { ThemePreference, UserProfile } from '~/shared/types'
 import { AppShell } from '~/components/AppShell'
 import { PwaUpdatePrompt } from '~/components/PwaUpdatePrompt'
 import { mantineCssVariablesResolver, mantineTheme } from '~/styles/mantine-theme'

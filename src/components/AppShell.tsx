@@ -1,8 +1,8 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { CalendarDays, CheckCircle2, Dumbbell, History, Layers3, ListChecks, Settings, UserCircle } from 'lucide-react'
 import type { ReactNode } from 'react'
-import type { AuthUser } from '~/server/auth'
-import { cn } from '~/lib/cn'
+import type { AuthUser } from '~/domains/account/server/auth'
+import { cn } from '~/shared/lib/cn'
 
 const navItems = [
   { to: '/today', label: 'Today', icon: CalendarDays },

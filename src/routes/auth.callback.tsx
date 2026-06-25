@@ -6,7 +6,7 @@ import {
   exchangeCodeForSessionFn,
   setSessionFromTokensFn,
   verifyEmailOtpFn,
-} from '~/server/auth'
+} from '~/domains/account/server/auth'
 import { authUserQueryOptions, meQueryOptions } from '~/lib/query-options'
 
 type CallbackInput =

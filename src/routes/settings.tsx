@@ -1,18 +1,19 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Badge, Button, Card, TextInput } from '@mantine/core'
+import { Badge, Button, Card, Modal, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User } from 'lucide-react'
+import { Calculator, Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
-import { getMovementName } from '~/lib/movements'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { getMovementName } from '~/domains/movement/lib/movements'
+import { e1rm, mround } from '~/domains/program/lib/progression'
 import { authUserQueryOptions, meQueryOptions } from '~/lib/query-options'
-import { loadRouteQuery } from '~/lib/route-loading'
-import { defaultProgramStateDefaults } from '~/lib/templates'
-import { signOutFn } from '~/server/auth'
+import { loadRouteQuery } from '~/shared/lib/route-loading'
+import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
+import { signOutFn } from '~/domains/account/server/auth'
 import { updateSettingsFn } from '~/server/api'
-import type { ProgramStateDefaults, ThemePreference, Unit, UserProfile } from '~/types/training'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
+import type { ProgramStateDefaults, ThemePreference, Unit, UserProfile } from '~/shared/types'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
 
 const equipmentOptions = [
   'barbell',
@@ -39,24 +40,19 @@ const themeOptions: Array<{
 
 const settingsSections = [
   { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
-  { id: 'starting-loads', label: 'Starting Loads', icon: Gauge },
+  { id: 'programme-loads', label: 'Strength Estimates', icon: Gauge },
   { id: 'equipment', label: 'Equipment', icon: Dumbbell },
   { id: 'data-sync', label: 'Data & Sync', icon: Cloud },
   { id: 'account', label: 'Account', icon: User },
 ]
 
-const startingLoadSections = [
-  {
-    label: 'Training Maxes',
-    description: 'Used by training-max and wave templates.',
-    keys: ['squat_training_max', 'bench_press_training_max', 'deadlift_training_max', 'overhead_press_training_max'],
-  },
-  {
-    label: 'Working Loads',
-    description: 'Used by beginner linear templates.',
-    keys: ['squat_working_load', 'bench_press_working_load', 'overhead_press_working_load', 'deadlift_working_load', 'barbell_row_working_load'],
-  },
-]
+type KnownSetInput = {
+  weight: string
+  reps: string
+  rir: string
+}
+
+const oneRepMaxKeys = ['squat_one_rep_max', 'bench_press_one_rep_max', 'deadlift_one_rep_max', 'overhead_press_one_rep_max', 'barbell_row_one_rep_max']
 
 export const Route = createFileRoute('/settings')({
   loader: async ({ context }) => {
@@ -102,6 +98,9 @@ function SettingsForm({ me }: { me: UserProfile }) {
   const [programStateDefaults, setProgramStateDefaults] = useState<ProgramStateDefaults>(
     me?.programStateDefaults ?? defaultProgramStateDefaults(me?.units ?? 'kg'),
   )
+  const [showOneRepMaxCalculator, setShowOneRepMaxCalculator] = useState(false)
+  const [selectedOneRepMaxKey, setSelectedOneRepMaxKey] = useState(oneRepMaxKeys[0]!)
+  const [knownSetInput, setKnownSetInput] = useState<KnownSetInput>({ weight: '', reps: '', rir: '0' })
 
   const hasPendingChanges = useMemo(
     () =>
@@ -167,11 +166,28 @@ function SettingsForm({ me }: { me: UserProfile }) {
     if (currentWasUnitDefault) setProgramStateDefaults(defaultProgramStateDefaults(nextUnits))
   }
 
-  const updateProgramStateDefault = (key: string, value: number) => {
+  const updateProgramStateDefault = (key: string, value: number | null) => {
     setProgramStateDefaults((current) => ({
       ...current,
       [key]: value,
     }))
+  }
+
+  const calculatedOneRepMax = useMemo(
+    () => calculateOneRepMaxFromKnownSet(knownSetInput, rounding),
+    [knownSetInput, rounding],
+  )
+  const hasCalculatedOneRepMax = hasLoadDefault(calculatedOneRepMax)
+
+  const applyCalculatedOneRepMax = () => {
+    if (!hasLoadDefault(calculatedOneRepMax)) return
+    setProgramStateDefaults((current) => {
+      return {
+        ...current,
+        [selectedOneRepMaxKey]: calculatedOneRepMax,
+      }
+    })
+    setShowOneRepMaxCalculator(false)
   }
 
   const signOutMutation = useMutation({
@@ -255,7 +271,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
             <Card className="space-y-3 p-4">
               <div>
                 <span className="vf-section-label">Theme</span>
-                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                <div className="mt-2 grid grid-cols-3 gap-2">
                   {themeOptions.map((option) => {
                     const Icon = option.icon
                     const active = themePreference === option.value
@@ -263,28 +279,28 @@ function SettingsForm({ me }: { me: UserProfile }) {
                       <button
                         key={option.value}
                         type="button"
-                        className={`rounded-xl border p-3 text-left transition ${
+                        className={`rounded-lg border px-2 py-2 text-center transition sm:p-3 sm:text-left ${
                           active
                             ? 'border-[var(--vf-action-border)] bg-[var(--vf-action-soft)] text-[var(--mantine-color-text)]'
                             : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)] hover:border-[var(--vf-action-border)] hover:text-[var(--mantine-color-text)]'
                         }`}
                         onClick={() => setThemePreference(option.value)}
                       >
-                        <span className="flex items-center gap-2 text-sm font-extrabold">
+                        <span className="flex flex-col items-center gap-1 text-xs font-extrabold sm:flex-row sm:gap-2 sm:text-sm">
                           <Icon size={15} className={active ? 'text-[var(--vf-action-text)]' : undefined} />
                           {option.label}
                         </span>
-                        <span className="mt-1 block text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">{option.description}</span>
+                        <span className="mt-1 hidden text-xs leading-relaxed text-[var(--mantine-color-dimmed)] sm:block">{option.description}</span>
                       </button>
                     )
                   })}
                 </div>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-3">
                 <label className="grid gap-1">
                   <span className="vf-section-label">Units</span>
                   <select
-                    className="min-h-10 rounded-[var(--mantine-radius-md)] border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 font-medium"
+                    className="min-h-9 rounded-[var(--mantine-radius-md)] border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 text-sm font-medium sm:min-h-10"
                     value={units}
                     onChange={(event) => handleUnitsChange(event.target.value as Unit)}
                   >
@@ -294,48 +310,82 @@ function SettingsForm({ me }: { me: UserProfile }) {
                 </label>
                 <label className="grid gap-1">
                   <span className="vf-section-label">Rounding</span>
-                  <TextInput type="number" value={rounding} onChange={(event) => setRounding(Number(event.target.value))} />
+                  <TextInput
+                    classNames={{ input: '!min-h-9 !text-sm sm:!min-h-10' }}
+                    type="number"
+                    value={rounding}
+                    onChange={(event) => setRounding(Number(event.target.value))}
+                  />
                 </label>
               </div>
             </Card>
           </section>
 
-          <section id="starting-loads" className="scroll-mt-24">
+          <section id="programme-loads" className="scroll-mt-24">
             <div className="mb-2">
-              <h2 className="text-sm font-extrabold">Starting Loads</h2>
+              <h2 className="text-sm font-extrabold">Strength Estimates</h2>
               <p className="text-[10px] text-[var(--mantine-color-dimmed)]">
-                New programmes copy these defaults. Active programmes keep their own saved values.
+                Saved estimated 1RMs are used to suggest starting values when you begin a programme.
               </p>
             </div>
             <Card className="space-y-4 p-4">
-              {startingLoadSections.map((section) => (
-                <div key={section.label} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-                  <div className="mb-3">
-                    <p className="vf-section-label">{section.label}</p>
-                    <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{section.description}</p>
+              <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="vf-section-label">Estimated 1RMs</p>
+                    <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+                      Enter a current strength estimate for each main lift. Programme-specific training maxes and
+                      working loads are derived later on the start screen.
+                    </p>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {section.keys.map((key) => (
-                      <label key={key} className="grid gap-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
-                          {startingLoadLabel(key)}
-                        </span>
+                  <Button variant="default" size="xs" onClick={() => setShowOneRepMaxCalculator(true)}>
+                    <Calculator size={14} />
+                    Calculate from known sets
+                  </Button>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {oneRepMaxKeys.map((key) => {
+                    const value = programStateDefaults[key] ?? null
+                    const label = strengthEstimateLabel(key)
+                    return (
+                      <div key={key} className="grid gap-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+                            {label}
+                          </span>
+                          <Badge color={hasLoadDefault(value) ? 'success' : 'warning'} size="xs">
+                            {hasLoadDefault(value) ? 'Set' : 'Unset'}
+                          </Badge>
+                        </div>
                         <span className="relative block">
                           <TextInput
-                            classNames={{ input: 'pr-12 text-right' }}
+                            classNames={{ input: 'pr-24 text-right' }}
                             type="number"
-                            value={programStateDefaults[key] ?? ''}
-                            onChange={(event) => updateProgramStateDefault(key, Number(event.target.value))}
+                            placeholder="Unset"
+                            value={value ?? ''}
+                            onChange={(event) => updateProgramStateDefault(key, loadDefaultFromInput(event.target.value))}
                           />
-                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--mantine-color-dimmed)]">
+                          <span className="pointer-events-none absolute right-14 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--mantine-color-dimmed)]">
                             {units}
                           </span>
+                          <button
+                            type="button"
+                            aria-label={`Clear ${label}`}
+                            className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--vf-surface-2)] hover:text-[var(--mantine-color-text)]"
+                            onClick={() => updateProgramStateDefault(key, null)}
+                          >
+                            <X size={14} />
+                          </button>
                         </span>
-                      </label>
-                    ))}
-                  </div>
+                      </div>
+                    )
+                  })}
                 </div>
-              ))}
+                <p className="mt-3 text-[11px] leading-relaxed text-[var(--mantine-color-dimmed)]">
+                  These estimates are global defaults. Active programmes keep their own load values after start, and
+                  history can still show e1RM trends from logged sets.
+                </p>
+              </div>
             </Card>
           </section>
 
@@ -406,7 +456,127 @@ function SettingsForm({ me }: { me: UserProfile }) {
           </section>
         </div>
       </div>
+
+      <OneRepMaxCalculatorModal
+        opened={showOneRepMaxCalculator}
+        keys={oneRepMaxKeys}
+        selectedKey={selectedOneRepMaxKey}
+        units={units}
+        knownSetInput={knownSetInput}
+        calculatedValue={calculatedOneRepMax}
+        canApply={hasCalculatedOneRepMax}
+        onSelectedKeyChange={setSelectedOneRepMaxKey}
+        onKnownSetChange={(field, value) =>
+          setKnownSetInput((current) => ({
+            ...current,
+            [field]: value,
+          }))
+        }
+        onApply={applyCalculatedOneRepMax}
+        onClose={() => setShowOneRepMaxCalculator(false)}
+      />
     </Page>
+  )
+}
+
+function OneRepMaxCalculatorModal({
+  opened,
+  keys,
+  selectedKey,
+  units,
+  knownSetInput,
+  calculatedValue,
+  canApply,
+  onSelectedKeyChange,
+  onKnownSetChange,
+  onApply,
+  onClose,
+}: {
+  opened: boolean
+  keys: string[]
+  selectedKey: string
+  units: Unit
+  knownSetInput: KnownSetInput
+  calculatedValue: number | null
+  canApply: boolean
+  onSelectedKeyChange: (key: string) => void
+  onKnownSetChange: (field: keyof KnownSetInput, value: string) => void
+  onApply: () => void
+  onClose: () => void
+}) {
+  const selectedMovementId = selectedKey.replace(/_one_rep_max$/, '')
+  const selectedMovementName = getMovementName(selectedMovementId)
+
+  return (
+    <Modal opened={opened} onClose={onClose} title="Calculate estimated 1RM" size="lg">
+      <div className="space-y-4">
+        <div>
+          <p className="text-sm font-extrabold">Calculate from a known set</p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+            Choose the lift, enter a recent hard set, then apply the estimated one-rep max to that lift.
+          </p>
+          <p className="mt-2 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">
+            These estimates help future programmes suggest starting values. They are not live values for active programmes.
+          </p>
+        </div>
+
+        <div className="grid gap-3 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+          <label className="grid gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Lift</span>
+            <select
+              className="min-h-9 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2.5 text-sm font-semibold"
+              value={selectedKey}
+              onChange={(event) => onSelectedKeyChange(event.target.value)}
+            >
+              {keys.map((key) => {
+                const movementId = key.replace(/_one_rep_max$/, '')
+                return (
+                  <option key={key} value={key}>
+                    {getMovementName(movementId)}
+                  </option>
+                )
+              })}
+            </select>
+          </label>
+
+          <TextInput
+            type="number"
+            label="Load"
+            value={knownSetInput.weight}
+            rightSection={<span className="text-xs font-bold text-[var(--mantine-color-dimmed)]">{units}</span>}
+            onChange={(event) => onKnownSetChange('weight', event.target.value)}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <TextInput
+              type="number"
+              label="Reps"
+              value={knownSetInput.reps}
+              onChange={(event) => onKnownSetChange('reps', event.target.value)}
+            />
+            <TextInput
+              type="number"
+              label="RIR"
+              value={knownSetInput.rir}
+              onChange={(event) => onKnownSetChange('rir', event.target.value)}
+            />
+          </div>
+
+          <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Estimated 1RM</p>
+            <p className="mt-0.5 text-lg font-extrabold">
+              {hasLoadDefault(calculatedValue) ? `${formatLoadDefault(calculatedValue)} ${units}` : 'Unset'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <Button disabled={!canApply} onClick={onApply}>
+            <Calculator size={14} />
+            Apply to {selectedMovementName}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
@@ -420,15 +590,44 @@ function sameStringSet(left: string[], right: string[]) {
 function sameNumberRecord(left: ProgramStateDefaults, right: ProgramStateDefaults) {
   const keys = new Set([...Object.keys(left), ...Object.keys(right)])
   for (const key of keys) {
-    if (Number(left[key]) !== Number(right[key])) return false
+    if ((left[key] ?? null) !== (right[key] ?? null)) return false
   }
   return true
 }
 
-function startingLoadLabel(key: string) {
-  const type = key.endsWith('_training_max') ? 'training max' : 'working load'
-  const movementId = key.replace(/_(training_max|working_load)$/, '')
-  return `${getMovementName(movementId)} ${type}`
+function hasLoadDefault(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function loadDefaultFromInput(value: string) {
+  if (!value.trim()) return null
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null
+}
+
+function calculateEstimatedOneRepMax(input: KnownSetInput | undefined) {
+  if (!input) return null
+  const weight = loadDefaultFromInput(input.weight)
+  const reps = loadDefaultFromInput(input.reps)
+  if (!weight || !reps) return null
+  const rir = loadDefaultFromInput(input.rir) ?? 0
+  const estimated = e1rm(weight, reps, rir)
+  return hasLoadDefault(estimated) ? estimated : null
+}
+
+function calculateOneRepMaxFromKnownSet(input: KnownSetInput | undefined, rounding: number) {
+  const estimated = calculateEstimatedOneRepMax(input)
+  if (!estimated) return null
+  return mround(estimated, rounding)
+}
+
+function formatLoadDefault(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
+}
+
+function strengthEstimateLabel(key: string) {
+  const movementId = key.replace(/_one_rep_max$/, '')
+  return `${getMovementName(movementId)} estimated 1RM`
 }
 
 function formatEquipmentLabel(value: string) {

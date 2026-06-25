@@ -1,16 +1,14 @@
 import { Badge, Button, Card, Tooltip } from '@mantine/core'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { notifications } from '@mantine/notifications'
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Activity, ArrowRight, CalendarDays, Check, Clock3, Dumbbell, Info, ListChecks, Target, X } from 'lucide-react'
+import { Activity, ArrowRight, CalendarDays, Check, Dumbbell, Info, ListChecks, Target } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
 import { programOverviewQueryOptions } from '~/lib/query-options'
-import { loadRouteQuery } from '~/lib/route-loading'
-import { buildProgramTimeline, type ProgramTimelineModel } from '~/lib/program-timeline'
-import { resolveProgressionDecisionFn } from '~/server/api'
-import type { BodyLoadRegion, ProgramOverview } from '~/types/training'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
+import { loadRouteQuery } from '~/shared/lib/route-loading'
+import { buildProgramTimeline, type ProgramTimelineModel } from '~/domains/program/lib/program-timeline'
+import type { BodyLoadRegion, ProgramOverview } from '~/shared/types'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
+import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/domains/program/components'
 
 export const Route = createFileRoute('/program')({
   loader: async ({ context }) => {
@@ -34,25 +32,17 @@ function ProgramRoute() {
 }
 
 function AuthedProgram() {
-  const queryClient = useQueryClient()
   const overviewQuery = useQuery(programOverviewQueryOptions())
-  const mutation = useMutation({
-    mutationFn: (data: { decisionId: string; action: 'accepted' | 'dismissed' | 'pending' }) =>
-      resolveProgressionDecisionFn({ data }),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
-        queryClient.invalidateQueries({ queryKey: ['today'] }),
-        queryClient.invalidateQueries({ queryKey: ['programOverview'] }),
-      ])
-      notifications.show({ color: 'success', title: 'Progression updated', message: 'Your decision was saved.' })
-    },
-    onError: (error) => {
-      notifications.show({
-        color: 'danger',
-        title: 'Could not save decision',
-        message: getApiErrorMessage(error, 'Unable to save progression decision'),
-      })
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [resolvedDecisionIds, setResolvedDecisionIds] = useState<Set<string>>(() => new Set())
+  const pendingDecisions = (overviewQuery.data?.pendingDecisions ?? []).filter((decision) => !resolvedDecisionIds.has(decision.id))
+  const decisionMutation = useResolveProgressionDecision({
+    onResolved: (decisionId) => {
+      setResolvedDecisionIds((current) => new Set(current).add(decisionId))
+      const remainingDecisions = (overviewQuery.data?.pendingDecisions ?? []).filter(
+        (decision) => decision.id !== decisionId && !resolvedDecisionIds.has(decision.id),
+      )
+      if (!remainingDecisions.length) setReviewOpen(false)
     },
   })
 
@@ -90,6 +80,8 @@ function AuthedProgram() {
         </span>
       </PageHeader>
 
+      <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
+
       <ProgramSummaryGrid overview={overview} timeline={timeline} />
 
       {program.customizationStatus === 'customized' ? (
@@ -101,18 +93,6 @@ function AuthedProgram() {
             {program.customizationSummary.accessoryAdditionCount} accessory slot
             {program.customizationSummary.accessoryAdditionCount === 1 ? '' : 's'} from the original template.
           </p>
-        </Card>
-      ) : null}
-
-      {overview.pendingDecisions.length ? (
-        <Card className="mb-4 border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="vf-section-label text-[var(--vf-warning-text)]">Pending Decision</p>
-              <p className="mt-1 text-sm font-semibold">Review {overview.pendingDecisions[0]?.movementName} progression before the next block.</p>
-            </div>
-            <Badge color="warning">{overview.pendingDecisions.length} pending</Badge>
-          </div>
         </Card>
       ) : null}
 
@@ -148,55 +128,18 @@ function AuthedProgram() {
             </div>
           </Card>
 
-          <Card className="p-4">
-            <div className="flex items-center gap-2">
-              <h2 className="vf-section-label">Progression</h2>
-              <InfoHint label="How progression works">
-                Progression cards are recommendations generated from completed sessions. They stay pending until you accept, dismiss, or leave them for later; accepted state changes update future loads.
-              </InfoHint>
-            </div>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">Reviewable recommendations from logged training.</p>
-            {overview.pendingDecisions.length ? (
-              <div className="mt-3 space-y-3">
-                {overview.pendingDecisions.map((decision) => (
-                  <div key={decision.id} className="rounded-lg border border-[var(--vf-warning-border)] bg-[var(--vf-surface-2)] p-3">
-                    <p className="font-bold">{decision.movementName}</p>
-                    <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{formatRuleId(decision.ruleId)}</p>
-                    <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{decision.inputSummary}</p>
-                    <p className="mt-1 text-xs font-semibold">{decision.recommendation}</p>
-                    <div className="mt-3 grid grid-cols-3 gap-2">
-                      <Button color="success" variant="light" disabled={mutation.isPending} onClick={() => mutation.mutate({ decisionId: decision.id, action: 'accepted' })}>
-                        <Check size={14} />
-                        Accept
-                      </Button>
-                      <Button variant="default" disabled={mutation.isPending} onClick={() => mutation.mutate({ decisionId: decision.id, action: 'pending' })}>
-                        <Clock3 size={14} />
-                        Later
-                      </Button>
-                      <Button color="danger" variant="light" disabled={mutation.isPending} onClick={() => mutation.mutate({ decisionId: decision.id, action: 'dismissed' })}>
-                        <X size={14} />
-                        Dismiss
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">No pending recommendations.</p>
-            )}
-          </Card>
-
           <RecentProgramSessions overview={overview} />
-
-          <AccessoryPlan overview={overview} />
         </div>
       </div>
+      <PendingProgressionReviewModal
+        opened={reviewOpen}
+        decisions={pendingDecisions}
+        isSaving={decisionMutation.isPending}
+        onClose={() => setReviewOpen(false)}
+        onResolve={(decisionId, action) => decisionMutation.mutate({ decisionId, action })}
+      />
     </Page>
   )
-}
-
-function formatRuleId(ruleId: string) {
-  return ruleId.replaceAll('_', ' ')
 }
 
 function ProgramSummaryGrid({
@@ -340,44 +283,6 @@ function RecentProgramSessions({ overview }: { overview: ProgramOverview }) {
         </div>
       ) : (
         <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">No completed sessions for this program yet.</p>
-      )}
-    </Card>
-  )
-}
-
-function AccessoryPlan({ overview }: { overview: ProgramOverview }) {
-  return (
-    <Card className="p-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="vf-section-label">Accessory plan</h2>
-        <Badge>{overview.accessoryPlan.reduce((total, day) => total + day.slots.length, 0)} slots</Badge>
-      </div>
-      {overview.accessoryPlan.length ? (
-        <div className="mt-3 space-y-3">
-          {overview.accessoryPlan.map((day) => (
-            <div key={day.sessionTitle} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-              <p className="text-sm font-extrabold">{day.sessionTitle}</p>
-              <div className="mt-2 space-y-1.5">
-                {day.slots.length ? day.slots.map((slot) => (
-                  <div key={slot.slotId} className="rounded-md bg-[var(--mantine-color-default)] px-2 py-1.5">
-                    <div className="flex items-center gap-2">
-                      <p className="min-w-0 flex-1 truncate text-xs font-bold">{slot.movementName}</p>
-                      {slot.isAdded ? <Badge color="warning" size="xs">Added</Badge> : null}
-                    </div>
-                    <p className="truncate text-[10px] text-[var(--mantine-color-dimmed)]">{slot.targetSummary}</p>
-                    {slot.replacedMovementName ? (
-                      <p className="mt-1 text-[10px] font-semibold text-[var(--vf-warning-text)]">Replaces {slot.replacedMovementName}</p>
-                    ) : null}
-                  </div>
-                )) : (
-                  <p className="text-xs text-[var(--mantine-color-dimmed)]">No accessory slots.</p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">No accessory plan available.</p>
       )}
     </Card>
   )

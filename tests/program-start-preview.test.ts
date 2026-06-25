@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { defaultMovementReplacementRules, movementCatalog } from '../src/lib/movements'
-import { buildProgramStartPreview } from '../src/lib/program-start-preview'
-import { getFallbackTemplateDefinition } from '../src/lib/template-definitions'
+import { defaultMovementReplacementRules, movementCatalog } from '../src/domains/movement/lib/movements'
+import { buildProgramStartPreview } from '../src/domains/program/lib/program-start-preview'
+import { getFallbackTemplateDefinition } from '../src/domains/program/lib/template-definitions'
 
 describe('program start preview', () => {
   it('shows beginner 5x5 weekly sessions with suggested accessories', () => {

@@ -9,8 +9,8 @@ import {
   sendMagicLinkFn,
   signInWithPasswordFn,
   signUpWithPasswordFn,
-} from '~/server/auth'
-import { getApiErrorMessage } from '~/lib/api-error'
+} from '~/domains/account/server/auth'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { authUserQueryOptions, meQueryOptions } from '~/lib/query-options'
 
 export const Route = createFileRoute('/auth')({

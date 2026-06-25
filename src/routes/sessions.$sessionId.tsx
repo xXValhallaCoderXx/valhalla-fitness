@@ -2,13 +2,13 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { sessionQueryOptions, todayQueryOptions } from '~/lib/query-options'
-import { loadRouteQuery } from '~/lib/route-loading'
+import { loadRouteQuery } from '~/shared/lib/route-loading'
 import { finishSessionFn } from '~/server/api'
-import type { WorkoutSession } from '~/types/training'
-import { ConfirmDialog, EmptyState, Page, PageLoadError, PageSkeleton } from '~/components/ui'
-import { LiveSessionFrame } from '~/features/workout/components'
+import type { WorkoutSession } from '~/shared/types'
+import { ConfirmDialog, EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
+import { LiveSessionFrame } from '~/domains/session/components'
 
 export const Route = createFileRoute('/sessions/$sessionId')({
   loader: async ({ context, params }) => {

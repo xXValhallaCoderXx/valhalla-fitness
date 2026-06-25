@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { shouldConfirmProgramStart } from '../src/lib/program-switch'
-import type { ProgramInstance, TodayPayload, WorkoutSession } from '../src/types/training'
+import { shouldConfirmProgramStart } from '../src/domains/program/lib/program-switch'
+import type { ProgramInstance, TodayPayload, WorkoutSession } from '../src/shared/types'
 
 const activeProgram: ProgramInstance = {
   id: 'program-1',

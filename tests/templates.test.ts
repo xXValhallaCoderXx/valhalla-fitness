@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { buildAccessoryInitialSets, parseAccessoryRepTarget } from '../src/lib/accessories'
-import { movementCatalog } from '../src/lib/movements'
-import { expandPlannedSession, programForNextUncompletedSession } from '../src/lib/templates'
-import { listFallbackTemplateDefinitions } from '../src/lib/template-definitions'
-import { findMissingTemplateMovementIds, validateTemplateDefinition } from '../src/lib/template-engine'
-import type { ProgramInstance } from '../src/types/training'
+import { buildAccessoryInitialSets, parseAccessoryRepTarget } from '../src/domains/session/lib/accessories'
+import { movementCatalog } from '../src/domains/movement/lib/movements'
+import { buildProgramStartStateValues } from '../src/domains/program/lib/program-loads'
+import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, programForNextUncompletedSession } from '../src/domains/program/lib/templates'
+import { getFallbackTemplateDefinition, listFallbackTemplateDefinitions } from '../src/domains/program/lib/template-definitions'
+import { findMissingTemplateMovementIds, validateRequiredState, validateTemplateDefinition } from '../src/domains/program/lib/template-engine'
+import type { ProgramInstance } from '../src/shared/types'
 
 const program: ProgramInstance = {
   id: 'program-1',
@@ -27,6 +28,66 @@ const program: ProgramInstance = {
 }
 
 describe('planned session progression', () => {
+  it('keeps missing profile loads unset and blocks templates that require them', () => {
+    const definition = getFallbackTemplateDefinition('generic_alternating_5x5_lp')
+    const stateValues = defaultStateValues('kg', definition.requiredState, defaultProgramStateDefaults('kg'))
+
+    expect(stateValues.every((state) => state.value === null)).toBe(true)
+    expect(() => validateRequiredState(definition, stateValues)).toThrow('Missing valid programme state')
+  })
+
+  it('preserves saved load defaults without filling missing keys', () => {
+    const definition = getFallbackTemplateDefinition('generic_alternating_5x5_lp')
+    const stateValues = defaultStateValues('kg', definition.requiredState, {
+      ...defaultProgramStateDefaults('kg'),
+      squat_working_load: 60,
+    })
+
+    expect(stateValues.find((state) => state.key === 'squat_working_load')?.value).toBe(60)
+    expect(stateValues.find((state) => state.key === 'bench_press_working_load')?.value).toBeNull()
+  })
+
+  it('derives programme working loads from saved e1RMs at start', () => {
+    const definition = getFallbackTemplateDefinition('generic_alternating_5x5_lp')
+    const stateValues = buildProgramStartStateValues({
+      unit: 'kg',
+      requiredState: definition.requiredState,
+      defaults: {
+        ...defaultProgramStateDefaults('kg'),
+        squat_one_rep_max: 100,
+        bench_press_one_rep_max: 82.5,
+        squat_training_max: 300,
+        squat_working_load: 999,
+      },
+      rounding: 2.5,
+      workingLoadPercent: 75,
+    })
+
+    expect(stateValues.find((state) => state.key === 'squat_working_load')?.value).toBe(75)
+    expect(stateValues.find((state) => state.key === 'bench_press_working_load')?.value).toBe(62.5)
+    expect(stateValues.find((state) => state.key === 'barbell_row_working_load')?.value).toBeNull()
+  })
+
+  it('derives programme training maxes from saved e1RMs at start', () => {
+    const definition = getFallbackTemplateDefinition('healthy-531-fsl')
+    const stateValues = buildProgramStartStateValues({
+      unit: 'kg',
+      requiredState: definition.requiredState,
+      defaults: {
+        ...defaultProgramStateDefaults('kg'),
+        squat_one_rep_max: 140,
+        bench_press_one_rep_max: 100,
+        squat_training_max: 999,
+      },
+      rounding: 2.5,
+      trainingMaxPercent: 90,
+    })
+
+    expect(stateValues.find((state) => state.key === 'squat_training_max')?.value).toBe(125)
+    expect(stateValues.find((state) => state.key === 'bench_press_training_max')?.value).toBe(90)
+    expect(stateValues.find((state) => state.key === 'deadlift_training_max')?.value).toBeNull()
+  })
+
   it('validates all fallback template definitions', () => {
     for (const definition of listFallbackTemplateDefinitions()) {
       expect(validateTemplateDefinition(definition)).toMatchObject({ ok: true })

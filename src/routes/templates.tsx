@@ -9,11 +9,11 @@ import {
   customProgramMethodologies,
   type CustomProgramBuilderInput,
   type CustomProgramMethodology,
-} from '~/lib/custom-templates'
-import { getApiErrorMessage } from '~/lib/api-error'
-import { getMovementName, movementCatalog } from '~/lib/movements'
+} from '~/domains/program/lib/custom-templates'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
 import { templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
-import { loadRouteQueries, loadRouteQuery } from '~/lib/route-loading'
+import { loadRouteQueries, loadRouteQuery } from '~/shared/lib/route-loading'
 import { createCustomProgramTemplateFn } from '~/server/api'
 import type {
   ProgramStateInput,
@@ -24,8 +24,8 @@ import type {
   ProgramTemplateSummary,
   TodayPayload,
   Unit,
-} from '~/types/training'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
+} from '~/shared/types'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
 
 export const Route = createFileRoute('/templates')({
   loader: async ({ context }) => {
@@ -232,6 +232,17 @@ const customBuilderSteps: Array<{ id: CustomBuilderStep; label: string }> = [
   { id: 'review', label: 'Review' },
 ]
 
+function customBuilderStepsFor(methodology: CustomProgramMethodology): Array<{ id: CustomBuilderStep; label: string }> {
+  if (methodology === 'none') {
+    return [
+      { id: 'methodology', label: 'Goal & schedule' },
+      { id: 'main_lifts', label: 'Exercises' },
+      { id: 'review', label: 'Review' },
+    ]
+  }
+  return customBuilderSteps
+}
+
 const mainMovementOptions = Object.values(movementCatalog)
   .filter((movement) => movement.isCompetition)
   .sort((left, right) => left.name.localeCompare(right.name))
@@ -242,6 +253,9 @@ const variationMovementOptions = Object.values(movementCatalog)
 
 const accessoryMovementOptions = Object.values(movementCatalog)
   .filter((movement) => !movement.isCompetition)
+  .sort((left, right) => left.name.localeCompare(right.name))
+
+const loggerMovementOptions = Object.values(movementCatalog)
   .sort((left, right) => left.name.localeCompare(right.name))
 
 function customBuilderDayTitle(index: number, movementId: string) {
@@ -285,6 +299,7 @@ function resizeCustomSessions(
 function mainWorkSummary(methodology: CustomProgramMethodology, session: CustomProgramBuilderInput['sessions'][number]) {
   if (methodology === 'training_max_wave') return 'Training-max wave work'
   if (methodology === 'plus_set_wave') return 'Plus-set wave work'
+  if (methodology === 'simple_linear') return '3x5 @ current working load'
   return `${session.mainSetCount}x${session.mainTargetReps} main work`
 }
 
@@ -303,7 +318,8 @@ function CustomProgramBuilder({
 }) {
   const [step, setStep] = useState<CustomBuilderStep>('methodology')
   const [draft, setDraft] = useState<CustomProgramBuilderInput>(() => createDefaultCustomProgramBuilderInput())
-  const currentStepIndex = customBuilderSteps.findIndex((item) => item.id === step)
+  const steps = customBuilderStepsFor(draft.methodology)
+  const currentStepIndex = steps.findIndex((item) => item.id === step)
   const isReview = step === 'review'
   const mutation = useMutation({
     mutationFn: () => createCustomProgramTemplateFn({ data: draft }),
@@ -411,12 +427,72 @@ function CustomProgramBuilder({
     }))
   }
 
+  const updateLoggerExercise = (
+    sessionIndex: number,
+    exerciseIndex: number,
+    patch: Partial<CustomProgramBuilderInput['sessions'][number]['loggerExercises'][number]>,
+  ) => {
+    setDraft((current) => ({
+      ...current,
+      sessions: current.sessions.map((session, index) =>
+        index === sessionIndex
+          ? {
+              ...session,
+              loggerExercises: session.loggerExercises.map((exercise, itemIndex) =>
+                itemIndex === exerciseIndex ? { ...exercise, ...patch } : exercise,
+              ),
+            }
+          : session,
+      ),
+    }))
+  }
+
+  const addLoggerExercise = (sessionIndex: number) => {
+    setDraft((current) => ({
+      ...current,
+      sessions: current.sessions.map((session, index) =>
+        index === sessionIndex
+          ? {
+              ...session,
+              loggerExercises: [
+                ...session.loggerExercises,
+                {
+                  movementId: loggerMovementOptions[0]?.id ?? 'squat',
+                  setCount: 3,
+                  repMin: 8,
+                  repMax: 12,
+                  targetRir: 2,
+                },
+              ],
+            }
+          : session,
+      ),
+    }))
+  }
+
+  const removeLoggerExercise = (sessionIndex: number, exerciseIndex: number) => {
+    setDraft((current) => ({
+      ...current,
+      sessions: current.sessions.map((session, index) =>
+        index === sessionIndex
+          ? {
+              ...session,
+              loggerExercises: session.loggerExercises.filter((_, itemIndex) => itemIndex !== exerciseIndex),
+            }
+          : session,
+      ),
+    }))
+  }
+
   const moveStep = (direction: 1 | -1) => {
-    const next = customBuilderSteps[currentStepIndex + direction]
+    const next = steps[currentStepIndex + direction]
     if (next) setStep(next.id)
   }
 
-  const canCreate = draft.name.trim().length >= 3 && draft.sessions.length === draft.daysPerWeek
+  const canCreate =
+    draft.name.trim().length >= 3 &&
+    draft.sessions.length === draft.daysPerWeek &&
+    (draft.methodology !== 'none' || draft.sessions.every((session) => session.loggerExercises.length > 0))
 
   return (
     <Card className="max-h-[92vh] overflow-hidden p-0">
@@ -439,7 +515,7 @@ function CustomProgramBuilder({
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-          {customBuilderSteps.map((item, index) => (
+          {steps.map((item, index) => (
             <button
               key={item.id}
               className={`min-h-9 rounded-md border px-2 text-xs font-bold transition ${
@@ -464,9 +540,17 @@ function CustomProgramBuilder({
             onMethodologyChange={setMethodology}
             onDaysChange={setDaysPerWeek}
           />
+        ) : step === 'main_lifts' && draft.methodology === 'none' ? (
+          <CustomLoggerExercisesStep
+            draft={draft}
+            onSessionChange={updateSession}
+            onExerciseChange={updateLoggerExercise}
+            onAddExercise={addLoggerExercise}
+            onRemoveExercise={removeLoggerExercise}
+          />
         ) : step === 'main_lifts' ? (
           <CustomMovementsStep draft={draft} onSessionChange={updateSession} />
-        ) : step === 'accessories' ? (
+        ) : step === 'accessories' && draft.methodology !== 'none' ? (
           <CustomAccessoriesStep
             draft={draft}
             onAccessoryChange={updateAccessory}
@@ -558,6 +642,9 @@ function CustomMethodologyStep({
                   <span className="mt-1 block text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
                     {option.description}
                   </span>
+                  <span className="mt-3 block rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2.5 py-2 text-[11px] font-semibold leading-relaxed text-[var(--mantine-color-dimmed)]">
+                    {option.regulationSummary}
+                  </span>
                 </span>
                 <Tooltip label={option.tooltip} multiline w={260}>
                   <span
@@ -583,9 +670,15 @@ function CustomMovementsStep({
   draft: CustomProgramBuilderInput
   onSessionChange: (sessionIndex: number, patch: Partial<CustomProgramBuilderInput['sessions'][number]>) => void
 }) {
-  const usesEditableRepTargets = draft.methodology === 'none' || draft.methodology === 'simple_linear'
+  const supportsVariation = draft.methodology === 'plus_set_wave'
   return (
     <div className="grid gap-3">
+      <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+        <p className="vf-section-label">Regulated structure</p>
+        <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+          {customProgramMethodologies[draft.methodology].regulationSummary}
+        </p>
+      </div>
       {draft.sessions.map((session, index) => (
         <div key={index} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
           <div className="mb-3">
@@ -604,33 +697,122 @@ function CustomMovementsStep({
               }}
               options={mainMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
             />
-            <BuilderSelect
-              label="Variation"
-              value={session.variationMovementId ?? null}
-              onChange={(value) => onSessionChange(index, { variationMovementId: value || null })}
-              options={variationMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
-              clearable
-              placeholder="None"
-            />
+            {supportsVariation ? (
+              <BuilderSelect
+                label="Variation"
+                value={session.variationMovementId ?? null}
+                onChange={(value) => onSessionChange(index, { variationMovementId: value || null })}
+                options={variationMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
+                clearable
+                placeholder="None"
+              />
+            ) : (
+              <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Main prescription</p>
+                <p className="mt-1 text-sm font-extrabold">{mainWorkSummary(draft.methodology, session)}</p>
+              </div>
+            )}
           </div>
-          {usesEditableRepTargets ? (
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <BuilderNumberField
-                label="Sets"
-                value={session.mainSetCount}
-                min={1}
-                max={10}
-                onChange={(value) => onSessionChange(index, { mainSetCount: value })}
-              />
-              <BuilderNumberField
-                label="Reps"
-                value={session.mainTargetReps}
-                min={1}
-                max={30}
-                onChange={(value) => onSessionChange(index, { mainTargetReps: value })}
-              />
-            </div>
-          ) : null}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CustomLoggerExercisesStep({
+  draft,
+  onSessionChange,
+  onExerciseChange,
+  onAddExercise,
+  onRemoveExercise,
+}: {
+  draft: CustomProgramBuilderInput
+  onSessionChange: (sessionIndex: number, patch: Partial<CustomProgramBuilderInput['sessions'][number]>) => void
+  onExerciseChange: (
+    sessionIndex: number,
+    exerciseIndex: number,
+    patch: Partial<CustomProgramBuilderInput['sessions'][number]['loggerExercises'][number]>,
+  ) => void
+  onAddExercise: (sessionIndex: number) => void
+  onRemoveExercise: (sessionIndex: number, exerciseIndex: number) => void
+}) {
+  return (
+    <div className="grid gap-3">
+      <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+        <p className="vf-section-label">Logger-only exercises</p>
+        <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+          Add the exercises you want to repeat each day. Loads stay user-selected while logging and no progression rules are created.
+        </p>
+      </div>
+
+      {draft.sessions.map((session, sessionIndex) => (
+        <div key={sessionIndex} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+          <div className="mb-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            <TextInput
+              label={`Day ${sessionIndex + 1} title`}
+              value={session.title}
+              onChange={(event) => onSessionChange(sessionIndex, { title: event.target.value })}
+            />
+            <Button variant="default" onClick={() => onAddExercise(sessionIndex)}>
+              <Plus size={14} />
+              Add exercise
+            </Button>
+          </div>
+
+          <div className="grid gap-2">
+            {session.loggerExercises.map((exercise, exerciseIndex) => (
+              <div
+                key={exerciseIndex}
+                className="grid gap-2 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 lg:grid-cols-[minmax(10rem,1fr)_5rem_5rem_5rem_5rem_auto] lg:items-end"
+              >
+                <BuilderSelect
+                  label="Exercise"
+                  value={exercise.movementId}
+                  onChange={(value) => {
+                    if (!value) return
+                    onExerciseChange(sessionIndex, exerciseIndex, { movementId: value })
+                  }}
+                  options={loggerMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
+                />
+                <BuilderNumberField
+                  label="Sets"
+                  value={exercise.setCount}
+                  min={1}
+                  max={10}
+                  onChange={(value) => onExerciseChange(sessionIndex, exerciseIndex, { setCount: value })}
+                />
+                <BuilderNumberField
+                  label="Min"
+                  value={exercise.repMin}
+                  min={1}
+                  max={50}
+                  onChange={(value) => onExerciseChange(sessionIndex, exerciseIndex, { repMin: value })}
+                />
+                <BuilderNumberField
+                  label="Max"
+                  value={exercise.repMax}
+                  min={1}
+                  max={50}
+                  onChange={(value) => onExerciseChange(sessionIndex, exerciseIndex, { repMax: value })}
+                />
+                <BuilderNumberField
+                  label="RIR"
+                  value={exercise.targetRir ?? 0}
+                  min={0}
+                  max={10}
+                  onChange={(value) => onExerciseChange(sessionIndex, exerciseIndex, { targetRir: value })}
+                />
+                <Button
+                  color="danger"
+                  variant="light"
+                  disabled={session.loggerExercises.length <= 1}
+                  onClick={() => onRemoveExercise(sessionIndex, exerciseIndex)}
+                >
+                  <Trash2 size={14} />
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
       ))}
     </div>
@@ -729,28 +911,43 @@ function CustomAccessoriesStep({
 function CustomReviewStep({ draft }: { draft: CustomProgramBuilderInput }) {
   const methodology = customProgramMethodologies[draft.methodology]
   const accessoryCount = draft.sessions.reduce((total, session) => total + session.accessories.length, 0)
+  const loggerExerciseCount = draft.sessions.reduce((total, session) => total + session.loggerExercises.length, 0)
   return (
     <div className="grid gap-4">
       <div className="grid gap-3 md:grid-cols-4">
         <ReviewMetric label="Method" value={methodology.shortLabel} />
         <ReviewMetric label="Schedule" value={`${draft.daysPerWeek} days/wk`} />
         <ReviewMetric label="Sessions" value={draft.sessions.length} />
-        <ReviewMetric label="Accessories" value={accessoryCount} />
+        <ReviewMetric label={draft.methodology === 'none' ? 'Exercises' : 'Accessories'} value={draft.methodology === 'none' ? loggerExerciseCount : accessoryCount} />
       </div>
       <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
         <p className="text-sm font-extrabold">{draft.name}</p>
         {draft.goal ? <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{draft.goal}</p> : null}
+        <p className="mt-2 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-3 py-2 text-xs font-semibold text-[var(--mantine-color-dimmed)]">
+          {methodology.regulationSummary}
+        </p>
         <div className="mt-3 grid gap-2">
           {draft.sessions.map((session, index) => (
             <div key={index} className="rounded-md bg-[var(--mantine-color-default)] px-3 py-2 text-sm">
-              <span className="font-bold">{customBuilderDayTitle(index, session.mainMovementId)}</span>
-              <span className="text-[var(--mantine-color-dimmed)]"> · {getMovementName(session.mainMovementId)}</span>
-              {session.variationMovementId ? (
-                <span className="text-[var(--mantine-color-dimmed)]"> · {getMovementName(session.variationMovementId)}</span>
-              ) : null}
-              <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
-                {session.accessories.length} accessory {session.accessories.length === 1 ? 'slot' : 'slots'}
-              </p>
+              {draft.methodology === 'none' ? (
+                <>
+                  <span className="font-bold">{session.title || `Day ${index + 1}`}</span>
+                  <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
+                    {session.loggerExercises.map((exercise) => getMovementName(exercise.movementId)).join(', ')}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <span className="font-bold">{customBuilderDayTitle(index, session.mainMovementId)}</span>
+                  <span className="text-[var(--mantine-color-dimmed)]"> · {getMovementName(session.mainMovementId)}</span>
+                  {session.variationMovementId ? (
+                    <span className="text-[var(--mantine-color-dimmed)]"> · {getMovementName(session.variationMovementId)}</span>
+                  ) : null}
+                  <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
+                    {session.accessories.length} accessory {session.accessories.length === 1 ? 'slot' : 'slots'}
+                  </p>
+                </>
+              )}
             </div>
           ))}
         </div>
@@ -1083,11 +1280,13 @@ function BasicsStep({
                 <TextInput
                   classNames={{ input: 'pr-12 text-right' }}
                   type="number"
-                  value={state.value}
+                  value={state.value ?? ''}
                   onChange={(event) =>
                     onStateValuesChange((current) =>
                       current.map((item) =>
-                        item.key === state.key ? { ...item, value: Number(event.target.value) } : item,
+                        item.key === state.key
+                          ? { ...item, value: event.target.value === '' ? null : Number(event.target.value) }
+                          : item,
                       ),
                     )
                   }
@@ -1400,15 +1599,14 @@ function TemplateCard({
   onStart: () => void
 }) {
   return (
-    <Card className={`group flex min-h-[16rem] flex-col gap-4 p-4 vf-card-hover ${isActive ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)]' : ''}`}>
-      <div className="flex flex-1 flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge color={template.origin === 'licensed_partner' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
+    <Card className={`group flex h-full min-h-[13rem] flex-col gap-4 p-4 vf-card-hover ${isActive ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)]' : ''}`}>
+      <div className="flex flex-1 flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Badge color={template.origin === 'licensed_partner' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
+            <span className="text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">{template.daysPerWeek} days/wk</span>
+          </div>
           {isActive ? <Badge color="success">Active</Badge> : null}
-          <span className="text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">{template.daysPerWeek} days/wk</span>
-          <Badge color="action" className="normal-case sm:ml-auto">
-            {template.progressionLabel}
-          </Badge>
         </div>
 
         <div>
@@ -1416,8 +1614,13 @@ function TemplateCard({
           <p className="mt-2 text-sm leading-relaxed text-[var(--mantine-color-dimmed)]">{template.description}</p>
         </div>
 
+        <div className="grid grid-cols-3 gap-2 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-2">
+          <TemplateMetric label="Schedule" value={`${template.daysPerWeek}/wk`} />
+          <TemplateMetric label="Level" value={template.complexity} />
+          <TemplateMetric label="Progression" value={template.progressionLabel} />
+        </div>
+
         <div className="mt-auto flex flex-wrap gap-1.5 text-[10px] text-[var(--mantine-color-dimmed)]">
-          <span className="rounded-md bg-[var(--vf-surface-2)] px-1.5 py-0.5 font-semibold">{template.complexity}</span>
           {template.tags.slice(0, 3).map((tag) => (
             <span key={tag} className="rounded-md bg-[var(--vf-surface-2)] px-1.5 py-0.5 font-semibold">
               {tag}
@@ -1442,6 +1645,15 @@ function TemplateCard({
         </Button>
       )}
     </Card>
+  )
+}
+
+function TemplateMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="min-w-0">
+      <p className="truncate text-[9px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{label}</p>
+      <p className="mt-0.5 truncate text-xs font-black text-[var(--mantine-color-text)]">{value}</p>
+    </div>
   )
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getApiErrorMessage } from '../src/lib/api-error'
+import { getApiErrorMessage } from '../src/shared/lib/api-error'
 
 describe('API error messages', () => {
   it('uses Error messages', () => {

@@ -3,11 +3,11 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Activity, BarChart3, ChevronRight, Dumbbell, History, ListChecks, Search, Trophy } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
-import { cn } from '~/lib/cn'
-import { formatCompactDate, formatFullDate, formatRelativeTime } from '~/lib/dates'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { cn } from '~/shared/lib/cn'
+import { formatCompactDate, formatFullDate, formatRelativeTime } from '~/shared/lib/dates'
 import { activeProgramQueryOptions, historyDashboardQueryOptions, sessionQueryOptions } from '~/lib/query-options'
-import { loadRouteQueries } from '~/lib/route-loading'
+import { loadRouteQueries } from '~/shared/lib/route-loading'
 import type {
   BodyLoadRegion,
   BodyRegionId,
@@ -19,10 +19,18 @@ import type {
   SetLog,
   Unit,
   WorkoutSession,
-} from '~/types/training'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
+} from '~/shared/types'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
 
 type HistoryTab = 'overview' | 'body-load' | 'movements' | 'records' | 'sessions'
+
+const HISTORY_TABS: Array<{ value: HistoryTab; label: string; icon: ReactNode }> = [
+  { value: 'overview', label: 'Overview', icon: <BarChart3 size={14} /> },
+  { value: 'body-load', label: 'Body Load', icon: <Activity size={14} /> },
+  { value: 'movements', label: 'Movements', icon: <Dumbbell size={14} /> },
+  { value: 'records', label: 'Records', icon: <Trophy size={14} /> },
+  { value: 'sessions', label: 'Sessions', icon: <History size={14} /> },
+]
 
 export const Route = createFileRoute('/history')({
   loader: async ({ context }) => {
@@ -49,6 +57,7 @@ function AuthedHistory() {
   const historyQuery = useQuery(historyDashboardQueryOptions())
   const activeProgramQuery = useQuery(activeProgramQueryOptions())
   const [activeTab, setActiveTab] = useState<HistoryTab>('overview')
+  const [movementQuery, setMovementQuery] = useState('')
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const selectedSessionQuery = useQuery({
     ...sessionQueryOptions(selectedSessionId ?? ''),
@@ -73,20 +82,22 @@ function AuthedHistory() {
       </PageHeader>
 
       <Tabs
+        variant="pills"
+        keepMounted={false}
         value={activeTab}
         onChange={(value) => setActiveTab((value as HistoryTab | null) ?? 'overview')}
         classNames={{
-          list: 'mb-4 flex-nowrap overflow-x-auto border-b border-[var(--mantine-color-default-border)]',
-          tab: '!px-3 !py-2 !text-xs !font-extrabold data-[active=true]:!text-[var(--vf-action-text)]',
+          list: 'mb-4 !flex !flex-nowrap gap-1 overflow-x-auto border-b border-[var(--mantine-color-default-border)] px-0.5 pb-2 pt-1 no-scrollbar',
+          tab: '!my-0.5 !min-h-9 !shrink-0 !rounded-md !border-0 !px-2.5 !py-2 !text-xs !font-extrabold !leading-none data-[active=true]:!bg-[var(--vf-action-soft)] data-[active=true]:!text-[var(--vf-action-text)]',
           panel: 'focus-visible:outline-none',
         }}
       >
         <Tabs.List>
-          <Tabs.Tab value="overview"><TabLabel icon={<BarChart3 size={14} />} label="Overview" /></Tabs.Tab>
-          <Tabs.Tab value="body-load"><TabLabel icon={<Activity size={14} />} label="Body Load" /></Tabs.Tab>
-          <Tabs.Tab value="movements"><TabLabel icon={<Dumbbell size={14} />} label="Movements" /></Tabs.Tab>
-          <Tabs.Tab value="records"><TabLabel icon={<Trophy size={14} />} label="Records" /></Tabs.Tab>
-          <Tabs.Tab value="sessions"><TabLabel icon={<History size={14} />} label="Sessions" /></Tabs.Tab>
+          {HISTORY_TABS.map((tab) => (
+            <Tabs.Tab key={tab.value} value={tab.value}>
+              <TabLabel icon={tab.icon} label={tab.label} />
+            </Tabs.Tab>
+          ))}
         </Tabs.List>
 
         <Tabs.Panel value="overview">
@@ -96,7 +107,7 @@ function AuthedHistory() {
           <BodyLoadTab data={data} />
         </Tabs.Panel>
         <Tabs.Panel value="movements">
-          <MovementsTab data={data} />
+          <MovementsTab data={data} query={movementQuery} onQueryChange={setMovementQuery} />
         </Tabs.Panel>
         <Tabs.Panel value="records">
           <RecordsTab data={data} />
@@ -130,10 +141,10 @@ function OverviewTab({
   const latestSession = data.recentSessions[0]
   return (
     <div className="space-y-4">
-      <div className="vf-stat-strip">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         <OverviewMetric label="Sessions" value={data.overview.completedSessions} icon={<History size={15} />} />
         <OverviewMetric label="Logged sets" value={data.overview.loggedSets} icon={<ListChecks size={15} />} tone="success" />
-        <OverviewMetric label="Completed load" value={formatLoad(data.overview.completedVolume, data.overview.units)} icon={<BarChart3 size={15} />} />
+        <OverviewMetric label="Completed load" value={formatLoad(data.overview.completedVolume, data.overview.units)} icon={<BarChart3 size={15} />} wide />
         <OverviewMetric label="Movements" value={data.overview.uniqueMovements} icon={<Dumbbell size={15} />} />
         <OverviewMetric
           label="Latest"
@@ -143,7 +154,7 @@ function OverviewTab({
       </div>
 
       {data.overview.completedSessions ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="space-y-4">
             <section className="vf-panel p-4">
               <div className="flex items-start justify-between gap-3">
@@ -219,7 +230,7 @@ function OverviewTab({
 
 function BodyLoadTab({ data }: { data: HistoryDashboard }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[minmax(0,1fr)_18rem] lg:grid-cols-[minmax(0,1fr)_22rem]">
       <section className="vf-panel p-4">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -249,8 +260,15 @@ function BodyLoadTab({ data }: { data: HistoryDashboard }) {
   )
 }
 
-function MovementsTab({ data }: { data: HistoryDashboard }) {
-  const [query, setQuery] = useState('')
+function MovementsTab({
+  data,
+  query,
+  onQueryChange,
+}: {
+  data: HistoryDashboard
+  query: string
+  onQueryChange: (query: string) => void
+}) {
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     if (!normalized) return data.movementSummaries
@@ -263,7 +281,7 @@ function MovementsTab({ data }: { data: HistoryDashboard }) {
     <div className="space-y-4">
       <TextInput
         value={query}
-        onChange={(event) => setQuery(event.currentTarget.value)}
+        onChange={(event) => onQueryChange(event.currentTarget.value)}
         placeholder="Search movements"
         leftSection={<Search size={14} />}
         classNames={{ input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)]' }}
@@ -319,9 +337,9 @@ function SessionsTab({
 
 function TabLabel({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
-      {icon}
-      {label}
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <span className="inline-flex shrink-0">{icon}</span>
+      <span>{label}</span>
     </span>
   )
 }
@@ -331,18 +349,20 @@ function OverviewMetric({
   value,
   icon,
   tone = 'neutral',
+  wide = false,
 }: {
   label: string
   value: ReactNode
   icon: ReactNode
   tone?: 'neutral' | 'success'
+  wide?: boolean
 }) {
   return (
-    <div className="vf-stat">
+    <div className={cn('vf-stat', wide && 'col-span-2 md:col-span-1')}>
       <div className="mb-2 flex items-center justify-between gap-3">
         <span className="shrink-0 text-[var(--mantine-color-dimmed)]">{icon}</span>
         <span className={cn('min-w-0 flex-1 text-right', tone === 'success' ? 'text-[var(--vf-success-text)]' : 'text-[var(--mantine-color-text)]')}>
-          <span className="vf-stat-value block truncate">{value}</span>
+          <span className="block truncate text-base font-black leading-tight md:text-lg">{value}</span>
         </span>
       </div>
       <p className="vf-stat-label">{label}</p>
@@ -378,9 +398,13 @@ function BodyLoadMap({ regions }: { regions: BodyLoadRegion[] }) {
   const opacity = (regionId: BodyRegionId) => 0.35 + ((byId.get(regionId)?.impactPercent ?? 0) / 100) * 0.65
 
   return (
-    <div className="grid gap-4 md:grid-cols-[minmax(16rem,1fr)_15rem] md:items-center">
-      <svg viewBox="0 0 300 420" role="img" aria-label="Body load map" className="mx-auto h-auto w-full max-w-[26rem]">
-        <rect x="0" y="0" width="300" height="420" rx="24" fill="var(--vf-surface-2)" />
+    <div className="flex justify-center">
+      <svg
+        viewBox="0 0 300 420"
+        role="img"
+        aria-label="Body load map"
+        className="vf-body-load-map"
+      >
         <g stroke="var(--mantine-color-default-border)" strokeWidth="3">
           <circle cx="150" cy="46" r="26" fill="var(--vf-surface-3)" />
           <rect x="118" y="76" width="64" height="34" rx="15" fill={fill('shoulders')} opacity={opacity('shoulders')} />
@@ -401,20 +425,6 @@ function BodyLoadMap({ regions }: { regions: BodyLoadRegion[] }) {
           <path d="M237 177 L208 188 L215 255 C225 263 238 258 239 245 Z" fill={fill('biceps')} opacity={opacity('biceps')} />
         </g>
       </svg>
-
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
-        {regions.map((region) => (
-          <div key={region.regionId} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-xs font-extrabold">{region.label}</p>
-              <span className="text-xs font-black">{region.impactPercent}%</span>
-            </div>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--vf-surface-inset)]">
-              <div className={cn('h-full rounded-full', bodyLoadBarClass(region.tier))} style={{ width: `${region.impactPercent}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

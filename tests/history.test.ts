@@ -4,7 +4,7 @@ import {
   calculateCompletedVolume,
   calculateCompletedVolumeInUnits,
   type HistorySessionInput,
-} from '../src/lib/history'
+} from '../src/domains/history/lib/history'
 
 const sessions: HistorySessionInput[] = [
   {

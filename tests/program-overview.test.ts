@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { calculateBodyLoad } from '../src/lib/body-load'
-import { buildProgramOverview } from '../src/lib/program-overview'
-import { getFallbackTemplateDefinition } from '../src/lib/template-definitions'
-import { expandPlannedSession } from '../src/lib/templates'
-import type { ProgramInstance, TodayPayload, WorkoutSession } from '../src/types/training'
+import { calculateBodyLoad } from '../src/domains/history/lib/body-load'
+import { buildProgramOverview } from '../src/domains/program/lib/program-overview'
+import { getFallbackTemplateDefinition } from '../src/domains/program/lib/template-definitions'
+import { expandPlannedSession } from '../src/domains/program/lib/templates'
+import type { ProgramInstance, TodayPayload, WorkoutSession } from '../src/shared/types'
 
 const program: ProgramInstance = {
   id: 'program-1',

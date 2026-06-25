@@ -34,36 +34,36 @@ import type {
   Unit,
   UserProfile,
   WorkoutSession,
-} from '~/types/training'
+} from '~/shared/types'
 import {
   accessoryProgressionRuleId,
   accessoryTargetSummary,
   buildAccessoryInitialSets,
   isAccessoryProgressionMethod,
   parseAccessoryRepTarget,
-} from '~/lib/accessories'
-import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, getFallbackTemplateDefinition, programForNextUncompletedSession, templateCatalog } from '~/lib/templates'
+} from '~/domains/session/lib/accessories'
+import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, getFallbackTemplateDefinition, programForNextUncompletedSession, templateCatalog } from '~/domains/program/lib/templates'
 import {
   parseTemplateDefinition,
   validateRequiredState,
   validateTemplateDefinition,
   type TemplateDefinition,
-} from '~/lib/template-engine'
+} from '~/domains/program/lib/template-engine'
 import {
   buildCustomProgramTemplateDefinition,
   type CustomProgramBuilderInput,
-} from '~/lib/custom-templates'
-import { e1rm, mround } from '~/lib/progression'
-import { accessoryOutcomeSummary, buildProgressionDecisionsForSession } from '~/lib/progression-decisions'
-import { buildMovementSwapOptions, defaultMovementReplacementRules, getMovementName, movementCatalog } from '~/lib/movements'
-import { buildProgramStartPreview } from '~/lib/program-start-preview'
+} from '~/domains/program/lib/custom-templates'
+import { e1rm, mround } from '~/domains/program/lib/progression'
+import { accessoryOutcomeSummary, buildProgressionDecisionsForSession } from '~/domains/program/lib/progression-decisions'
+import { buildMovementSwapOptions, defaultMovementReplacementRules, getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
+import { buildProgramStartPreview } from '~/domains/program/lib/program-start-preview'
 import {
   buildHistoryDashboard,
   type HistorySessionInput,
   type HistorySubstitutionInput,
-} from '~/lib/history'
-import { buildProgramOverview } from '~/lib/program-overview'
-import { getSupabaseServerClient, hasSupabaseEnv } from './supabase'
+} from '~/domains/history/lib/history'
+import { buildProgramOverview } from '~/domains/program/lib/program-overview'
+import { getSupabaseServerClient, hasSupabaseEnv } from '~/shared/server/supabase'
 
 async function requireUser() {
   const supabase = getSupabaseServerClient()
@@ -92,12 +92,33 @@ function normalizeProgramStateDefaults(input: unknown, units: Unit): ProgramStat
   const fallback = defaultProgramStateDefaults(units)
   if (!input || typeof input !== 'object' || Array.isArray(input)) return fallback
   const values = input as Record<string, unknown>
-  return Object.fromEntries(
-    Object.entries(fallback).map(([key, fallbackValue]) => {
-      const value = Number(values[key])
-      return [key, Number.isFinite(value) && value > 0 ? value : fallbackValue]
-    }),
-  )
+  const normalized: ProgramStateDefaults = { ...fallback }
+  for (const [key, rawValue] of Object.entries(values)) {
+    normalized[key] = normalizeNullableLoadDefault(rawValue)
+  }
+  return normalized
+}
+
+function normalizeNullableLoadDefault(value: unknown) {
+  if (value === null || value === undefined || value === '') return null
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null
+}
+
+function validProgramStateValues(
+  definition: TemplateDefinition,
+  stateValues: ProgramStateInput[],
+): Array<ProgramStateInput & { value: number }> {
+  const requiredKeys = new Set(definition.requiredState.map((state) => state.key))
+  const requiredStateValues = stateValues.filter((state) => requiredKeys.has(state.key))
+  validateRequiredState(definition, requiredStateValues)
+  return requiredStateValues.map((state) => {
+    const value = Number(state.value)
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new Error(`Missing valid programme state for ${state.label ?? getMovementName(state.movementId)}`)
+    }
+    return { ...state, value }
+  })
 }
 
 function normalizeTemplateSource(row: any): ProgramTemplateSummary['source'] {
@@ -1200,14 +1221,17 @@ export const startProgramFn = createServerFn({ method: 'POST' })
         : 'default'
     const units = (data.units ?? profile.units) as Unit
     const rounding = data.rounding ?? Number(profile.rounding)
+    const profileStateDefaults = normalizeProgramStateDefaults(profile.program_state_defaults, units)
     const stateValues = data.stateValues
       ? data.stateValues
       : defaultStateValues(
           units,
-          templateVersion.definition.requiredState,
-          normalizeProgramStateDefaults(profile.program_state_defaults, units),
+          templateVersion.definition.requiredState.filter(
+            (state) => state.type !== 'training_max' && state.type !== 'working_load',
+          ),
+          profileStateDefaults,
         )
-    validateRequiredState(templateVersion.definition, stateValues)
+    const persistedStateValues = validProgramStateValues(templateVersion.definition, stateValues)
 
     const { data: activePrograms, error: activeProgramError } = await supabase
       .from('program_instances')
@@ -1262,9 +1286,9 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       .single()
     if (error) throw new Error(error.message)
 
-    if (stateValues.length) {
+    if (persistedStateValues.length) {
       const { error: stateInsertError } = await supabase.from('program_state_values').insert(
-        stateValues.map((state) => ({
+        persistedStateValues.map((state) => ({
           user_id: user.id,
           program_instance_id: instance.id,
           key: state.key,

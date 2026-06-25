@@ -1,15 +1,26 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Badge, Button, Card, Modal } from '@mantine/core'
+import { Badge, Button, Card, Modal, Popover, Slider, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { ArrowLeft, Check, Info, Lock, Plus, RotateCcw, Settings, Trash2 } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
-import { getMovementName } from '~/lib/movements'
-import { shouldConfirmProgramStart } from '~/lib/program-switch'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { getMovementName } from '~/domains/movement/lib/movements'
+import {
+  DEFAULT_TRAINING_MAX_PERCENT,
+  DEFAULT_WORKING_LOAD_PERCENT,
+  MAX_TRAINING_MAX_PERCENT,
+  MAX_WORKING_LOAD_PERCENT,
+  MIN_TRAINING_MAX_PERCENT,
+  MIN_WORKING_LOAD_PERCENT,
+  buildProgramStartStateValues,
+  oneRepMaxKeyForMovement,
+  profileLoadDefault,
+  suggestedLoadFromOneRepMax,
+} from '~/domains/program/lib/program-loads'
+import { shouldConfirmProgramStart } from '~/domains/program/lib/program-switch'
 import { meQueryOptions, programSetupOptionsQueryOptions, templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
-import { loadRouteQueries, loadRouteQuery } from '~/lib/route-loading'
-import { defaultStateValues } from '~/lib/templates'
+import { loadRouteQueries, loadRouteQuery } from '~/shared/lib/route-loading'
 import { startProgramFn } from '~/server/api'
 import type {
   MovementRole,
@@ -18,13 +29,14 @@ import type {
   ProgramSetupPreviewSession,
   ProgramStartAccessoryAdditionInput,
   ProgramStartMovementOverrideInput,
+  ProgramStateDefaults,
   ProgramStateInput,
   ProgramTemplateSummary,
   TodayPayload,
   Unit,
   UserProfile,
-} from '~/types/training'
-import { ConfirmDialog, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
+} from '~/shared/types'
+import { ConfirmDialog, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
 
 export const Route = createFileRoute('/templates/$templateId/start')({
   loader: async ({ context, params }) => {
@@ -143,7 +155,11 @@ function LoadedTemplateStartRoute({
   const [startError, setStartError] = useState<string | null>(null)
   const [movementOverrides, setMovementOverrides] = useState<ProgramStartMovementOverrideInput[]>([])
   const [accessoryAdditions, setAccessoryAdditions] = useState<AccessoryAdditionDraft[]>([])
-  const [stateValues] = useState<ProgramStateInput[]>(() => stateValuesForProfileTemplate(template, me))
+  const [trainingMaxPercent, setTrainingMaxPercent] = useState(DEFAULT_TRAINING_MAX_PERCENT)
+  const [workingLoadPercent, setWorkingLoadPercent] = useState(DEFAULT_WORKING_LOAD_PERCENT)
+  const [stateValues, setStateValues] = useState<ProgramStateInput[]>(() =>
+    stateValuesForProfileTemplate(template, me, DEFAULT_TRAINING_MAX_PERCENT, DEFAULT_WORKING_LOAD_PERCENT),
+  )
   const activeSessionId = today.activeSession?.sessionId
   const weekOptions = useMemo(() => compactWeekPreviewOptions(setupOptions.previewWeeks), [setupOptions.previewWeeks])
   const activeWeekOption = weekOptions.find((option) => option.week.index === activeWeekIndex) ?? weekOptions[0]
@@ -159,6 +175,41 @@ function LoadedTemplateStartRoute({
         : [],
     [stateValues, template.requiredState],
   )
+  const missingRequiredState = useMemo(
+    () => visibleState.filter((state) => !hasUsableStateValue(state.value)),
+    [visibleState],
+  )
+  const hasTrainingMaxState = visibleState.some((state) => state.type === 'training_max')
+  const hasWorkingLoadState = visibleState.some((state) => state.type === 'working_load')
+
+  const updateStateValue = (key: string, value: number | null) => {
+    setStateValues((current) =>
+      current.map((state) =>
+        state.key === key
+          ? {
+              ...state,
+              value,
+            }
+          : state,
+      ),
+    )
+  }
+
+  const updateDerivedStatePercent = (stateType: 'training_max' | 'working_load', percent: number) => {
+    if (stateType === 'training_max') setTrainingMaxPercent(percent)
+    if (stateType === 'working_load') setWorkingLoadPercent(percent)
+    setStateValues((current) => {
+      if (!current.some((state) => state.type === stateType)) return current
+      return current.map((state) => {
+        if (state.type !== stateType) return state
+        const suggested = suggestedLoadFromOneRepMax(me.programStateDefaults, state.movementId, percent, me.rounding)
+        return {
+          ...state,
+          value: suggested ?? state.value,
+        }
+      })
+    })
+  }
 
   const startMutation = useMutation({
     mutationFn: (input: { replaceActiveProgram?: boolean }) => {
@@ -252,6 +303,10 @@ function LoadedTemplateStartRoute({
 
   const requestStartProgram = () => {
     setStartError(null)
+    if (missingRequiredState.length) {
+      setStartError(missingRequiredLoadMessage(missingRequiredState))
+      return
+    }
     if (shouldConfirmProgramStart(today)) {
       setShowSwitchConfirm(true)
       return
@@ -261,6 +316,11 @@ function LoadedTemplateStartRoute({
 
   const confirmSwitch = () => {
     setStartError(null)
+    if (missingRequiredState.length) {
+      setStartError(missingRequiredLoadMessage(missingRequiredState))
+      setShowSwitchConfirm(false)
+      return
+    }
     startMutation.mutate({ replaceActiveProgram: true })
   }
 
@@ -355,6 +415,9 @@ function LoadedTemplateStartRoute({
           units={me.units}
           rounding={me.rounding}
           visibleState={visibleState}
+          missingRequiredState={missingRequiredState}
+          hasTrainingMaxState={hasTrainingMaxState}
+          hasWorkingLoadState={hasWorkingLoadState}
           customizationCount={customizationCount}
           hasActiveProgram={Boolean(today.activeProgram)}
           startError={startError}
@@ -375,15 +438,16 @@ function LoadedTemplateStartRoute({
             <div className="min-w-0 text-xs">
               <p className="truncate font-extrabold">{template.name}</p>
               <p className="truncate text-[var(--mantine-color-dimmed)]">
-                {defaultsSummary(me.units, me.rounding, visibleState.length)}
+                {defaultsSummary(me.units, me.rounding, visibleState)}
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
-              <Button variant="default" onClick={() => setShowDefaultsModal(true)}>
-                <Settings size={14} />
-                Defaults
-              </Button>
-              <Button disabled={startMutation.isPending} onClick={requestStartProgram}>
+              <SetupValuesButton
+                disabled={missingRequiredState.length > 0}
+                label="Values"
+                onClick={() => setShowDefaultsModal(true)}
+              />
+              <Button disabled={startMutation.isPending || missingRequiredState.length > 0} onClick={requestStartProgram}>
                 <Check size={16} />
                 Start
               </Button>
@@ -396,7 +460,16 @@ function LoadedTemplateStartRoute({
         opened={showDefaultsModal}
         units={me.units}
         rounding={me.rounding}
+        profileDefaults={me.programStateDefaults}
         visibleState={visibleState}
+        missingRequiredState={missingRequiredState}
+        trainingMaxPercent={trainingMaxPercent}
+        workingLoadPercent={workingLoadPercent}
+        hasTrainingMaxState={hasTrainingMaxState}
+        hasWorkingLoadState={hasWorkingLoadState}
+        onTrainingMaxPercentChange={(percent) => updateDerivedStatePercent('training_max', percent)}
+        onWorkingLoadPercentChange={(percent) => updateDerivedStatePercent('working_load', percent)}
+        onStateValueChange={updateStateValue}
         onClose={() => setShowDefaultsModal(false)}
       />
       <ProgrammeInfoModal
@@ -690,11 +763,96 @@ function DayAccessoryAddForm({
   )
 }
 
+function SetupValuesButton({
+  className,
+  disabled,
+  fullWidth = false,
+  label,
+  onClick,
+}: {
+  className?: string
+  disabled: boolean
+  fullWidth?: boolean
+  label: string
+  onClick: () => void
+}) {
+  const buttonClassName = `${fullWidth ? 'w-full' : ''} ${disabled ? '' : className ?? ''}`.trim() || undefined
+  const button = (
+    <Button
+      variant="default"
+      className={buttonClassName}
+      disabled={disabled}
+      style={disabled ? { pointerEvents: 'none' } : undefined}
+      onClick={disabled ? undefined : onClick}
+    >
+      <Settings size={14} />
+      {label}
+    </Button>
+  )
+
+  if (!disabled) return button
+
+  return (
+    <Popover withArrow withinPortal position="top" width={280} shadow="md">
+      <Popover.Target>
+        <span className={`${fullWidth ? 'block w-full' : 'inline-flex'} ${className ?? ''}`.trim()}>
+          {button}
+        </span>
+      </Popover.Target>
+      <Popover.Dropdown>
+        <div className="space-y-3">
+          <p className="text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+            Set your estimated 1RMs in <StrengthEstimatesLink /> first. Sheetless uses them to suggest this
+            programme&apos;s starting values.
+          </p>
+          <Button component="a" href="/settings#programme-loads" size="xs" className="w-full">
+            <Settings size={14} />
+            Open Strength Estimates
+          </Button>
+        </div>
+      </Popover.Dropdown>
+    </Popover>
+  )
+}
+
+function MissingStrengthEstimatesNotice({
+  className,
+  stateValues,
+}: {
+  className: string
+  stateValues: ProgramStateInput[]
+}) {
+  const labels = stateValues.map((state) => getMovementName(state.movementId))
+  const programmeValue = programmeValueLabel(stateValues)
+
+  return (
+    <p className={className}>
+      Add {stateValues.length} strength estimate{stateValues.length === 1 ? '' : 's'}
+      {labels.length ? <> for {labels.join(', ')}</> : null} in <StrengthEstimatesLink /> before starting.
+      Sheetless uses them to suggest this programme&apos;s {programmeValue}.
+    </p>
+  )
+}
+
+function StrengthEstimatesLink({ children = 'Settings > Strength Estimates' }: { children?: ReactNode }) {
+  return (
+    <a
+      href="/settings#programme-loads"
+      className="font-extrabold text-[var(--vf-action-text)] underline underline-offset-2 hover:text-[var(--mantine-primary-color-filled)]"
+    >
+      {children}
+    </a>
+  )
+}
+
 function StartSummaryPanel({
   className,
   units,
   rounding,
   visibleState,
+  missingRequiredState,
+  hasTrainingMaxState,
+  hasWorkingLoadState,
   customizationCount,
   hasActiveProgram,
   startError,
@@ -706,6 +864,9 @@ function StartSummaryPanel({
   units: Unit
   rounding: number
   visibleState: ProgramStateInput[]
+  missingRequiredState: ProgramStateInput[]
+  hasTrainingMaxState: boolean
+  hasWorkingLoadState: boolean
   customizationCount: number
   hasActiveProgram: boolean
   startError: string | null
@@ -716,15 +877,22 @@ function StartSummaryPanel({
   return (
     <Card className={`space-y-4 p-4 ${className ?? ''}`}>
       <div>
-        <p className="vf-section-label">Programme defaults</p>
-        <p className="mt-1 text-sm font-extrabold">{defaultsSummary(units, rounding, visibleState.length)}</p>
+        <p className="vf-section-label">Starting values</p>
+        <p className="mt-1 text-sm font-extrabold">{defaultsSummary(units, rounding, visibleState)}</p>
         <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
-          New programmes copy your saved settings.
+          {hasWorkingLoadState
+            ? 'Working loads are suggested from your saved e1RMs for this programme.'
+            : hasTrainingMaxState
+              ? 'Training maxes are suggested from your saved e1RMs for this programme.'
+              : 'New programmes keep programme-scoped values.'}
         </p>
-        <Button variant="default" className="mt-3 w-full" onClick={onViewDefaults}>
-          <Settings size={14} />
-          View defaults
-        </Button>
+        <SetupValuesButton
+          className="mt-3"
+          disabled={missingRequiredState.length > 0}
+          fullWidth
+          label="Set up values"
+          onClick={onViewDefaults}
+        />
       </div>
 
       <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
@@ -740,13 +908,20 @@ function StartSummaryPanel({
         </p>
       ) : null}
 
+      {missingRequiredState.length ? (
+        <MissingStrengthEstimatesNotice
+          className="rounded-md border border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-3 text-xs text-[var(--vf-warning-text)]"
+          stateValues={missingRequiredState}
+        />
+      ) : null}
+
       {startError ? (
         <p className="rounded-md border border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] p-3 text-xs text-[var(--vf-danger-text)]">
           {startError}
         </p>
       ) : null}
 
-      <Button className="w-full" disabled={isPending} onClick={onStart}>
+      <Button className="w-full" disabled={isPending || missingRequiredState.length > 0} onClick={onStart}>
         <Check size={16} />
         Start programme
       </Button>
@@ -758,53 +933,176 @@ function DefaultsModal({
   opened,
   units,
   rounding,
+  profileDefaults,
   visibleState,
+  missingRequiredState,
+  trainingMaxPercent,
+  workingLoadPercent,
+  hasTrainingMaxState,
+  hasWorkingLoadState,
+  onTrainingMaxPercentChange,
+  onWorkingLoadPercentChange,
+  onStateValueChange,
   onClose,
 }: {
   opened: boolean
   units: Unit
   rounding: number
+  profileDefaults: ProgramStateDefaults
   visibleState: ProgramStateInput[]
+  missingRequiredState: ProgramStateInput[]
+  trainingMaxPercent: number
+  workingLoadPercent: number
+  hasTrainingMaxState: boolean
+  hasWorkingLoadState: boolean
+  onTrainingMaxPercentChange: (value: number) => void
+  onWorkingLoadPercentChange: (value: number) => void
+  onStateValueChange: (key: string, value: number | null) => void
   onClose: () => void
 }) {
   return (
-    <Modal opened={opened} onClose={onClose} title="Programme defaults" size="lg">
+    <Modal opened={opened} onClose={onClose} title="Programme start values" size="xl">
       <div className="space-y-4">
         <div className="grid gap-2 sm:grid-cols-3">
           <StartInfoMetric label="Units" value={units} />
           <StartInfoMetric label="Rounding" value={rounding} />
-          <StartInfoMetric label="Starting loads" value={visibleState.length || 'None'} />
+          <StartInfoMetric label="Programme values" value={visibleState.length || 'None'} />
         </div>
 
         {visibleState.length ? (
           <div>
-            <p className="vf-section-label">Saved starting loads</p>
+            <p className="text-sm font-extrabold">
+              {hasWorkingLoadState ? 'Set suggested working loads' : 'Use or adjust training maxes'}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+              {hasWorkingLoadState
+                ? 'Current-load programmes start from working loads. Sheetless suggests them from your saved estimated 1RMs, then saves the chosen values only to this programme.'
+                : 'Training maxes start as conservative percentages of your saved estimated 1RMs. Any edits here are copied only into this programme.'}
+            </p>
+            {hasTrainingMaxState ? (
+              <p className="mt-1 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">
+                If the programme feels too hard or too easy later, adjust the programme training max rather than changing every planned load.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {hasTrainingMaxState ? (
+          <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+                Programme training max
+              </span>
+              <span className="text-sm font-extrabold">{trainingMaxPercent}% of estimated 1RM</span>
+            </div>
+            <Slider
+              className="mt-3"
+              min={MIN_TRAINING_MAX_PERCENT}
+              max={MAX_TRAINING_MAX_PERCENT}
+              step={1}
+              value={trainingMaxPercent}
+              label={(value) => `${value}%`}
+              marks={[
+                { value: 80, label: '80%' },
+                { value: 90, label: '90%' },
+                { value: 95, label: '95%' },
+              ]}
+              onChange={onTrainingMaxPercentChange}
+            />
+          </div>
+        ) : null}
+
+        {hasWorkingLoadState ? (
+          <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+                Starting working load
+              </span>
+              <span className="text-sm font-extrabold">{workingLoadPercent}% of estimated 1RM</span>
+            </div>
+            <Slider
+              className="mt-3"
+              min={MIN_WORKING_LOAD_PERCENT}
+              max={MAX_WORKING_LOAD_PERCENT}
+              step={1}
+              value={workingLoadPercent}
+              label={(value) => `${value}%`}
+              marks={[
+                { value: 60, label: '60%' },
+                { value: 75, label: '75%' },
+                { value: 90, label: '90%' },
+              ]}
+              onChange={onWorkingLoadPercentChange}
+            />
+          </div>
+        ) : null}
+
+        {visibleState.length ? (
+          <div>
+            <p className="vf-section-label">Programme-scoped values</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              {visibleState.map((state) => (
-                <div
-                  key={state.key}
-                  className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3"
-                >
-                  <p className="truncate text-sm font-extrabold">{getMovementName(state.movementId)}</p>
-                  <p className="mt-0.5 text-[10px] font-bold uppercase text-[var(--mantine-color-dimmed)]">
-                    {state.type.replaceAll('_', ' ')}
-                  </p>
-                  <p className="mt-1 text-sm font-black">{state.value} {units}</p>
-                </div>
-              ))}
+              {visibleState.map((state) => {
+                const oneRepMax = profileLoadDefault(profileDefaults[oneRepMaxKeyForMovement(state.movementId)])
+                return (
+                  <div
+                    key={state.key}
+                    className={`rounded-md border p-3 ${
+                      hasUsableStateValue(state.value)
+                        ? 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)]'
+                        : 'border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)]'
+                    }`}
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-extrabold">{getMovementName(state.movementId)}</p>
+                        <p className="mt-0.5 text-[10px] font-bold uppercase text-[var(--mantine-color-dimmed)]">
+                          {formatStateType(state.type)}
+                        </p>
+                      </div>
+                      <Badge color={hasUsableStateValue(state.value) ? 'success' : 'warning'} size="xs">
+                        {hasUsableStateValue(state.value) ? 'Set' : 'Unset'}
+                      </Badge>
+                    </div>
+                    <TextInput
+                      classNames={{ input: 'text-right' }}
+                      type="number"
+                      placeholder="Unset"
+                      value={state.value ?? ''}
+                      rightSection={<span className="text-xs font-bold text-[var(--mantine-color-dimmed)]">{units}</span>}
+                      onChange={(event) => onStateValueChange(state.key, loadValueFromInput(event.target.value))}
+                    />
+                    <p className="mt-2 text-[11px] leading-relaxed text-[var(--mantine-color-dimmed)]">
+                      {state.type === 'working_load'
+                        ? oneRepMax
+                          ? `Suggested from ${formatNumber(oneRepMax)} ${units} estimated 1RM. You can override it for this programme.`
+                          : 'No saved estimated 1RM was found for this movement. Set it in Strength Estimates before choosing working loads.'
+                        : oneRepMax
+                          ? `Suggested from ${formatNumber(oneRepMax)} ${units} estimated 1RM. Editing it here will not change Settings.`
+                          : 'No saved estimated 1RM was found for this movement. Set it in Strength Estimates before choosing training maxes.'}
+                    </p>
+                  </div>
+                )
+              })}
             </div>
           </div>
         ) : (
           <p className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 text-sm text-[var(--mantine-color-dimmed)]">
-            This programme does not need saved starting loads. Loads can be selected while logging.
+            This programme does not need saved strength estimates. Loads can be selected while logging.
           </p>
         )}
 
+        {missingRequiredState.length ? (
+          <MissingStrengthEstimatesNotice
+            className="rounded-md border border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-3 text-sm text-[var(--vf-warning-text)]"
+            stateValues={missingRequiredState}
+          />
+        ) : null}
+
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="default" onClick={onClose}>Close</Button>
-          <Button component="a" href="/settings#starting-loads" onClick={onClose}>
+          <Button component="a" href="/settings#programme-loads" onClick={onClose}>
             <Settings size={14} />
-            Open Settings
+            Open Strength Estimates
           </Button>
         </div>
       </div>
@@ -876,16 +1174,60 @@ function StartInfoMetric({ label, value }: { label: string; value: ReactNode }) 
   )
 }
 
-function stateValuesForProfileTemplate(template: ProgramTemplateSummary, profile: UserProfile): ProgramStateInput[] {
+function stateValuesForProfileTemplate(
+  template: ProgramTemplateSummary,
+  profile: UserProfile,
+  trainingMaxPercent: number,
+  workingLoadPercent: number,
+): ProgramStateInput[] {
   if (!template.requiredState.length) return []
-  return defaultStateValues(profile.units, template.requiredState, profile.programStateDefaults)
+  return buildProgramStartStateValues({
+    unit: profile.units,
+    requiredState: template.requiredState,
+    defaults: profile.programStateDefaults,
+    rounding: profile.rounding,
+    trainingMaxPercent,
+    workingLoadPercent,
+  })
 }
 
-function defaultsSummary(units: Unit, rounding: number, loadCount: number) {
-  const loadSummary = loadCount
-    ? `${loadCount} starting load${loadCount === 1 ? '' : 's'} saved`
-    : 'no starting loads required'
-  return `${units} - round ${rounding} - ${loadSummary}`
+function hasUsableStateValue(value: number | null) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function loadValueFromInput(value: string) {
+  if (!value.trim()) return null
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null
+}
+
+function formatStateType(value: string) {
+  return value.replaceAll('_', ' ')
+}
+
+function formatNumber(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1)
+}
+
+function defaultsSummary(units: Unit, rounding: number, stateValues: ProgramStateInput[]) {
+  const missingCount = stateValues.filter((state) => !hasUsableStateValue(state.value)).length
+  const valueSummary = stateValues.length
+    ? missingCount
+      ? `${missingCount} value${missingCount === 1 ? '' : 's'} unset`
+      : `${stateValues.length} starting value${stateValues.length === 1 ? '' : 's'} ready`
+    : 'no starting values required'
+  return `${units} - round ${rounding} - ${valueSummary}`
+}
+
+function missingRequiredLoadMessage(stateValues: ProgramStateInput[]) {
+  const labels = stateValues.map((state) => getMovementName(state.movementId))
+  return `Missing strength estimate${labels.length === 1 ? '' : 's'} for ${labels.join(', ')}. Open Settings > Strength Estimates before choosing programme ${programmeValueLabel(stateValues)}.`
+}
+
+function programmeValueLabel(stateValues: ProgramStateInput[]) {
+  if (stateValues.some((state) => state.type === 'working_load')) return 'working loads'
+  if (stateValues.some((state) => state.type === 'training_max')) return 'training maxes'
+  return 'starting values'
 }
 
 function compactWeekPreviewOptions(weeks: ProgramSetupOptions['previewWeeks']): WeekPreviewOption[] {

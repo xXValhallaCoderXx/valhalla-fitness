@@ -4,7 +4,7 @@ import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query
 import { routeTree } from './routeTree.gen'
 import { AppError } from './components/AppError'
 import { NotFound } from './components/NotFound'
-import { PageSkeleton } from './components/ui'
+import { PageSkeleton } from './components'
 
 export function getRouter() {
   const queryClient = new QueryClient({
