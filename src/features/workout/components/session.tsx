@@ -317,14 +317,12 @@ function RirSelector({
     )
 }
 
-export function SessionProgress({ session }: { session: WorkoutSession }) {
+export function SessionProgress({ session, compact = false }: { session: WorkoutSession; compact?: boolean }) {
     const progress = sessionCompletion(session)
     return (
         <div className="space-y-1">
             <div className="flex items-center justify-between text-xs text-[var(--mantine-color-dimmed)]">
-                <span>
-                    {progress.completed} of {progress.total} sets
-                </span>
+                <span>{compact ? 'Progress' : `${progress.completed} of ${progress.total} sets`}</span>
                 <span>{progress.percent}%</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-[var(--vf-surface-2)]">

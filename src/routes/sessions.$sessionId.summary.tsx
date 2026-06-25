@@ -1,15 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Badge, Button, Card } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ArrowRight, Check, CheckCircle2, Clock3, Dumbbell, ListChecks, NotebookText, Trophy, X } from 'lucide-react'
-import type { ReactNode } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
+import { ArrowRight, CheckCircle2, Dumbbell, ListChecks, NotebookText, Trophy } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { sessionQueryOptions } from '~/lib/query-options'
 import { loadRouteQuery } from '~/lib/route-loading'
-import { resolveProgressionDecisionFn } from '~/server/api'
 import type { MovementSlot, SessionSummary, SetLog, Unit, WorkoutSession } from '~/types/training'
 import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
+import { PendingProgressionReviewModal, useResolveProgressionDecision } from '~/features/program/components'
 
 export const Route = createFileRoute('/sessions/$sessionId/summary')({
   loader: async ({ context, params }) => {
@@ -53,34 +51,27 @@ function LoadedSummaryRoute({
   const sets = session.movements.flatMap((movement) => movement.sets)
   const completedSets = sets.filter((set) => set.completed)
   const summary = queryClient.getQueryData<SessionSummary>(['summary', sessionId])
-  const decisionMutation = useMutation({
-    mutationFn: (data: { decisionId: string; action: 'accepted' | 'dismissed' | 'pending' }) =>
-      resolveProgressionDecisionFn({ data }),
-    onSuccess: async (_pendingDecisions, variables) => {
-      if (variables.action !== 'pending') {
-        queryClient.setQueryData<SessionSummary>(['summary', sessionId], (current) =>
-          current
-            ? {
-                ...current,
-                decisions: current.decisions.filter((decision) => decision.id !== variables.decisionId),
-              }
-            : current,
-        )
-      }
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
-        queryClient.invalidateQueries({ queryKey: ['today'] }),
-      ])
-      notifications.show({ color: 'success', title: 'Progression updated', message: 'Your decision was saved.' })
-    },
-    onError: (error) => {
-      notifications.show({
-        color: 'danger',
-        title: 'Could not save decision',
-        message: getApiErrorMessage(error, 'Unable to save progression decision'),
-      })
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [resolvedDecisionIds, setResolvedDecisionIds] = useState<Set<string>>(() => new Set())
+  const pendingDecisions = (summary?.decisions ?? []).filter((decision) => !resolvedDecisionIds.has(decision.id))
+  const decisionMutation = useResolveProgressionDecision({
+    onResolved: (decisionId) => {
+      setResolvedDecisionIds((current) => new Set(current).add(decisionId))
+      const remainingDecisions = (summary?.decisions ?? []).filter(
+        (decision) => decision.id !== decisionId && !resolvedDecisionIds.has(decision.id),
+      )
+      if (!remainingDecisions.length) setReviewOpen(false)
+      queryClient.setQueryData<SessionSummary>(['summary', sessionId], (current) =>
+        current
+          ? {
+              ...current,
+              decisions: current.decisions.filter((decision) => decision.id !== decisionId),
+            }
+          : current,
+      )
     },
   })
+
   const topSets = summary?.topSets.length ? summary.topSets : sets.filter((set) => set.isTopSet || set.isAmrap)
   const mainLift = session.movements.find((movement) => movement.role === 'main')
   const accessoryHighlights =
@@ -89,7 +80,7 @@ function LoadedSummaryRoute({
       : session.movements
           .filter((movement) => movement.role === 'accessory')
           .map((movement) => `${movement.movementName}: ${movement.sets.filter((set) => set.completed).length}/${movement.sets.length} sets logged`)
-  const decisionCount = summary?.decisions.length ?? 0
+  const decisionCount = pendingDecisions.length
 
   return (
     <Page>
@@ -195,36 +186,21 @@ function LoadedSummaryRoute({
 
           <Card>
             <h2 className="vf-section-label">Progression actions</h2>
-            {summary?.decisions.length ? (
-              <div className="mt-3 space-y-3">
-                {summary.decisions.map((decision) => (
-                  <div key={decision.id} className="rounded-lg border border-[var(--vf-warning-border)] bg-[var(--vf-surface-2)] p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-bold">{decision.movementName}</p>
-                        <p className="mt-1 text-[11px] font-bold uppercase text-[var(--mantine-color-dimmed)]">{formatRuleId(decision.ruleId)}</p>
-                        <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{decision.inputSummary}</p>
-                        <p className="mt-1 text-sm font-semibold">{decision.recommendation}</p>
-                      </div>
-                      <Badge color="warning">Pending</Badge>
+            {pendingDecisions.length ? (
+              <>
+                <div className="mt-3 rounded-lg border border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-extrabold">{pendingDecisions[0]?.movementName}</p>
+                      <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{pendingDecisions[0]?.recommendation}</p>
                     </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2">
-                      <Button color="success" variant="light" disabled={decisionMutation.isPending} onClick={() => decisionMutation.mutate({ decisionId: decision.id, action: 'accepted' })}>
-                        <Check size={15} />
-                        Accept
-                      </Button>
-                      <Button variant="default" disabled={decisionMutation.isPending} onClick={() => decisionMutation.mutate({ decisionId: decision.id, action: 'pending' })}>
-                        <Clock3 size={15} />
-                        Later
-                      </Button>
-                      <Button color="danger" variant="light" disabled={decisionMutation.isPending} onClick={() => decisionMutation.mutate({ decisionId: decision.id, action: 'dismissed' })}>
-                        <X size={15} />
-                        Dismiss
-                      </Button>
-                    </div>
+                    <Badge color="danger">{pendingDecisions.length} pending</Badge>
                   </div>
-                ))}
-              </div>
+                </div>
+                <Button className="mt-3 w-full" color="danger" onClick={() => setReviewOpen(true)}>
+                  Review progression
+                </Button>
+              </>
             ) : (
               <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">No recommendation was generated yet.</p>
             )}
@@ -235,6 +211,13 @@ function LoadedSummaryRoute({
           </Link>
         </div>
       </div>
+      <PendingProgressionReviewModal
+        opened={reviewOpen}
+        decisions={pendingDecisions}
+        isSaving={decisionMutation.isPending}
+        onClose={() => setReviewOpen(false)}
+        onResolve={(decisionId, action) => decisionMutation.mutate({ decisionId, action })}
+      />
     </Page>
   )
 }
@@ -313,8 +296,4 @@ function formatSetLog(set: SetLog, units: Unit | string) {
 
 function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
-}
-
-function formatRuleId(ruleId: string) {
-  return ruleId.replaceAll('_', ' ')
 }

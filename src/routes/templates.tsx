@@ -1599,15 +1599,14 @@ function TemplateCard({
   onStart: () => void
 }) {
   return (
-    <Card className={`group flex min-h-[16rem] flex-col gap-4 p-4 vf-card-hover ${isActive ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)]' : ''}`}>
-      <div className="flex flex-1 flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge color={template.origin === 'licensed_partner' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
+    <Card className={`group flex h-full min-h-[13rem] flex-col gap-4 p-4 vf-card-hover ${isActive ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)]' : ''}`}>
+      <div className="flex flex-1 flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Badge color={template.origin === 'licensed_partner' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
+            <span className="text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">{template.daysPerWeek} days/wk</span>
+          </div>
           {isActive ? <Badge color="success">Active</Badge> : null}
-          <span className="text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">{template.daysPerWeek} days/wk</span>
-          <Badge color="action" className="normal-case sm:ml-auto">
-            {template.progressionLabel}
-          </Badge>
         </div>
 
         <div>
@@ -1615,8 +1614,13 @@ function TemplateCard({
           <p className="mt-2 text-sm leading-relaxed text-[var(--mantine-color-dimmed)]">{template.description}</p>
         </div>
 
+        <div className="grid grid-cols-3 gap-2 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-2">
+          <TemplateMetric label="Schedule" value={`${template.daysPerWeek}/wk`} />
+          <TemplateMetric label="Level" value={template.complexity} />
+          <TemplateMetric label="Progression" value={template.progressionLabel} />
+        </div>
+
         <div className="mt-auto flex flex-wrap gap-1.5 text-[10px] text-[var(--mantine-color-dimmed)]">
-          <span className="rounded-md bg-[var(--vf-surface-2)] px-1.5 py-0.5 font-semibold">{template.complexity}</span>
           {template.tags.slice(0, 3).map((tag) => (
             <span key={tag} className="rounded-md bg-[var(--vf-surface-2)] px-1.5 py-0.5 font-semibold">
               {tag}
@@ -1641,6 +1645,15 @@ function TemplateCard({
         </Button>
       )}
     </Card>
+  )
+}
+
+function TemplateMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="min-w-0">
+      <p className="truncate text-[9px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{label}</p>
+      <p className="mt-0.5 truncate text-xs font-black text-[var(--mantine-color-text)]">{value}</p>
+    </div>
   )
 }
 

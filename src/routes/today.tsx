@@ -2,12 +2,14 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Badge, Button, Card } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
-import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Dumbbell, Play, RotateCw } from 'lucide-react'
+import { ArrowRight, CalendarDays, CheckCircle2, Dumbbell, Play, RotateCw } from 'lucide-react'
+import { useState } from 'react'
 import { getApiErrorMessage } from '~/lib/api-error'
 import { todayQueryOptions } from '~/lib/query-options'
 import { loadRouteQuery } from '~/lib/route-loading'
 import { startSessionFn } from '~/server/api'
 import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
+import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/features/program/components'
 import { SessionProgress, SyncPill } from '~/features/workout/components'
 
 export const Route = createFileRoute('/today')({
@@ -42,6 +44,18 @@ function TodayRoute() {
 function AuthedToday() {
   const router = useRouter()
   const todayQuery = useQuery(todayQueryOptions())
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [resolvedDecisionIds, setResolvedDecisionIds] = useState<Set<string>>(() => new Set())
+  const pendingDecisions = (todayQuery.data?.pendingDecisions ?? []).filter((decision) => !resolvedDecisionIds.has(decision.id))
+  const decisionMutation = useResolveProgressionDecision({
+    onResolved: (decisionId) => {
+      setResolvedDecisionIds((current) => new Set(current).add(decisionId))
+      const remainingDecisions = (todayQuery.data?.pendingDecisions ?? []).filter(
+        (decision) => decision.id !== decisionId && !resolvedDecisionIds.has(decision.id),
+      )
+      if (!remainingDecisions.length) setReviewOpen(false)
+    },
+  })
   const startMutation = useMutation({
     mutationFn: () => startSessionFn({ data: { clientMutationId: crypto.randomUUID() } }),
     onSuccess: async (session) => {
@@ -81,8 +95,6 @@ function AuthedToday() {
   }
 
   if (data.activeSession) {
-    const activeSets = data.activeSession.movements.flatMap((movement) => movement.sets)
-    const completedActiveSets = activeSets.filter((set) => set.completed).length
     return (
       <Page>
         <PageHeader
@@ -92,6 +104,7 @@ function AuthedToday() {
         >
           Resume the workout currently in progress.
         </PageHeader>
+        <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <Card className="space-y-4 border-[var(--vf-action-border)] bg-[var(--mantine-color-default)] p-4 vf-card-hover">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -110,16 +123,14 @@ function AuthedToday() {
                 Resume workout
               </Button>
             </div>
-            <div className="vf-stat-strip">
-              <TodayMetric label="Sets complete" value={`${completedActiveSets}/${activeSets.length}`} />
-              <TodayMetric label="Program" value={data.activeProgram.title} />
-              <TodayMetric label="Position" value={data.activeSession.weekLabel} />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <TodayContext label="Program" value={data.activeProgram.title} />
+              <TodayContext label="Position" value={data.activeSession.weekLabel} />
             </div>
-            <SessionProgress session={data.activeSession} />
+            <SessionProgress session={data.activeSession} compact />
           </Card>
 
           <div className="space-y-3">
-            <PendingDecisionPanel decisions={data.pendingDecisions} />
             <Card>
               <h2 className="vf-section-label">Session context</h2>
               <p className="mt-2 text-sm leading-snug text-[var(--mantine-color-dimmed)]">
@@ -128,6 +139,13 @@ function AuthedToday() {
             </Card>
           </div>
         </div>
+        <PendingProgressionReviewModal
+          opened={reviewOpen}
+          decisions={pendingDecisions}
+          isSaving={decisionMutation.isPending}
+          onClose={() => setReviewOpen(false)}
+          onResolve={(decisionId, action) => decisionMutation.mutate({ decisionId, action })}
+        />
       </Page>
     )
   }
@@ -177,22 +195,7 @@ function AuthedToday() {
       ) : null}
 
       {data.pendingDecisions.length ? (
-        <Card className="mb-4 border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="mt-0.5 text-[var(--vf-warning-text)]" size={18} />
-              <div>
-                <p className="text-sm font-extrabold">Progression review pending</p>
-                <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
-                  {data.pendingDecisions[0]?.movementName}: {data.pendingDecisions[0]?.recommendation}
-                </p>
-              </div>
-            </div>
-            <Link to="/program">
-              <Button variant="default">Review</Button>
-            </Link>
-          </div>
-        </Card>
+        <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -250,7 +253,6 @@ function AuthedToday() {
         </Card>
 
         <div className="space-y-4">
-          <PendingDecisionPanel decisions={data.pendingDecisions} />
           <Card>
             <div className="flex items-center gap-2">
               <CalendarDays size={14} className="text-[var(--vf-action-text)]" />
@@ -274,35 +276,22 @@ function AuthedToday() {
           </Card>
         </div>
       </div>
+      <PendingProgressionReviewModal
+        opened={reviewOpen}
+        decisions={pendingDecisions}
+        isSaving={decisionMutation.isPending}
+        onClose={() => setReviewOpen(false)}
+        onResolve={(decisionId, action) => decisionMutation.mutate({ decisionId, action })}
+      />
     </Page>
   )
 }
 
-function TodayMetric({ label, value }: { label: string; value: string }) {
+function TodayContext({ label, value }: { label: string; value: string }) {
   return (
-    <div className="vf-stat">
-      <p className="vf-stat-value truncate">{value}</p>
+    <div className="min-w-0 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2">
       <p className="vf-stat-label">{label}</p>
+      <p className="mt-0.5 truncate text-sm font-extrabold text-[var(--mantine-color-text)]">{value}</p>
     </div>
-  )
-}
-
-function PendingDecisionPanel({ decisions }: { decisions: Array<{ id: string; movementName: string; recommendation: string }> }) {
-  return (
-    <Card>
-      <h2 className="vf-section-label">Pending decisions</h2>
-      {decisions.length ? (
-        <div className="mt-3 space-y-2">
-          {decisions.map((decision) => (
-            <div key={decision.id} className="rounded-lg border border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-3">
-              <p className="text-sm font-bold">{decision.movementName}</p>
-              <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{decision.recommendation}</p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">No pending progression decisions.</p>
-      )}
-    </Card>
   )
 }

@@ -271,7 +271,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
             <Card className="space-y-3 p-4">
               <div>
                 <span className="vf-section-label">Theme</span>
-                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                <div className="mt-2 grid grid-cols-3 gap-2">
                   {themeOptions.map((option) => {
                     const Icon = option.icon
                     const active = themePreference === option.value
@@ -279,28 +279,28 @@ function SettingsForm({ me }: { me: UserProfile }) {
                       <button
                         key={option.value}
                         type="button"
-                        className={`rounded-xl border p-3 text-left transition ${
+                        className={`rounded-lg border px-2 py-2 text-center transition sm:p-3 sm:text-left ${
                           active
                             ? 'border-[var(--vf-action-border)] bg-[var(--vf-action-soft)] text-[var(--mantine-color-text)]'
                             : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)] hover:border-[var(--vf-action-border)] hover:text-[var(--mantine-color-text)]'
                         }`}
                         onClick={() => setThemePreference(option.value)}
                       >
-                        <span className="flex items-center gap-2 text-sm font-extrabold">
+                        <span className="flex flex-col items-center gap-1 text-xs font-extrabold sm:flex-row sm:gap-2 sm:text-sm">
                           <Icon size={15} className={active ? 'text-[var(--vf-action-text)]' : undefined} />
                           {option.label}
                         </span>
-                        <span className="mt-1 block text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">{option.description}</span>
+                        <span className="mt-1 hidden text-xs leading-relaxed text-[var(--mantine-color-dimmed)] sm:block">{option.description}</span>
                       </button>
                     )
                   })}
                 </div>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-3">
                 <label className="grid gap-1">
                   <span className="vf-section-label">Units</span>
                   <select
-                    className="min-h-10 rounded-[var(--mantine-radius-md)] border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 font-medium"
+                    className="min-h-9 rounded-[var(--mantine-radius-md)] border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 text-sm font-medium sm:min-h-10"
                     value={units}
                     onChange={(event) => handleUnitsChange(event.target.value as Unit)}
                   >
@@ -310,7 +310,12 @@ function SettingsForm({ me }: { me: UserProfile }) {
                 </label>
                 <label className="grid gap-1">
                   <span className="vf-section-label">Rounding</span>
-                  <TextInput type="number" value={rounding} onChange={(event) => setRounding(Number(event.target.value))} />
+                  <TextInput
+                    classNames={{ input: '!min-h-9 !text-sm sm:!min-h-10' }}
+                    type="number"
+                    value={rounding}
+                    onChange={(event) => setRounding(Number(event.target.value))}
+                  />
                 </label>
               </div>
             </Card>
