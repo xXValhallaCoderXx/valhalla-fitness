@@ -154,6 +154,11 @@ export function TemplateCatalogue({
         centered
         size="64rem"
         padding={0}
+        classNames={{
+          inner: 'p-0 sm:p-4',
+          content: 'h-[100dvh] max-h-[100dvh] w-full rounded-none sm:h-auto sm:max-h-[92dvh] sm:rounded-lg',
+          body: 'h-full',
+        }}
         styles={{
           content: {
             backgroundColor: 'transparent',
