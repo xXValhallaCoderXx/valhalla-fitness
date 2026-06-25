@@ -8,6 +8,7 @@ import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { todayQueryOptions } from '~/lib/query-options'
 import { loadRouteQuery } from '~/shared/lib/route-loading'
 import { startSessionFn } from '~/server/api'
+import type { WorkoutSession } from '~/shared/types'
 import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
 import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/domains/program/components'
 import { SessionProgress, SyncPill } from '~/domains/session/components'
@@ -95,18 +96,23 @@ function AuthedToday() {
   }
 
   if (data.activeSession) {
+    const nextIncompleteLabel = nextIncompleteSetLabel(data.activeSession)
+    const syncAction = isMeaningfulSyncState(data.activeSession.syncState)
+      ? <SyncPill state={data.activeSession.syncState} />
+      : null
+
     return (
       <Page>
         <PageHeader
           title="Today"
           eyebrow={`${data.activeProgram.title} · ${data.plannedSession.weekLabel}`}
-          actions={<SyncPill state={data.activeSession.syncState} />}
+          actions={syncAction}
         >
           Resume the workout currently in progress.
         </PageHeader>
         <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-          <Card className="space-y-4 border-[var(--vf-action-border)] bg-[var(--mantine-color-default)] p-4 vf-card-hover">
+        <div className="max-w-5xl">
+          <Card className="space-y-4 border-[var(--vf-action-border)] bg-[var(--mantine-color-default)] p-4 vf-card-hover md:p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -117,27 +123,23 @@ function AuthedToday() {
                 <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">
                   {data.activeSession.movements.length} movements · {data.activeSession.estimatedMinutes} min
                 </p>
+                <p className="mt-2 text-xs font-semibold text-[var(--mantine-color-dimmed)]">
+                  {data.activeProgram.title} · {data.activeSession.weekLabel}
+                </p>
               </div>
               <Button className="w-full sm:w-auto" onClick={() => router.navigate({ to: '/sessions/$sessionId', params: { sessionId: data.activeSession!.sessionId } })}>
                 <RotateCw size={16} />
                 Resume workout
               </Button>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <TodayContext label="Program" value={data.activeProgram.title} />
-              <TodayContext label="Position" value={data.activeSession.weekLabel} />
-            </div>
+            {nextIncompleteLabel ? (
+              <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2">
+                <p className="vf-stat-label">Next up</p>
+                <p className="mt-0.5 truncate text-sm font-extrabold text-[var(--mantine-color-text)]">{nextIncompleteLabel}</p>
+              </div>
+            ) : null}
             <SessionProgress session={data.activeSession} compact />
           </Card>
-
-          <div className="space-y-3">
-            <Card>
-              <h2 className="vf-section-label">Session context</h2>
-              <p className="mt-2 text-sm leading-snug text-[var(--mantine-color-dimmed)]">
-                Return to the live logger and continue from the first incomplete set.
-              </p>
-            </Card>
-          </div>
         </div>
         <PendingProgressionReviewModal
           opened={reviewOpen}
@@ -161,7 +163,6 @@ function AuthedToday() {
       <PageHeader
         title="Today"
         eyebrow={`${data.activeProgram.title} · ${data.plannedSession.weekLabel}`}
-        actions={<Badge color="success">Synced</Badge>}
       >
         {data.completedSession ? 'Workout complete. Your next session is ready.' : new Date(data.plannedSession.scheduledDate).toLocaleDateString(undefined, {
           weekday: 'short',
@@ -287,11 +288,13 @@ function AuthedToday() {
   )
 }
 
-function TodayContext({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2">
-      <p className="vf-stat-label">{label}</p>
-      <p className="mt-0.5 truncate text-sm font-extrabold text-[var(--mantine-color-text)]">{value}</p>
-    </div>
-  )
+function nextIncompleteSetLabel(session: WorkoutSession) {
+  const movement = session.movements.find((item) => item.sets.some((set) => !set.completed))
+  const set = movement?.sets.find((item) => !item.completed)
+  if (!movement || !set) return null
+  return `${movement.movementName} · set ${set.setIndex}`
+}
+
+function isMeaningfulSyncState(state?: string) {
+  return state === 'saving' || state === 'syncFailed'
 }

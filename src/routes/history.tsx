@@ -46,7 +46,7 @@ function HistoryRoute() {
   if (!user) {
     return (
       <Page>
-        <EmptyState title="Sign in to see training history">Completed sessions appear here.</EmptyState>
+        <EmptyState title="Sign in to see training insights">Completed sessions appear here.</EmptyState>
       </Page>
     )
   }
@@ -74,11 +74,11 @@ function AuthedHistory() {
   return (
     <Page>
       <PageHeader
-        title="Training History"
+        title="Training Insights"
         eyebrow="Logged work"
         actions={activeProgramTitle ? <Badge color="action">Active: {activeProgramTitle}</Badge> : null}
       >
-        Training output by week, movement, body region, and completed session.
+        Training output by week, movement, body region, records, and completed session.
       </PageHeader>
 
       <Tabs
@@ -147,14 +147,14 @@ function OverviewTab({
         <OverviewMetric label="Completed load" value={formatLoad(data.overview.completedVolume, data.overview.units)} icon={<BarChart3 size={15} />} wide />
         <OverviewMetric label="Movements" value={data.overview.uniqueMovements} icon={<Dumbbell size={15} />} />
         <OverviewMetric
-          label="Latest"
+          label="Latest session"
           value={latestSession ? formatRelativeTime(latestSession.completedAt ?? latestSession.scheduledDate) : '-'}
           icon={<Trophy size={15} />}
         />
       </div>
 
       {data.overview.completedSessions ? (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="space-y-4">
             <section className="vf-panel p-4">
               <div className="flex items-start justify-between gap-3">
@@ -287,7 +287,7 @@ function MovementsTab({
         classNames={{ input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)]' }}
       />
       {filtered.length ? (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-2">
           {filtered.map((movement) => (
             <MovementSummaryCard key={movement.movementId} movement={movement} units={data.overview.units} />
           ))}
@@ -457,23 +457,19 @@ function BodyRegionRow({ region, compact = false }: { region: BodyLoadRegion; co
 
 function MovementSummaryCard({ movement, units }: { movement: HistoryMovementSummary; units?: Unit | null }) {
   return (
-    <article className="vf-panel p-4">
-      <div className="flex items-start justify-between gap-3">
+    <article className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 shadow-[var(--vf-shadow-card)]">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_7rem_8rem_minmax(0,1.5fr)_auto] md:items-center">
         <div className="min-w-0">
-          <p className="truncate text-sm font-extrabold">{movement.movementName}</p>
-          <p className="mt-0.5 text-xs font-semibold text-[var(--mantine-color-dimmed)]">{movement.category.replaceAll('_', ' ')}</p>
+          <p className="truncate font-extrabold">{movement.movementName}</p>
+          <p className="mt-0.5 text-xs font-semibold capitalize text-[var(--mantine-color-dimmed)]">{movement.category.replaceAll('_', ' ')}</p>
+        </div>
+        <InsightCell label="Last" value={formatCompactDate(movement.lastPerformedAt)} />
+        <InsightCell label="Volume" value={formatLoad(movement.totalVolume, units)} />
+        <div className="min-w-0 rounded-lg border border-[var(--vf-accent-border)] bg-[var(--vf-accent-soft)] px-3 py-2 text-xs font-bold text-[var(--vf-accent-text)]">
+          {movement.bestSet ? `Best: ${formatBestSet(movement.bestSet)}` : 'No best set yet'}
         </div>
         <Badge>{movement.totalCompletedSets} sets</Badge>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <MiniMetric label="Last" value={formatCompactDate(movement.lastPerformedAt)} />
-        <MiniMetric label="Volume" value={formatLoad(movement.totalVolume, units)} />
-      </div>
-      {movement.bestSet ? (
-        <p className="mt-3 rounded-lg border border-[var(--vf-accent-border)] bg-[var(--vf-accent-soft)] p-2 text-xs font-bold text-[var(--vf-accent-text)]">
-          Best: {formatBestSet(movement.bestSet)}
-        </p>
-      ) : null}
       {movement.substitutionCount ? (
         <p className="mt-2 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">{movement.substitutionCount} substitution{movement.substitutionCount === 1 ? '' : 's'}</p>
       ) : null}
@@ -482,16 +478,35 @@ function MovementSummaryCard({ movement, units }: { movement: HistoryMovementSum
 }
 
 function BestSetCard({ set, compact = false }: { set: HistoryBestSet; compact?: boolean }) {
+  const primary = formatBestSetPrimary(set)
+  const rir = typeof set.rir === 'number' ? `RIR ${set.rir}` : null
+  const e1rm = typeof set.e1rm === 'number' ? `e1RM ${formatNumber(set.e1rm)} ${set.units ?? ''}`.trim() : null
+
   return (
-    <article className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate font-extrabold">{set.movementName}</p>
-          {!compact ? <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">{set.sessionTitle}</p> : null}
+    <article className={cn(
+      'rounded-lg border shadow-[var(--vf-shadow-card)]',
+      set.type === 'accessory'
+        ? 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)]'
+        : 'border-[var(--vf-accent-border)] bg-[var(--vf-accent-soft)]',
+      compact ? 'p-2.5' : 'p-3',
+    )}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-start gap-2">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--mantine-color-default)] text-[var(--vf-accent-text)]">
+            <Trophy size={13} />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-extrabold">{set.movementName}</p>
+            {!compact ? <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">{set.sessionTitle}</p> : null}
+          </div>
         </div>
         <Badge color={set.type === 'accessory' ? 'neutral' : 'action'}>{formatRecordType(set.type)}</Badge>
       </div>
-      <p className="mt-3 text-lg font-black">{formatBestSet(set)}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className={cn('font-black', compact ? 'text-sm' : 'text-base')}>{primary}</span>
+        {rir ? <Badge color="neutral">{rir}</Badge> : null}
+        {e1rm ? <Badge color="action">{e1rm}</Badge> : null}
+      </div>
       {!compact ? (
         <p className="mt-1 text-xs font-semibold text-[var(--mantine-color-dimmed)]">{formatCompactDate(set.performedAt)}</p>
       ) : null}
@@ -512,11 +527,11 @@ function SubstitutionRow({ substitution }: { substitution: HistorySubstitutionSu
   )
 }
 
-function MiniMetric({ label, value }: { label: string; value: ReactNode }) {
+function InsightCell({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-2">
+    <div>
       <p className="text-[10px] font-extrabold uppercase text-[var(--mantine-color-dimmed)]">{label}</p>
-      <p className="mt-1 truncate text-sm font-bold">{value}</p>
+      <p className="mt-0.5 truncate text-sm font-bold">{value}</p>
     </div>
   )
 }
@@ -526,12 +541,12 @@ function RecentWorkoutCard({ session, onOpen }: { session: RecentHistoryEntry; o
   return (
     <button
       type="button"
-      className="vf-card-hover rounded-[var(--mantine-radius-lg)] border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 text-left text-[var(--mantine-color-text)] shadow-[var(--vf-shadow-card)] transition hover:border-[var(--vf-action-border)] md:p-4"
+      className="vf-card-hover rounded-[var(--mantine-radius-lg)] border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 text-left text-[var(--mantine-color-text)] shadow-[var(--vf-shadow-card)] transition hover:border-[var(--vf-action-border)]"
       onClick={onOpen}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--vf-action-text)]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--vf-action-text)]">
             {session.completedAt ? <Trophy size={16} /> : <Dumbbell size={16} />}
           </div>
           <div className="min-w-0">
@@ -545,7 +560,7 @@ function RecentWorkoutCard({ session, onOpen }: { session: RecentHistoryEntry; o
             </div>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
           <div className="text-right">
             <p className="text-[11px] font-extrabold text-[var(--mantine-color-text)]">{formatCompactDate(date)}</p>
             <p className="text-[10px] font-semibold text-[var(--mantine-color-dimmed)]">{formatRelativeTime(date)}</p>
@@ -742,6 +757,12 @@ function formatBestSet(set: HistoryBestSet) {
   const rir = typeof set.rir === 'number' ? ` @ RIR ${set.rir}` : ''
   const e1rm = typeof set.e1rm === 'number' ? ` · e1RM ${formatNumber(set.e1rm)} ${set.units ?? ''}` : ''
   return `${base}${rir}${e1rm}`
+}
+
+function formatBestSetPrimary(set: HistoryBestSet) {
+  const load = set.load == null ? 'bodyweight' : `${formatNumber(set.load)} ${set.units ?? ''}`.trim()
+  const reps = `${set.reps ?? '-'}${set.type === 'amrap' ? '+' : ''}`
+  return `${load} x ${reps}`
 }
 
 function formatLoad(value?: number | null, units?: Unit | null) {

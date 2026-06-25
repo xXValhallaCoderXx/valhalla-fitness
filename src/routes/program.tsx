@@ -6,7 +6,7 @@ import { useState, type ReactNode } from 'react'
 import { programOverviewQueryOptions } from '~/lib/query-options'
 import { loadRouteQuery } from '~/shared/lib/route-loading'
 import { buildProgramTimeline, type ProgramTimelineModel } from '~/domains/program/lib/program-timeline'
-import type { BodyLoadRegion, ProgramOverview } from '~/shared/types'
+import type { BodyLoadRegion, ProgramInstance, ProgramOverview } from '~/shared/types'
 import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
 import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/domains/program/components'
 
@@ -84,52 +84,38 @@ function AuthedProgram() {
 
       <ProgramSummaryGrid overview={overview} timeline={timeline} />
 
+      <ProgramLoadChips overview={overview} program={program} />
+
       {program.customizationStatus === 'customized' ? (
-        <Card className="mb-4 border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-4">
-          <p className="vf-section-label text-[var(--vf-warning-text)]">Customized from default</p>
-          <p className="mt-1 text-sm text-[var(--mantine-color-text)]">
-            This programme changes {program.customizationSummary.movementOverrideCount} movement slot
-            {program.customizationSummary.movementOverrideCount === 1 ? '' : 's'} and adds{' '}
-            {program.customizationSummary.accessoryAdditionCount} accessory slot
-            {program.customizationSummary.accessoryAdditionCount === 1 ? '' : 's'} from the original template.
-          </p>
-        </Card>
+        <div className="hidden lg:block">
+          <CustomizationCard program={program} />
+        </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem]">
         <ProgramTimeline key={timeline.currentWeekIndex} timeline={timeline} status={program.status} currentSessionIndex={program.currentWeekIndex} />
 
         <div className="space-y-4">
-          <Card className="p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="vf-section-label">Current Loads</h2>
-                  <InfoHint label="What are current loads?">
-                    Program state stores the current training maxes or working loads used to calculate planned loads. Accepted progression decisions update the relevant value for future sessions.
-                  </InfoHint>
-                </div>
-                <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">Training maxes and working loads used for prescriptions.</p>
-              </div>
-              <Badge>{program.units}</Badge>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {overview.stateValues.map((state) => (
-                <div key={state.stateKey} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-                  <p className="text-xs text-[var(--mantine-color-dimmed)]">{state.movementName}</p>
-                  <p className="mt-1 text-lg font-bold">
-                    {formatNumber(state.value)} <span className="text-xs text-[var(--mantine-color-dimmed)]">{state.units}</span>
-                  </p>
-                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
-                    {state.pendingDecision ? 'pending review' : state.lastAcceptedDecision ? 'last change saved' : state.stateType.replaceAll('_', ' ')}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </Card>
-
+          <CurrentLoadsCard overview={overview} program={program} />
           <RecentProgramSessions overview={overview} />
         </div>
+      </div>
+
+      <div className="space-y-3 lg:hidden">
+        <ProgramMobileSection title="Full timeline" badge={`${timeline.totalWeeks} weeks`}>
+          <ProgramTimeline key={`mobile-${timeline.currentWeekIndex}`} timeline={timeline} status={program.status} currentSessionIndex={program.currentWeekIndex} />
+        </ProgramMobileSection>
+        <ProgramMobileSection title="Current loads" badge={program.units}>
+          <CurrentLoadsCard overview={overview} program={program} />
+        </ProgramMobileSection>
+        <ProgramMobileSection title="Recent sessions" badge={overview.recentSessions.length}>
+          <RecentProgramSessions overview={overview} />
+        </ProgramMobileSection>
+        {program.customizationStatus === 'customized' ? (
+          <ProgramMobileSection title="Customization" badge="Custom">
+            <CustomizationCard program={program} />
+          </ProgramMobileSection>
+        ) : null}
       </div>
       <PendingProgressionReviewModal
         opened={reviewOpen}
@@ -191,11 +177,20 @@ function ProgramSummaryGrid({
             {nextSession?.status.replaceAll('_', ' ') ?? 'planned'}
           </Badge>
         </div>
-        <div className="mt-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-          <p className="text-xs font-extrabold text-[var(--mantine-color-dimmed)]">Key work</p>
-          <p className="mt-1 text-sm font-bold">{nextSession?.keyPrescription ?? 'No prescription'}</p>
+        <details className="mt-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+          <summary className="cursor-pointer list-none">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-extrabold text-[var(--mantine-color-dimmed)]">Key work</p>
+                <p className="mt-1 text-sm font-bold">{nextSession?.keyPrescription ?? 'No prescription'}</p>
+              </div>
+              <span className="shrink-0 text-[10px] font-extrabold uppercase text-[var(--mantine-color-dimmed)]">
+                {nextSession?.movements.length ? `${nextSession.movements.length} movements` : 'Details'}
+              </span>
+            </div>
+          </summary>
           {nextSession?.movements.length ? (
-            <div className="mt-3 space-y-1.5">
+            <div className="mt-3 space-y-1.5 border-t border-[var(--mantine-color-default-border)] pt-3">
               {nextSession.movements.map((movement, index) => (
                 <div key={`${movement.role}-${movement.movementName}-${index}`} className="flex items-start justify-between gap-3 rounded-md bg-[var(--mantine-color-default)] px-2 py-1.5">
                   <div className="min-w-0">
@@ -207,7 +202,7 @@ function ProgramSummaryGrid({
               ))}
             </div>
           ) : null}
-        </div>
+        </details>
         <div className="mt-3 grid grid-cols-3 gap-2">
           <SummaryMetric icon={<Dumbbell size={14} />} label="Main" value={nextSession?.mainCount ?? 0} />
           <SummaryMetric icon={<Dumbbell size={14} />} label="Variations" value={nextSession?.variationCount ?? 0} />
@@ -241,11 +236,111 @@ function ProgramSummaryGrid({
         <Link to="/history">
           <Button className="mt-3 w-full" variant="default">
             <Activity size={14} />
-            History
+            Insights
           </Button>
         </Link>
       </Card>
     </div>
+  )
+}
+
+function ProgramLoadChips({
+  overview,
+  program,
+}: {
+  overview: ProgramOverview
+  program: ProgramInstance
+}) {
+  if (!overview.stateValues.length) return null
+
+  return (
+    <div className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+      {overview.stateValues.map((state) => (
+        <div
+          key={state.stateKey}
+          className="min-w-[9rem] rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2"
+        >
+          <p className="truncate text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">{state.movementName}</p>
+          <p className="mt-0.5 text-base font-black">
+            {formatNumber(state.value)} <span className="text-[10px] text-[var(--mantine-color-dimmed)]">{state.units ?? program.units}</span>
+          </p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CurrentLoadsCard({
+  overview,
+  program,
+}: {
+  overview: ProgramOverview
+  program: ProgramInstance
+}) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="vf-section-label">Current Loads</h2>
+            <InfoHint label="What are current loads?">
+              Program state stores the current training maxes or working loads used to calculate planned loads. Accepted progression decisions update the relevant value for future sessions.
+            </InfoHint>
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">Training maxes and working loads used for prescriptions.</p>
+        </div>
+        <Badge>{program.units}</Badge>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {overview.stateValues.map((state) => (
+          <div key={state.stateKey} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+            <p className="text-xs text-[var(--mantine-color-dimmed)]">{state.movementName}</p>
+            <p className="mt-1 text-lg font-bold">
+              {formatNumber(state.value)} <span className="text-xs text-[var(--mantine-color-dimmed)]">{state.units}</span>
+            </p>
+            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+              {state.pendingDecision ? 'pending review' : state.lastAcceptedDecision ? 'last change saved' : state.stateType.replaceAll('_', ' ')}
+            </p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+function CustomizationCard({ program }: { program: ProgramInstance }) {
+  return (
+    <Card className="mb-4 border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-4">
+      <p className="vf-section-label text-[var(--vf-warning-text)]">Customized from default</p>
+      <p className="mt-1 text-sm text-[var(--mantine-color-text)]">
+        This programme changes {program.customizationSummary.movementOverrideCount} movement slot
+        {program.customizationSummary.movementOverrideCount === 1 ? '' : 's'} and adds{' '}
+        {program.customizationSummary.accessoryAdditionCount} accessory slot
+        {program.customizationSummary.accessoryAdditionCount === 1 ? '' : 's'} from the original template.
+      </p>
+    </Card>
+  )
+}
+
+function ProgramMobileSection({
+  title,
+  badge,
+  children,
+}: {
+  title: string
+  badge?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <details className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] shadow-[var(--vf-shadow-card)]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+        <span className="vf-section-label">{title}</span>
+        {badge ? <Badge>{badge}</Badge> : null}
+      </summary>
+      <div className="border-t border-[var(--mantine-color-default-border)] p-3">
+        {children}
+      </div>
+    </details>
   )
 }
 
