@@ -1,6 +1,6 @@
 import { Box } from '@mantine/core'
 import type { ReactNode } from 'react'
-import { cn } from '~/lib/cn'
+import { cn } from '~/shared/lib/cn'
 
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
     return (

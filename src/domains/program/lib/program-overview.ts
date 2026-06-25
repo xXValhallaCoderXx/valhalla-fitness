@@ -7,10 +7,10 @@ import type {
   ProgramStateOverview,
   ProgressionDecision,
   TodayPayload,
-} from '~/types/training'
-import { getMovementName } from './movements'
-import { buildProgramTimeline } from './program-timeline'
-import { expandPlannedSession } from './templates'
+} from '~/shared/types'
+import { getMovementName } from '~/domains/movement/lib/movements'
+import { buildProgramTimeline } from '~/domains/program/lib/program-timeline'
+import { expandPlannedSession } from '~/domains/program/lib/templates'
 
 export function buildProgramOverview({
   today,

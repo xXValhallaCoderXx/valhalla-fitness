@@ -4,10 +4,10 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { ArrowRight, CheckCircle2, Dumbbell, ListChecks, NotebookText, Trophy } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { sessionQueryOptions } from '~/lib/query-options'
-import { loadRouteQuery } from '~/lib/route-loading'
-import type { MovementSlot, SessionSummary, SetLog, Unit, WorkoutSession } from '~/types/training'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
-import { PendingProgressionReviewModal, useResolveProgressionDecision } from '~/features/program/components'
+import { loadRouteQuery } from '~/shared/lib/route-loading'
+import type { MovementSlot, SessionSummary, SetLog, Unit, WorkoutSession } from '~/shared/types'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
+import { PendingProgressionReviewModal, useResolveProgressionDecision } from '~/domains/program/components'
 
 export const Route = createFileRoute('/sessions/$sessionId/summary')({
   loader: async ({ context, params }) => {

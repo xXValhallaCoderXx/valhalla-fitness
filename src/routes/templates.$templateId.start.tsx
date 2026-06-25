@@ -4,8 +4,8 @@ import { notifications } from '@mantine/notifications'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { ArrowLeft, Check, Info, Lock, Plus, RotateCcw, Settings, Trash2 } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
-import { getMovementName } from '~/lib/movements'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { getMovementName } from '~/domains/movement/lib/movements'
 import {
   DEFAULT_TRAINING_MAX_PERCENT,
   DEFAULT_WORKING_LOAD_PERCENT,
@@ -17,10 +17,10 @@ import {
   oneRepMaxKeyForMovement,
   profileLoadDefault,
   suggestedLoadFromOneRepMax,
-} from '~/lib/program-loads'
-import { shouldConfirmProgramStart } from '~/lib/program-switch'
+} from '~/domains/program/lib/program-loads'
+import { shouldConfirmProgramStart } from '~/domains/program/lib/program-switch'
 import { meQueryOptions, programSetupOptionsQueryOptions, templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
-import { loadRouteQueries, loadRouteQuery } from '~/lib/route-loading'
+import { loadRouteQueries, loadRouteQuery } from '~/shared/lib/route-loading'
 import { startProgramFn } from '~/server/api'
 import type {
   MovementRole,
@@ -35,8 +35,8 @@ import type {
   TodayPayload,
   Unit,
   UserProfile,
-} from '~/types/training'
-import { ConfirmDialog, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
+} from '~/shared/types'
+import { ConfirmDialog, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
 
 export const Route = createFileRoute('/templates/$templateId/start')({
   loader: async ({ context, params }) => {

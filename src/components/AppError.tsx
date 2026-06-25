@@ -1,5 +1,5 @@
 import type { ErrorComponentProps } from '@tanstack/react-router'
-import { getApiErrorMessage } from '~/lib/api-error'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
 
 export function AppError({ error }: ErrorComponentProps) {
   const message = getApiErrorMessage(error, 'The screen could not load.')

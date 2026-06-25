@@ -34,36 +34,36 @@ import type {
   Unit,
   UserProfile,
   WorkoutSession,
-} from '~/types/training'
+} from '~/shared/types'
 import {
   accessoryProgressionRuleId,
   accessoryTargetSummary,
   buildAccessoryInitialSets,
   isAccessoryProgressionMethod,
   parseAccessoryRepTarget,
-} from '~/lib/accessories'
-import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, getFallbackTemplateDefinition, programForNextUncompletedSession, templateCatalog } from '~/lib/templates'
+} from '~/domains/session/lib/accessories'
+import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, getFallbackTemplateDefinition, programForNextUncompletedSession, templateCatalog } from '~/domains/program/lib/templates'
 import {
   parseTemplateDefinition,
   validateRequiredState,
   validateTemplateDefinition,
   type TemplateDefinition,
-} from '~/lib/template-engine'
+} from '~/domains/program/lib/template-engine'
 import {
   buildCustomProgramTemplateDefinition,
   type CustomProgramBuilderInput,
-} from '~/lib/custom-templates'
-import { e1rm, mround } from '~/lib/progression'
-import { accessoryOutcomeSummary, buildProgressionDecisionsForSession } from '~/lib/progression-decisions'
-import { buildMovementSwapOptions, defaultMovementReplacementRules, getMovementName, movementCatalog } from '~/lib/movements'
-import { buildProgramStartPreview } from '~/lib/program-start-preview'
+} from '~/domains/program/lib/custom-templates'
+import { e1rm, mround } from '~/domains/program/lib/progression'
+import { accessoryOutcomeSummary, buildProgressionDecisionsForSession } from '~/domains/program/lib/progression-decisions'
+import { buildMovementSwapOptions, defaultMovementReplacementRules, getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
+import { buildProgramStartPreview } from '~/domains/program/lib/program-start-preview'
 import {
   buildHistoryDashboard,
   type HistorySessionInput,
   type HistorySubstitutionInput,
-} from '~/lib/history'
-import { buildProgramOverview } from '~/lib/program-overview'
-import { getSupabaseServerClient, hasSupabaseEnv } from './supabase'
+} from '~/domains/history/lib/history'
+import { buildProgramOverview } from '~/domains/program/lib/program-overview'
+import { getSupabaseServerClient, hasSupabaseEnv } from '~/shared/server/supabase'
 
 async function requireUser() {
   const supabase = getSupabaseServerClient()

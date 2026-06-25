@@ -4,7 +4,7 @@ import {
   accessoryTargetSummary,
   buildAccessoryInitialSets,
   parseAccessoryRepTarget,
-} from '../src/lib/accessories'
+} from '../src/domains/session/lib/accessories'
 
 describe('accessory prescriptions', () => {
   it('parses rep targets and builds one editable starter set', () => {

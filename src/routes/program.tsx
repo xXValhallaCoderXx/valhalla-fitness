@@ -4,11 +4,11 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { Activity, ArrowRight, CalendarDays, Check, Dumbbell, Info, ListChecks, Target } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { programOverviewQueryOptions } from '~/lib/query-options'
-import { loadRouteQuery } from '~/lib/route-loading'
-import { buildProgramTimeline, type ProgramTimelineModel } from '~/lib/program-timeline'
-import type { BodyLoadRegion, ProgramOverview } from '~/types/training'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
-import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/features/program/components'
+import { loadRouteQuery } from '~/shared/lib/route-loading'
+import { buildProgramTimeline, type ProgramTimelineModel } from '~/domains/program/lib/program-timeline'
+import type { BodyLoadRegion, ProgramOverview } from '~/shared/types'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
+import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/domains/program/components'
 
 export const Route = createFileRoute('/program')({
   loader: async ({ context }) => {

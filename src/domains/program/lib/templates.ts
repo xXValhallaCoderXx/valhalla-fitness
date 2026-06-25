@@ -6,16 +6,16 @@ import type {
   ProgramStateRequirement,
   ProgramTemplateSummary,
   Unit,
-} from '~/types/training'
+} from '~/shared/types'
 import {
   expandSessionFromTemplateDefinition,
   programForNextUncompletedSessionFromDefinition,
   type TemplateDefinition,
-} from './template-engine'
+} from '~/domains/program/lib/template-engine'
 import {
   getFallbackTemplateDefinition,
   listFallbackTemplateDefinitions,
-} from './template-definitions'
+} from '~/domains/program/lib/template-definitions'
 
 export const templateCatalog: ProgramTemplateSummary[] = [
   {

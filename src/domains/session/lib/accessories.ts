@@ -1,4 +1,4 @@
-import type { AccessoryProgressionMethod, SetTarget } from '~/types/training'
+import type { AccessoryProgressionMethod, SetTarget } from '~/shared/types'
 
 export const accessoryProgressionOptions: Array<{ value: AccessoryProgressionMethod; label: string }> = [
   { value: 'history_only', label: 'None (history only)' },

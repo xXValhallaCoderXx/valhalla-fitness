@@ -1,5 +1,5 @@
-import type { BodyLoadRegion, BodyLoadSummary, BodyRegionId, BodyLoadTier, Movement, MovementRole } from '~/types/training'
-import { movementCatalog } from './movements'
+import type { BodyLoadRegion, BodyLoadSummary, BodyRegionId, BodyLoadTier, Movement, MovementRole } from '~/shared/types'
+import { movementCatalog } from '~/domains/movement/lib/movements'
 
 export type BodyLoadWork = {
   movementId: string

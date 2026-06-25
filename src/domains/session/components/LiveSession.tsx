@@ -13,16 +13,16 @@ import {
   Repeat2,
 } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
-import { accessoryProgressionOptions, parseAccessoryRepTarget } from '~/lib/accessories'
-import { cn } from '~/lib/cn'
-import { formatCompactDate, formatRelativeTime } from '~/lib/dates'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { accessoryProgressionOptions, parseAccessoryRepTarget } from '~/domains/session/lib/accessories'
+import { cn } from '~/shared/lib/cn'
+import { formatCompactDate, formatRelativeTime } from '~/shared/lib/dates'
 import {
   accessoryMovementOptionsQueryOptions,
   movementHistoryQueryOptions,
   movementSwapOptionsQueryOptions,
 } from '~/lib/query-options'
-import { patchMovementInSession, patchSetInSession, sessionCompletion, type SetPatch } from '~/lib/session-cache'
+import { patchMovementInSession, patchSetInSession, sessionCompletion, type SetPatch } from '~/domains/session/lib/session-cache'
 import { addExerciseSetFn, addSessionAccessoryFn, substituteMovementFn, upsertSetLogFn } from '~/server/api'
 import type {
   AccessoryMovementOption,
@@ -35,8 +35,8 @@ import type {
   SubstitutionReason,
   SwapScope,
   WorkoutSession,
-} from '~/types/training'
-import { SyncPill } from './session'
+} from '~/shared/types'
+import { SyncPill } from './Session'
 
 const SET_GRID_CLASS = 'grid grid-cols-[1.15rem_minmax(3.75rem,1fr)_minmax(3rem,0.75fr)_minmax(4.75rem,1fr)_2.25rem] sm:grid-cols-[1.25rem_minmax(4.5rem,7.75rem)_minmax(3.25rem,6.5rem)_minmax(5rem,6.5rem)_2.25rem] md:grid-cols-[1.5rem_minmax(4.75rem,1fr)_minmax(4rem,0.8fr)_minmax(5.5rem,1fr)_minmax(7.5rem,1.35fr)_2.25rem]'
 

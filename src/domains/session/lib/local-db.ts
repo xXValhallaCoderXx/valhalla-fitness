@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie'
-import type { SetPatch } from './session-cache'
-import type { WorkoutSession } from '~/types/training'
+import type { SetPatch } from '~/domains/session/lib/session-cache'
+import type { WorkoutSession } from '~/shared/types'
 
 export type QueuedMutation = {
   id?: number

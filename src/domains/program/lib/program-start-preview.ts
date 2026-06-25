@@ -3,9 +3,9 @@ import type {
   MovementReplacementRule,
   MovementRole,
   ProgramSetupPreviewWeek,
-} from '~/types/training'
-import { buildMovementSwapOptions, getMovementName } from './movements'
-import type { TemplateDefinition } from './template-engine'
+} from '~/shared/types'
+import { buildMovementSwapOptions, getMovementName } from '~/domains/movement/lib/movements'
+import type { TemplateDefinition } from '~/domains/program/lib/template-engine'
 
 type TemplateSlot = TemplateDefinition['sessions'][number]['slots'][number]
 

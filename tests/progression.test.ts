@@ -6,7 +6,7 @@ import {
   evaluateTrainingMaxBand,
   computeTrainingMaxWaveSets,
   mround,
-} from '../src/lib/progression'
+} from '../src/domains/program/lib/progression'
 
 describe('progression engine', () => {
   it('rounds to the configured increment', () => {

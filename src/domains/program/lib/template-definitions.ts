@@ -1,4 +1,4 @@
-import { programStateKey, type TemplateDefinition, type TemplateSetDefinition } from './template-engine'
+import { programStateKey, type TemplateDefinition, type TemplateSetDefinition } from '~/domains/program/lib/template-engine'
 
 const mainLiftIds = ['squat', 'bench_press', 'deadlift', 'overhead_press'] as const
 const alternating5x5MovementIds = ['squat', 'bench_press', 'overhead_press', 'deadlift', 'barbell_row'] as const

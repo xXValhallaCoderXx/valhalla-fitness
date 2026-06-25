@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildOldSchoolWaveTimeline, buildProgramTimeline, buildTrainingMaxWaveTimeline } from '../src/lib/program-timeline'
+import { buildOldSchoolWaveTimeline, buildProgramTimeline, buildTrainingMaxWaveTimeline } from '../src/domains/program/lib/program-timeline'
 
 describe('program timeline model', () => {
   it('normalizes training-max waves into week/session timeline rows', () => {

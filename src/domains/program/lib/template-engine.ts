@@ -11,10 +11,10 @@ import type {
   ProgramStateType,
   SetLog,
   Unit,
-} from '~/types/training'
-import { accessoryProgressionRuleId } from './accessories'
-import { getMovementName } from './movements'
-import { mround } from './progression'
+} from '~/shared/types'
+import { accessoryProgressionRuleId } from '~/domains/session/lib/accessories'
+import { getMovementName } from '~/domains/movement/lib/movements'
+import { mround } from '~/domains/program/lib/progression'
 
 const hardnessSchema = z.enum(['Light', 'Medium', 'Hard', 'Deload'])
 

@@ -1,12 +1,12 @@
 import { z } from 'zod'
-import type { Movement, ProgramTemplateSummary } from '~/types/training'
+import type { Movement, ProgramTemplateSummary } from '~/shared/types'
 import {
   programStateKey,
   validateTemplateDefinition,
   type TemplateDefinition,
   type TemplateSetDefinition,
-} from './template-engine'
-import { movementCatalog } from './movements'
+} from '~/domains/program/lib/template-engine'
+import { movementCatalog } from '~/domains/movement/lib/movements'
 
 export const customProgramMethodologySchema = z.enum(['none', 'training_max_wave', 'plus_set_wave', 'simple_linear'])
 

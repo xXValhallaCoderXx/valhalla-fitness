@@ -3,11 +3,11 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Activity, BarChart3, ChevronRight, Dumbbell, History, ListChecks, Search, Trophy } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
-import { cn } from '~/lib/cn'
-import { formatCompactDate, formatFullDate, formatRelativeTime } from '~/lib/dates'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { cn } from '~/shared/lib/cn'
+import { formatCompactDate, formatFullDate, formatRelativeTime } from '~/shared/lib/dates'
 import { activeProgramQueryOptions, historyDashboardQueryOptions, sessionQueryOptions } from '~/lib/query-options'
-import { loadRouteQueries } from '~/lib/route-loading'
+import { loadRouteQueries } from '~/shared/lib/route-loading'
 import type {
   BodyLoadRegion,
   BodyRegionId,
@@ -19,8 +19,8 @@ import type {
   SetLog,
   Unit,
   WorkoutSession,
-} from '~/types/training'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
+} from '~/shared/types'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
 
 type HistoryTab = 'overview' | 'body-load' | 'movements' | 'records' | 'sessions'
 

@@ -1,11 +1,11 @@
-import type { MovementSlot, ProgramInstance, ProgressionDecision, SetLog, WorkoutSession } from '~/types/training'
-import { programStateKey } from './template-engine'
+import type { MovementSlot, ProgramInstance, ProgressionDecision, SetLog, WorkoutSession } from '~/shared/types'
+import { programStateKey } from '~/domains/program/lib/template-engine'
 import {
   evaluateAccessoryDoubleProgression,
   evaluatePlusSetWave,
   evaluateSimpleLinearCompletion,
   evaluateTrainingMaxBand,
-} from './progression'
+} from '~/domains/program/lib/progression'
 
 type ValidProgramState = ProgramInstance['stateValues'][number] & { value: number }
 

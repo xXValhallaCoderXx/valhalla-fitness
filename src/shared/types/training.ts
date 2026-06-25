@@ -1,4 +1,4 @@
-import type { TemplateDefinition } from '~/lib/template-engine'
+import type { TemplateDefinition } from '~/domains/program/lib/template-engine'
 
 export type Unit = 'kg' | 'lb'
 

@@ -1,4 +1,4 @@
-import type { Movement, MovementReplacementRule, MovementRole, MovementSwapOption } from '~/types/training'
+import type { Movement, MovementReplacementRule, MovementRole, MovementSwapOption } from '~/shared/types'
 
 export const movementCatalog: Record<string, Movement> = {
   squat: {

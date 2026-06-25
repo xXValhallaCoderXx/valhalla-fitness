@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateBodyLoad, resolveRegionWeights } from '../src/lib/body-load'
+import { calculateBodyLoad, resolveRegionWeights } from '../src/domains/history/lib/body-load'
 
 describe('body load model', () => {
   it('weights recent completed work by role and movement region', () => {

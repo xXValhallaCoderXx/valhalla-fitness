@@ -4,5 +4,5 @@ export {
     NotesBox,
     SessionProgress,
     SyncPill,
-} from './session'
-export { LiveSessionFrame } from './live-session'
+} from './Session'
+export { LiveSessionFrame } from './LiveSession'

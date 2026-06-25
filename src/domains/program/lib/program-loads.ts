@@ -1,5 +1,5 @@
-import type { ProgramStateDefaults, ProgramStateInput, ProgramStateRequirement, Unit } from '~/types/training'
-import { mround } from './progression'
+import type { ProgramStateDefaults, ProgramStateInput, ProgramStateRequirement, Unit } from '~/shared/types'
+import { mround } from '~/domains/program/lib/progression'
 
 export const DEFAULT_TRAINING_MAX_PERCENT = 90
 export const MIN_TRAINING_MAX_PERCENT = 80

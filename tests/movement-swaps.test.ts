@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildMovementSwapOptions } from '../src/lib/movements'
-import { listFallbackTemplateDefinitions } from '../src/lib/template-definitions'
+import { buildMovementSwapOptions } from '../src/domains/movement/lib/movements'
+import { listFallbackTemplateDefinitions } from '../src/domains/program/lib/template-definitions'
 
 function resolveMovementId(movementId: string | { default: string; byPhase?: Record<string, string> }, phaseKey: string) {
   if (typeof movementId === 'string') return movementId

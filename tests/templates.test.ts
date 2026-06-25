@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { buildAccessoryInitialSets, parseAccessoryRepTarget } from '../src/lib/accessories'
-import { movementCatalog } from '../src/lib/movements'
-import { buildProgramStartStateValues } from '../src/lib/program-loads'
-import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, programForNextUncompletedSession } from '../src/lib/templates'
-import { getFallbackTemplateDefinition, listFallbackTemplateDefinitions } from '../src/lib/template-definitions'
-import { findMissingTemplateMovementIds, validateRequiredState, validateTemplateDefinition } from '../src/lib/template-engine'
-import type { ProgramInstance } from '../src/types/training'
+import { buildAccessoryInitialSets, parseAccessoryRepTarget } from '../src/domains/session/lib/accessories'
+import { movementCatalog } from '../src/domains/movement/lib/movements'
+import { buildProgramStartStateValues } from '../src/domains/program/lib/program-loads'
+import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, programForNextUncompletedSession } from '../src/domains/program/lib/templates'
+import { getFallbackTemplateDefinition, listFallbackTemplateDefinitions } from '../src/domains/program/lib/template-definitions'
+import { findMissingTemplateMovementIds, validateRequiredState, validateTemplateDefinition } from '../src/domains/program/lib/template-engine'
+import type { ProgramInstance } from '../src/shared/types'
 
 const program: ProgramInstance = {
   id: 'program-1',

@@ -3,11 +3,11 @@ import {
   buildCustomProgramTemplateDefinition,
   createDefaultCustomProgramBuilderInput,
   type CustomProgramMethodology,
-} from '../src/lib/custom-templates'
-import { buildProgressionDecisionsForSession } from '../src/lib/progression-decisions'
-import { expandPlannedSession } from '../src/lib/templates'
-import { validateTemplateDefinition, type TemplateDefinition } from '../src/lib/template-engine'
-import type { ProgramInstance, WorkoutSession } from '../src/types/training'
+} from '../src/domains/program/lib/custom-templates'
+import { buildProgressionDecisionsForSession } from '../src/domains/program/lib/progression-decisions'
+import { expandPlannedSession } from '../src/domains/program/lib/templates'
+import { validateTemplateDefinition, type TemplateDefinition } from '../src/domains/program/lib/template-engine'
+import type { ProgramInstance, WorkoutSession } from '../src/shared/types'
 
 function build(methodology: CustomProgramMethodology, templateId = `custom-${methodology}`) {
   return buildCustomProgramTemplateDefinition({

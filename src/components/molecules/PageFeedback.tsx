@@ -1,7 +1,7 @@
 import { Button, Card, Skeleton } from '@mantine/core'
 import { AlertTriangle } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { Page } from './Page'
 
 export function PageSkeleton({

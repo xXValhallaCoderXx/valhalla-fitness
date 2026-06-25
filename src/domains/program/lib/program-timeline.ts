@@ -1,12 +1,12 @@
-import type { ProgramInstance } from '~/types/training'
+import type { ProgramInstance } from '~/shared/types'
 import {
   buildProgramTimelineFromDefinition,
   type ProgramTimelineModel,
   type TimelineSession,
   type TimelineWeek,
   type TemplateDefinition,
-} from './template-engine'
-import { getFallbackTemplateDefinition } from './template-definitions'
+} from '~/domains/program/lib/template-engine'
+import { getFallbackTemplateDefinition } from '~/domains/program/lib/template-definitions'
 
 export type { ProgramTimelineModel, TimelineSession, TimelineWeek }
 

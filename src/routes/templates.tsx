@@ -9,11 +9,11 @@ import {
   customProgramMethodologies,
   type CustomProgramBuilderInput,
   type CustomProgramMethodology,
-} from '~/lib/custom-templates'
-import { getApiErrorMessage } from '~/lib/api-error'
-import { getMovementName, movementCatalog } from '~/lib/movements'
+} from '~/domains/program/lib/custom-templates'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
 import { templatesQueryOptions, todayQueryOptions } from '~/lib/query-options'
-import { loadRouteQueries, loadRouteQuery } from '~/lib/route-loading'
+import { loadRouteQueries, loadRouteQuery } from '~/shared/lib/route-loading'
 import { createCustomProgramTemplateFn } from '~/server/api'
 import type {
   ProgramStateInput,
@@ -24,8 +24,8 @@ import type {
   ProgramTemplateSummary,
   TodayPayload,
   Unit,
-} from '~/types/training'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
+} from '~/shared/types'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
 
 export const Route = createFileRoute('/templates')({
   loader: async ({ context }) => {

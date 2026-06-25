@@ -4,13 +4,13 @@ import { notifications } from '@mantine/notifications'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { ArrowRight, CalendarDays, CheckCircle2, Dumbbell, Play, RotateCw } from 'lucide-react'
 import { useState } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { todayQueryOptions } from '~/lib/query-options'
-import { loadRouteQuery } from '~/lib/route-loading'
+import { loadRouteQuery } from '~/shared/lib/route-loading'
 import { startSessionFn } from '~/server/api'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components/ui'
-import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/features/program/components'
-import { SessionProgress, SyncPill } from '~/features/workout/components'
+import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
+import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/domains/program/components'
+import { SessionProgress, SyncPill } from '~/domains/session/components'
 
 export const Route = createFileRoute('/today')({
   loader: async ({ context }) => {

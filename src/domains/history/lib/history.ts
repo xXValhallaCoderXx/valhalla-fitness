@@ -11,10 +11,10 @@ import type {
   RecentHistoryEntry,
   SubstitutionReason,
   Unit,
-} from '~/types/training'
-import { calculateBodyLoad, type BodyLoadWork } from './body-load'
-import { getMovementName, movementCatalog } from './movements'
-import { e1rm, mround } from './progression'
+} from '~/shared/types'
+import { calculateBodyLoad, type BodyLoadWork } from '~/domains/history/lib/body-load'
+import { getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
+import { e1rm, mround } from '~/domains/program/lib/progression'
 
 export type HistorySetInput = MovementHistorySet & {
   actualRpe?: number | null

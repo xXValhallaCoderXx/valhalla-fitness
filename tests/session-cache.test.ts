@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { patchMovementInSession, patchSetInSession, sessionCompletion } from '../src/lib/session-cache'
-import type { WorkoutSession } from '../src/types/training'
+import { patchMovementInSession, patchSetInSession, sessionCompletion } from '../src/domains/session/lib/session-cache'
+import type { WorkoutSession } from '../src/shared/types'
 
 const session: WorkoutSession = {
   sessionId: 'session-1',

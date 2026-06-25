@@ -3,10 +3,10 @@ import { ActionIcon, Badge, Button, Card, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { Calculator, Check, ChevronDown, History, RefreshCw, Repeat2, Timer, X } from 'lucide-react'
 import { useId, useState } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
-import { patchSetInSession, sessionCompletion, type SetPatch } from '~/lib/session-cache'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { patchSetInSession, sessionCompletion, type SetPatch } from '~/domains/session/lib/session-cache'
 import { upsertSetLogFn } from '~/server/api'
-import type { MovementSlot, SetLog, WorkoutSession } from '~/types/training'
+import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
 
 export function SyncPill({ state }: { state?: string }) {
     const label = state === 'syncFailed' ? 'Sync failed' : state === 'saving' ? 'Saving' : 'Synced'

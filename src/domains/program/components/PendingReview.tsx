@@ -3,10 +3,10 @@ import { notifications } from '@mantine/notifications'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Check, Clock3, X } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { getApiErrorMessage } from '~/lib/api-error'
-import { cn } from '~/lib/cn'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { cn } from '~/shared/lib/cn'
 import { resolveProgressionDecisionFn } from '~/server/api'
-import type { ProgressionDecision } from '~/types/training'
+import type { ProgressionDecision } from '~/shared/types'
 
 type ProgressionDecisionResolution = 'accepted' | 'dismissed'
 
