@@ -1,7 +1,7 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { CalendarDays, Dumbbell, History, Layers3, ListChecks, Settings } from 'lucide-react'
 import type { ReactNode } from 'react'
-import type { AuthUser } from '~/domains/account/server/auth'
+import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { cn } from '~/shared/lib/cn'
 
 const navItems = [

@@ -5,7 +5,7 @@ import { Calculator, Check, ChevronDown, History, RefreshCw, Repeat2, Timer, X }
 import { useId, useState } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { patchSetInSession, sessionCompletion, type SetPatch } from '~/domains/session/lib/session-cache'
-import { upsertSetLogFn } from '~/server/api'
+import { upsertSetLogFn } from '~/domains/session/server/session-functions'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
 
 export function SyncPill({ state }: { state?: string }) {

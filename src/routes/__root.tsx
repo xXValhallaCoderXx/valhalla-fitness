@@ -10,8 +10,8 @@ import {
   createRootRouteWithContext,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-import type { AuthUser } from '~/domains/account/server/auth'
-import { authUserQueryOptions, meQueryOptions } from '~/lib/query-options'
+import type { AuthUser } from '~/domains/account/server/auth-functions'
+import { authUserQueryOptions, meQueryOptions } from '~/domains/account/queries'
 import type { ThemePreference, UserProfile } from '~/shared/types'
 import { AppShell } from '~/components/AppShell'
 import { PwaUpdatePrompt } from '~/components/PwaUpdatePrompt'

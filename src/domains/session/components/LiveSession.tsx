@@ -19,11 +19,11 @@ import { cn } from '~/shared/lib/cn'
 import { formatCompactDate, formatRelativeTime } from '~/shared/lib/dates'
 import {
   accessoryMovementOptionsQueryOptions,
-  movementHistoryQueryOptions,
   movementSwapOptionsQueryOptions,
-} from '~/lib/query-options'
+} from '~/domains/session/queries'
+import { movementHistoryQueryOptions } from '~/domains/history/queries'
 import { patchMovementInSession, patchSetInSession, sessionCompletion, type SetPatch } from '~/domains/session/lib/session-cache'
-import { addExerciseSetFn, addSessionAccessoryFn, substituteMovementFn, upsertSetLogFn } from '~/server/api'
+import { addExerciseSetFn, addSessionAccessoryFn, substituteMovementFn, upsertSetLogFn } from '~/domains/session/server/session-functions'
 import type {
   AccessoryMovementOption,
   AccessoryProgressionMethod,
