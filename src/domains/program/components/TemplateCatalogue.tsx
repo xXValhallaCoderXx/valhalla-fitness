@@ -1,9 +1,9 @@
-import { Badge, Button, TextInput } from '@mantine/core'
+import { Badge, Button, Modal, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useRouter } from '@tanstack/react-router'
 import { Plus, Search } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
-import { Caption, EmptyState, Page, PageHeader, Panel, SectionLabel } from '~/components'
+import { Caption, EmptyState, Heading, Page, PageHeader, Panel, SectionLabel, Text } from '~/components'
 import type { ProgramTemplateSummary, TodayPayload } from '~/shared/types'
 import { CustomProgramBuilder } from './CustomProgramBuilder'
 import { TemplateCard, TemplateGrid } from './TemplateCard'
@@ -34,10 +34,12 @@ export function TemplateCatalogue({
       return matchesFilter && haystack.includes(query.toLowerCase())
     })
   }, [filter, query, templates])
-  const activeTemplate = activeTemplateId ? filtered.find((template) => template.id === activeTemplateId) ?? null : null
+  const activeTemplate = activeTemplateId ? templates.find((template) => template.id === activeTemplateId) ?? null : null
   const availableTemplates = activeTemplateId
     ? filtered.filter((template) => template.id !== activeTemplateId)
     : filtered
+  const builtInTemplates = availableTemplates.filter((template) => template.origin !== 'user_created')
+  const customTemplates = availableTemplates.filter((template) => template.origin === 'user_created')
 
   const selectTemplate = (template: ProgramTemplateSummary) => {
     void router.navigate({ to: '/templates/$templateId/start', params: { templateId: template.id } })
@@ -67,6 +69,10 @@ export function TemplateCatalogue({
       >
         Select a structured program to start your next training cycle.
       </PageHeader>
+
+      {activeTemplate ? (
+        <ActiveProgramBand template={activeTemplate} className="mb-4" />
+      ) : null}
 
       <Panel surface="inset" className="mb-4 max-w-4xl" px="sm" py="xs">
         <Caption>
@@ -99,54 +105,138 @@ export function TemplateCatalogue({
         </div>
       </div>
 
-      <Caption className="mb-3" fw={600}>Showing {filtered.length} programs</Caption>
-
       <div className="space-y-6">
-        {activeTemplate ? (
+        {builtInTemplates.length ? (
           <section>
-            <SectionLabel className="mb-3">Active</SectionLabel>
+            <TemplateSectionHeader
+              label="Sheetless library"
+              count={builtInTemplates.length}
+              helper="Original presets and progression tools."
+            />
             <TemplateGrid>
-              <TemplateCard template={activeTemplate} isActive onStart={() => selectTemplate(activeTemplate)} />
+              {builtInTemplates.map((template) => (
+                <TemplateCard key={template.id} template={template} onStart={() => selectTemplate(template)} />
+              ))}
             </TemplateGrid>
           </section>
         ) : null}
 
-        <section>
-          <SectionLabel className="mb-3">{activeTemplate ? 'Available' : 'Programs'}</SectionLabel>
-          {availableTemplates.length ? (
-            <TemplateGrid>
-              {availableTemplates.map((template) => (
-                <TemplateCard key={template.id} template={template} onStart={() => selectTemplate(template)} />
-              ))}
-            </TemplateGrid>
-          ) : (
-            <EmptyState title={activeTemplate ? 'No other matching programs' : 'No matching programs'}>
-              Adjust the search or filter to see more templates.
-            </EmptyState>
-          )}
-        </section>
+        {customTemplates.length || filter === 'Custom' ? (
+          <section>
+            <TemplateSectionHeader
+              label="Custom"
+              count={customTemplates.length}
+              helper="Templates you build for your own training."
+            />
+            {customTemplates.length ? (
+              <TemplateGrid>
+                {customTemplates.map((template) => (
+                  <TemplateCard key={template.id} template={template} onStart={() => selectTemplate(template)} />
+                ))}
+              </TemplateGrid>
+            ) : (
+              <EmptyState title="No matching custom programs">Adjust the search or create a programme.</EmptyState>
+            )}
+          </section>
+        ) : null}
+
+        {!availableTemplates.length && filter !== 'Custom' ? (
+          <EmptyState title={activeTemplate ? 'No other matching programs' : 'No matching programs'}>
+            Adjust the search or filter to see more templates.
+          </EmptyState>
+        ) : null}
       </div>
 
-      {showBuilder ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-black/60 p-3 sm:items-center sm:justify-center"
-          onClick={() => setShowBuilder(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={builderTitleId}
-            className="w-full max-w-4xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <CustomProgramBuilder
-              titleId={builderTitleId}
-              onClose={() => setShowBuilder(false)}
-              onCreated={handleCustomTemplateCreated}
-            />
-          </div>
-        </div>
-      ) : null}
+      <Modal
+        opened={showBuilder}
+        onClose={() => setShowBuilder(false)}
+        withCloseButton={false}
+        centered
+        size="64rem"
+        padding={0}
+        classNames={{
+          inner: 'p-0 sm:p-4',
+          content: 'h-[100dvh] max-h-[100dvh] w-full rounded-none sm:h-auto sm:max-h-[92dvh] sm:rounded-lg',
+          body: 'h-full',
+        }}
+        styles={{
+          content: {
+            backgroundColor: 'transparent',
+            border: 0,
+            boxShadow: 'none',
+          },
+          body: {
+            padding: 0,
+          },
+        }}
+      >
+        <CustomProgramBuilder
+          titleId={builderTitleId}
+          onClose={() => setShowBuilder(false)}
+          onCreated={handleCustomTemplateCreated}
+        />
+      </Modal>
     </Page>
+  )
+}
+
+function TemplateSectionHeader({
+  label,
+  count,
+  helper,
+}: {
+  label: string
+  count: number
+  helper: string
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+      <div>
+        <SectionLabel>{label}</SectionLabel>
+        <Caption mt={2}>{helper}</Caption>
+      </div>
+      <Badge color="neutral">{count} matching</Badge>
+    </div>
+  )
+}
+
+function ActiveProgramBand({
+  template,
+  className,
+}: {
+  template: ProgramTemplateSummary
+  className?: string
+}) {
+  return (
+    <Panel className={className} p="sm" style={{ borderColor: 'var(--vf-action-border)' }}>
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div className="min-w-0">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <Badge color="action" variant="filled">Active program</Badge>
+            <Badge color={template.origin === 'user_created' ? 'accent' : 'neutral'}>{template.sourceLabel}</Badge>
+          </div>
+          <Heading order={2} size="h4" className="truncate">
+            {template.name}
+          </Heading>
+          <Text mt={3} size="sm" tone="dimmed" lineClamp={2}>
+            {template.description}
+          </Text>
+        </div>
+        <div className="grid grid-cols-3 gap-2 md:w-[20rem]">
+          <ActiveBandMetric label="Days" value={`${template.daysPerWeek}/wk`} />
+          <ActiveBandMetric label="Level" value={template.complexity} />
+          <ActiveBandMetric label="Method" value={template.progressionLabel} />
+        </div>
+      </div>
+    </Panel>
+  )
+}
+
+function ActiveBandMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <Panel surface="inset" px="xs" py={6} className="min-w-0">
+      <SectionLabel size="0.5625rem" truncate>{label}</SectionLabel>
+      <Text mt={2} size="xs" fw={900} truncate>{value}</Text>
+    </Panel>
   )
 }

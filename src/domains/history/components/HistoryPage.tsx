@@ -11,6 +11,7 @@ import { sessionQueryOptions } from '~/domains/session/queries'
 import type {
   BodyLoadRegion,
   BodyRegionId,
+  HistoryWeeklyVolume,
   HistoryBestSet,
   HistoryDashboard,
   HistoryMovementSummary,
@@ -20,7 +21,7 @@ import type {
   Unit,
   WorkoutSession,
 } from '~/shared/types'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
+import { Caption, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatValue, Text } from '~/components'
 
 type HistoryTab = 'overview' | 'body-load' | 'movements' | 'records' | 'sessions'
 
@@ -146,64 +147,66 @@ function OverviewTab({
       {data.overview.completedSessions ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="space-y-4">
-            <section className="vf-panel p-4">
+            <Panel p="md">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="vf-section-label">Weekly volume</h2>
-                  <p className="mt-1 text-sm font-extrabold">Last {data.weeklyVolume.length || 0} training weeks</p>
+                  <SectionLabel>Weekly volume</SectionLabel>
+                  <Text mt={4} size="sm" fw={900}>Last {data.weeklyVolume.length || 0} training weeks</Text>
                 </div>
                 <Badge>{formatLoad(data.weeklyVolume.reduce((total, week) => total + week.volume, 0), data.overview.units)}</Badge>
               </div>
+              <MiniVolumeChart weeks={data.weeklyVolume} units={data.overview.units} className="mt-4" />
               <WeeklyVolumeStrip weeks={data.weeklyVolume} units={data.overview.units} />
-            </section>
+            </Panel>
 
-            <section className="vf-panel p-4">
+            <Panel p="md">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="vf-section-label">Recent sessions</h2>
+                <SectionLabel>Recent sessions</SectionLabel>
                 <Badge>{data.recentSessions.length}</Badge>
               </div>
+              <SessionCompletionChart sessions={data.recentSessions.slice(0, 6).reverse()} className="mb-3" />
               <div className="grid gap-3">
                 {data.recentSessions.slice(0, 4).map((session) => (
                   <RecentWorkoutCard key={session.id} session={session} onOpen={() => onOpenSession(session.id)} />
                 ))}
               </div>
-            </section>
+            </Panel>
           </div>
 
           <div className="space-y-4">
-            <section className="vf-panel p-4">
-              <h2 className="vf-section-label">Top body load</h2>
+            <Panel p="md">
+              <SectionLabel>Top body load</SectionLabel>
               <div className="mt-3 space-y-2">
                 {data.bodyLoad.topRegions.slice(0, 4).map((region) => (
                   <BodyRegionRow key={region.regionId} region={region} compact />
                 ))}
                 {!data.bodyLoad.topRegions.length ? (
-                  <p className="text-sm text-[var(--mantine-color-dimmed)]">No body-load data yet.</p>
+                  <Text size="sm" tone="dimmed">No body-load data yet.</Text>
                 ) : null}
               </div>
-            </section>
+            </Panel>
 
-            <section className="vf-panel p-4">
-              <h2 className="vf-section-label">Records</h2>
+            <Panel p="md">
+              <SectionLabel>Records</SectionLabel>
               <div className="mt-3 space-y-2">
                 {data.bestSets.slice(0, 4).map((set) => (
                   <BestSetCard key={`${set.movementId}-${set.id}`} set={set} compact />
                 ))}
                 {!data.bestSets.length ? (
-                  <p className="text-sm text-[var(--mantine-color-dimmed)]">No completed sets yet.</p>
+                  <Text size="sm" tone="dimmed">No completed sets yet.</Text>
                 ) : null}
               </div>
-            </section>
+            </Panel>
 
             {data.substitutions.length ? (
-              <section className="vf-panel p-4">
-                <h2 className="vf-section-label">Substitutions</h2>
+              <Panel p="md">
+                <SectionLabel>Substitutions</SectionLabel>
                 <div className="mt-3 space-y-2">
                   {data.substitutions.slice(0, 3).map((substitution) => (
                     <SubstitutionRow key={substitution.id} substitution={substitution} />
                   ))}
                 </div>
-              </section>
+              </Panel>
             ) : null}
           </div>
         </div>
@@ -221,19 +224,19 @@ function OverviewTab({
 function BodyLoadTab({ data }: { data: HistoryDashboard }) {
   return (
     <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[minmax(0,1fr)_18rem] lg:grid-cols-[minmax(0,1fr)_22rem]">
-      <section className="vf-panel p-4">
+      <Panel p="md">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="vf-section-label">Body load</h2>
-            <p className="mt-1 text-sm font-extrabold">Last {data.bodyLoad.windowDays} days</p>
+            <SectionLabel>Body load</SectionLabel>
+            <Text mt={4} size="sm" fw={900}>Last {data.bodyLoad.windowDays} days</Text>
           </div>
           <Badge color="success">{data.bodyLoad.freshRegionCount} fresh</Badge>
         </div>
         <BodyLoadMap regions={data.bodyLoad.regions} />
-      </section>
+      </Panel>
 
-      <section className="vf-panel p-4">
-        <h2 className="vf-section-label">Affected regions</h2>
+      <Panel p="md">
+        <SectionLabel>Affected regions</SectionLabel>
         <div className="mt-3 space-y-2">
           {data.bodyLoad.regions
             .filter((region) => region.impactPercent > 0)
@@ -242,10 +245,10 @@ function BodyLoadTab({ data }: { data: HistoryDashboard }) {
               <BodyRegionRow key={region.regionId} region={region} />
             ))}
           {!data.bodyLoad.topRegions.length ? (
-            <p className="text-sm text-[var(--mantine-color-dimmed)]">No completed sets in the recent window.</p>
+            <Text size="sm" tone="dimmed">No completed sets in the recent window.</Text>
           ) : null}
         </div>
-      </section>
+      </Panel>
     </div>
   )
 }
@@ -338,25 +341,23 @@ function OverviewMetric({
   label,
   value,
   icon,
-  tone = 'neutral',
+  tone,
   wide = false,
 }: {
   label: string
   value: ReactNode
   icon: ReactNode
-  tone?: 'neutral' | 'success'
+  tone?: 'success'
   wide?: boolean
 }) {
   return (
-    <div className={cn('vf-stat', wide && 'col-span-2 md:col-span-1')}>
+    <Panel surface="inset" p="sm" className={cn('min-w-0', wide && 'col-span-2 md:col-span-1')}>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <span className="shrink-0 text-[var(--mantine-color-dimmed)]">{icon}</span>
-        <span className={cn('min-w-0 flex-1 text-right', tone === 'success' ? 'text-[var(--vf-success-text)]' : 'text-[var(--mantine-color-text)]')}>
-          <span className="block truncate text-base font-black leading-tight md:text-lg">{value}</span>
-        </span>
+        <span className="shrink-0" style={{ color: 'var(--mantine-color-dimmed)' }}>{icon}</span>
+        <StatValue className="min-w-0 flex-1" ta="right" size="lg" tone={tone} truncate>{value}</StatValue>
       </div>
-      <p className="vf-stat-label">{label}</p>
-    </div>
+      <Caption fw={800} tt="uppercase">{label}</Caption>
+    </Panel>
   )
 }
 
@@ -367,18 +368,97 @@ function WeeklyVolumeStrip({ weeks, units }: { weeks: HistoryDashboard['weeklyVo
       {weeks.length ? weeks.map((week) => {
         const width = `${Math.max(4, Math.round((week.volume / maxVolume) * 100))}%`
         return (
-          <div key={week.weekStart} className="grid grid-cols-[3.5rem_minmax(0,1fr)_5rem] items-center gap-2 text-xs">
-            <p className="font-bold text-[var(--mantine-color-dimmed)]">{week.weekLabel}</p>
-            <div className="h-2 overflow-hidden rounded-full bg-[var(--vf-surface-inset)]">
-              <div className="h-full rounded-full bg-[var(--mantine-primary-color-filled)]" style={{ width }} />
+          <div key={week.weekStart} className="grid grid-cols-[3.5rem_minmax(0,1fr)_5rem] items-center gap-2">
+            <Caption fw={800}>{week.weekLabel}</Caption>
+            <div className="h-2 overflow-hidden rounded-full" style={{ backgroundColor: 'var(--vf-surface-inset)' }}>
+              <div className="h-full rounded-full" style={{ width, backgroundColor: 'var(--mantine-primary-color-filled)' }} />
             </div>
-            <p className="text-right font-extrabold">{formatLoad(week.volume, units)}</p>
+            <Text size="xs" fw={900} ta="right">{formatLoad(week.volume, units)}</Text>
           </div>
         )
       }) : (
-        <p className="text-sm text-[var(--mantine-color-dimmed)]">No weekly volume yet.</p>
+        <Text size="sm" tone="dimmed">No weekly volume yet.</Text>
       )}
     </div>
+  )
+}
+
+function MiniVolumeChart({
+  weeks,
+  units,
+  className,
+}: {
+  weeks: HistoryWeeklyVolume[]
+  units?: Unit | null
+  className?: string
+}) {
+  if (!weeks.length) return null
+  const values = weeks.map((week) => week.volume)
+  const maxValue = Math.max(...values, 1)
+  const barWidth = 100 / values.length
+
+  return (
+    <Panel surface="inset" p="xs" className={className}>
+      <svg viewBox="0 0 240 72" role="img" aria-label="Weekly volume mini chart" className="block h-20 w-full">
+        <line x1="0" y1="64" x2="240" y2="64" stroke="var(--mantine-color-default-border)" strokeWidth="1" />
+        {values.map((value, index) => {
+          const height = Math.max(8, (value / maxValue) * 52)
+          const x = index * barWidth * 2.4 + 4
+          const width = Math.max(8, barWidth * 2.4 - 8)
+          return (
+            <rect
+              key={weeks[index]?.weekStart ?? index}
+              x={x}
+              y={64 - height}
+              width={width}
+              height={height}
+              rx="3"
+              fill="var(--mantine-primary-color-filled)"
+            >
+              <title>{`${weeks[index]?.weekLabel ?? 'Week'}: ${formatLoad(value, units)}`}</title>
+            </rect>
+          )
+        })}
+      </svg>
+    </Panel>
+  )
+}
+
+function SessionCompletionChart({
+  sessions,
+  className,
+}: {
+  sessions: RecentHistoryEntry[]
+  className?: string
+}) {
+  if (!sessions.length) return null
+  const points = sessions.map((session, index) => {
+    const total = Math.max(session.plannedSetCount, 1)
+    const percent = session.completedSetCount / total
+    const x = sessions.length === 1 ? 120 : (index / (sessions.length - 1)) * 220 + 10
+    const y = 58 - percent * 46
+    return { x, y, percent }
+  })
+  const line = points.map((point) => `${point.x},${point.y}`).join(' ')
+
+  return (
+    <Panel surface="inset" p="xs" className={className}>
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem] sm:items-center">
+        <svg viewBox="0 0 240 64" role="img" aria-label="Recent session completion chart" className="block h-14 w-full">
+          <line x1="10" y1="58" x2="230" y2="58" stroke="var(--mantine-color-default-border)" strokeWidth="1" />
+          <polyline points={line} fill="none" stroke="var(--vf-action-text)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          {points.map((point, index) => (
+            <circle key={sessions[index]?.id ?? index} cx={point.x} cy={point.y} r="3.5" fill="var(--vf-action-text)">
+              <title>{`${sessions[index]?.title ?? 'Session'}: ${Math.round(point.percent * 100)}%`}</title>
+            </circle>
+          ))}
+        </svg>
+        <div>
+          <SectionLabel>Completion</SectionLabel>
+          <Caption mt={2}>Recent logged sets</Caption>
+        </div>
+      </div>
+    </Panel>
   )
 }
 
@@ -421,49 +501,60 @@ function BodyLoadMap({ regions }: { regions: BodyLoadRegion[] }) {
 
 function BodyRegionRow({ region, compact = false }: { region: BodyLoadRegion; compact?: boolean }) {
   return (
-    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-      <div className="flex items-start justify-between gap-3">
+    <Panel surface="inset" p={compact ? 'xs' : 'sm'}>
+      <div className="grid grid-cols-[minmax(0,1fr)_3.75rem] items-start gap-3">
         <div className="min-w-0">
-          <p className="font-extrabold">{region.label}</p>
+          <Text fw={900}>{region.label}</Text>
           {!compact ? (
-            <p className="mt-0.5 truncate text-xs text-[var(--mantine-color-dimmed)]">
+            <Caption mt={2} lineClamp={2} lh={1.25}>
               {region.movementNames.length ? region.movementNames.join(', ') : 'No recent work'}
-            </p>
+            </Caption>
           ) : null}
         </div>
-        <Badge color={badgeColorForTier(region.tier)}>{region.impactPercent}%</Badge>
+        <StatValue size="sm" tone={toneForTier(region.tier)} ta="right">
+          {region.impactPercent}%
+        </StatValue>
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--vf-surface-inset)]">
-        <div className={cn('h-full rounded-full', bodyLoadBarClass(region.tier))} style={{ width: `${region.impactPercent}%` }} />
+      <div className="mt-2 h-2 overflow-hidden rounded-full" style={{ backgroundColor: 'var(--vf-surface-inset)' }}>
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${region.impactPercent}%`,
+            backgroundColor: bodyLoadColor(region.tier),
+          }}
+        />
       </div>
       {!compact ? (
-        <p className="mt-2 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">
+        <Caption mt="xs" fw={700}>
           {region.recentSetCount} recent set{region.recentSetCount === 1 ? '' : 's'}
-        </p>
+        </Caption>
       ) : null}
-    </div>
+    </Panel>
   )
 }
 
 function MovementSummaryCard({ movement, units }: { movement: HistoryMovementSummary; units?: Unit | null }) {
   return (
-    <article className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 shadow-[var(--vf-shadow-card)]">
+    <Panel p="sm">
       <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_7rem_8rem_minmax(0,1.5fr)_auto] md:items-center">
         <div className="min-w-0">
-          <p className="truncate font-extrabold">{movement.movementName}</p>
-          <p className="mt-0.5 text-xs font-semibold capitalize text-[var(--mantine-color-dimmed)]">{movement.category.replaceAll('_', ' ')}</p>
+          <Text fw={900} truncate>{movement.movementName}</Text>
+          <Caption mt={2} fw={700} tt="capitalize">{movement.category.replaceAll('_', ' ')}</Caption>
         </div>
         <InsightCell label="Last" value={formatCompactDate(movement.lastPerformedAt)} />
         <InsightCell label="Volume" value={formatLoad(movement.totalVolume, units)} />
-        <div className="min-w-0 rounded-lg border border-[var(--vf-accent-border)] bg-[var(--vf-accent-soft)] px-3 py-2 text-xs font-bold text-[var(--vf-accent-text)]">
-          {movement.bestSet ? `Best: ${formatBestSet(movement.bestSet)}` : 'No best set yet'}
-        </div>
+        <Panel surface="inset" px="sm" py="xs" style={{ borderColor: 'var(--vf-accent-border)', backgroundColor: 'var(--vf-accent-soft)' }}>
+          <SectionLabel size="0.5625rem">Best set</SectionLabel>
+          <Text mt={2} size="xs" fw={800} tone="accent" lineClamp={2} lh={1.25}>
+            {movement.bestSet ? formatBestSet(movement.bestSet) : 'No best set yet'}
+          </Text>
+        </Panel>
         <Badge>{movement.totalCompletedSets} sets</Badge>
       </div>
       {movement.substitutionCount ? (
-        <p className="mt-2 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">{movement.substitutionCount} substitution{movement.substitutionCount === 1 ? '' : 's'}</p>
+        <Caption mt="xs" fw={700}>{movement.substitutionCount} substitution{movement.substitutionCount === 1 ? '' : 's'}</Caption>
       ) : null}
-    </article>
+    </Panel>
   )
 }
 
@@ -471,57 +562,61 @@ function BestSetCard({ set, compact = false }: { set: HistoryBestSet; compact?: 
   const primary = formatBestSetPrimary(set)
   const rir = typeof set.rir === 'number' ? `RIR ${set.rir}` : null
   const e1rm = typeof set.e1rm === 'number' ? `e1RM ${formatNumber(set.e1rm)} ${set.units ?? ''}`.trim() : null
+  const emphasized = set.type !== 'accessory'
 
   return (
-    <article className={cn(
-      'rounded-lg border shadow-[var(--vf-shadow-card)]',
-      set.type === 'accessory'
-        ? 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)]'
-        : 'border-[var(--vf-accent-border)] bg-[var(--vf-accent-soft)]',
-      compact ? 'p-2.5' : 'p-3',
-    )}>
+    <Panel
+      p={compact ? 'xs' : 'sm'}
+      style={{
+        borderColor: emphasized ? 'var(--vf-accent-border)' : 'var(--mantine-color-default-border)',
+        backgroundColor: emphasized ? 'var(--vf-accent-soft)' : 'var(--vf-surface-2)',
+      }}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-2">
-          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--mantine-color-default)] text-[var(--vf-accent-text)]">
+          <span
+            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+            style={{ backgroundColor: 'var(--mantine-color-default)', color: 'var(--vf-accent-text)' }}
+          >
             <Trophy size={13} />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-extrabold">{set.movementName}</p>
-            {!compact ? <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">{set.sessionTitle}</p> : null}
+            <Text size="sm" fw={900} truncate>{set.movementName}</Text>
+            {!compact ? <Caption mt={2}>{set.sessionTitle}</Caption> : null}
           </div>
         </div>
         <Badge color={set.type === 'accessory' ? 'neutral' : 'action'}>{formatRecordType(set.type)}</Badge>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span className={cn('font-black', compact ? 'text-sm' : 'text-base')}>{primary}</span>
+        <StatValue size={compact ? 'sm' : 'md'}>{primary}</StatValue>
         {rir ? <Badge color="neutral">{rir}</Badge> : null}
         {e1rm ? <Badge color="action">{e1rm}</Badge> : null}
       </div>
       {!compact ? (
-        <p className="mt-1 text-xs font-semibold text-[var(--mantine-color-dimmed)]">{formatCompactDate(set.performedAt)}</p>
+        <Caption mt={4} fw={700}>{formatCompactDate(set.performedAt)}</Caption>
       ) : null}
-    </article>
+    </Panel>
   )
 }
 
 function SubstitutionRow({ substitution }: { substitution: HistorySubstitutionSummary }) {
   return (
-    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-      <p className="text-xs font-extrabold">
-        {substitution.plannedMovementName} <span className="text-[var(--mantine-color-dimmed)]">to</span> {substitution.performedMovementName}
-      </p>
-      <p className="mt-1 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">
+    <Panel surface="inset" p="sm">
+      <Text size="xs" fw={900}>
+        {substitution.plannedMovementName} <Text component="span" size="xs" tone="dimmed">to</Text> {substitution.performedMovementName}
+      </Text>
+      <Caption mt={4} fw={700}>
         {formatReason(substitution.reason)} · {formatCompactDate(substitution.performedAt)}
-      </p>
-    </div>
+      </Caption>
+    </Panel>
   )
 }
 
 function InsightCell({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
-      <p className="text-[10px] font-extrabold uppercase text-[var(--mantine-color-dimmed)]">{label}</p>
-      <p className="mt-0.5 truncate text-sm font-bold">{value}</p>
+      <SectionLabel>{label}</SectionLabel>
+      <Text mt={2} size="sm" fw={800} truncate>{value}</Text>
     </div>
   )
 }
@@ -531,17 +626,31 @@ function RecentWorkoutCard({ session, onOpen }: { session: RecentHistoryEntry; o
   return (
     <button
       type="button"
-      className="vf-card-hover rounded-[var(--mantine-radius-lg)] border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 text-left text-[var(--mantine-color-text)] shadow-[var(--vf-shadow-card)] transition hover:border-[var(--vf-action-border)]"
+      className="vf-card-hover rounded-lg border p-3 transition"
+      style={{
+        backgroundColor: 'var(--mantine-color-default)',
+        borderColor: 'var(--mantine-color-default-border)',
+        boxShadow: 'var(--vf-shadow-card)',
+        color: 'var(--mantine-color-text)',
+        textAlign: 'left',
+      }}
       onClick={onOpen}
     >
       <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--vf-action-text)]">
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
+            style={{
+              backgroundColor: 'var(--vf-surface-2)',
+              borderColor: 'var(--mantine-color-default-border)',
+              color: 'var(--vf-action-text)',
+            }}
+          >
             {session.completedAt ? <Trophy size={16} /> : <Dumbbell size={16} />}
           </div>
           <div className="min-w-0">
-            <p className="truncate font-extrabold">{session.title}</p>
-            <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">{session.programTitle ?? 'Training session'}</p>
+            <Text fw={900} truncate>{session.title}</Text>
+            <Caption mt={2}>{session.programTitle ?? 'Training session'}</Caption>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {session.weekLabel ? <Badge>{session.weekLabel}</Badge> : null}
               {session.hardness ? <Badge color={session.hardness === 'Hard' ? 'danger' : 'neutral'}>{session.hardness}</Badge> : null}
@@ -552,10 +661,10 @@ function RecentWorkoutCard({ session, onOpen }: { session: RecentHistoryEntry; o
         </div>
         <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
           <div className="text-right">
-            <p className="text-[11px] font-extrabold text-[var(--mantine-color-text)]">{formatCompactDate(date)}</p>
-            <p className="text-[10px] font-semibold text-[var(--mantine-color-dimmed)]">{formatRelativeTime(date)}</p>
+            <Text size="xs" fw={900}>{formatCompactDate(date)}</Text>
+            <Caption size="0.625rem" fw={700}>{formatRelativeTime(date)}</Caption>
           </div>
-          <ChevronRight size={16} className="text-[var(--mantine-color-dimmed)]" />
+          <ChevronRight size={16} color="var(--mantine-color-dimmed)" />
         </div>
       </div>
     </button>
@@ -590,11 +699,30 @@ function WorkoutSummaryModal({
       size="lg"
       classNames={{
         inner: '!items-end sm:!items-center',
-        content: '!mb-0 !flex !max-h-[90dvh] !flex-col !overflow-hidden !rounded-b-none !border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)] sm:!mb-auto sm:!rounded-lg',
-        header: '!bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
-        title: 'text-lg font-bold !text-[var(--mantine-color-text)]',
-        body: '!min-h-0 !flex-1 !overflow-hidden !text-[var(--mantine-color-text)]',
-        close: '!text-[var(--mantine-color-dimmed)] hover:!bg-[var(--vf-surface-2)] hover:!text-[var(--mantine-color-text)]',
+        content: '!mb-0 !flex !max-h-[90dvh] !flex-col !overflow-hidden !rounded-b-none sm:!mb-auto sm:!rounded-lg',
+        body: '!min-h-0 !flex-1 !overflow-hidden',
+      }}
+      styles={{
+        content: {
+          border: '1px solid var(--mantine-color-default-border)',
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        header: {
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        title: {
+          color: 'var(--mantine-color-text)',
+          fontSize: '1rem',
+          fontWeight: 800,
+        },
+        body: {
+          color: 'var(--mantine-color-text)',
+        },
+        close: {
+          color: 'var(--mantine-color-dimmed)',
+        },
       }}
     >
       {isLoading ? (
@@ -603,21 +731,21 @@ function WorkoutSummaryModal({
         <HistoryModalStatus tone="danger">{getApiErrorMessage(error, 'Unable to load workout summary')}</HistoryModalStatus>
       ) : session ? (
         <div className="grid max-h-[calc(90dvh-6rem)] min-h-0 grid-rows-[auto_auto_auto_minmax(0,1fr)] gap-4">
-          <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-4">
+          <Panel surface="inset" p="md">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="vf-section-label">{session.programTitle}</p>
-                <h2 className="mt-1 text-xl font-extrabold">{session.title}</h2>
-                <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">
+                <SectionLabel>{session.programTitle}</SectionLabel>
+                <Text mt={4} size="xl" fw={900}>{session.title}</Text>
+                <Text mt={4} size="sm" tone="dimmed">
                   {session.weekLabel} · {session.hardness} · {session.estimatedMinutes} min
-                </p>
+                </Text>
               </div>
-              <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-3 py-2 text-right">
-                <p className="text-sm font-extrabold">{formatFullDate(date)}</p>
-                <p className="text-xs text-[var(--mantine-color-dimmed)]">{formatRelativeTime(date)}</p>
-              </div>
+              <Panel px="sm" py="xs" className="text-right">
+                <Text size="sm" fw={900}>{formatFullDate(date)}</Text>
+                <Caption>{formatRelativeTime(date)}</Caption>
+              </Panel>
             </div>
-          </div>
+          </Panel>
 
           <div className="grid grid-cols-3 gap-2">
             <SummaryMetric icon={<Dumbbell size={14} />} label="Movements" value={session.movements.length} />
@@ -627,12 +755,12 @@ function WorkoutSummaryModal({
 
           {topSets.length ? (
             <div>
-              <h3 className="vf-section-label mb-2">Highlights</h3>
+              <SectionLabel className="mb-2">Highlights</SectionLabel>
               <div className="flex flex-wrap gap-1.5">
                 {topSets.slice(0, 4).map((set) => (
-                  <span key={set.id} className="rounded-md border border-[var(--vf-accent-border)] bg-[var(--vf-accent-soft)] px-2 py-1 text-xs font-bold text-[var(--vf-accent-text)]">
+                  <Badge key={set.id} color="accent" variant="light" tt="none">
                     {formatSetLog(set, session.units)}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             </div>
@@ -644,10 +772,10 @@ function WorkoutSummaryModal({
             ))}
 
             {session.notes ? (
-              <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-                <h3 className="vf-section-label mb-1">Notes</h3>
-                <p className="text-sm text-[var(--mantine-color-dimmed)]">{session.notes}</p>
-              </div>
+              <Panel surface="inset" p="sm">
+                <SectionLabel className="mb-1">Notes</SectionLabel>
+                <Text size="sm" tone="dimmed">{session.notes}</Text>
+              </Panel>
             ) : null}
           </div>
         </div>
@@ -663,52 +791,55 @@ function WorkoutMovementSummary({ session, movement }: { session: WorkoutSession
   const displaySets = completedSets.length ? completedSets : movement.sets
 
   return (
-    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+    <Panel surface="inset" p="sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-extrabold">{movement.movementName}</p>
-          <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
+          <Text fw={900} truncate>{movement.movementName}</Text>
+          <Caption mt={2}>{movement.targetSummary}</Caption>
         </div>
         <Badge color={movement.role === 'main' ? 'action' : 'neutral'}>{movement.role}</Badge>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {displaySets.map((set) => (
-          <span
+          <Badge
             key={set.id}
-            className={cn(
-              'rounded-lg border px-2 py-1 text-[11px] font-bold',
-              set.isTopSet || set.isAmrap
-                ? 'border-[var(--vf-accent-border)] bg-[var(--vf-accent-soft)] text-[var(--vf-accent-text)]'
-                : set.completed
-                  ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)] text-[var(--vf-success-text)]'
-                  : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)]',
-            )}
+            color={set.isTopSet || set.isAmrap ? 'accent' : set.completed ? 'success' : 'neutral'}
+            tt="none"
           >
             {set.setIndex}: {formatSetLog(set, session.units)}
-          </span>
+          </Badge>
         ))}
       </div>
-    </div>
+    </Panel>
   )
 }
 
 function SummaryMetric({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
   return (
-    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 text-center">
-      <div className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-md bg-[var(--mantine-color-default)] text-[var(--vf-action-text)]">
+    <Panel surface="inset" p="sm" className="text-center">
+      <div
+        className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-md"
+        style={{ backgroundColor: 'var(--mantine-color-default)', color: 'var(--vf-action-text)' }}
+      >
         {icon}
       </div>
-      <p className="text-lg font-extrabold">{value}</p>
-      <p className="text-[10px] text-[var(--mantine-color-dimmed)]">{label}</p>
-    </div>
+      <StatValue>{value}</StatValue>
+      <Caption size="0.625rem">{label}</Caption>
+    </Panel>
   )
 }
 
 function HistoryModalStatus({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'danger' }) {
   return (
-    <p className={cn('rounded-lg border p-3 text-sm', tone === 'danger' ? 'border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] text-[var(--vf-danger-text)]' : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]')}>
-      {children}
-    </p>
+    <Panel
+      p="sm"
+      style={{
+        borderColor: tone === 'danger' ? 'var(--vf-danger-border)' : 'var(--mantine-color-default-border)',
+        backgroundColor: tone === 'danger' ? 'var(--vf-danger-soft)' : 'var(--vf-surface-2)',
+      }}
+    >
+      <Text size="sm" tone={tone === 'danger' ? 'danger' : 'dimmed'}>{children}</Text>
+    </Panel>
   )
 }
 
@@ -719,18 +850,18 @@ function bodyLoadFill(tier: BodyLoadRegion['tier']) {
   return 'var(--mantine-color-dimmed)'
 }
 
-function bodyLoadBarClass(tier: BodyLoadRegion['tier']) {
-  if (tier === 'high') return 'bg-[var(--vf-danger-text)]'
-  if (tier === 'moderate') return 'bg-[var(--vf-warning-text)]'
-  if (tier === 'low') return 'bg-[var(--vf-action-text)]'
-  return 'bg-[var(--mantine-color-dimmed)]'
+function bodyLoadColor(tier: BodyLoadRegion['tier']) {
+  if (tier === 'high') return 'var(--vf-danger-text)'
+  if (tier === 'moderate') return 'var(--vf-warning-text)'
+  if (tier === 'low') return 'var(--vf-action-text)'
+  return 'var(--mantine-color-dimmed)'
 }
 
-function badgeColorForTier(tier: BodyLoadRegion['tier']) {
+function toneForTier(tier: BodyLoadRegion['tier']) {
   if (tier === 'high') return 'danger'
   if (tier === 'moderate') return 'warning'
   if (tier === 'low') return 'action'
-  return 'neutral'
+  return 'dimmed'
 }
 
 function formatSetLog(set: SetLog, units: Unit | string) {

@@ -1,7 +1,7 @@
-import { Badge, Button, Card, NumberInput, Select, TextInput, Tooltip } from '@mantine/core'
+import { ActionIcon, Badge, Button, Card, NumberInput, Select, TextInput, Tooltip } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation } from '@tanstack/react-query'
-import { Check, ChevronLeft, ChevronRight, Info, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Info, Plus, Trash2, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import { getMovementName } from '~/domains/movement/lib/movements'
@@ -217,8 +217,8 @@ export function CustomProgramBuilder({
     (draft.methodology !== 'none' || draft.sessions.every((session) => session.loggerExercises.length > 0))
 
   return (
-    <Card className="max-h-[92vh] overflow-hidden" p={0}>
-      <div className="border-b p-4">
+    <Card className="flex h-full max-h-[100dvh] flex-col overflow-hidden rounded-none sm:max-h-[92dvh] sm:rounded-lg" p={0}>
+      <div className="shrink-0 border-b p-3 sm:p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -227,30 +227,35 @@ export function CustomProgramBuilder({
               </Heading>
               <Badge color="action">Custom</Badge>
             </div>
-            <Text mt={4} size="sm" tone="dimmed">
+            <Text mt={3} size="sm" tone="dimmed">
               Build a constrained template from supported methodology presets.
             </Text>
           </div>
-          <Button color="neutral" variant="subtle" onClick={onClose} disabled={mutation.isPending}>
-            Close
-          </Button>
+          <Tooltip label="Close">
+            <ActionIcon
+              color="neutral"
+              variant="subtle"
+              size="lg"
+              aria-label="Close"
+              className="shrink-0"
+              onClick={onClose}
+              disabled={mutation.isPending}
+            >
+              <X size={18} />
+            </ActionIcon>
+          </Tooltip>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-          {steps.map((item, index) => (
-            <Button
-              key={item.id}
-              variant={step === item.id ? 'filled' : 'default'}
-              disabled={mutation.isPending}
-              onClick={() => setStep(item.id)}
-            >
-              {index + 1}. {item.label}
-            </Button>
-          ))}
-        </div>
+        <BuilderStepNavigation
+          steps={steps}
+          currentStep={step}
+          disabled={mutation.isPending}
+          onStepChange={setStep}
+        />
+        {step !== 'methodology' ? <CurrentPlanSummary draft={draft} /> : null}
       </div>
 
-      <div className="max-h-[58vh] overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
         {step === 'methodology' ? (
           <CustomMethodologyStep
             draft={draft}
@@ -280,7 +285,7 @@ export function CustomProgramBuilder({
         )}
       </div>
 
-      <div className="border-t p-4">
+      <div className="shrink-0 border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-4">
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Button variant="default" disabled={mutation.isPending || currentStepIndex === 0} onClick={() => moveStep(-1)}>
             <ChevronLeft size={14} />
@@ -302,6 +307,101 @@ export function CustomProgramBuilder({
         </div>
       </div>
     </Card>
+  )
+}
+
+function BuilderStepNavigation({
+  steps,
+  currentStep,
+  disabled,
+  onStepChange,
+}: {
+  steps: Array<{ id: CustomBuilderStep; label: string }>
+  currentStep: CustomBuilderStep
+  disabled: boolean
+  onStepChange: (step: CustomBuilderStep) => void
+}) {
+  return (
+    <>
+      <div className="mt-3 flex gap-1 overflow-x-auto pb-1 no-scrollbar md:hidden">
+        {steps.map((item, index) => (
+          <BuilderMobileStepTab
+            key={item.id}
+            index={index}
+            label={item.label}
+            active={currentStep === item.id}
+            disabled={disabled}
+            onClick={() => onStepChange(item.id)}
+          />
+        ))}
+      </div>
+      <div className="mt-4 hidden gap-2 md:grid md:grid-cols-4">
+        {steps.map((item, index) => (
+          <Button
+            key={item.id}
+            variant={currentStep === item.id ? 'filled' : 'default'}
+            className="min-w-0"
+            disabled={disabled}
+            onClick={() => onStepChange(item.id)}
+          >
+            {index + 1}. {item.label}
+          </Button>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function BuilderMobileStepTab({
+  index,
+  label,
+  active,
+  disabled,
+  onClick,
+}: {
+  index: number
+  label: string
+  active: boolean
+  disabled: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="min-h-8 min-w-[6.75rem] shrink-0 rounded-md px-2"
+      style={{
+        backgroundColor: active ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default)',
+        border: '1px solid var(--mantine-color-default-border)',
+        color: active ? 'var(--mantine-color-white)' : 'var(--mantine-color-text)',
+        opacity: disabled ? 0.55 : 1,
+      }}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <Caption component="span" fw={900} truncate c="inherit">
+        {index + 1}. {label}
+      </Caption>
+    </button>
+  )
+}
+
+function CurrentPlanSummary({ draft }: { draft: CustomProgramBuilderInput }) {
+  const methodology = customProgramMethodologies[draft.methodology]
+  return (
+    <Panel surface="inset" className="mt-3" px="sm" py="xs">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <Text size="xs" fw={900} truncate className="max-w-full sm:max-w-[16rem]">
+          {draft.name.trim() || 'Untitled programme'}
+        </Text>
+        <Badge color={draft.methodology === 'none' ? 'neutral' : 'action'}>{methodology.shortLabel}</Badge>
+        <Caption fw={700}>{draft.daysPerWeek} days/week</Caption>
+        {draft.goal?.trim() ? (
+          <Caption fw={700} truncate className="max-w-full sm:max-w-[24rem]">
+            Goal: {draft.goal.trim()}
+          </Caption>
+        ) : null}
+      </div>
+    </Panel>
   )
 }
 
@@ -404,30 +504,34 @@ function CustomMovementsStep({
       {draft.sessions.map((session, index) => (
         <Panel key={index} surface="inset" p="sm">
           <Text mb="sm" size="sm" fw={800}>{customBuilderDayTitle(index, session.mainMovementId)}</Text>
-          <div className="grid gap-3 md:grid-cols-2">
-            <BuilderSelect
-              label="Main lift"
-              value={session.mainMovementId}
-              onChange={(value) => {
-                if (!value) return
-                onSessionChange(index, {
-                  mainMovementId: value,
-                  title: customBuilderDayTitle(index, value),
-                })
-              }}
-              options={mainMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
-            />
-            {supportsVariation ? (
+          <div className="grid gap-3 md:grid-cols-[minmax(12rem,20rem)_minmax(12rem,1fr)] md:items-end">
+            <div className="min-w-0">
               <BuilderSelect
-                label="Variation"
-                value={session.variationMovementId ?? null}
-                onChange={(value) => onSessionChange(index, { variationMovementId: value || null })}
-                options={variationMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
-                clearable
-                placeholder="None"
+                label="Main lift"
+                value={session.mainMovementId}
+                onChange={(value) => {
+                  if (!value) return
+                  onSessionChange(index, {
+                    mainMovementId: value,
+                    title: customBuilderDayTitle(index, value),
+                  })
+                }}
+                options={mainMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
               />
+            </div>
+            {supportsVariation ? (
+              <div className="min-w-0 md:max-w-[20rem]">
+                <BuilderSelect
+                  label="Variation"
+                  value={session.variationMovementId ?? null}
+                  onChange={(value) => onSessionChange(index, { variationMovementId: value || null })}
+                  options={variationMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
+                  clearable
+                  placeholder="None"
+                />
+              </div>
             ) : (
-              <Panel surface="panel" p="sm">
+              <Panel surface="panel" className="min-w-0" p="sm">
                 <SectionLabel>Main prescription</SectionLabel>
                 <Text mt={4} size="sm" fw={800}>{mainWorkSummary(draft.methodology, session)}</Text>
               </Panel>
@@ -481,58 +585,60 @@ function CustomLoggerExercisesStep({
 
           <div className="grid gap-2">
             {session.loggerExercises.map((exercise, exerciseIndex) => (
-              <Panel
+              <BuilderExerciseRow
                 key={exerciseIndex}
-                surface="panel"
-                p="sm"
-                className="grid gap-2 lg:grid-cols-[minmax(10rem,1fr)_5rem_5rem_5rem_5rem_auto] lg:items-end"
-              >
-                <BuilderSelect
-                  label="Exercise"
-                  value={exercise.movementId}
-                  onChange={(value) => {
-                    if (!value) return
-                    onExerciseChange(sessionIndex, exerciseIndex, { movementId: value })
-                  }}
-                  options={loggerMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
-                />
-                <BuilderNumberField
-                  label="Sets"
-                  value={exercise.setCount}
-                  min={1}
-                  max={10}
-                  onChange={(value) => onExerciseChange(sessionIndex, exerciseIndex, { setCount: value })}
-                />
-                <BuilderNumberField
-                  label="Min"
-                  value={exercise.repMin}
-                  min={1}
-                  max={50}
-                  onChange={(value) => onExerciseChange(sessionIndex, exerciseIndex, { repMin: value })}
-                />
-                <BuilderNumberField
-                  label="Max"
-                  value={exercise.repMax}
-                  min={1}
-                  max={50}
-                  onChange={(value) => onExerciseChange(sessionIndex, exerciseIndex, { repMax: value })}
-                />
-                <BuilderNumberField
-                  label="RIR"
-                  value={exercise.targetRir ?? 0}
-                  min={0}
-                  max={10}
-                  onChange={(value) => onExerciseChange(sessionIndex, exerciseIndex, { targetRir: value })}
-                />
-                <Button
-                  color="danger"
-                  variant="light"
-                  disabled={session.loggerExercises.length <= 1}
-                  onClick={() => onRemoveExercise(sessionIndex, exerciseIndex)}
-                >
-                  <Trash2 size={14} />
-                </Button>
-              </Panel>
+                select={
+                  <BuilderSelect
+                    label="Exercise"
+                    value={exercise.movementId}
+                    onChange={(value) => {
+                      if (!value) return
+                      onExerciseChange(sessionIndex, exerciseIndex, { movementId: value })
+                    }}
+                    options={loggerMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
+                  />
+                }
+                numbers={
+                  <>
+                    <BuilderNumberField
+                      label="Sets"
+                      value={exercise.setCount}
+                      min={1}
+                      max={10}
+                      onChange={(value) => onExerciseChange(sessionIndex, exerciseIndex, { setCount: value })}
+                    />
+                    <BuilderNumberField
+                      label="Min"
+                      value={exercise.repMin}
+                      min={1}
+                      max={50}
+                      onChange={(value) => onExerciseChange(sessionIndex, exerciseIndex, { repMin: value })}
+                    />
+                    <BuilderNumberField
+                      label="Max"
+                      value={exercise.repMax}
+                      min={1}
+                      max={50}
+                      onChange={(value) => onExerciseChange(sessionIndex, exerciseIndex, { repMax: value })}
+                    />
+                    <BuilderNumberField
+                      label="RIR"
+                      value={exercise.targetRir ?? 0}
+                      min={0}
+                      max={10}
+                      onChange={(value) => onExerciseChange(sessionIndex, exerciseIndex, { targetRir: value })}
+                    />
+                  </>
+                }
+                numberColumns="four"
+                action={
+                  <DeleteRowAction
+                    label="Remove exercise"
+                    disabled={session.loggerExercises.length <= 1}
+                    onClick={() => onRemoveExercise(sessionIndex, exerciseIndex)}
+                  />
+                }
+              />
             ))}
           </div>
         </Panel>
@@ -579,46 +685,52 @@ function CustomAccessoriesStep({
           </div>
           <div className="mt-3 grid gap-2">
             {session.accessories.map((accessory, accessoryIndex) => (
-              <Panel
+              <BuilderExerciseRow
                 key={accessoryIndex}
-                surface="panel"
-                p="sm"
-                className="grid gap-2 lg:grid-cols-[minmax(10rem,1fr)_5rem_5rem_5rem_auto] lg:items-end"
-              >
-                <BuilderSelect
-                  label="Movement"
-                  value={accessory.movementId}
-                  onChange={(value) => {
-                    if (!value) return
-                    onAccessoryChange(sessionIndex, accessoryIndex, { movementId: value })
-                  }}
-                  options={accessoryMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
-                />
-                <BuilderNumberField
-                  label="Sets"
-                  value={accessory.setCount}
-                  min={1}
-                  max={8}
-                  onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { setCount: value })}
-                />
-                <BuilderNumberField
-                  label="Min"
-                  value={accessory.repMin}
-                  min={1}
-                  max={50}
-                  onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { repMin: value })}
-                />
-                <BuilderNumberField
-                  label="Max"
-                  value={accessory.repMax}
-                  min={1}
-                  max={50}
-                  onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { repMax: value })}
-                />
-                <Button color="danger" variant="light" onClick={() => onRemoveAccessory(sessionIndex, accessoryIndex)}>
-                  <Trash2 size={14} />
-                </Button>
-              </Panel>
+                select={
+                  <BuilderSelect
+                    label="Movement"
+                    value={accessory.movementId}
+                    onChange={(value) => {
+                      if (!value) return
+                      onAccessoryChange(sessionIndex, accessoryIndex, { movementId: value })
+                    }}
+                    options={accessoryMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
+                  />
+                }
+                numbers={
+                  <>
+                    <BuilderNumberField
+                      label="Sets"
+                      value={accessory.setCount}
+                      min={1}
+                      max={8}
+                      onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { setCount: value })}
+                    />
+                    <BuilderNumberField
+                      label="Min"
+                      value={accessory.repMin}
+                      min={1}
+                      max={50}
+                      onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { repMin: value })}
+                    />
+                    <BuilderNumberField
+                      label="Max"
+                      value={accessory.repMax}
+                      min={1}
+                      max={50}
+                      onChange={(value) => onAccessoryChange(sessionIndex, accessoryIndex, { repMax: value })}
+                    />
+                  </>
+                }
+                numberColumns="three"
+                action={
+                  <DeleteRowAction
+                    label="Remove accessory"
+                    onClick={() => onRemoveAccessory(sessionIndex, accessoryIndex)}
+                  />
+                }
+              />
             ))}
             {!session.accessories.length ? (
               <Panel surface="panel" p="sm">
@@ -686,6 +798,60 @@ function ReviewMetric({ label, value }: { label: string; value: ReactNode }) {
       <SectionLabel>{label}</SectionLabel>
       <Text mt={4} size="sm" fw={800}>{value}</Text>
     </Panel>
+  )
+}
+
+function BuilderExerciseRow({
+  select,
+  numbers,
+  numberColumns,
+  action,
+}: {
+  select: ReactNode
+  numbers: ReactNode
+  numberColumns: 'three' | 'four'
+  action: ReactNode
+}) {
+  const numberGridClass =
+    numberColumns === 'four'
+      ? 'grid grid-cols-2 gap-2 sm:grid-cols-4 md:w-[20rem]'
+      : 'grid grid-cols-2 gap-2 sm:grid-cols-3 md:w-[15rem]'
+
+  return (
+    <Panel surface="panel" p="sm">
+      <div className="grid gap-3 md:grid-cols-[minmax(12rem,20rem)_auto_auto] md:items-end">
+        <div className="min-w-0">{select}</div>
+        <div className={numberGridClass}>{numbers}</div>
+        <div className="flex justify-end md:justify-start">{action}</div>
+      </div>
+    </Panel>
+  )
+}
+
+function DeleteRowAction({
+  label,
+  disabled = false,
+  onClick,
+}: {
+  label: string
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <Tooltip label={label}>
+      <span>
+        <ActionIcon
+          color="danger"
+          variant="light"
+          size="lg"
+          aria-label={label}
+          disabled={disabled}
+          onClick={onClick}
+        >
+          <Trash2 size={16} />
+        </ActionIcon>
+      </span>
+    </Tooltip>
   )
 }
 

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Badge, Button, Card, Modal, TextInput } from '@mantine/core'
+import { Badge, Button, Checkbox, Modal, NativeSelect, NumberInput, SegmentedControl, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useRouter } from '@tanstack/react-router'
 import { Calculator, Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User, X } from 'lucide-react'
@@ -12,7 +12,7 @@ import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
 import { signOutFn } from '~/domains/account/server/auth-functions'
 import { updateSettingsFn } from '~/domains/account/server/profile-functions'
 import type { ProgramStateDefaults, ThemePreference, Unit, UserProfile } from '~/shared/types'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
+import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, Text } from '~/components'
 
 const equipmentOptions = [
   'barbell',
@@ -215,13 +215,17 @@ function SettingsForm({ me }: { me: UserProfile }) {
       </PageHeader>
 
       {hasPendingChanges ? (
-        <div className="sticky top-16 z-30 mb-4 rounded-lg border border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] p-3 shadow-[var(--vf-shadow-card)]">
+        <Panel
+          className="sticky top-16 z-30 mb-4"
+          p="sm"
+          style={{ borderColor: 'var(--vf-warning-border)', backgroundColor: 'var(--vf-warning-soft)' }}
+        >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-extrabold text-[var(--mantine-color-text)]">Unsaved changes</p>
-              <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
+              <Text size="sm" fw={900}>Unsaved changes</Text>
+              <Caption mt={2}>
                 Your preferences are previewing locally. Save them to keep this setup.
-              </p>
+              </Caption>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
               <Button variant="default" disabled={updateMutation.isPending} onClick={discardChanges}>
@@ -232,102 +236,95 @@ function SettingsForm({ me }: { me: UserProfile }) {
               </Button>
             </div>
           </div>
-        </div>
+        </Panel>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[11rem_minmax(0,1fr)]">
-        <aside className="hidden rounded-[var(--mantine-radius-lg)] border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 shadow-[var(--vf-shadow-card)] lg:flex lg:flex-col">
-          <p className="vf-section-label px-2 pb-2">Settings</p>
-          {settingsSections.map((item) => {
-            const Icon = item.icon
-            return (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--vf-surface-2)] hover:text-[var(--mantine-color-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mantine-primary-color-filled)]"
-              >
-                <Icon size={14} />
-                {item.label}
-              </a>
-            )
-          })}
+        <aside className="hidden lg:block">
+          <Panel p="xs" className="flex flex-col">
+            <SectionLabel className="px-2 pb-2">Settings</SectionLabel>
+            {settingsSections.map((item) => {
+              const Icon = item.icon
+              return (
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  className="flex items-center gap-2 rounded-md px-2.5 py-2 transition focus-visible:outline-none"
+                >
+                  <Icon size={14} color="var(--mantine-color-dimmed)" />
+                  <Text size="xs" fw={700} tone="dimmed">{item.label}</Text>
+                </a>
+              )
+            })}
+          </Panel>
         </aside>
 
         <div className="space-y-5">
           <section id="preferences" className="scroll-mt-24">
             <div className="mb-2">
-              <h2 className="text-sm font-extrabold">Preferences</h2>
-              <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Units and rounding are reused when you start a new programme.</p>
+              <Heading order={2} size="h5">Preferences</Heading>
+              <Caption size="0.625rem">Units and rounding are reused when you start a new programme.</Caption>
             </div>
-            <Card className="space-y-3 p-4">
-              <div>
-                <span className="vf-section-label">Theme</span>
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {themeOptions.map((option) => {
+            <Panel className="space-y-3" p="md">
+              <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_16rem] md:items-end">
+                <div>
+                  <SectionLabel>Theme</SectionLabel>
+                  <Caption mt={2}>{themeOptions.find((option) => option.value === themePreference)?.description}</Caption>
+                </div>
+                <SegmentedControl
+                  value={themePreference}
+                  onChange={(value) => setThemePreference(value as ThemePreference)}
+                  data={themeOptions.map((option) => {
                     const Icon = option.icon
-                    const active = themePreference === option.value
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={`rounded-lg border px-2 py-2 text-center transition sm:p-3 sm:text-left ${
-                          active
-                            ? 'border-[var(--vf-action-border)] bg-[var(--vf-action-soft)] text-[var(--mantine-color-text)]'
-                            : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)] hover:border-[var(--vf-action-border)] hover:text-[var(--mantine-color-text)]'
-                        }`}
-                        onClick={() => setThemePreference(option.value)}
-                      >
-                        <span className="flex flex-col items-center gap-1 text-xs font-extrabold sm:flex-row sm:gap-2 sm:text-sm">
-                          <Icon size={15} className={active ? 'text-[var(--vf-action-text)]' : undefined} />
+                    return {
+                      value: option.value,
+                      label: (
+                        <span className="inline-flex items-center gap-1.5">
+                          <Icon size={14} />
                           {option.label}
                         </span>
-                        <span className="mt-1 hidden text-xs leading-relaxed text-[var(--mantine-color-dimmed)] sm:block">{option.description}</span>
-                      </button>
-                    )
+                      ),
+                    }
                   })}
-                </div>
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <label className="grid gap-1">
-                  <span className="vf-section-label">Units</span>
-                  <select
-                    className="min-h-9 rounded-[var(--mantine-radius-md)] border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 text-sm font-medium sm:min-h-10"
-                    value={units}
-                    onChange={(event) => handleUnitsChange(event.target.value as Unit)}
-                  >
-                    <option value="kg">kg</option>
-                    <option value="lb">lb</option>
-                  </select>
-                </label>
-                <label className="grid gap-1">
-                  <span className="vf-section-label">Rounding</span>
-                  <TextInput
-                    classNames={{ input: '!min-h-9 !text-sm sm:!min-h-10' }}
-                    type="number"
-                    value={rounding}
-                    onChange={(event) => setRounding(Number(event.target.value))}
-                  />
-                </label>
+                <NativeSelect
+                  label="Units"
+                  value={units}
+                  data={[
+                    { value: 'kg', label: 'kg' },
+                    { value: 'lb', label: 'lb' },
+                  ]}
+                  onChange={(event) => handleUnitsChange(event.target.value as Unit)}
+                />
+                <NumberInput
+                  label="Rounding"
+                  value={rounding}
+                  min={0.5}
+                  step={0.5}
+                  onChange={(value) => setRounding(typeof value === 'number' ? value : Number(value))}
+                />
               </div>
-            </Card>
+            </Panel>
           </section>
 
           <section id="programme-loads" className="scroll-mt-24">
             <div className="mb-2">
-              <h2 className="text-sm font-extrabold">Strength Estimates</h2>
-              <p className="text-[10px] text-[var(--mantine-color-dimmed)]">
+              <Heading order={2} size="h5">Strength Estimates</Heading>
+              <Caption size="0.625rem">
                 Saved estimated 1RMs are used to suggest starting values when you begin a programme.
-              </p>
+              </Caption>
             </div>
-            <Card className="space-y-4 p-4">
-              <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+            <Panel className="space-y-4" p="md">
+              <Panel surface="inset" p="sm">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="vf-section-label">Estimated 1RMs</p>
-                    <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+                    <SectionLabel>Estimated 1RMs</SectionLabel>
+                    <Caption mt={4} maw="42rem" lh={1.45}>
                       Enter a current strength estimate for each main lift. Programme-specific training maxes and
                       working loads are derived later on the start screen.
-                    </p>
+                    </Caption>
                   </div>
                   <Button variant="default" size="xs" onClick={() => setShowOneRepMaxCalculator(true)}>
                     <Calculator size={14} />
@@ -341,9 +338,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
                     return (
                       <div key={key} className="grid gap-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
-                            {label}
-                          </span>
+                          <SectionLabel size="0.5625rem">{label}</SectionLabel>
                           <Badge color={hasLoadDefault(value) ? 'success' : 'warning'} size="xs">
                             {hasLoadDefault(value) ? 'Set' : 'Unset'}
                           </Badge>
@@ -356,94 +351,94 @@ function SettingsForm({ me }: { me: UserProfile }) {
                             value={value ?? ''}
                             onChange={(event) => updateProgramStateDefault(key, loadDefaultFromInput(event.target.value))}
                           />
-                          <span className="pointer-events-none absolute right-14 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--mantine-color-dimmed)]">
+                          <span className="pointer-events-none absolute right-14 top-1/2 -translate-y-1/2">
+                            <Caption fw={800}>
                             {units}
+                            </Caption>
                           </span>
                           <button
                             type="button"
                             aria-label={`Clear ${label}`}
-                            className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--vf-surface-2)] hover:text-[var(--mantine-color-text)]"
+                            className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md transition"
                             onClick={() => updateProgramStateDefault(key, null)}
                           >
-                            <X size={14} />
+                            <X size={14} color="var(--mantine-color-dimmed)" />
                           </button>
                         </span>
                       </div>
                     )
                   })}
                 </div>
-                <p className="mt-3 text-[11px] leading-relaxed text-[var(--mantine-color-dimmed)]">
+                <Caption mt="sm" lh={1.45}>
                   These estimates are global defaults. Active programmes keep their own load values after start, and
                   history can still show e1RM trends from logged sets.
-                </p>
-              </div>
-            </Card>
+                </Caption>
+              </Panel>
+            </Panel>
           </section>
 
           <section id="equipment" className="scroll-mt-24">
             <div className="mb-2">
-              <h2 className="text-sm font-extrabold">Equipment Profile</h2>
-              <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Select available equipment to filter alternatives.</p>
+              <Heading order={2} size="h5">Equipment Profile</Heading>
+              <Caption size="0.625rem">Select available equipment to filter alternatives.</Caption>
             </div>
-            <Card className="p-4">
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <Panel p="md">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {equipmentOptions.map((item) => (
-                  <label key={item} className="flex items-center justify-between rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-                    <span className="text-sm font-semibold">{formatEquipmentLabel(item)}</span>
-                    <input
-                      className="h-4 w-4 accent-[var(--mantine-primary-color-filled)]"
-                      type="checkbox"
+                  <Panel key={item} surface="inset" px="sm" py="xs">
+                    <Checkbox
                       checked={equipmentProfile.includes(item)}
+                      label={formatEquipmentLabel(item)}
                       onChange={(event) => {
                         setEquipmentProfile((current) =>
                           event.target.checked ? [...current, item] : current.filter((value) => value !== item),
                         )
                       }}
                     />
-                  </label>
+                  </Panel>
                 ))}
               </div>
-            </Card>
+            </Panel>
           </section>
 
           <section id="data-sync" className="scroll-mt-24">
             <div className="mb-2">
-              <h2 className="text-sm font-extrabold">Data & Sync</h2>
-              <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Manage training data and sync status.</p>
+              <Heading order={2} size="h5">Data & Sync</Heading>
+              <Caption size="0.625rem">Manage training data and sync status.</Caption>
             </div>
-            <Card className="divide-y divide-[var(--mantine-color-default-border)] p-0">
+            <Panel p={0} className="divide-y divide-[var(--mantine-color-default-border)]">
               <div className="flex items-center justify-between gap-3 p-4">
                 <div>
-                  <p className="text-sm font-semibold">Sync Status</p>
-                  <p className="text-xs text-[var(--mantine-color-dimmed)]">Current browser session</p>
+                  <Text size="sm" fw={700}>Sync Status</Text>
+                  <Caption>Current browser session</Caption>
                 </div>
                 <Badge color="success">Synced</Badge>
               </div>
               <div className="flex items-center justify-between gap-3 p-4">
                 <div>
-                  <p className="text-sm font-semibold">Export Data</p>
-                  <p className="text-xs text-[var(--mantine-color-dimmed)]">Export is a future module.</p>
+                  <Text size="sm" fw={700}>Export Data</Text>
+                  <Caption>Export is a future module.</Caption>
                 </div>
                 <Button variant="default" disabled>Export</Button>
               </div>
-            </Card>
+            </Panel>
           </section>
 
           <section id="account" className="scroll-mt-24">
             <div className="mb-2">
-              <h2 className="text-sm font-extrabold">Account</h2>
-              <p className="text-[10px] text-[var(--mantine-color-dimmed)]">Login identity and session controls.</p>
+              <Heading order={2} size="h5">Account</Heading>
+              <Caption size="0.625rem">Login identity and session controls.</Caption>
             </div>
-            <Card className="space-y-3 p-4">
+            <Panel className="space-y-3" p="md">
               <label className="grid gap-1">
-                <span className="vf-section-label">Email Address</span>
+                <SectionLabel>Email Address</SectionLabel>
                 <TextInput type="email" value={me?.email ?? ''} readOnly />
               </label>
               <Button className="w-full sm:w-auto" color="danger" variant="light" disabled={signOutMutation.isPending} onClick={() => signOutMutation.mutate()}>
                 <LogOut size={14} />
                 {signOutMutation.isPending ? 'Signing out...' : 'Sign out'}
               </Button>
-            </Card>
+            </Panel>
           </section>
         </div>
       </div>
@@ -502,39 +497,31 @@ function OneRepMaxCalculatorModal({
     <Modal opened={opened} onClose={onClose} title="Calculate estimated 1RM" size="lg">
       <div className="space-y-4">
         <div>
-          <p className="text-sm font-extrabold">Calculate from a known set</p>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+          <Text size="sm" fw={900}>Calculate from a known set</Text>
+          <Caption mt={4} lh={1.45}>
             Choose the lift, enter a recent hard set, then apply the estimated one-rep max to that lift.
-          </p>
-          <p className="mt-2 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">
+          </Caption>
+          <Caption mt="xs" fw={700}>
             These estimates help future programmes suggest starting values. They are not live values for active programmes.
-          </p>
+          </Caption>
         </div>
 
-        <div className="grid gap-3 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-          <label className="grid gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Lift</span>
-            <select
-              className="min-h-9 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2.5 text-sm font-semibold"
-              value={selectedKey}
-              onChange={(event) => onSelectedKeyChange(event.target.value)}
-            >
-              {keys.map((key) => {
+        <Panel surface="inset" className="grid gap-3" p="sm">
+          <NativeSelect
+            label="Lift"
+            value={selectedKey}
+            data={keys.map((key) => {
                 const movementId = key.replace(/_one_rep_max$/, '')
-                return (
-                  <option key={key} value={key}>
-                    {getMovementName(movementId)}
-                  </option>
-                )
+                return { value: key, label: getMovementName(movementId) }
               })}
-            </select>
-          </label>
+            onChange={(event) => onSelectedKeyChange(event.target.value)}
+          />
 
           <TextInput
             type="number"
             label="Load"
             value={knownSetInput.weight}
-            rightSection={<span className="text-xs font-bold text-[var(--mantine-color-dimmed)]">{units}</span>}
+            rightSection={<Caption fw={800}>{units}</Caption>}
             onChange={(event) => onKnownSetChange('weight', event.target.value)}
           />
           <div className="grid grid-cols-2 gap-2">
@@ -552,13 +539,13 @@ function OneRepMaxCalculatorModal({
             />
           </div>
 
-          <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Estimated 1RM</p>
-            <p className="mt-0.5 text-lg font-extrabold">
+          <Panel p="sm">
+            <SectionLabel>Estimated 1RM</SectionLabel>
+            <Text mt={2} size="lg" fw={900}>
               {hasLoadDefault(calculatedValue) ? `${formatLoadDefault(calculatedValue)} ${units}` : 'Unset'}
-            </p>
-          </div>
-        </div>
+            </Text>
+          </Panel>
+        </Panel>
 
         <div className="flex justify-end">
           <Button disabled={!canApply} onClick={onApply}>

@@ -1,14 +1,16 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Badge, Button, Card } from '@mantine/core'
+import { Badge, Button } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { Link, useRouter } from '@tanstack/react-router'
-import { ArrowRight, CalendarDays, CheckCircle2, Dumbbell, Play, RotateCw } from 'lucide-react'
+import { Activity, ArrowRight, CalendarDays, CheckCircle2, Dumbbell, Layers3, ListChecks, Play, RotateCw } from 'lucide-react'
 import { useState } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { historyDashboardQueryOptions } from '~/domains/history/queries'
+import { programOverviewQueryOptions } from '~/domains/program/queries'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { startSessionFn } from '~/domains/session/server/session-functions'
-import type { WorkoutSession } from '~/shared/types'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
+import type { HistoryDashboard, PlannedSession, ProgramOverview, Unit, WorkoutSession } from '~/shared/types'
+import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatCard, Text } from '~/components'
 import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
 import { SessionProgress, SyncPill } from './Session'
 
@@ -34,6 +36,14 @@ export function TodayPage({ user }: { user: unknown }) {
 function AuthedToday() {
   const router = useRouter()
   const todayQuery = useQuery(todayQueryOptions())
+  const overviewQuery = useQuery({
+    ...programOverviewQueryOptions(),
+    enabled: Boolean(todayQuery.data?.activeProgram),
+  })
+  const historyQuery = useQuery({
+    ...historyDashboardQueryOptions(),
+    enabled: Boolean(todayQuery.data?.activeProgram),
+  })
   const [reviewOpen, setReviewOpen] = useState(false)
   const [resolvedDecisionIds, setResolvedDecisionIds] = useState<Set<string>>(() => new Set())
   const pendingDecisions = (todayQuery.data?.pendingDecisions ?? []).filter((decision) => !resolvedDecisionIds.has(decision.id))
@@ -89,6 +99,9 @@ function AuthedToday() {
     const syncAction = isMeaningfulSyncState(data.activeSession.syncState)
       ? <SyncPill state={data.activeSession.syncState} />
       : null
+    const completedSets = countCompletedSets(data.activeSession)
+    const totalSets = countPlannedSets(data.activeSession)
+    const completionPercent = totalSets ? Math.round((completedSets / totalSets) * 100) : 0
 
     return (
       <Page>
@@ -100,21 +113,23 @@ function AuthedToday() {
           Resume the workout currently in progress.
         </PageHeader>
         <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
-        <div className="max-w-5xl">
-          <Card className="space-y-4 border-[var(--vf-action-border)] bg-[var(--mantine-color-default)] p-4 vf-card-hover md:p-5">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <Panel className="space-y-4 vf-card-hover" p="md" style={{ borderColor: 'var(--vf-action-border)' }}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="vf-chip" data-active="true">In progress</span>
+                  <Badge color="action" variant="filled">In progress</Badge>
                   <Badge color="warning">{data.activeSession.hardness}</Badge>
                 </div>
-                <h2 className="truncate text-xl font-extrabold">{data.activeSession.title}</h2>
-                <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">
+                <Heading order={2} size="h3" lh={1.15} className="truncate">
+                  {data.activeSession.title}
+                </Heading>
+                <Text mt="xs" size="sm" tone="dimmed">
                   {data.activeSession.movements.length} movements · {data.activeSession.estimatedMinutes} min
-                </p>
-                <p className="mt-2 text-xs font-semibold text-[var(--mantine-color-dimmed)]">
+                </Text>
+                <Caption mt="xs" fw={700}>
                   {data.activeProgram.title} · {data.activeSession.weekLabel}
-                </p>
+                </Caption>
               </div>
               <Button className="w-full sm:w-auto" onClick={() => router.navigate({ to: '/sessions/$sessionId', params: { sessionId: data.activeSession!.sessionId } })}>
                 <RotateCw size={16} />
@@ -122,13 +137,20 @@ function AuthedToday() {
               </Button>
             </div>
             {nextIncompleteLabel ? (
-              <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2">
-                <p className="vf-stat-label">Next up</p>
-                <p className="mt-0.5 truncate text-sm font-extrabold text-[var(--mantine-color-text)]">{nextIncompleteLabel}</p>
-              </div>
+              <Panel surface="inset" px="sm" py="xs">
+                <SectionLabel>Next up</SectionLabel>
+                <Text mt={2} size="sm" fw={800} truncate>{nextIncompleteLabel}</Text>
+              </Panel>
             ) : null}
             <SessionProgress session={data.activeSession} compact />
-          </Card>
+          </Panel>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <StatCard label="Completed sets" value={`${completedSets}/${totalSets}`} icon={<ListChecks size={15} />} />
+            <StatCard label="Session progress" value={`${completionPercent}%`} icon={<Activity size={15} />} />
+            <ProgramProgressPanel overview={overviewQuery.data} />
+            <WeeklyVolumePanel history={historyQuery.data} />
+          </div>
         </div>
         <PendingProgressionReviewModal
           opened={reviewOpen}
@@ -146,6 +168,7 @@ function AuthedToday() {
   const completedSets = data.completedSession?.movements.flatMap((movement) => movement.sets) ?? []
   const completedSetCount = completedSets.filter((set) => set.completed).length
   const startLabel = data.completedSession ? 'Start next session' : 'Start workout'
+  const plannedSetCount = countPlannedSets(data.plannedSession)
 
   return (
     <Page>
@@ -161,15 +184,15 @@ function AuthedToday() {
       </PageHeader>
 
       {data.completedSession ? (
-        <Card className="mb-4 border-[var(--vf-success-border)] bg-[var(--vf-success-soft)] p-4">
+        <Panel className="mb-4" p="md" style={{ borderColor: 'var(--vf-success-border)', backgroundColor: 'var(--vf-success-soft)' }}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <CheckCircle2 className="text-[var(--vf-success-text)]" size={18} />
+                <CheckCircle2 color="var(--vf-success-text)" size={18} />
                 <Badge color="success">Completed</Badge>
               </div>
-              <h2 className="mt-2 text-lg font-bold">{data.completedSession.title}</h2>
-              <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">
+              <Heading mt="xs" order={2} size="h4">{data.completedSession.title}</Heading>
+              <Text mt={4} size="sm" tone="dimmed">
                 {completedSetCount} of {completedSets.length} sets completed
                 {data.completedSession.completedAt
                   ? ` · ${new Date(data.completedSession.completedAt).toLocaleTimeString(undefined, {
@@ -177,31 +200,31 @@ function AuthedToday() {
                       minute: '2-digit',
                     })}`
                   : ''}
-              </p>
+              </Text>
             </div>
             <Badge color="action">Next session unlocked</Badge>
           </div>
-        </Card>
+        </Panel>
       ) : null}
 
       {data.pendingDecisions.length ? (
         <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <Card className="space-y-4 p-4 vf-card-hover">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <Panel className="space-y-4 vf-card-hover" p="md">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                {data.completedSession ? <span className="vf-chip" data-active="true">Next session</span> : <span className="vf-chip" data-active="true">Ready</span>}
+                <Badge color="action" variant="filled">{data.completedSession ? 'Next session' : 'Ready'}</Badge>
                 <Badge color={data.plannedSession.hardness === 'Hard' ? 'danger' : 'warning'}>
                   {data.plannedSession.hardness}
                 </Badge>
               </div>
-              <h2 className="mt-2 text-xl font-extrabold">{data.plannedSession.title}</h2>
-              <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">
+              <Heading mt="xs" order={2} size="h3" lh={1.15}>{data.plannedSession.title}</Heading>
+              <Text mt={4} size="sm" tone="dimmed">
                 {data.plannedSession.movements.length} movements · {data.plannedSession.estimatedMinutes} min
-              </p>
+              </Text>
             </div>
             <Button className="w-full sm:w-auto" disabled={startMutation.isPending} onClick={() => startMutation.mutate()}>
               <Play size={16} />
@@ -210,60 +233,55 @@ function AuthedToday() {
           </div>
 
           {main ? (
-            <div className="rounded-lg border border-[var(--vf-action-border)] bg-[var(--vf-action-soft)] p-3">
+            <Panel surface="inset" p="sm" style={{ borderColor: 'var(--vf-action-border)', backgroundColor: 'var(--vf-action-soft)' }}>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <span className="vf-chip" data-active="true"><Dumbbell size={12} /> Main lift</span>
-                  <h3 className="mt-2 truncate text-base font-extrabold md:text-lg">{main.movementName}</h3>
-                  <p className="text-sm text-[var(--mantine-color-dimmed)]">{main.targetSummary}</p>
+                  <Badge color="action"><Dumbbell size={12} /> Main lift</Badge>
+                  <Heading mt="xs" order={3} size="h4" lh={1.15} className="truncate">{main.movementName}</Heading>
+                  <Text size="sm" tone="dimmed">{main.targetSummary}</Text>
                 </div>
-                <ArrowRight className="text-[var(--mantine-color-dimmed)]" size={18} />
+                <ArrowRight color="var(--mantine-color-dimmed)" size={18} />
               </div>
-              <p className="mt-3 text-xs text-[var(--mantine-color-dimmed)]">{main.previous?.label}</p>
-            </div>
+              {main.previous?.label ? <Caption mt="sm">{main.previous.label}</Caption> : null}
+            </Panel>
           ) : null}
 
           <div>
-            <h3 className="vf-section-label mb-1.5">Accessories</h3>
+            <SectionLabel className="mb-1.5">Accessories</SectionLabel>
             <div className="grid gap-2">
             {accessories.map((movement) => (
-              <div key={movement.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+              <Panel key={movement.id} surface="inset" p="sm" className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold">{movement.movementName}</p>
-                  <p className="text-xs text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
+                  <Text fw={700} truncate>{movement.movementName}</Text>
+                  <Caption>{movement.targetSummary}</Caption>
                   {movement.previous?.label ? (
-                    <p className="mt-0.5 text-[10px] text-[var(--mantine-color-dimmed)]">{movement.previous.label}</p>
+                    <Caption mt={2} size="0.625rem">{movement.previous.label}</Caption>
                   ) : null}
                 </div>
                 <Badge>{movement.role}</Badge>
-              </div>
+              </Panel>
             ))}
             </div>
           </div>
-        </Card>
+        </Panel>
 
-        <div className="space-y-4">
-          <Card>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+          <StatCard label="Planned sets" value={plannedSetCount} icon={<ListChecks size={15} />} />
+          <StatCard label="Movements" value={data.plannedSession.movements.length} icon={<Layers3 size={15} />} />
+          <Panel p="sm">
             <div className="flex items-center gap-2">
-              <CalendarDays size={14} className="text-[var(--vf-action-text)]" />
-              <h2 className="vf-section-label">Up next</h2>
+              <CalendarDays size={14} color="var(--vf-action-text)" />
+              <SectionLabel>Up next</SectionLabel>
             </div>
-            <p className="mt-2 text-sm leading-snug text-[var(--mantine-color-dimmed)]">
+            <Text mt="xs" size="sm" lh={1.35} tone="dimmed">
               {data.completedSession
                 ? `${data.plannedSession.title} is queued next. Review any progression decisions before starting if needed.`
                 : 'Finish today\'s session to unlock reviewable progression recommendations.'}
-            </p>
-          </Card>
-          <Card>
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="vf-section-label">Program</h2>
-              <Badge color="action">{data.activeProgram.title}</Badge>
-            </div>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--vf-surface-inset)]">
-              <div className="h-full w-2/3 rounded-full bg-[var(--mantine-primary-color-filled)]" />
-            </div>
-            <p className="mt-2 text-[10px] text-[var(--mantine-color-dimmed)]">Today&apos;s work is queued from {data.plannedSession.weekLabel}.</p>
-          </Card>
+            </Text>
+          </Panel>
+          <ProgramProgressPanel overview={overviewQuery.data} fallbackWeekLabel={data.plannedSession.weekLabel} />
+          <WeeklyVolumePanel history={historyQuery.data} />
+          <BodyLoadPanel history={historyQuery.data} />
         </div>
       </div>
       <PendingProgressionReviewModal
@@ -275,6 +293,141 @@ function AuthedToday() {
       />
     </Page>
   )
+}
+
+function ProgramProgressPanel({
+  overview,
+  fallbackWeekLabel,
+}: {
+  overview?: ProgramOverview
+  fallbackWeekLabel?: string
+}) {
+  const progress = overview?.position?.progressPercent ?? null
+  return (
+    <Panel p="sm">
+      <div className="flex items-center justify-between gap-3">
+        <SectionLabel>Program</SectionLabel>
+        <Badge color="action">{overview?.activeProgram?.title ?? 'Active'}</Badge>
+      </div>
+      <ProgressBar value={progress ?? 0} className="mt-3" />
+      <Caption mt="xs">
+        {overview?.position
+          ? `${overview.position.weekLabel} · ${overview.position.phaseLabel}`
+          : fallbackWeekLabel
+            ? `Queued from ${fallbackWeekLabel}.`
+            : 'Program position loads with your dashboard.'}
+      </Caption>
+    </Panel>
+  )
+}
+
+function WeeklyVolumePanel({ history }: { history?: HistoryDashboard }) {
+  const weeks = history?.weeklyVolume.slice(-5) ?? []
+  return (
+    <Panel p="sm">
+      <div className="flex items-center justify-between gap-3">
+        <SectionLabel>Weekly volume</SectionLabel>
+        <Badge>{weeks.length ? `${weeks.length} wk` : 'No data'}</Badge>
+      </div>
+      {weeks.length ? (
+        <MiniBars
+          className="mt-3"
+          values={weeks.map((week) => week.volume)}
+          labels={weeks.map((week) => week.weekLabel)}
+          units={history?.overview.units}
+        />
+      ) : (
+        <Caption mt="xs">Complete sessions to build a volume trend.</Caption>
+      )}
+    </Panel>
+  )
+}
+
+function BodyLoadPanel({ history }: { history?: HistoryDashboard }) {
+  const regions = history?.bodyLoad.topRegions.slice(0, 3) ?? []
+  return (
+    <Panel p="sm">
+      <div className="flex items-center justify-between gap-3">
+        <SectionLabel>Body load</SectionLabel>
+        <Badge>{history?.bodyLoad.windowDays ?? 0} days</Badge>
+      </div>
+      <div className="mt-3 grid gap-2">
+        {regions.length ? regions.map((region) => (
+          <div key={region.regionId} className="grid grid-cols-[minmax(0,1fr)_3rem] items-center gap-2">
+            <div className="min-w-0">
+              <Text size="xs" fw={800} truncate>{region.label}</Text>
+              <ProgressBar value={region.impactPercent} className="mt-1" />
+            </div>
+            <Text size="xs" fw={900} ta="right" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {region.impactPercent}%
+            </Text>
+          </div>
+        )) : (
+          <Caption>No recent body-load data.</Caption>
+        )}
+      </div>
+    </Panel>
+  )
+}
+
+function MiniBars({
+  values,
+  labels,
+  units,
+  className,
+}: {
+  values: number[]
+  labels: string[]
+  units?: Unit | null
+  className?: string
+}) {
+  const maxValue = Math.max(...values, 1)
+  return (
+    <div
+      className={`grid items-end gap-1 ${className ?? ''}`}
+      style={{ gridTemplateColumns: `repeat(${values.length || 1}, minmax(0, 1fr))` }}
+    >
+      {values.map((value, index) => {
+        const height = Math.max(12, Math.round((value / maxValue) * 54))
+        return (
+          <div key={`${labels[index]}-${index}`} className="min-w-0">
+            <div className="flex h-16 items-end rounded-md" style={{ backgroundColor: 'var(--vf-surface-inset)' }}>
+              <div
+                className="w-full rounded-md"
+                style={{
+                  height,
+                  backgroundColor: 'var(--mantine-primary-color-filled)',
+                }}
+                aria-label={`${labels[index]} ${formatLoad(value, units)}`}
+              />
+            </div>
+            <Caption mt={4} size="0.625rem" ta="center" truncate>{labels[index]}</Caption>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ProgressBar({ value, className }: { value: number; className?: string }) {
+  const width = `${Math.max(0, Math.min(100, value))}%`
+  return (
+    <div className={className} style={{ height: 6, overflow: 'hidden', borderRadius: 999, backgroundColor: 'var(--vf-surface-inset)' }}>
+      <div style={{ width, height: '100%', borderRadius: 999, backgroundColor: 'var(--mantine-primary-color-filled)' }} />
+    </div>
+  )
+}
+
+function countPlannedSets(session: Pick<PlannedSession, 'movements'>) {
+  return session.movements.reduce((total, movement) => total + movement.sets.length, 0)
+}
+
+function countCompletedSets(session: WorkoutSession) {
+  return session.movements.reduce((total, movement) => total + movement.sets.filter((set) => set.completed).length, 0)
+}
+
+function formatLoad(value: number, units?: Unit | null) {
+  return `${Math.round(value).toLocaleString()} ${units ?? ''}`.trim()
 }
 
 function nextIncompleteSetLabel(session: WorkoutSession) {
