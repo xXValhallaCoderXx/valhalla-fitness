@@ -18,6 +18,13 @@ This is `sheetless`, a TanStack Start/Vite React 19 + TypeScript app backed by S
 
 Where to add new code: put it in the owning domain. Promote to `src/shared/*` only when 3+ domains need it. New shared UI primitives go in `atoms`/`molecules`; domain-specific UI goes in that domain's `components/`.
 
+### Component size & ownership gates
+
+- Route files should be adapters only: route declaration, loader, params/context extraction, and rendering one domain component. If a route file grows beyond roughly 40 lines, move the behavior into the owning domain before finishing.
+- Domain page components should orchestrate data state and compose smaller components. Do not leave mixed query state, cards, lists, modals, and helper renderers in one large file.
+- When a touched component approaches roughly 250-300 lines, split it by concern before adding more behavior. Prefer `ProgramTimeline.tsx`, `ProgramLoads.tsx`, `ProgramRecentSessions.tsx`, etc. over a single `ProgramPage.tsx` with many private components.
+- Do not hide oversized route files by moving them whole into `domains/*/components`. Moving code is only the first step; split the component surface as part of the same change when the file remains large.
+
 ## Build, Test, and Development Commands
 
 - `pnpm dev` starts the local Vite/TanStack Start dev server.
@@ -42,8 +49,12 @@ Mantine is the only styling system. Use Mantine components, theme tokens, and th
 - Tailwind is for **layout only**: flex/grid, `gap`, margin/padding, sizing, position, overflow, alignment.
 - Do **not** use Tailwind/inline utilities for typography (`font-*`, `text-<size>`, leading/tracking), color, background, or border-color. An ESLint rule warns on these.
 - Replace those with atoms/molecules and Mantine props: `Text` (with `tone`/`fw`/`size`/`truncate`), `Heading`, `SectionLabel`, `StatValue`, `Caption`, `Panel`, `StatCard`, and Mantine props like `c`, `bg`, `fw`, `size`, `variant`.
-- `--vf-*` are theme tokens; consume them through components/Mantine props, never as inline `text-[var(--…)]`.
+- `--vf-*` are theme tokens; consume them through components/Mantine props, never as inline arbitrary Tailwind color classes.
 - Import shared UI from `~/components` (atoms + molecules). There are no `~/components/ui` or `~/components/workout` shims.
+- For text, labels, captions, headings, metric values, and repeated inset surfaces, start with atoms/molecules before reaching for raw Mantine or ad-hoc markup.
+- Acceptable Tailwind examples: `grid`, `flex`, `gap-3`, `mt-4`, `px-3`, `min-w-0`, `overflow-x-auto`, `items-center`, `justify-between`.
+- Unacceptable Tailwind examples in touched code: text-size utilities, arbitrary CSS-variable text/background/border utilities, `font-bold`, `leading-relaxed`, `tracking-wide`, and `vf-section-label`.
+- Before finalizing UI work, run `pnpm lint` and inspect warnings in files you touched. Existing repo warnings can remain, but new or moved warnings in touched files mean the UI cleanup is incomplete.
 
 ## Testing Guidelines
 

@@ -5,7 +5,7 @@ import { AlertTriangle, Check, Clock3, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { cn } from '~/shared/lib/cn'
-import { resolveProgressionDecisionFn } from '~/server/api'
+import { resolveProgressionDecisionFn } from '~/domains/program/server/program-functions'
 import type { ProgressionDecision } from '~/shared/types'
 
 type ProgressionDecisionResolution = 'accepted' | 'dismissed'

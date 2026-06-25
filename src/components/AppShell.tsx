@@ -1,18 +1,18 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { CalendarDays, CheckCircle2, Dumbbell, History, Layers3, ListChecks, Settings, UserCircle } from 'lucide-react'
+import { CalendarDays, Dumbbell, History, Layers3, ListChecks, Settings } from 'lucide-react'
 import type { ReactNode } from 'react'
-import type { AuthUser } from '~/domains/account/server/auth'
+import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { cn } from '~/shared/lib/cn'
 
 const navItems = [
   { to: '/today', label: 'Today', icon: CalendarDays },
   { to: '/program', label: 'Program', icon: ListChecks },
-  { to: '/history', label: 'History', icon: History },
+  { to: '/history', label: 'Insights', icon: History },
   { to: '/templates', label: 'Templates', icon: Layers3 },
   { to: '/settings', label: 'Settings', icon: Settings },
 ] as const
 
-export function AppShell({ user, children }: { user: AuthUser | null; children: ReactNode }) {
+export function AppShell({ children }: { user: AuthUser | null; children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const isNavigating = useRouterState({ select: (state) => state.isLoading })
   const isAuth = pathname.startsWith('/auth')
@@ -43,16 +43,7 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
               </Link>
             ))}
           </nav>
-          <div className="flex min-w-0 items-center justify-end gap-2 text-xs text-[var(--mantine-color-dimmed)]">
-            <span className="hidden items-center gap-1.5 rounded-md border border-[var(--vf-success-border)] bg-[var(--vf-success-soft)] px-2 py-1 font-bold text-[var(--vf-success-text)] sm:flex">
-              <CheckCircle2 size={12} />
-              Synced
-            </span>
-            <span className="flex min-w-0 items-center gap-1.5 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-2 py-1">
-              <UserCircle size={16} />
-              <span className="hidden max-w-44 truncate lg:inline">{user?.email ?? 'Guest'}</span>
-            </span>
-          </div>
+          <div aria-hidden="true" />
         </div>
         <NavigationProgress active={isNavigating} />
       </header>

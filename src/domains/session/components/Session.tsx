@@ -5,10 +5,11 @@ import { Calculator, Check, ChevronDown, History, RefreshCw, Repeat2, Timer, X }
 import { useId, useState } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { patchSetInSession, sessionCompletion, type SetPatch } from '~/domains/session/lib/session-cache'
-import { upsertSetLogFn } from '~/server/api'
+import { upsertSetLogFn } from '~/domains/session/server/session-functions'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
 
 export function SyncPill({ state }: { state?: string }) {
+    if (state !== 'saving' && state !== 'syncFailed') return null
     const label = state === 'syncFailed' ? 'Sync failed' : state === 'saving' ? 'Saving' : 'Synced'
     const tone = state === 'syncFailed' ? 'danger' : state === 'saving' ? 'warning' : 'success'
     return <Badge color={tone}>{label}</Badge>
@@ -319,13 +320,18 @@ function RirSelector({
 
 export function SessionProgress({ session, compact = false }: { session: WorkoutSession; compact?: boolean }) {
     const progress = sessionCompletion(session)
+    const completedMovements = session.movements.filter((movement) => movement.sets.every((set) => set.completed)).length
     return (
-        <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs text-[var(--mantine-color-dimmed)]">
-                <span>{compact ? 'Progress' : `${progress.completed} of ${progress.total} sets`}</span>
-                <span>{progress.percent}%</span>
+        <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-3 text-xs text-[var(--mantine-color-dimmed)]">
+                <span className="min-w-0 truncate">
+                    {compact
+                        ? `${progress.completed}/${progress.total} sets · ${completedMovements}/${session.movements.length} movements`
+                        : `${progress.completed} of ${progress.total} sets`}
+                </span>
+                <span className="shrink-0 font-bold text-[var(--mantine-color-text)]">{progress.percent}%</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-[var(--vf-surface-2)]">
+            <div className="h-2 overflow-hidden rounded-full bg-[var(--vf-surface-2)]">
                 <div className="h-full rounded-full bg-[var(--mantine-primary-color-filled)]" style={{ width: `${progress.percent}%` }} />
             </div>
         </div>

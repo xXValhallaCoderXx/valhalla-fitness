@@ -6,8 +6,8 @@ import {
   exchangeCodeForSessionFn,
   setSessionFromTokensFn,
   verifyEmailOtpFn,
-} from '~/domains/account/server/auth'
-import { authUserQueryOptions, meQueryOptions } from '~/lib/query-options'
+} from '~/domains/account/server/auth-functions'
+import { authUserQueryOptions, meQueryOptions } from '~/domains/account/queries'
 
 type CallbackInput =
   | { kind: 'code'; code: string }
