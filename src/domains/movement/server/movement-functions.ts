@@ -1,8 +1,16 @@
 import { createServerFn } from '@tanstack/react-start'
 import type { AccessoryMovementOption, Movement, MovementReplacementRule } from '~/shared/types'
 import { defaultMovementReplacementRules, movementCatalog } from '~/domains/movement/lib/movements'
-import { requireUser } from '~/shared/server/require-user'
-import { hasSupabaseEnv } from '~/shared/server/supabase'
+
+async function requireUser() {
+  const { requireUser } = await import('~/shared/server/require-user')
+  return requireUser()
+}
+
+async function hasSupabaseEnv() {
+  const { hasSupabaseEnv } = await import('~/shared/server/supabase')
+  return hasSupabaseEnv()
+}
 
 function mapMovementReplacementRule(row: any): MovementReplacementRule {
   return {
@@ -63,7 +71,7 @@ function listAccessoryMovementOptionsFromCatalog(catalog: Record<string, Movemen
 
 export const listAccessoryMovementOptionsFn = createServerFn({ method: 'GET' })
   .handler(async (): Promise<AccessoryMovementOption[]> => {
-    if (!hasSupabaseEnv()) return listAccessoryMovementOptionsFromCatalog(movementCatalog)
+    if (!(await hasSupabaseEnv())) return listAccessoryMovementOptionsFromCatalog(movementCatalog)
     const { supabase } = await requireUser()
     const catalog = await getMovementCatalogForSwap(supabase)
     return listAccessoryMovementOptionsFromCatalog(catalog)

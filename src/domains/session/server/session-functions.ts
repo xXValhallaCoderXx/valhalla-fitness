@@ -32,7 +32,11 @@ import {
   normalizeCustomizationSummary,
   updateProgramCurrentWeekIndex,
 } from '~/domains/program/server/program-functions'
-import { requireUser } from '~/shared/server/require-user'
+
+async function requireUser() {
+  const { requireUser } = await import('~/shared/server/require-user')
+  return requireUser()
+}
 
 export async function getTodayInternal(): Promise<TodayPayload> {
   let activeProgram = await getActiveProgramInternal()

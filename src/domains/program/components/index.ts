@@ -1,4 +1,9 @@
 export { ProgramPage } from './ProgramPage'
+export { CurrentLoadsCard, CustomizationCard, ProgramLoadChips } from './ProgramLoads'
+export { ProgramMobileSection } from './ProgramMobileSection'
+export { RecentProgramSessions } from './ProgramRecentSessions'
+export { ProgramSummaryGrid } from './ProgramSummaryGrid'
+export { ProgramTimeline } from './ProgramTimeline'
 export { TemplatesPage } from './TemplatesPage'
 export { TemplateStartPage } from './TemplateStartPage'
 export {

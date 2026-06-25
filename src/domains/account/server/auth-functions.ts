@@ -1,16 +1,25 @@
 import { createServerFn } from '@tanstack/react-start'
-import { getSupabaseServerClient, hasSupabaseEnv } from '~/shared/server/supabase'
 
 export type AuthUser = {
   id: string
   email: string | null
 }
 
+async function hasSupabaseEnv() {
+  const { hasSupabaseEnv } = await import('~/shared/server/supabase')
+  return hasSupabaseEnv()
+}
+
+async function getSupabaseServerClient() {
+  const { getSupabaseServerClient } = await import('~/shared/server/supabase')
+  return getSupabaseServerClient()
+}
+
 export const fetchUserFn = createServerFn({ method: 'GET' }).handler(async () => {
-  if (!hasSupabaseEnv()) return null
+  if (!(await hasSupabaseEnv())) return null
   let data
   try {
-    const supabase = getSupabaseServerClient()
+    const supabase = await getSupabaseServerClient()
     const response = await supabase.auth.getUser()
     data = response.data
   } catch {
@@ -26,7 +35,7 @@ export const fetchUserFn = createServerFn({ method: 'GET' }).handler(async () =>
 export const signInWithPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string; password: string }) => data)
   .handler(async ({ data }) => {
-    const supabase = getSupabaseServerClient()
+    const supabase = await getSupabaseServerClient()
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
@@ -37,7 +46,7 @@ export const signInWithPasswordFn = createServerFn({ method: 'POST' })
 export const signUpWithPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string; password: string }) => data)
   .handler(async ({ data }) => {
-    const supabase = getSupabaseServerClient()
+    const supabase = await getSupabaseServerClient()
     const { data: signUpData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
@@ -54,7 +63,7 @@ export const signUpWithPasswordFn = createServerFn({ method: 'POST' })
 export const sendMagicLinkFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string }) => data)
   .handler(async ({ data }) => {
-    const supabase = getSupabaseServerClient()
+    const supabase = await getSupabaseServerClient()
     const origin = process.env.APP_ORIGIN ?? 'http://localhost:3000'
     const { error } = await supabase.auth.signInWithOtp({
       email: data.email,
@@ -68,7 +77,7 @@ export const sendMagicLinkFn = createServerFn({ method: 'POST' })
 export const resetPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string }) => data)
   .handler(async ({ data }) => {
-    const supabase = getSupabaseServerClient()
+    const supabase = await getSupabaseServerClient()
     const origin = process.env.APP_ORIGIN ?? 'http://localhost:3000'
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
       redirectTo: `${origin}/auth/callback`,
@@ -79,7 +88,7 @@ export const resetPasswordFn = createServerFn({ method: 'POST' })
 export const exchangeCodeForSessionFn = createServerFn({ method: 'POST' })
   .validator((data: { code: string }) => data)
   .handler(async ({ data }) => {
-    const supabase = getSupabaseServerClient()
+    const supabase = await getSupabaseServerClient()
     const { error } = await supabase.auth.exchangeCodeForSession(data.code)
     return error ? ({ ok: false, message: error.message } as const) : ({ ok: true } as const)
   })
@@ -87,7 +96,7 @@ export const exchangeCodeForSessionFn = createServerFn({ method: 'POST' })
 export const verifyEmailOtpFn = createServerFn({ method: 'POST' })
   .validator((data: { tokenHash: string; type: string }) => data)
   .handler(async ({ data }) => {
-    const supabase = getSupabaseServerClient()
+    const supabase = await getSupabaseServerClient()
     const { error } = await supabase.auth.verifyOtp({
       token_hash: data.tokenHash,
       type: data.type,
@@ -98,7 +107,7 @@ export const verifyEmailOtpFn = createServerFn({ method: 'POST' })
 export const setSessionFromTokensFn = createServerFn({ method: 'POST' })
   .validator((data: { accessToken: string; refreshToken: string }) => data)
   .handler(async ({ data }) => {
-    const supabase = getSupabaseServerClient()
+    const supabase = await getSupabaseServerClient()
     const { error } = await supabase.auth.setSession({
       access_token: data.accessToken,
       refresh_token: data.refreshToken,
@@ -107,7 +116,7 @@ export const setSessionFromTokensFn = createServerFn({ method: 'POST' })
   })
 
 export const signOutFn = createServerFn({ method: 'POST' }).handler(async () => {
-  const supabase = getSupabaseServerClient()
+  const supabase = await getSupabaseServerClient()
   const { error } = await supabase.auth.signOut()
   return error ? ({ ok: false, message: error.message } as const) : ({ ok: true } as const)
 })

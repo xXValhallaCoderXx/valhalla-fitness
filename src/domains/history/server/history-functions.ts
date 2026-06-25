@@ -18,7 +18,11 @@ import { buildProgramOverview } from '~/domains/program/lib/program-overview'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { mapProgressionDecision } from '~/domains/program/server/program-functions'
 import { getTodayInternal } from '~/domains/session/server/session-functions'
-import { requireUser } from '~/shared/server/require-user'
+
+async function requireUser() {
+  const { requireUser } = await import('~/shared/server/require-user')
+  return requireUser()
+}
 
 export async function getHistoryInputs(
   supabase: any,

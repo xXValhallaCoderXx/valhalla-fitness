@@ -1,8 +1,16 @@
 import { createServerFn } from '@tanstack/react-start'
 import type { ProgramStateDefaults, ThemePreference, Unit, UserProfile } from '~/shared/types'
 import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
-import { requireUser } from '~/shared/server/require-user'
-import { hasSupabaseEnv } from '~/shared/server/supabase'
+
+async function requireUser() {
+  const { requireUser } = await import('~/shared/server/require-user')
+  return requireUser()
+}
+
+async function hasSupabaseEnv() {
+  const { hasSupabaseEnv } = await import('~/shared/server/supabase')
+  return hasSupabaseEnv()
+}
 
 export async function ensureProfile() {
   const { supabase, user } = await requireUser()
@@ -36,7 +44,7 @@ function normalizeNullableLoadDefault(value: unknown) {
 }
 
 export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promise<UserProfile | null> => {
-  if (!hasSupabaseEnv()) return null
+  if (!(await hasSupabaseEnv())) return null
   let profile
   try {
     profile = await ensureProfile()

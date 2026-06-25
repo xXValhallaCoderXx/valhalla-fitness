@@ -30,8 +30,21 @@ import { buildMovementSwapOptions, defaultMovementReplacementRules, getMovementN
 import { buildProgramStartPreview } from '~/domains/program/lib/program-start-preview'
 import { ensureProfile, normalizeProgramStateDefaults } from '~/domains/account/server/profile-functions'
 import { getMovementCatalogForSwap, getReplacementRulesForSwap } from '~/domains/movement/server/movement-functions'
-import { requireUser } from '~/shared/server/require-user'
-import { getSupabaseServerClient, hasSupabaseEnv } from '~/shared/server/supabase'
+
+async function requireUser() {
+  const { requireUser } = await import('~/shared/server/require-user')
+  return requireUser()
+}
+
+async function hasSupabaseEnv() {
+  const { hasSupabaseEnv } = await import('~/shared/server/supabase')
+  return hasSupabaseEnv()
+}
+
+async function getSupabaseServerClient() {
+  const { getSupabaseServerClient } = await import('~/shared/server/supabase')
+  return getSupabaseServerClient()
+}
 
 function validProgramStateValues(
   definition: TemplateDefinition,
@@ -446,8 +459,8 @@ export async function updateProgramCurrentWeekIndex(supabase: any, userId: strin
 }
 
 export const listTemplatesFn = createServerFn({ method: 'GET' }).handler(async () => {
-  if (!hasSupabaseEnv()) return templateCatalog
-  const supabase = getSupabaseServerClient()
+  if (!(await hasSupabaseEnv())) return templateCatalog
+  const supabase = await getSupabaseServerClient()
   const { data, error } = await supabase
     .from('program_templates')
     .select('*')
@@ -483,7 +496,7 @@ export const listTemplatesFn = createServerFn({ method: 'GET' }).handler(async (
 export const getProgramSetupOptionsFn = createServerFn({ method: 'GET' })
   .validator((data: { templateId: string }) => data)
   .handler(async ({ data }): Promise<ProgramSetupOptions> => {
-    if (!hasSupabaseEnv()) {
+    if (!(await hasSupabaseEnv())) {
       const template = templateCatalog.find((item) => item.id === data.templateId)
       if (!template) throw new Error('Template not found')
       return buildProgramSetupOptions({
@@ -494,7 +507,7 @@ export const getProgramSetupOptionsFn = createServerFn({ method: 'GET' })
       })
     }
 
-    const supabase = getSupabaseServerClient()
+    const supabase = await getSupabaseServerClient()
     const { data: templateRow, error: templateError } = await supabase
       .from('program_templates')
       .select('*')
