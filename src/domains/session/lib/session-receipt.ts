@@ -6,7 +6,7 @@ import type {
   Unit,
   WorkoutSession,
 } from '~/shared/types'
-import { describeSet, type SetNotation } from '~/shared/lib/set-notation'
+import { describeSet, formatWeight, type SetNotation } from '~/shared/lib/set-notation'
 
 export type ReceiptTone = 'success' | 'neutral' | 'warning'
 
@@ -69,6 +69,21 @@ export function summarizeMovementPerformance(movement: MovementSlot, units?: Uni
   return { goal, didReps, result, bestSet }
 }
 
+/**
+ * The "next time" line. When the decision carries numbers (main lifts), show the
+ * concrete current → next load; otherwise keep the qualitative cue (accessories
+ * don't get a target load from the engine).
+ */
+function describeDecisionChange(decision: ProgressionDecision, units?: Unit | string): string {
+  const { previousValue, recommendedValue } = decision
+  if (previousValue != null && recommendedValue != null) {
+    if (previousValue === recommendedValue) return `Hold at ${formatWeight(previousValue, units)}`
+    return `${formatWeight(previousValue, units)} → ${formatWeight(recommendedValue, units)}`
+  }
+  if (decision.recommendation === 'Add load next time') return 'Add a little weight next time'
+  return decision.recommendation
+}
+
 function decisionTone(decision: ProgressionDecision): ReceiptTone {
   if (decision.previousValue != null && decision.recommendedValue != null) {
     if (decision.recommendedValue > decision.previousValue) return 'success'
@@ -99,7 +114,7 @@ export function buildSessionReceipt(session: WorkoutSession, summary?: SessionSu
     entries.push({
       movementName: decision.movementName,
       learned: performance.bestSet ? `Best set ${performance.bestSet.plain}. ${decision.inputSummary}` : decision.inputSummary,
-      change: decision.recommendation,
+      change: describeDecisionChange(decision, units),
       why: decision.rationale ?? '',
       tone: decisionTone(decision),
     })

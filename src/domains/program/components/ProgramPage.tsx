@@ -6,6 +6,7 @@ import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton, Caption, Tex
 import { buildProgramTimeline } from '~/domains/program/lib/program-timeline'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
 import { CurrentLoadsCard, CustomizationCard, ProgramLoadChips } from './ProgramLoads'
+import { NextWorkoutHero } from './ProgramNextWorkout'
 import { ProgramMobileSection } from './ProgramMobileSection'
 import { RecentProgramSessions } from './ProgramRecentSessions'
 import { ProgramSummaryGrid } from './ProgramSummaryGrid'
@@ -85,6 +86,8 @@ function AuthedProgram() {
       </PageHeader>
 
       <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
+
+      <NextWorkoutHero overview={overview} timeline={timeline} />
 
       <ProgramSummaryGrid overview={overview} timeline={timeline} />
 

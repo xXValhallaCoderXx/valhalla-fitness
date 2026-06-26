@@ -41,11 +41,11 @@ export function CurrentLoadsCard({
         <div>
           <Group gap="xs">
             <SectionLabel>Current loads</SectionLabel>
-            <ProgramInfoHint label="What are current loads?">
-              Program state stores the current training maxes or working loads used to calculate planned loads. Accepted progression decisions update the relevant value for future sessions.
+            <ProgramInfoHint label="Why these weights?">
+              Each planned weight is a percentage of your training max — the strength number Sheetless bases your sessions on. It's set a little below your true max so the weights stay doable, and Sheetless nudges it up or down based on how your sessions actually go.
             </ProgramInfoHint>
           </Group>
-          <Caption mt={4}>Training maxes and working loads used for prescriptions.</Caption>
+          <Caption mt={4}>The training maxes and working loads your planned weights are based on.</Caption>
         </div>
         <Badge>{program.units}</Badge>
       </Group>
@@ -76,12 +76,13 @@ export function CustomizationCard({ program }: { program: ProgramInstance }) {
         borderColor: 'var(--vf-warning-border)',
       }}
     >
-      <SectionLabel tone="warning">Customized from default</SectionLabel>
+      <SectionLabel tone="warning">Tailored to you</SectionLabel>
       <Text mt={4} size="sm">
-        This programme changes {program.customizationSummary.movementOverrideCount} movement slot
-        {program.customizationSummary.movementOverrideCount === 1 ? '' : 's'} and adds{' '}
-        {program.customizationSummary.accessoryAdditionCount} accessory slot
-        {program.customizationSummary.accessoryAdditionCount === 1 ? '' : 's'} from the original template.
+        You&apos;ve tweaked this plan: {program.customizationSummary.movementOverrideCount} exercise
+        {program.customizationSummary.movementOverrideCount === 1 ? '' : 's'} swapped and{' '}
+        {program.customizationSummary.accessoryAdditionCount} extra{' '}
+        {program.customizationSummary.accessoryAdditionCount === 1 ? 'accessory' : 'accessories'} added to the original.
+        Your loads and progress carry on as normal.
       </Text>
     </Card>
   )

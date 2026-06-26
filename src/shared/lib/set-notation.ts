@@ -47,7 +47,7 @@ export function describeLift(values: LiftValues): SetNotation {
   const { load, reps, repsLabel, rir, units, amrap } = values
   const hasRir = typeof rir === 'number' && Number.isFinite(rir)
 
-  const loadText = load == null ? '—' : formatWeight(load, units)!
+  const loadText = load == null || load === 0 ? 'Bodyweight' : formatWeight(load, units)!
   const repsCore = repsLabel ?? (reps == null ? null : String(reps))
   const repsText = repsCore == null ? '—' : `${repsCore}${amrap ? '+' : ''}`
 

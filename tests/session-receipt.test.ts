@@ -63,9 +63,30 @@ describe('buildSessionReceipt', () => {
       recommendedValue: 195,
     }
     const [entry] = buildSessionReceipt(session([main]), summaryWith([decision]))
-    expect(entry.change).toBe('Move TM from 190 to 195.')
+    expect(entry.change).toBe('190 kg → 195 kg')
     expect(entry.why).toContain('progresses the lift')
     expect(entry.tone).toBe('success')
+  })
+
+  it('keeps the accessory cue qualitative when the engine gives no target load', () => {
+    const accessory = movement({
+      movementId: 'rope_pressdown',
+      movementName: 'Rope Pressdown',
+      role: 'accessory',
+      sets: [set({ setIndex: 1, targetReps: 15, actualReps: 15, actualRir: 2 })],
+    })
+    const decision: ProgressionDecision = {
+      id: 'd2',
+      movementId: 'rope_pressdown',
+      movementName: 'Rope Pressdown',
+      ruleId: 'accessory_double_progression',
+      scope: 'session',
+      status: 'pending',
+      inputSummary: 'Rope Pressdown completed the top of the rep range.',
+      recommendation: 'Add load next time',
+    }
+    const [entry] = buildSessionReceipt(session([accessory]), summaryWith([decision]))
+    expect(entry.change).toBe('Add a little weight next time')
   })
 
   it('reassures when a main lift comes up short with no decision', () => {

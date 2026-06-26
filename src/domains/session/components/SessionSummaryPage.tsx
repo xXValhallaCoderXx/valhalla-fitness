@@ -116,7 +116,7 @@ function LoadedSummaryRoute({
             <Sparkles size={15} className="text-[var(--vf-action-text)]" />
             <SectionLabel>What changed, and why</SectionLabel>
           </div>
-          <div className="mt-3 grid gap-2.5">
+          <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {receipt.map((entry, index) => (
               <ReceiptRow key={`${entry.movementName}-${index}`} entry={entry} />
             ))}

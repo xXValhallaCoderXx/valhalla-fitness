@@ -20,6 +20,11 @@ describe('set notation', () => {
     expect(describeLift({ load: 100, reps: 5, rir: 0, units: 'kg' }).plain).toBe('100 kg × 5 reps · max effort')
   })
 
+  it('shows "Bodyweight" instead of 0 kg when no load is logged', () => {
+    expect(describeLift({ load: 0, reps: 15, rir: 2, units: 'kg' }).plain).toBe('Bodyweight × 15 reps · ~2 left')
+    expect(describeLift({ load: null, reps: 10, units: 'kg' }).plain).toBe('Bodyweight × 10 reps')
+  })
+
   it('omits the reps-left clause when no RIR is logged', () => {
     const notation = describeLift({ load: 100, reps: 5, units: 'kg' })
     expect(notation.plain).toBe('100 kg × 5 reps')

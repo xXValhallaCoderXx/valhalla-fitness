@@ -32,7 +32,7 @@ Plans → *Which plan should I choose?* · Session Summary → *What happened, a
 | 3 | Workout-logging clarity (RIR prompt, supportive copy, target-vs-actual) | ✅ Done |
 | 5 | Muscle Fatigue cleanup (rename + tier labels) | ✅ Done |
 | — | Surface renames (nav + labels) | ✅ Done |
-| **4** | **Your Plan (Program) page** | ⛔ Remaining |
+| 4 | Your Plan (Program) page | ✅ Done |
 | **6** | **Plan recommendation flow ("Find my plan")** | ⛔ Remaining |
 | **7** | **Settings & onboarding** | ⛔ Remaining |
 | — | Brand-term explainers (cross-cutting) | ⛔ Remaining |
@@ -52,7 +52,7 @@ Sprints are a vertical-slice numbering; Milestone 1 cut across 1/2/3/5 + renames
 | RIR | Pair | ✅ "~N left" + quiet `RIR N` |
 | e1RM | Pair | ✅ "estimated max" + `e1RM` |
 | AMRAP / `+` | Pair | ✅ "N or more" / `+` retained |
-| training max | Pair | ⚠️ Partial — still `TM` in places (Sprint 4) |
+| training max | Keep + explain | ✅ Kept the label; explained via "Why these weights?" on the Plan page (the separate "Working load" state made "working max" too confusing) |
 | top set | Pair | ✅ "best set" in summary; other sites later |
 | Wave, Base/Peak, Accessory, Variation | Keep + explain | ⛔ Explainers not built yet |
 | Records | Keep (low-pri) | — |
@@ -108,19 +108,20 @@ Key changed/added files:
 
 ---
 
-## ⛔ Remaining work
+## ✅ Completed in Sprint 4 — Your Plan (Program) page
 
-### Sprint 4 — Your Plan (Program) page
-*Question to answer: "Where am I, and what's next?"*
-- Make a **"Next workout"** card the dominant element (reuse `ProgramOverview.nextSession`).
-- Add **"Why these weights?"** — explain working loads in plain terms (reuse `ProgramOverview.stateValues`
-  for working max + `MovementSlot.previous` comparable; the new `rationale` pattern is the model).
-- Explain **locked weeks** as adaptive planning rather than a restriction.
-- Reword the customized-plan copy; explain the current **Wave** in plain language (one line).
-- Pair `training max` → "working max" (with quiet `TM`) on this page.
-- Files: `src/domains/program/components/ProgramPage.tsx`, `ProgramTimeline.tsx`, `ProgramLoads.tsx`
-  (`CurrentLoadsCard`, `ProgramLoadChips`, `CustomizationCard`), `ProgramSummaryGrid.tsx`,
-  `ProgramRecentSessions.tsx`.
+- **Next-workout hero** *(new `src/domains/program/components/ProgramNextWorkout.tsx`)* — full-width
+  card on top, main lift highlighted + accessories + counts + position line ("Week X of Y · phase"),
+  "Open session"/"Resume session". Wired into `ProgramPage.tsx`.
+- `ProgramSummaryGrid.tsx` — dropped the old next-session card; now a 2-col row (Current position +
+  Muscle Fatigue); Current-position info hint rewritten to explain **waves** in plain language.
+- **"Why these weights?"** plain explainer on `CurrentLoadsCard` (`ProgramLoads.tsx`); kept the
+  accurate "Training max"/"Working load" labels.
+- **Locked → "Upcoming"** in `ProgramTimeline.tsx` with a reframe hint (loads open as you go).
+- **Customization copy** reworded to "Tailored to you" (`ProgramLoads.tsx`).
+- Decisions: hero on top · plain explainer (no per-lift math) · keep "Training max" + explain.
+
+## ⛔ Remaining work
 
 ### Sprint 6 — Plan recommendation flow ("Find my plan")
 *Question to answer: "Which plan should I choose?"*
