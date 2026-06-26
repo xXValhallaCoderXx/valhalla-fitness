@@ -58,9 +58,17 @@ export function TemplateCatalogue({
       <PageHeader
         title="Choose a program"
         actions={
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-wrap sm:justify-end">
             <Badge color="neutral" variant="light">{templates.length} programs available</Badge>
-            <Button onClick={() => setShowBuilder(true)}>
+            <Button
+              className="h-8 min-h-8 px-3 sm:hidden"
+              hiddenFrom="sm"
+              onClick={() => setShowBuilder(true)}
+            >
+              <Plus size={14} />
+              Create
+            </Button>
+            <Button visibleFrom="sm" onClick={() => setShowBuilder(true)}>
               <Plus size={16} />
               Create programme
             </Button>

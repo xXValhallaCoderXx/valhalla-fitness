@@ -1,9 +1,9 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Badge, Button, Checkbox, Modal, NativeSelect, NumberInput, SegmentedControl, TextInput } from '@mantine/core'
+import { Badge, Button, Checkbox, Modal, NativeSelect, SegmentedControl, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useRouter } from '@tanstack/react-router'
 import { Calculator, Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { e1rm, mround } from '~/domains/program/lib/progression'
@@ -52,6 +52,11 @@ type KnownSetInput = {
 }
 
 const oneRepMaxKeys = ['squat_one_rep_max', 'bench_press_one_rep_max', 'deadlift_one_rep_max', 'overhead_press_one_rep_max', 'barbell_row_one_rep_max']
+const roundingOptions = [
+  { value: '1.25', label: '1.25' },
+  { value: '2.5', label: '2.5' },
+  { value: '5', label: '5' },
+]
 
 export function SettingsPage({ user }: { user: unknown }) {
   if (!user) {
@@ -239,9 +244,9 @@ function SettingsForm({ me }: { me: UserProfile }) {
         </Panel>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[11rem_minmax(0,1fr)]">
+      <div className="grid gap-3 lg:grid-cols-[10rem_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <Panel p="xs" className="flex flex-col">
+          <Panel p="xs" className="sticky top-16 flex flex-col">
             <SectionLabel className="px-2 pb-2">Settings</SectionLabel>
             {settingsSections.map((item) => {
               const Icon = item.icon
@@ -259,14 +264,14 @@ function SettingsForm({ me }: { me: UserProfile }) {
           </Panel>
         </aside>
 
-        <div className="space-y-5">
-          <section id="preferences" className="scroll-mt-24">
-            <div className="mb-2">
-              <Heading order={2} size="h5">Preferences</Heading>
-              <Caption size="0.625rem">Units and rounding are reused when you start a new programme.</Caption>
-            </div>
-            <Panel className="space-y-3" p="md">
-              <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_16rem] md:items-end">
+        <div className="space-y-4">
+          <SettingsSection
+            id="preferences"
+            title="Preferences"
+            description="Units and rounding are reused when you start a new programme."
+          >
+            <Panel className="grid gap-3" p="sm">
+              <div className="grid gap-3 lg:hidden">
                 <div>
                   <SectionLabel>Theme</SectionLabel>
                   <Caption mt={2}>{themeOptions.find((option) => option.value === themePreference)?.description}</Caption>
@@ -287,108 +292,160 @@ function SettingsForm({ me }: { me: UserProfile }) {
                     }
                   })}
                 />
+                <div className="grid grid-cols-2 gap-2">
+                  <NativeSelect
+                    label="Units"
+                    value={units}
+                    data={[
+                      { value: 'kg', label: 'kg' },
+                      { value: 'lb', label: 'lb' },
+                    ]}
+                    onChange={(event) => handleUnitsChange(event.target.value as Unit)}
+                  />
+                  <NativeSelect
+                    label="Rounding"
+                    value={String(rounding)}
+                    data={roundingOptions}
+                    onChange={(event) => setRounding(Number(event.target.value))}
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <NativeSelect
-                  label="Units"
-                  value={units}
-                  data={[
-                    { value: 'kg', label: 'kg' },
-                    { value: 'lb', label: 'lb' },
-                  ]}
-                  onChange={(event) => handleUnitsChange(event.target.value as Unit)}
-                />
-                <NumberInput
-                  label="Rounding"
-                  value={rounding}
-                  min={0.5}
-                  step={0.5}
-                  onChange={(value) => setRounding(typeof value === 'number' ? value : Number(value))}
-                />
-              </div>
-            </Panel>
-          </section>
 
-          <section id="programme-loads" className="scroll-mt-24">
-            <div className="mb-2">
-              <Heading order={2} size="h5">Strength Estimates</Heading>
-              <Caption size="0.625rem">
-                Saved estimated 1RMs are used to suggest starting values when you begin a programme.
-              </Caption>
-            </div>
-            <Panel className="space-y-4" p="md">
-              <Panel surface="inset" p="sm">
-                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="hidden gap-4 lg:grid lg:grid-cols-2 lg:items-start">
+                <div className="grid gap-2">
                   <div>
-                    <SectionLabel>Estimated 1RMs</SectionLabel>
-                    <Caption mt={4} maw="42rem" lh={1.45}>
-                      Enter a current strength estimate for each main lift. Programme-specific training maxes and
-                      working loads are derived later on the start screen.
-                    </Caption>
+                    <SectionLabel>Theme</SectionLabel>
+                    <Caption mt={2}>{themeOptions.find((option) => option.value === themePreference)?.description}</Caption>
                   </div>
-                  <Button variant="default" size="xs" onClick={() => setShowOneRepMaxCalculator(true)}>
-                    <Calculator size={14} />
-                    Calculate from known sets
-                  </Button>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {oneRepMaxKeys.map((key) => {
-                    const value = programStateDefaults[key] ?? null
-                    const label = strengthEstimateLabel(key)
-                    return (
-                      <div key={key} className="grid gap-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <SectionLabel size="0.5625rem">{label}</SectionLabel>
-                          <Badge color={hasLoadDefault(value) ? 'success' : 'warning'} size="xs">
-                            {hasLoadDefault(value) ? 'Set' : 'Unset'}
-                          </Badge>
-                        </div>
-                        <span className="relative block">
-                          <TextInput
-                            classNames={{ input: 'pr-24 text-right' }}
-                            type="number"
-                            placeholder="Unset"
-                            value={value ?? ''}
-                            onChange={(event) => updateProgramStateDefault(key, loadDefaultFromInput(event.target.value))}
-                          />
-                          <span className="pointer-events-none absolute right-14 top-1/2 -translate-y-1/2">
-                            <Caption fw={800}>
-                            {units}
-                            </Caption>
+                  <SegmentedControl
+                    value={themePreference}
+                    onChange={(value) => setThemePreference(value as ThemePreference)}
+                    data={themeOptions.map((option) => {
+                      const Icon = option.icon
+                      return {
+                        value: option.value,
+                        label: (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Icon size={14} />
+                            {option.label}
                           </span>
-                          <button
-                            type="button"
-                            aria-label={`Clear ${label}`}
-                            className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md transition"
-                            onClick={() => updateProgramStateDefault(key, null)}
-                          >
-                            <X size={14} color="var(--mantine-color-dimmed)" />
-                          </button>
-                        </span>
-                      </div>
-                    )
-                  })}
+                        ),
+                      }
+                    })}
+                  />
                 </div>
-                <Caption mt="sm" lh={1.45}>
-                  These estimates are global defaults. Active programmes keep their own load values after start, and
-                  history can still show e1RM trends from logged sets.
-                </Caption>
-              </Panel>
+                <div className="grid gap-2">
+                  <div>
+                    <SectionLabel>Load defaults</SectionLabel>
+                    <Caption mt={2}>Units and rounding for new programmes.</Caption>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <NativeSelect
+                      leftSection={<Caption fw={800}>Units</Caption>}
+                      leftSectionWidth={58}
+                      value={units}
+                      data={[
+                        { value: 'kg', label: 'kg' },
+                        { value: 'lb', label: 'lb' },
+                      ]}
+                      onChange={(event) => handleUnitsChange(event.target.value as Unit)}
+                    />
+                    <NativeSelect
+                      leftSection={<Caption fw={800}>Round</Caption>}
+                      leftSectionWidth={64}
+                      value={String(rounding)}
+                      data={roundingOptions}
+                      onChange={(event) => setRounding(Number(event.target.value))}
+                    />
+                  </div>
+                </div>
+              </div>
             </Panel>
-          </section>
+          </SettingsSection>
 
-          <section id="equipment" className="scroll-mt-24">
-            <div className="mb-2">
-              <Heading order={2} size="h5">Equipment Profile</Heading>
-              <Caption size="0.625rem">Select available equipment to filter alternatives.</Caption>
-            </div>
-            <Panel p="md">
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <SettingsSection
+            id="programme-loads"
+            title="Strength Estimates"
+            description="Saved estimated 1RMs are used to suggest starting values when you begin a programme."
+          >
+            <Panel p="sm">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <SectionLabel>Estimated 1RMs</SectionLabel>
+                  <Caption mt={3} maw="42rem" lh={1.4}>
+                    Enter a current strength estimate for each main lift. Programme-specific training maxes and
+                    working loads are derived later on the start screen.
+                  </Caption>
+                </div>
+                <Button
+                  className="sm:shrink-0"
+                  variant="default"
+                  size="xs"
+                  onClick={() => setShowOneRepMaxCalculator(true)}
+                >
+                  <Calculator size={14} />
+                  Calculate from known sets
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                {oneRepMaxKeys.map((key) => {
+                  const value = programStateDefaults[key] ?? null
+                  const label = strengthEstimateLabel(key)
+                  return (
+                    <div key={key} className="grid min-w-0 gap-1">
+                      <SectionLabel size="0.5rem" lh={1.1} truncate>
+                        {label}
+                      </SectionLabel>
+                      <span className="relative block pt-0.5">
+                        <TextInput
+                          classNames={{ input: 'pr-24 text-right' }}
+                          type="number"
+                          placeholder="Unset"
+                          value={value ?? ''}
+                          onChange={(event) => updateProgramStateDefault(key, loadDefaultFromInput(event.target.value))}
+                        />
+                        <span className="pointer-events-none absolute right-14 top-1/2 -translate-y-1/2">
+                          <Caption fw={800}>
+                            {units}
+                          </Caption>
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`Clear ${label}`}
+                          className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md transition"
+                          onClick={() => updateProgramStateDefault(key, null)}
+                        >
+                          <X size={14} color="var(--mantine-color-dimmed)" />
+                        </button>
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+              <Caption mt="sm" lh={1.4}>
+                These estimates are global defaults. Active programmes keep their own load values after start, and
+                history can still show e1RM trends from logged sets.
+              </Caption>
+            </Panel>
+          </SettingsSection>
+
+          <SettingsSection
+            id="equipment"
+            title="Equipment Profile"
+            description="Select available equipment to filter alternatives."
+          >
+            <Panel p="sm">
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
                 {equipmentOptions.map((item) => (
-                  <Panel key={item} surface="inset" px="sm" py="xs">
+                  <Panel key={item} surface="inset" className="min-w-0" px="xs" py={6}>
                     <Checkbox
+                      size="sm"
                       checked={equipmentProfile.includes(item)}
-                      label={formatEquipmentLabel(item)}
+                      label={
+                        <Text component="span" size="sm" fw={700} truncate>
+                          {formatEquipmentLabel(item)}
+                        </Text>
+                      }
                       onChange={(event) => {
                         setEquipmentProfile((current) =>
                           event.target.checked ? [...current, item] : current.filter((value) => value !== item),
@@ -399,47 +456,47 @@ function SettingsForm({ me }: { me: UserProfile }) {
                 ))}
               </div>
             </Panel>
-          </section>
+          </SettingsSection>
 
-          <section id="data-sync" className="scroll-mt-24">
-            <div className="mb-2">
-              <Heading order={2} size="h5">Data & Sync</Heading>
-              <Caption size="0.625rem">Manage training data and sync status.</Caption>
-            </div>
+          <SettingsSection
+            id="data-sync"
+            title="Data & Sync"
+            description="Manage training data and sync status."
+          >
             <Panel p={0} className="divide-y divide-[var(--mantine-color-default-border)]">
-              <div className="flex items-center justify-between gap-3 p-4">
+              <div className="flex items-center justify-between gap-3 p-3">
                 <div>
                   <Text size="sm" fw={700}>Sync Status</Text>
                   <Caption>Current browser session</Caption>
                 </div>
                 <Badge color="success">Synced</Badge>
               </div>
-              <div className="flex items-center justify-between gap-3 p-4">
+              <div className="flex items-center justify-between gap-3 p-3">
                 <div>
                   <Text size="sm" fw={700}>Export Data</Text>
                   <Caption>Export is a future module.</Caption>
                 </div>
-                <Button variant="default" disabled>Export</Button>
+                <Button variant="default" size="xs" disabled>Export</Button>
               </div>
             </Panel>
-          </section>
+          </SettingsSection>
 
-          <section id="account" className="scroll-mt-24">
-            <div className="mb-2">
-              <Heading order={2} size="h5">Account</Heading>
-              <Caption size="0.625rem">Login identity and session controls.</Caption>
-            </div>
-            <Panel className="space-y-3" p="md">
-              <label className="grid gap-1">
+          <SettingsSection
+            id="account"
+            title="Account"
+            description="Login identity and session controls."
+          >
+            <Panel className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" p="sm">
+              <label className="grid min-w-0 gap-1">
                 <SectionLabel>Email Address</SectionLabel>
                 <TextInput type="email" value={me?.email ?? ''} readOnly />
               </label>
-              <Button className="w-full sm:w-auto" color="danger" variant="light" disabled={signOutMutation.isPending} onClick={() => signOutMutation.mutate()}>
+              <Button className="mt-2 w-full sm:w-auto" color="danger" variant="light" disabled={signOutMutation.isPending} onClick={() => signOutMutation.mutate()}>
                 <LogOut size={14} />
                 {signOutMutation.isPending ? 'Signing out...' : 'Sign out'}
               </Button>
             </Panel>
-          </section>
+          </SettingsSection>
         </div>
       </div>
 
@@ -462,6 +519,28 @@ function SettingsForm({ me }: { me: UserProfile }) {
         onClose={() => setShowOneRepMaxCalculator(false)}
       />
     </Page>
+  )
+}
+
+function SettingsSection({
+  id,
+  title,
+  description,
+  children,
+}: {
+  id: string
+  title: string
+  description: string
+  children: ReactNode
+}) {
+  return (
+    <section id={id} className="scroll-mt-24">
+      <div className="mb-1.5">
+        <Heading order={2} size="h5">{title}</Heading>
+        <Caption size="0.625rem">{description}</Caption>
+      </div>
+      {children}
+    </section>
   )
 }
 
