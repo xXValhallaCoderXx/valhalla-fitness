@@ -81,14 +81,15 @@ function AuthedToday() {
     return (
       <Page>
         <EmptyState
+          centered
           title="No active program"
           action={
             <Link to="/templates">
-              <Button>Choose a program</Button>
+              <Button>Browse templates</Button>
             </Link>
           }
         >
-          Start a template to generate today&apos;s session.
+          Choose a training template to generate your daily sessions and start tracking your progress.
         </EmptyState>
       </Page>
     )

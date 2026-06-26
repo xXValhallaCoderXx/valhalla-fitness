@@ -1,5 +1,6 @@
-import { Badge } from '@mantine/core'
+import { Badge, Button } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton, Caption, Text } from '~/components'
 import { buildProgramTimeline } from '~/domains/program/lib/program-timeline'
@@ -46,7 +47,17 @@ function AuthedProgram() {
   if (!program) {
     return (
       <Page>
-        <EmptyState title="No active program">Start a template to see its timeline and current loads here.</EmptyState>
+        <EmptyState
+          centered
+          title="No active program"
+          action={
+            <Link to="/templates">
+              <Button>Browse templates</Button>
+            </Link>
+          }
+        >
+          Choose a training template to view your program timeline, progression schedule, and current training loads.
+        </EmptyState>
       </Page>
     )
   }

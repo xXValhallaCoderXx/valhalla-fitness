@@ -1,5 +1,6 @@
-import { Badge, Modal, Tabs, TextInput } from '@mantine/core'
+import { Badge, Button, Modal, Tabs, TextInput } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { Activity, BarChart3, ChevronRight, Dumbbell, History, ListChecks, Search, Trophy } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
@@ -211,10 +212,18 @@ function OverviewTab({
           </div>
         </div>
       ) : (
-        <EmptyState title="No completed sessions yet">
+        <EmptyState
+          centered
+          title="No completed sessions yet"
+          action={
+            <Link to="/templates">
+              <Button>Browse templates</Button>
+            </Link>
+          }
+        >
           {activeProgramTitle
-            ? `${activeProgramTitle} is active. Finish your first workout and training stats will appear here.`
-            : 'Finish a workout and your training stats will appear here.'}
+            ? `${activeProgramTitle} is active. Complete your first session to start building your training stats, body load, and volume trends.`
+            : 'Complete a session to start building your training history, body load, and volume trends.'}
         </EmptyState>
       )}
     </div>
