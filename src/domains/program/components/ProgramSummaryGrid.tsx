@@ -124,9 +124,9 @@ export function ProgramSummaryGrid({
       <Card p="md">
         <Group align="flex-start" justify="space-between" gap="md" wrap="nowrap">
           <div>
-            <SectionLabel>Body load</SectionLabel>
+            <SectionLabel>Muscle Fatigue</SectionLabel>
             <Heading order={3} size="h4" mt="xs">
-              {overview.bodyLoad.freshRegionCount} fresh regions
+              {topRegions.length ? `${topRegions[0].label} worked hardest` : 'All muscles fresh'}
             </Heading>
           </div>
           <Activity size={18} color="var(--vf-action-text)" />

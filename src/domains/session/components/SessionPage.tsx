@@ -74,7 +74,7 @@ function LoadedSessionRoute({
         queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
       ])
       await queryClient.fetchQuery(todayQueryOptions())
-      await router.navigate({ to: '/today' })
+      await router.navigate({ to: '/sessions/$sessionId/summary', params: { sessionId } })
     },
     onError: (error) => {
       const message = getApiErrorMessage(error, 'Unable to finish this session')
@@ -114,15 +114,15 @@ function LoadedSessionRoute({
       />
       <ConfirmDialog
         open={showFinishConfirm}
-        title="Finish with incomplete sets?"
+        title="Finish here?"
         confirmLabel="Finish anyway"
-        cancelLabel="Review sets"
+        cancelLabel="Keep going"
         isPending={finishMutation.isPending}
         onCancel={() => setShowFinishConfirm(false)}
         onConfirm={confirmFinish}
       >
-        {incompleteSetCount} set{incompleteSetCount === 1 ? '' : 's'} are still incomplete. You can finish now, but
-        progression recommendations will only use completed sets with saved reps and RIR.
+        You have {incompleteSetCount} set{incompleteSetCount === 1 ? '' : 's'} left to log. Finishing now is fine — Sheetless
+        only uses the sets you&apos;ve logged and won&apos;t make aggressive changes.
       </ConfirmDialog>
     </Page>
   )

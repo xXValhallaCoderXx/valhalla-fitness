@@ -56,10 +56,10 @@ export function TemplateCatalogue({
   return (
     <Page className="max-w-[1180px] md:px-8 lg:px-10">
       <PageHeader
-        title="Choose a program"
+        title="Choose a plan"
         actions={
           <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-wrap sm:justify-end">
-            <Badge color="neutral" variant="light">{templates.length} programs available</Badge>
+            <Badge color="neutral" variant="light">{templates.length} plans available</Badge>
             <Button
               className="h-8 min-h-8 px-3 sm:hidden"
               hiddenFrom="sm"
@@ -75,7 +75,7 @@ export function TemplateCatalogue({
           </div>
         }
       >
-        Select a structured program to start your next training cycle.
+        Select a structured plan to start your next training cycle.
       </PageHeader>
 
       {activeTemplate ? (

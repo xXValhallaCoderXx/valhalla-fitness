@@ -1,11 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Badge, Button, Card } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, CheckCircle2, Dumbbell, ListChecks, NotebookText, Trophy } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Dumbbell, ListChecks, NotebookText, Sparkles, Trophy } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { sessionQueryOptions } from '~/domains/session/queries'
 import type { MovementSlot, SessionSummary, SetLog, Unit, WorkoutSession } from '~/shared/types'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
+import { Caption, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton, SectionLabel, SetSummary, Text } from '~/components'
+import { describeSet } from '~/shared/lib/set-notation'
+import { buildSessionReceipt, summarizeMovementPerformance, type ReceiptEntry, type ReceiptTone } from '~/domains/session/lib/session-receipt'
 import { PendingProgressionReviewModal, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
 
 export function SessionSummaryPage({ sessionId, user }: { sessionId: string; user: unknown }) {
@@ -69,6 +71,7 @@ function LoadedSummaryRoute({
           .filter((movement) => movement.role === 'accessory')
           .map((movement) => `${movement.movementName}: ${movement.sets.filter((set) => set.completed).length}/${movement.sets.length} sets logged`)
   const decisionCount = pendingDecisions.length
+  const receipt = buildSessionReceipt(session, summary)
 
   return (
     <Page>
@@ -107,6 +110,20 @@ function LoadedSummaryRoute({
         <SummaryStat icon={<ArrowRight size={15} />} label="Decisions" value={decisionCount} tone={decisionCount ? 'warning' : 'neutral'} />
       </div>
 
+      {receipt.length ? (
+        <Card className="mb-4 p-4">
+          <div className="flex items-center gap-2">
+            <Sparkles size={15} className="text-[var(--vf-action-text)]" />
+            <SectionLabel>What changed, and why</SectionLabel>
+          </div>
+          <div className="mt-3 grid gap-2.5">
+            {receipt.map((entry, index) => (
+              <ReceiptRow key={`${entry.movementName}-${index}`} entry={entry} />
+            ))}
+          </div>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-4">
           {mainLift ? (
@@ -124,9 +141,11 @@ function LoadedSummaryRoute({
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 <div className="vf-inset p-3">
                   <p className="vf-section-label">Best today</p>
-                  <p className="mt-1 text-sm font-extrabold">
-                    {topSets[0] ? formatSetLog(topSets[0], session.units) : 'No top set logged'}
-                  </p>
+                  {topSets[0] ? (
+                    <SetSummary className="mt-1" {...describeSet(topSets[0], session.units)} />
+                  ) : (
+                    <p className="mt-1 text-sm font-extrabold">No top set logged</p>
+                  )}
                 </div>
                 <div className="vf-inset p-3">
                   <p className="vf-section-label">Previous comparable</p>
@@ -234,6 +253,34 @@ function SummaryStat({
   )
 }
 
+function receiptToneStyle(tone: ReceiptTone) {
+  if (tone === 'success') return { borderColor: 'var(--vf-success-border)', backgroundColor: 'var(--vf-success-soft)' }
+  if (tone === 'warning') return { borderColor: 'var(--vf-warning-border)', backgroundColor: 'var(--vf-warning-soft)' }
+  return { borderColor: 'var(--mantine-color-default-border)', backgroundColor: 'var(--vf-surface-2)' }
+}
+
+function ReceiptRow({ entry }: { entry: ReceiptEntry }) {
+  return (
+    <div className="rounded-lg border p-3" style={receiptToneStyle(entry.tone)}>
+      <Text size="sm" fw={900}>{entry.movementName}</Text>
+      <div className="mt-1.5 grid gap-1.5">
+        <ReceiptLine label="What Sheetless learned" value={entry.learned} />
+        <ReceiptLine label="Next time" value={entry.change} />
+        {entry.why ? <ReceiptLine label="Why" value={entry.why} /> : null}
+      </div>
+    </div>
+  )
+}
+
+function ReceiptLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <SectionLabel size="0.5rem">{label}</SectionLabel>
+      <Text mt={0.5} size="sm" lh={1.3}>{value}</Text>
+    </div>
+  )
+}
+
 function MovementSummaryRow({
   movement,
   units,
@@ -241,16 +288,23 @@ function MovementSummaryRow({
   movement: MovementSlot
   units: Unit
 }) {
-  const completed = movement.sets.filter((set: SetLog) => set.completed)
-  const topSet = movement.sets.find((set: SetLog) => set.isTopSet || set.isAmrap)
+  const performance = summarizeMovementPerformance(movement, units)
   return (
     <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-semibold">{movement.movementName}</p>
-          <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
+          <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">Goal: {performance.goal}</p>
         </div>
         <Badge color={movement.role === 'main' ? 'action' : 'neutral'}>{movement.role}</Badge>
+      </div>
+      <div className="mt-2 grid gap-0.5">
+        {performance.didReps.length ? (
+          <Caption fw={700}>You did: {performance.didReps.join(', ')} reps · {performance.result}</Caption>
+        ) : (
+          <Caption fw={700}>{performance.result}</Caption>
+        )}
+        {performance.bestSet ? <Caption>Best set: {performance.bestSet.compact}</Caption> : null}
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {movement.sets.map((set: SetLog) => (
@@ -262,26 +316,10 @@ function MovementSummaryRow({
                 : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)]'
             }`}
           >
-            {set.setIndex}: {formatSetLog(set, units)}
+            {set.setIndex}: {describeSet(set, units).compact}
           </span>
         ))}
       </div>
-      {topSet && completed.length ? (
-        <p className="mt-2 text-[11px] font-semibold text-[var(--mantine-color-dimmed)]">Top target: {formatSetLog(topSet, units)}</p>
-      ) : null}
     </div>
   )
-}
-
-function formatSetLog(set: SetLog, units: Unit | string) {
-  const load = set.actualLoad ?? set.targetLoad
-  const reps = set.actualReps ?? set.targetReps ?? (set.targetRepMin && set.targetRepMax ? `${set.targetRepMin}-${set.targetRepMax}` : set.targetRepMin)
-  const loadText = load == null ? '-' : `${formatNumber(load)} ${units}`
-  const repsText = reps == null ? '-' : `${reps}${set.isAmrap ? '+' : ''}`
-  const rirText = typeof set.actualRir === 'number' ? ` @ RIR ${set.actualRir}` : ''
-  return `${loadText} x ${repsText}${rirText}`
-}
-
-function formatNumber(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }

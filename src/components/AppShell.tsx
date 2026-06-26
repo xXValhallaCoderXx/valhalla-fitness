@@ -6,9 +6,9 @@ import { cn } from '~/shared/lib/cn'
 
 const navItems = [
   { to: '/today', label: 'Today', icon: CalendarDays },
-  { to: '/program', label: 'Program', icon: ListChecks },
+  { to: '/program', label: 'Your Plan', icon: ListChecks },
   { to: '/history', label: 'Insights', icon: History },
-  { to: '/templates', label: 'Templates', icon: Layers3 },
+  { to: '/templates', label: 'Plans', icon: Layers3 },
   { to: '/settings', label: 'Settings', icon: Settings },
 ] as const
 

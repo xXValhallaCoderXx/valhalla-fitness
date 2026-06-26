@@ -85,7 +85,7 @@ function AuthedToday() {
           title="No active program"
           action={
             <Link to="/templates">
-              <Button>Browse templates</Button>
+              <Button>Browse plans</Button>
             </Link>
           }
         >
@@ -349,7 +349,7 @@ function BodyLoadPanel({ history }: { history?: HistoryDashboard }) {
   return (
     <Panel p="sm">
       <div className="flex items-center justify-between gap-3">
-        <SectionLabel>Body load</SectionLabel>
+        <SectionLabel>Muscle Fatigue</SectionLabel>
         <Badge>{history?.bodyLoad.windowDays ?? 0} days</Badge>
       </div>
       <div className="mt-3 grid gap-2">
@@ -364,7 +364,7 @@ function BodyLoadPanel({ history }: { history?: HistoryDashboard }) {
             </Text>
           </div>
         )) : (
-          <Caption>No recent body-load data.</Caption>
+          <Caption>No recent muscle fatigue data.</Caption>
         )}
       </div>
     </Panel>

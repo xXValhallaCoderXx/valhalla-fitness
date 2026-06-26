@@ -52,7 +52,7 @@ function AuthedProgram() {
           title="No active program"
           action={
             <Link to="/templates">
-              <Button>Browse templates</Button>
+              <Button>Browse plans</Button>
             </Link>
           }
         >
@@ -68,7 +68,7 @@ function AuthedProgram() {
     <Page>
       <PageHeader
         title={program.title}
-        eyebrow="Program"
+        eyebrow="Your Plan"
         actions={
           <div className="flex flex-wrap justify-end gap-2">
             {program.customizationStatus === 'customized' ? <Badge color="warning">Customized</Badge> : null}

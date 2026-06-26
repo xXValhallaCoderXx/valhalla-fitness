@@ -6,6 +6,7 @@ import type {
   SubstitutionReason,
   WorkoutSession,
 } from '~/shared/types'
+import { describeSet } from '~/shared/lib/set-notation'
 
 export const SET_GRID_CLASS = 'grid grid-cols-[1.15rem_minmax(3.75rem,1fr)_minmax(3rem,0.75fr)_minmax(4.75rem,1fr)_2.25rem] sm:grid-cols-[1.25rem_minmax(4.5rem,7.75rem)_minmax(3.25rem,6.5rem)_minmax(5rem,6.5rem)_2.25rem] md:grid-cols-[1.5rem_minmax(4.75rem,1fr)_minmax(4rem,0.8fr)_minmax(5.5rem,1fr)_minmax(7.5rem,1.35fr)_2.25rem]'
 
@@ -44,12 +45,7 @@ export function formatSetTarget(set: SetLog, units?: string, includeUnit = true)
 }
 
 export function formatHistorySet(set: MovementHistorySet, units?: string) {
-  const load = set.actualLoad ?? set.targetLoad
-  const reps = set.actualReps ?? set.targetReps ?? (set.targetRepMin && set.targetRepMax ? `${set.targetRepMin}-${set.targetRepMax}` : set.targetRepMin)
-  const loadText = load == null ? '—' : `${formatNumber(load)}${units ? ` ${units}` : ''}`
-  const repsText = reps == null ? '—' : `${reps}${set.isAmrap ? '+' : ''}`
-  const rirText = typeof set.actualRir === 'number' ? ` @ RIR ${set.actualRir}` : ''
-  return `${loadText} × ${repsText}${rirText}`
+  return describeSet(set, units).compact
 }
 
 export function roundToStep(value: number, step: number) {

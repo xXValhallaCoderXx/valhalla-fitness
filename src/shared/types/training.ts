@@ -341,6 +341,8 @@ export type ProgressionDecision = {
   status: 'pending' | 'accepted' | 'dismissed' | 'superseded'
   inputSummary: string
   recommendation: string
+  /** Plain-language "why" behind the recommendation, shown in the coaching receipt. */
+  rationale?: string | null
   previousValue?: number | null
   recommendedValue?: number | null
 }

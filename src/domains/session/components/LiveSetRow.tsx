@@ -255,6 +255,13 @@ function SetValueInput({
   )
 }
 
+const RIR_OPTIONS: { value: number; label: string; hint: string }[] = [
+  { value: 0, label: '0', hint: '0 — none left, max effort' },
+  { value: 1, label: '1', hint: '1 — maybe one more rep' },
+  { value: 2, label: '2', hint: '2 — two more reps' },
+  { value: 3, label: '3+', hint: '3+ — three or more reps' },
+]
+
 function RirSegmentedControl({
   value,
   onChange,
@@ -270,12 +277,15 @@ function RirSegmentedControl({
 }) {
   return (
     <div className="flex gap-0.5">
-      {[0, 1, 2, 3, 4].map((item) => {
-        const selected = value === item
+      {RIR_OPTIONS.map((option) => {
+        // The 3+ bucket also reflects any legacy values logged above 3.
+        const selected = option.value === 3 ? (value ?? -1) >= 3 : value === option.value
         return (
           <button
-            key={item}
+            key={option.value}
             type="button"
+            title={`How many more reps could you have done? ${option.hint}`}
+            aria-label={option.hint}
             className={cn(
               'flex-1 rounded-md border py-1 text-[8px] font-extrabold transition md:text-[9px]',
               selected
@@ -286,10 +296,10 @@ function RirSegmentedControl({
             disabled={disabled}
             onClick={() => {
               onFocus()
-              onChange(item)
+              onChange(option.value)
             }}
           >
-            {item === 4 ? '4+' : item}
+            {option.label}
           </button>
         )
       })}

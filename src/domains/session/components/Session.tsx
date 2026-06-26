@@ -346,7 +346,7 @@ export function IncompleteMainWarning({ session }: { session: WorkoutSession }) 
     return (
         <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
             <X size={14} />
-            Main lift has incomplete sets. You can still finish, but review before saving.
+            Your main lift still has sets to log. You can finish whenever — Sheetless only uses what you&apos;ve logged.
         </div>
     )
 }

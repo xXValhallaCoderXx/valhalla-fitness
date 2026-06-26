@@ -145,6 +145,9 @@ export function LiveMovementCard({
         <span>RIR</span>
         <span />
       </div>
+      <p className="px-4 pb-1.5 text-[9px] leading-snug text-[var(--mantine-color-dimmed)] md:px-1">
+        <span className="font-bold text-[var(--mantine-color-text)]">RIR</span> = how many more reps you could have done. Log it after each set.
+      </p>
 
       <div className="space-y-2 px-4 pb-3 md:space-y-1.5 md:px-0 md:pb-0">
         {movement.sets.map((set) => (

@@ -8,6 +8,7 @@ import { cn } from '~/shared/lib/cn'
 import { formatCompactDate, formatFullDate, formatRelativeTime } from '~/shared/lib/dates'
 import { activeProgramQueryOptions } from '~/domains/program/queries'
 import { historyDashboardQueryOptions } from '~/domains/history/queries'
+import { bodyLoadExplanation, bodyLoadTierLabels } from '~/domains/history/lib/body-load'
 import { sessionQueryOptions } from '~/domains/session/queries'
 import type {
   BodyLoadRegion,
@@ -28,7 +29,7 @@ type HistoryTab = 'overview' | 'body-load' | 'movements' | 'records' | 'sessions
 
 const HISTORY_TABS: Array<{ value: HistoryTab; label: string; icon: ReactNode }> = [
   { value: 'overview', label: 'Overview', icon: <BarChart3 size={14} /> },
-  { value: 'body-load', label: 'Body Load', icon: <Activity size={14} /> },
+  { value: 'body-load', label: 'Muscle Fatigue', icon: <Activity size={14} /> },
   { value: 'movements', label: 'Movements', icon: <Dumbbell size={14} /> },
   { value: 'records', label: 'Records', icon: <Trophy size={14} /> },
   { value: 'sessions', label: 'Sessions', icon: <History size={14} /> },
@@ -136,7 +137,7 @@ function OverviewTab({
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         <OverviewMetric label="Sessions" value={data.overview.completedSessions} icon={<History size={15} />} />
         <OverviewMetric label="Logged sets" value={data.overview.loggedSets} icon={<ListChecks size={15} />} tone="success" />
-        <OverviewMetric label="Completed load" value={formatLoad(data.overview.completedVolume, data.overview.units)} icon={<BarChart3 size={15} />} wide />
+        <OverviewMetric label="Total weight lifted" value={formatLoad(data.overview.completedVolume, data.overview.units)} icon={<BarChart3 size={15} />} wide />
         <OverviewMetric label="Movements" value={data.overview.uniqueMovements} icon={<Dumbbell size={15} />} />
         <OverviewMetric
           label="Latest session"
@@ -176,13 +177,13 @@ function OverviewTab({
 
           <div className="space-y-4">
             <Panel p="md">
-              <SectionLabel>Top body load</SectionLabel>
+              <SectionLabel>Most worked recently</SectionLabel>
               <div className="mt-3 space-y-2">
                 {data.bodyLoad.topRegions.slice(0, 4).map((region) => (
                   <BodyRegionRow key={region.regionId} region={region} compact />
                 ))}
                 {!data.bodyLoad.topRegions.length ? (
-                  <Text size="sm" tone="dimmed">No body-load data yet.</Text>
+                  <Text size="sm" tone="dimmed">No muscle fatigue data yet.</Text>
                 ) : null}
               </div>
             </Panel>
@@ -217,13 +218,13 @@ function OverviewTab({
           title="No completed sessions yet"
           action={
             <Link to="/templates">
-              <Button>Browse templates</Button>
+              <Button>Browse plans</Button>
             </Link>
           }
         >
           {activeProgramTitle
-            ? `${activeProgramTitle} is active. Complete your first session to start building your training stats, body load, and volume trends.`
-            : 'Complete a session to start building your training history, body load, and volume trends.'}
+            ? `${activeProgramTitle} is active. Complete your first session to start building your training stats, muscle fatigue, and volume trends.`
+            : 'Complete a session to start building your training history, muscle fatigue, and volume trends.'}
         </EmptyState>
       )}
     </div>
@@ -234,13 +235,14 @@ function BodyLoadTab({ data }: { data: HistoryDashboard }) {
   return (
     <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[minmax(0,1fr)_18rem] lg:grid-cols-[minmax(0,1fr)_22rem]">
       <Panel p="md">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <SectionLabel>Body load</SectionLabel>
+            <SectionLabel>Muscle Fatigue</SectionLabel>
             <Text mt={4} size="sm" fw={900}>Last {data.bodyLoad.windowDays} days</Text>
           </div>
-          <Badge color="success">{data.bodyLoad.freshRegionCount} fresh</Badge>
+          <Badge color="success">{data.bodyLoad.freshRegionCount} of {data.bodyLoad.regions.length} fresh</Badge>
         </div>
+        <Caption mb="md">{bodyLoadExplanation}</Caption>
         <BodyLoadMap regions={data.bodyLoad.regions} />
       </Panel>
 
@@ -481,7 +483,7 @@ function BodyLoadMap({ regions }: { regions: BodyLoadRegion[] }) {
       <svg
         viewBox="0 0 300 420"
         role="img"
-        aria-label="Body load map"
+        aria-label="Muscle fatigue map"
         className="vf-body-load-map"
       >
         <g stroke="var(--mantine-color-default-border)" strokeWidth="3">
@@ -520,9 +522,14 @@ function BodyRegionRow({ region, compact = false }: { region: BodyLoadRegion; co
             </Caption>
           ) : null}
         </div>
-        <StatValue size="sm" tone={toneForTier(region.tier)} ta="right">
-          {region.impactPercent}%
-        </StatValue>
+        <div className="text-right">
+          <StatValue size="sm" tone={toneForTier(region.tier)}>
+            {region.impactPercent}%
+          </StatValue>
+          <Caption size="0.625rem" fw={800} tone={toneForTier(region.tier)}>
+            {bodyLoadTierLabels[region.tier]}
+          </Caption>
+        </div>
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-full" style={{ backgroundColor: 'var(--vf-surface-inset)' }}>
         <div
@@ -938,9 +945,9 @@ function formatBestSet(set: HistoryBestSet) {
 }
 
 function formatBestSetPrimary(set: HistoryBestSet) {
-  const load = set.load == null ? 'bodyweight' : `${formatNumber(set.load)} ${set.units ?? ''}`.trim()
+  const load = set.load == null ? 'Bodyweight' : `${formatNumber(set.load)} ${set.units ?? ''}`.trim()
   const reps = `${set.reps ?? '-'}${set.type === 'amrap' ? '+' : ''}`
-  return `${load} x ${reps}`
+  return `${load} × ${reps} reps`
 }
 
 function formatLoad(value?: number | null, units?: Unit | null) {
