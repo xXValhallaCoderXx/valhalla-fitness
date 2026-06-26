@@ -2,7 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Badge, Button, Checkbox, Modal, NativeSelect, SegmentedControl, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useRouter } from '@tanstack/react-router'
-import { Calculator, Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User, X } from 'lucide-react'
+import { ArrowRight, Calculator, Check, Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { getMovementName } from '~/domains/movement/lib/movements'
@@ -175,15 +175,49 @@ function SettingsForm({ me }: { me: UserProfile }) {
   )
   const hasCalculatedOneRepMax = hasLoadDefault(calculatedOneRepMax)
 
+  const liftOptions = useMemo(() => buildLiftOptions(programStateDefaults, units), [programStateDefaults, units])
+  const setOneRepMaxCount = useMemo(
+    () => oneRepMaxKeys.filter((key) => hasLoadDefault(programStateDefaults[key] ?? null)).length,
+    [programStateDefaults],
+  )
+  const nextUnsetOneRepMaxKey = useMemo(
+    () => nextUnsetKey(programStateDefaults, selectedOneRepMaxKey),
+    [programStateDefaults, selectedOneRepMaxKey],
+  )
+
+  const resetKnownSetInput = () => setKnownSetInput({ weight: '', reps: '', rir: '0' })
+
+  const openOneRepMaxCalculator = () => {
+    setSelectedOneRepMaxKey(firstUnsetKey(programStateDefaults) ?? oneRepMaxKeys[0]!)
+    resetKnownSetInput()
+    setShowOneRepMaxCalculator(true)
+  }
+
+  const handleSelectedKeyChange = (key: string) => {
+    setSelectedOneRepMaxKey(key)
+    resetKnownSetInput()
+  }
+
   const applyCalculatedOneRepMax = () => {
     if (!hasLoadDefault(calculatedOneRepMax)) return
-    setProgramStateDefaults((current) => {
-      return {
-        ...current,
-        [selectedOneRepMaxKey]: calculatedOneRepMax,
-      }
-    })
+    setProgramStateDefaults((current) => ({
+      ...current,
+      [selectedOneRepMaxKey]: calculatedOneRepMax,
+    }))
     setShowOneRepMaxCalculator(false)
+  }
+
+  const applyCalculatedOneRepMaxAndNext = () => {
+    if (!hasLoadDefault(calculatedOneRepMax)) return
+    const updated = { ...programStateDefaults, [selectedOneRepMaxKey]: calculatedOneRepMax }
+    setProgramStateDefaults(updated)
+    const target = nextUnsetKey(updated, selectedOneRepMaxKey)
+    if (target) {
+      setSelectedOneRepMaxKey(target)
+      resetKnownSetInput()
+    } else {
+      setShowOneRepMaxCalculator(false)
+    }
   }
 
   const signOutMutation = useMutation({
@@ -379,9 +413,8 @@ function SettingsForm({ me }: { me: UserProfile }) {
                 </div>
                 <Button
                   className="sm:shrink-0"
-                  variant="default"
-                  size="xs"
-                  onClick={() => setShowOneRepMaxCalculator(true)}
+                  size="sm"
+                  onClick={openOneRepMaxCalculator}
                 >
                   <Calculator size={14} />
                   Calculate from known sets
@@ -391,11 +424,17 @@ function SettingsForm({ me }: { me: UserProfile }) {
                 {oneRepMaxKeys.map((key) => {
                   const value = programStateDefaults[key] ?? null
                   const label = strengthEstimateLabel(key)
+                  const isSet = hasLoadDefault(value)
                   return (
                     <div key={key} className="grid min-w-0 gap-1">
-                      <SectionLabel size="0.5rem" lh={1.1} truncate>
-                        {label}
-                      </SectionLabel>
+                      <div className="flex min-w-0 items-center justify-between gap-1">
+                        <SectionLabel className="min-w-0" size="0.5rem" lh={1.1} truncate>
+                          {label}
+                        </SectionLabel>
+                        <Badge className="shrink-0" color={isSet ? 'success' : 'warning'}>
+                          {isSet ? 'Set' : 'Unset'}
+                        </Badge>
+                      </div>
                       <span className="relative block pt-0.5">
                         <TextInput
                           classNames={{ input: 'pr-24 text-right' }}
@@ -486,15 +525,17 @@ function SettingsForm({ me }: { me: UserProfile }) {
             title="Account"
             description="Login identity and session controls."
           >
-            <Panel className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" p="sm">
-              <label className="grid min-w-0 gap-1">
-                <SectionLabel>Email Address</SectionLabel>
-                <TextInput type="email" value={me?.email ?? ''} readOnly />
-              </label>
-              <Button className="mt-2 w-full sm:w-auto" color="danger" variant="light" disabled={signOutMutation.isPending} onClick={() => signOutMutation.mutate()}>
-                <LogOut size={14} />
-                {signOutMutation.isPending ? 'Signing out...' : 'Sign out'}
-              </Button>
+            <Panel p="sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <label className="grid min-w-0 gap-1 sm:flex-1">
+                  <SectionLabel>Email Address</SectionLabel>
+                  <TextInput type="email" value={me?.email ?? ''} readOnly />
+                </label>
+                <Button className="w-full sm:w-auto sm:shrink-0" color="danger" variant="light" disabled={signOutMutation.isPending} onClick={() => signOutMutation.mutate()}>
+                  <LogOut size={14} />
+                  {signOutMutation.isPending ? 'Signing out...' : 'Sign out'}
+                </Button>
+              </div>
             </Panel>
           </SettingsSection>
         </div>
@@ -502,20 +543,24 @@ function SettingsForm({ me }: { me: UserProfile }) {
 
       <OneRepMaxCalculatorModal
         opened={showOneRepMaxCalculator}
-        keys={oneRepMaxKeys}
         selectedKey={selectedOneRepMaxKey}
+        liftOptions={liftOptions}
         units={units}
         knownSetInput={knownSetInput}
         calculatedValue={calculatedOneRepMax}
         canApply={hasCalculatedOneRepMax}
-        onSelectedKeyChange={setSelectedOneRepMaxKey}
+        isLastUnset={nextUnsetOneRepMaxKey === null}
+        setCount={setOneRepMaxCount}
+        totalCount={oneRepMaxKeys.length}
+        onSelectedKeyChange={handleSelectedKeyChange}
         onKnownSetChange={(field, value) =>
           setKnownSetInput((current) => ({
             ...current,
             [field]: value,
           }))
         }
-        onApply={applyCalculatedOneRepMax}
+        onApplyAndClose={applyCalculatedOneRepMax}
+        onApplyAndNext={applyCalculatedOneRepMaxAndNext}
         onClose={() => setShowOneRepMaxCalculator(false)}
       />
     </Page>
@@ -546,53 +591,66 @@ function SettingsSection({
 
 function OneRepMaxCalculatorModal({
   opened,
-  keys,
   selectedKey,
+  liftOptions,
   units,
   knownSetInput,
   calculatedValue,
   canApply,
+  isLastUnset,
+  setCount,
+  totalCount,
   onSelectedKeyChange,
   onKnownSetChange,
-  onApply,
+  onApplyAndClose,
+  onApplyAndNext,
   onClose,
 }: {
   opened: boolean
-  keys: string[]
   selectedKey: string
+  liftOptions: Array<{ group: string; items: Array<{ value: string; label: string }> }>
   units: Unit
   knownSetInput: KnownSetInput
   calculatedValue: number | null
   canApply: boolean
+  isLastUnset: boolean
+  setCount: number
+  totalCount: number
   onSelectedKeyChange: (key: string) => void
   onKnownSetChange: (field: keyof KnownSetInput, value: string) => void
-  onApply: () => void
+  onApplyAndClose: () => void
+  onApplyAndNext: () => void
   onClose: () => void
 }) {
-  const selectedMovementId = selectedKey.replace(/_one_rep_max$/, '')
-  const selectedMovementName = getMovementName(selectedMovementId)
-
   return (
-    <Modal opened={opened} onClose={onClose} title="Calculate estimated 1RM" size="lg">
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title="Calculate estimated 1RM"
+      size="md"
+      classNames={{
+        inner: '!items-end sm:!items-center',
+        content: '!mb-0 !rounded-b-none sm:!rounded-lg',
+        body: '!max-h-[calc(92dvh-3.25rem)] !overflow-y-auto',
+      }}
+    >
       <div className="space-y-4">
         <div>
           <Text size="sm" fw={900}>Calculate from a known set</Text>
           <Caption mt={4} lh={1.45}>
-            Choose the lift, enter a recent hard set, then apply the estimated one-rep max to that lift.
+            Choose the lift, enter a recent hard set, then apply the estimated one-rep max to that lift. These estimates
+            suggest future programme starting values, not live values for active programmes.
           </Caption>
-          <Caption mt="xs" fw={700}>
-            These estimates help future programmes suggest starting values. They are not live values for active programmes.
-          </Caption>
+          <Text mt="xs" size="xs" fw={800} tone="action">
+            {setCount} of {totalCount} lifts set
+          </Text>
         </div>
 
         <Panel surface="inset" className="grid gap-3" p="sm">
           <NativeSelect
             label="Lift"
             value={selectedKey}
-            data={keys.map((key) => {
-                const movementId = key.replace(/_one_rep_max$/, '')
-                return { value: key, label: getMovementName(movementId) }
-              })}
+            data={liftOptions}
             onChange={(event) => onSelectedKeyChange(event.target.value)}
           />
 
@@ -626,10 +684,22 @@ function OneRepMaxCalculatorModal({
           </Panel>
         </Panel>
 
-        <div className="flex justify-end">
-          <Button disabled={!canApply} onClick={onApply}>
-            <Calculator size={14} />
-            Apply to {selectedMovementName}
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="default" disabled={!canApply} onClick={onApplyAndClose}>
+            Set &amp; close
+          </Button>
+          <Button disabled={!canApply} onClick={onApplyAndNext}>
+            {isLastUnset ? (
+              <>
+                <Check size={14} />
+                Done
+              </>
+            ) : (
+              <>
+                Set &amp; next
+                <ArrowRight size={14} />
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -654,6 +724,36 @@ function sameNumberRecord(left: ProgramStateDefaults, right: ProgramStateDefault
 
 function hasLoadDefault(value: number | null | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function buildLiftOptions(defaults: ProgramStateDefaults, units: Unit) {
+  const groups: Array<{ group: string; items: Array<{ value: string; label: string }> }> = []
+  const unset = oneRepMaxKeys.filter((key) => !hasLoadDefault(defaults[key] ?? null))
+  const set = oneRepMaxKeys.filter((key) => hasLoadDefault(defaults[key] ?? null))
+  if (unset.length) {
+    groups.push({
+      group: 'Not set yet',
+      items: unset.map((key) => ({ value: key, label: getMovementName(key.replace(/_one_rep_max$/, '')) })),
+    })
+  }
+  if (set.length) {
+    groups.push({
+      group: 'Already set',
+      items: set.map((key) => ({
+        value: key,
+        label: `${getMovementName(key.replace(/_one_rep_max$/, ''))} · ${formatLoadDefault(defaults[key]!)} ${units}`,
+      })),
+    })
+  }
+  return groups
+}
+
+function firstUnsetKey(defaults: ProgramStateDefaults) {
+  return oneRepMaxKeys.find((key) => !hasLoadDefault(defaults[key] ?? null)) ?? null
+}
+
+function nextUnsetKey(defaults: ProgramStateDefaults, excludeKey: string) {
+  return oneRepMaxKeys.find((key) => key !== excludeKey && !hasLoadDefault(defaults[key] ?? null)) ?? null
 }
 
 function loadDefaultFromInput(value: string) {
