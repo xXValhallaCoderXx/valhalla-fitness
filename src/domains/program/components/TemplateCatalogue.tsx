@@ -1,8 +1,9 @@
 import { Badge, Button, Modal, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { useRouter } from '@tanstack/react-router'
+import { useRouter, useRouterState } from '@tanstack/react-router'
 import { Plus, Search, Sparkles } from 'lucide-react'
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { track } from '~/shared/lib/analytics'
 import { Caption, EmptyState, Heading, Page, PageHeader, Panel, SectionLabel, Text } from '~/components'
 import type { ProgramTemplateSummary, TodayPayload } from '~/shared/types'
 import { CustomProgramBuilder } from './CustomProgramBuilder'
@@ -28,6 +29,20 @@ export function TemplateCatalogue({
   const [showBuilder, setShowBuilder] = useState(false)
   const [showFinder, setShowFinder] = useState(false)
   const activeTemplateId = today.activeProgram?.templateId ?? null
+
+  // Open Find-my-plan once when arriving from the onboarding checklist (`?find=1`), then strip
+  // the param so a refresh/back won't re-pop it. Done in an effect (not a state initializer)
+  // because the router search isn't reliably readable during the hydration render.
+  const findParam = useRouterState({ select: (state) => (state.location.search as { find?: boolean }).find })
+  const findHandled = useRef(false)
+  useEffect(() => {
+    if (findHandled.current || findParam !== true) return
+    findHandled.current = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from URL param to modal
+    setShowFinder(true)
+    track('onboarding_deeplink', { target: 'find-my-plan' })
+    void router.navigate({ to: '/templates', search: {}, replace: true })
+  }, [findParam, router])
 
   const filtered = useMemo(() => {
     return templates.filter((template) => {

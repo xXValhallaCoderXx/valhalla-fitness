@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRouterState } from '@tanstack/react-router'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { meQueryOptions } from '~/domains/account/queries'
 import { completeOnboardingFn } from '~/domains/account/server/profile-functions'
 import { historyDashboardQueryOptions } from '~/domains/history/queries'
 import { todayQueryOptions } from '~/domains/session/queries'
+import { track } from '~/shared/lib/analytics'
 import type { UserProfile } from '~/shared/types'
-import { buildOnboardingProgress } from './onboarding-progress'
+import { ONBOARDING_SNOOZE_MS, buildOnboardingProgress } from './onboarding-progress'
 import { GettingStartedCard } from './GettingStartedCard'
+import { ONBOARDING_SNOOZE_KEY, useOnboardingActive } from './useOnboardingActive'
 import { useOnboardingTour } from './useOnboardingTour'
 
 const AUTORUN_KEY = 'sheetless.onboardingTourAutorun'
@@ -19,11 +20,9 @@ const AUTORUN_KEY = 'sheetless.onboardingTourAutorun'
  */
 export function OnboardingPanel() {
   const queryClient = useQueryClient()
-  const meQuery = useQuery(meQueryOptions())
-  const me = meQuery.data
-  const search = useRouterState({ select: (state) => state.location.search as Record<string, unknown> })
-  const forced = search.onboarding === 'force' || search.tour === '1'
-  const active = Boolean(me) && (forced || me?.onboardingCompleted === false)
+  const me = useQuery(meQueryOptions()).data
+  const { active, forced } = useOnboardingActive()
+  const [snoozedLocally, setSnoozedLocally] = useState(false)
 
   const todayQuery = useQuery({ ...todayQueryOptions(), enabled: active })
   const historyQuery = useQuery({ ...historyDashboardQueryOptions(), enabled: active })
@@ -46,7 +45,7 @@ export function OnboardingPanel() {
     return () => window.clearTimeout(timer)
   }, [active, forced, start])
 
-  if (!active) return null
+  if (!active || snoozedLocally) return null
 
   const progress = buildOnboardingProgress({
     hasActiveProgram: Boolean(todayQuery.data?.activeProgram),
@@ -54,12 +53,29 @@ export function OnboardingPanel() {
     completedSessions: historyQuery.data?.overview.completedSessions ?? 0,
   })
 
+  // "Skip for now": hide on this device for a week without touching the server flag.
+  const handleSnooze = () => {
+    if (typeof window !== 'undefined') {
+      const until = Date.now() + ONBOARDING_SNOOZE_MS
+      window.localStorage.setItem(ONBOARDING_SNOOZE_KEY, String(until))
+      track('onboarding_snooze', { until })
+    }
+    setSnoozedLocally(true)
+  }
+
+  // "Don't show again" / "Done": complete onboarding permanently (syncs across devices).
+  const handleDismiss = () => {
+    track('onboarding_dismiss', { allDone: progress.allDone })
+    completeMutation.mutate()
+  }
+
   return (
     <GettingStartedCard
       steps={progress.steps}
       allDone={progress.allDone}
       onStartTour={start}
-      onDismiss={() => completeMutation.mutate()}
+      onSnooze={handleSnooze}
+      onDismiss={handleDismiss}
       isDismissing={completeMutation.isPending}
     />
   )

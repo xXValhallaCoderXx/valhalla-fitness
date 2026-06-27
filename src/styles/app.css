@@ -269,3 +269,13 @@ input[type="number"]::-webkit-outer-spin-button {
   border-color: var(--mantine-primary-color-filled);
   color: #fff;
 }
+
+/* Honour reduced-motion even if driver.js animation slips through (belt-and-suspenders). */
+@media (prefers-reduced-motion: reduce) {
+  .driver-popover.vf-tour,
+  .driver-overlay,
+  .driver-stage {
+    transition: none !important;
+    animation: none !important;
+  }
+}

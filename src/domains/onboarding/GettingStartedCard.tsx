@@ -1,24 +1,41 @@
 import { Button } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import { CheckCircle2, Circle, Sparkles } from 'lucide-react'
+import { track } from '~/shared/lib/analytics'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import type { OnboardingStep, OnboardingStepId } from './onboarding-progress'
 
-const STEP_LINKS: Partial<Record<OnboardingStepId, { to: string; cta: string }>> = {
-  plan: { to: '/templates', cta: 'Choose a plan' },
-  estimates: { to: '/settings', cta: 'Set estimates' },
+/** Deep-link CTA for an incomplete step. Literal `to`/`search` keeps TanStack's typed links happy. */
+function StepCta({ step }: { step: OnboardingStepId }) {
+  if (step === 'plan') {
+    return (
+      <Link to="/templates" search={{ find: true }} className="shrink-0" onClick={() => track('onboarding_checklist_cta', { step })}>
+        <Button size="xs">Choose a plan</Button>
+      </Link>
+    )
+  }
+  if (step === 'estimates') {
+    return (
+      <Link to="/settings" search={{ focus: 'estimates' }} className="shrink-0" onClick={() => track('onboarding_checklist_cta', { step })}>
+        <Button size="xs">Set estimates</Button>
+      </Link>
+    )
+  }
+  return null
 }
 
 export function GettingStartedCard({
   steps,
   allDone,
   onStartTour,
+  onSnooze,
   onDismiss,
   isDismissing,
 }: {
   steps: OnboardingStep[]
   allDone: boolean
   onStartTour: () => void
+  onSnooze: () => void
   onDismiss: () => void
   isDismissing: boolean
 }) {
@@ -39,10 +56,11 @@ export function GettingStartedCard({
       </div>
 
       <div className="mt-4 grid gap-2">
-        {steps.map((step) => {
-          const link = STEP_LINKS[step.id]
-          return (
-            <Panel key={step.id} surface="inset" p="sm" className="flex items-center justify-between gap-3">
+        {steps.map((step) => (
+          // Flex lives on a plain inner div: the same classes on the Mantine Paper (Panel)
+          // are overridden by Mantine's layer, which would stack the CTA below the text.
+          <Panel key={step.id} surface="inset" p="sm">
+            <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
                 {step.done ? (
                   <CheckCircle2 size={20} color="var(--vf-success-text)" className="mt-0.5 shrink-0" />
@@ -56,19 +74,20 @@ export function GettingStartedCard({
                   <Caption>{step.description}</Caption>
                 </div>
               </div>
-              {!step.done && link ? (
-                <Link to={link.to} className="shrink-0">
-                  <Button size="xs">{link.cta}</Button>
-                </Link>
-              ) : null}
-            </Panel>
-          )
-        })}
+              {!step.done ? <StepCta step={step.id} /> : null}
+            </div>
+          </Panel>
+        ))}
       </div>
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex justify-end gap-2">
+        {!allDone ? (
+          <Button variant="subtle" size="xs" color="neutral" onClick={onSnooze}>
+            Skip for now
+          </Button>
+        ) : null}
         <Button variant="subtle" size="xs" color="neutral" onClick={onDismiss} disabled={isDismissing}>
-          {allDone ? 'Done' : 'Dismiss'}
+          {allDone ? 'Done' : "Don't show again"}
         </Button>
       </div>
     </Panel>

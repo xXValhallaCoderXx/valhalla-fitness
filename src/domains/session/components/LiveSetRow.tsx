@@ -156,6 +156,7 @@ export function LiveSetRow({
           muted={set.completed || isFuture}
           onFocus={onSelect}
           onChange={(value) => setDraft((current) => ({ ...current, actualLoad: value }))}
+          dataTour={isSelected ? 'live-weight' : undefined}
         />
         <SetValueInput
           value={draft.actualReps}
@@ -186,10 +187,12 @@ export function LiveSetRow({
           disabled={isEditingDisabled}
           muted={set.completed || isFuture}
           onFocus={onSelect}
+          dataTour={isSelected ? 'live-rir' : undefined}
         />
 
         <button
           type="button"
+          data-tour={isSelected ? 'live-complete' : undefined}
           className={cn(
             'flex h-8 w-8 items-center justify-center justify-self-center rounded-lg border text-[11px] transition',
             set.completed
@@ -233,16 +236,19 @@ function SetValueInput({
   muted,
   onFocus,
   onChange,
+  dataTour,
 }: {
   value: number
   disabled: boolean
   muted: boolean
   onFocus: () => void
   onChange: (value: number) => void
+  dataTour?: string
 }) {
   return (
     <input
       type="number"
+      data-tour={dataTour}
       className={cn(
         'live-session-input w-full rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] py-1.5 text-center text-sm font-bold text-[var(--mantine-color-text)] outline-none transition md:px-2 md:py-1',
         muted && 'font-semibold text-[var(--mantine-color-dimmed)]',
@@ -268,15 +274,17 @@ function RirSegmentedControl({
   disabled,
   muted,
   onFocus,
+  dataTour,
 }: {
   value?: number
   onChange: (value: number) => void
   disabled: boolean
   muted: boolean
   onFocus: () => void
+  dataTour?: string
 }) {
   return (
-    <div className="flex gap-0.5">
+    <div className="flex gap-0.5" role="group" aria-label="Reps in reserve (RIR)" data-tour={dataTour}>
       {RIR_OPTIONS.map((option) => {
         // The 3+ bucket also reflects any legacy values logged above 3.
         const selected = option.value === 3 ? (value ?? -1) >= 3 : value === option.value

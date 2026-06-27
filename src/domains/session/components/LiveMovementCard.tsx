@@ -90,7 +90,7 @@ export function LiveMovementCard({
   }
 
   return (
-    <article className="overflow-hidden rounded-xl border border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-color-default)] md:border-2 md:p-4 md:shadow-[var(--vf-shadow-card)]">
+    <article data-tour="live-movement" className="overflow-hidden rounded-xl border border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-color-default)] md:border-2 md:p-4 md:shadow-[var(--vf-shadow-card)]">
       <div className="border-b border-[var(--mantine-color-default-border)] px-4 pb-3 pt-4 md:border-0 md:p-0">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2 md:justify-start md:gap-4">
           <div className="min-w-0">

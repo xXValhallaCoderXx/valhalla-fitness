@@ -159,6 +159,7 @@ function SessionContextBar({
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
+            data-tour="live-finish"
             className="rounded-lg bg-[var(--mantine-primary-color-filled)] px-2.5 py-1.5 text-[10px] font-extrabold text-white transition hover:bg-[var(--mantine-primary-color-filled-hover)] disabled:opacity-50 md:px-3 md:text-xs"
             disabled={finishDisabled}
             onClick={onFinish}

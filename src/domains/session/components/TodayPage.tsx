@@ -13,6 +13,7 @@ import type { HistoryDashboard, PlannedSession, ProgramOverview, Unit, WorkoutSe
 import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatCard, Text } from '~/components'
 import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
+import { useOnboardingActive } from '~/domains/onboarding/useOnboardingActive'
 import { SessionProgress, SyncPill } from './Session'
 
 export function TodayPage({ user }: { user: unknown }) {
@@ -36,6 +37,7 @@ export function TodayPage({ user }: { user: unknown }) {
 
 function AuthedToday() {
   const router = useRouter()
+  const { active: onboardingActive } = useOnboardingActive()
   const todayQuery = useQuery(todayQueryOptions())
   const overviewQuery = useQuery({
     ...programOverviewQueryOptions(),
@@ -82,17 +84,19 @@ function AuthedToday() {
     return (
       <Page>
         <OnboardingPanel />
-        <EmptyState
-          centered
-          title="No active program"
-          action={
-            <Link to="/templates">
-              <Button>Browse plans</Button>
-            </Link>
-          }
-        >
-          Choose a training template to generate your daily sessions and start tracking your progress.
-        </EmptyState>
+        {!onboardingActive ? (
+          <EmptyState
+            centered
+            title="No active program"
+            action={
+              <Link to="/templates">
+                <Button>Browse plans</Button>
+              </Link>
+            }
+          >
+            Choose a training template to generate your daily sessions and start tracking your progress.
+          </EmptyState>
+        ) : null}
       </Page>
     )
   }

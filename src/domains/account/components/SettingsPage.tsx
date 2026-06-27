@@ -1,16 +1,19 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Badge, Button, Checkbox, Modal, NativeSelect, SegmentedControl, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { useRouter } from '@tanstack/react-router'
+import { useRouter, useRouterState } from '@tanstack/react-router'
 import { ArrowRight, Calculator, Check, Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User, X } from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { track } from '~/shared/lib/analytics'
+import { prefersReducedMotion } from '~/shared/lib/reduced-motion'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { e1rm, mround } from '~/domains/program/lib/progression'
 import { authUserQueryOptions, meQueryOptions } from '~/domains/account/queries'
 import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
 import { signOutFn } from '~/domains/account/server/auth-functions'
 import { updateSettingsFn } from '~/domains/account/server/profile-functions'
+import { todayQueryOptions } from '~/domains/session/queries'
 import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
 import type { ProgramStateDefaults, ThemePreference, Unit, UserProfile } from '~/shared/types'
 import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, Text } from '~/components'
@@ -89,6 +92,24 @@ function AuthedSettings() {
 function SettingsForm({ me }: { me: UserProfile }) {
   const router = useRouter()
   const { start: startTour } = useOnboardingTour()
+  const activeSessionId = useQuery(todayQueryOptions()).data?.activeSession?.sessionId ?? null
+
+  // Scroll to the strength-estimates section when arriving from the onboarding checklist (`?focus=estimates`).
+  const focusParam = useRouterState({ select: (state) => (state.location.search as { focus?: string }).focus })
+  const focusHandled = useRef(false)
+  useEffect(() => {
+    if (focusHandled.current || focusParam !== 'estimates') return
+    focusHandled.current = true
+    requestAnimationFrame(() => {
+      document.getElementById('programme-loads')?.scrollIntoView({
+        behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+        block: 'start',
+      })
+    })
+    track('onboarding_deeplink', { target: 'estimates' })
+    void router.navigate({ to: '/settings', search: {}, replace: true })
+  }, [focusParam, router])
+
   const [units, setUnits] = useState<Unit>(me?.units ?? 'kg')
   const [rounding, setRounding] = useState(me?.rounding ?? 2.5)
   const [equipmentProfile, setEquipmentProfile] = useState<string[]>(me?.equipmentProfile ?? [])
@@ -525,6 +546,31 @@ function SettingsForm({ me }: { me: UserProfile }) {
                   <Caption>Replay the welcome walkthrough.</Caption>
                 </div>
                 <Button variant="default" size="xs" onClick={() => startTour()}>Replay tour</Button>
+              </div>
+              <div className="flex items-center justify-between gap-3 p-3">
+                <div>
+                  <Text size="sm" fw={700}>Workout walkthrough</Text>
+                  <Caption>
+                    {activeSessionId
+                      ? 'Replay the in-session coach-marks.'
+                      : 'Start a workout to replay the in-session coach-marks.'}
+                  </Caption>
+                </div>
+                <Button
+                  variant="default"
+                  size="xs"
+                  disabled={!activeSessionId}
+                  onClick={() => {
+                    if (!activeSessionId) return
+                    void router.navigate({
+                      to: '/sessions/$sessionId',
+                      params: { sessionId: activeSessionId },
+                      search: { tour: 'live' },
+                    })
+                  }}
+                >
+                  Replay walkthrough
+                </Button>
               </div>
             </Panel>
           </SettingsSection>
