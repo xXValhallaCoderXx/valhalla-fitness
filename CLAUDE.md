@@ -52,6 +52,15 @@ See `tests/e2e/support/auth.ts` (`login()`) and `find-my-plan.spec.ts` for examp
 - Demo login: `demo.linear@sheetless.local` / `DemoPass123!` (also `demo.wave`, `demo.power`).
   Recreate with `pnpm demo:seed`.
 
+## Onboarding state
+
+- Today-page onboarding uses the server flag `profiles.onboarding_completed`.
+- Live-session onboarding uses the separate server flag `profiles.live_onboarding_dismissed`.
+- The live walkthrough no longer auto-runs from localStorage. It is started from the optional
+  `LiveSessionOnboarding` card or replayed with `/sessions/$sessionId?tour=live` from Settings.
+- Keep `tests/e2e/live-coach-marks.spec.ts` deterministic by resetting `live_onboarding_dismissed`
+  before testing the card, dismissal, and replay paths.
+
 ## Conventions
 
 - Text/color via the design-system atoms/molecules (`Text`, `Heading`, `Caption`, `SectionLabel`,

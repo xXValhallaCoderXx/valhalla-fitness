@@ -11,8 +11,6 @@ import type { WorkoutSession } from '~/shared/types'
 import { ConfirmDialog, EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
 import { LiveSessionFrame } from './LiveSession'
 
-const LIVE_TOUR_AUTORUN_KEY = 'sheetless.liveTourAutorun'
-
 export function SessionPage({ sessionId, user }: { sessionId: string; user: unknown }) {
   const sessionQuery = useQuery({
     ...sessionQueryOptions(sessionId),
@@ -49,29 +47,20 @@ function LoadedSessionRoute({
     session.movements[0]?.id
   const [activeMovementId, setActiveMovementId] = useState(defaultOpenMovementId ?? '')
 
-  // First-workout coach-marks: auto-run once per device on a genuinely fresh session, or
-  // whenever forced via `?tour=live` (Settings replay / e2e). Capture freshness at mount so
-  // the one-shot timer isn't cancelled when `session` is replaced on each set save.
+  // Settings replay / e2e can still force the walkthrough. First-run discovery
+  // now lives in LiveSessionOnboarding, so nothing auto-runs here.
   const search = useRouterState({ select: (state) => state.location.search as Record<string, unknown> })
   const forceLiveTour = search.tour === 'live'
   const { start: startLiveTour } = useOnboardingTour(buildLiveSessionSteps, 'live')
-  const [sessionWasFresh] = useState(
-    () => !session.movements.some((movement) => movement.sets.some((set) => set.completed)),
-  )
   const liveTourRan = useRef(false)
   useEffect(() => {
-    if (liveTourRan.current || typeof window === 'undefined') return
-    if (!forceLiveTour) {
-      if (window.localStorage.getItem(LIVE_TOUR_AUTORUN_KEY)) return
-      if (!sessionWasFresh) return
-    }
+    if (!forceLiveTour || liveTourRan.current || typeof window === 'undefined') return
     liveTourRan.current = true
-    if (!forceLiveTour) window.localStorage.setItem(LIVE_TOUR_AUTORUN_KEY, '1')
     const timer = window.setTimeout(() => {
       if (document.querySelector('[data-tour="live-movement"]')) startLiveTour()
     }, 700)
     return () => window.clearTimeout(timer)
-  }, [forceLiveTour, sessionWasFresh, startLiveTour])
+  }, [forceLiveTour, startLiveTour])
 
   const sets = session.movements.flatMap((movement) => movement.sets)
   const incompleteSetCount = sets.filter((set) => !set.completed).length

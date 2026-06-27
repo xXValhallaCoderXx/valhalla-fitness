@@ -4,7 +4,7 @@
 
 This is `sheetless`, a TanStack Start/Vite React 19 + TypeScript app backed by Supabase. Code is organized **by domain**, not by file type.
 
-- `src/domains/{account,program,session,history,movement}/` — each domain owns its slice end to end:
+- `src/domains/{account,program,session,history,movement,onboarding}/` — each domain owns its slice end to end:
   - `components/` — domain UI (organisms), PascalCase files.
   - `server/` — `createServerFn` handlers + Supabase data access (kebab-case files).
   - `lib/` — pure domain logic (kebab-case files).
@@ -59,6 +59,13 @@ Mantine is the only styling system. Use Mantine components, theme tokens, and th
 ## Testing Guidelines
 
 Use Vitest with `jsdom` for unit and domain tests. Name tests `*.test.ts` and keep e2e specs under `tests/e2e/*.spec.ts`. Add tests near the changed behavior, especially for template generation, progression, history, session cache, and server APIs. Run narrow checks first, then broaden to `pnpm test`, `pnpm lint`, and `pnpm build` for shared changes.
+
+### Onboarding and walkthroughs
+
+- First-run Today onboarding is controlled by `profiles.onboarding_completed`; the live-session onboarding card is controlled separately by `profiles.live_onboarding_dismissed`.
+- The live workout walkthrough is optional. Do not auto-run it from localStorage or on fresh sessions; launch it from `LiveSessionOnboarding` or force replay with `/sessions/$sessionId?tour=live`.
+- Keep live-session onboarding non-blocking: the user must be able to ignore the card and log the workout normally.
+- Cover live walkthrough changes with Playwright. `tests/e2e/live-coach-marks.spec.ts` resets `live_onboarding_dismissed` before asserting card show, tour start, dismiss persistence, and `?tour=live` replay.
 
 ## Commit & Pull Request Guidelines
 

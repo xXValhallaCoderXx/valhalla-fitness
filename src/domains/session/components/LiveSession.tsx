@@ -7,6 +7,7 @@ import type { WorkoutSession } from '~/shared/types'
 import { SyncPill } from './Session'
 import { AddAccessoryModal } from './AddAccessoryModal'
 import { LiveMovementCard } from './LiveMovementCard'
+import { LiveSessionOnboarding } from './LiveSessionOnboarding'
 import {
   MetaPill,
   MovementNumberBadge,
@@ -71,6 +72,7 @@ export function LiveSessionFrame({
         />
 
         <main className="no-scrollbar flex-1 space-y-2.5 overflow-y-auto px-3 py-3 pb-24 md:max-h-[calc(100vh-12rem)] md:space-y-3 md:bg-[var(--vf-bg-elevated)] md:p-4 md:pb-4">
+          <LiveSessionOnboarding />
           {finishBlockedReason ? (
             <StatusPanel tone="warning">{finishBlockedReason}</StatusPanel>
           ) : null}

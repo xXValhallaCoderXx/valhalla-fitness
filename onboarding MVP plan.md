@@ -95,10 +95,10 @@ Prereqs: local Supabase up (project `sheetless`), `pnpm demo:seed` run, dev serv
 ## Iteration 2 — shipped (the former beyond-MVP backlog)
 
 - **In-session coach-marks** — `buildLiveSessionSteps()` drives a 5-step live tour (movement →
-  weight → RIR → complete → finish) over the `data-tour="live-*"` anchors. Auto-runs once per device
-  on a *fresh* session (localStorage `sheetless.liveTourAutorun`), forceable with `?tour=live`, and
-  replayable from Settings → Data & Sync ("Replay walkthrough" — navigates to the active session,
-  disabled when there's none).
+  weight → RIR → complete → finish) over the `data-tour="live-*"` anchors. It is launched from the
+  optional `LiveSessionOnboarding` card, permanently dismissed with
+  `profiles.live_onboarding_dismissed`, forceable with `?tour=live`, and replayable from Settings →
+  Data & Sync ("Replay walkthrough" — navigates to the active session, disabled when there's none).
 - **Step deep-links** — "Choose a plan" → `/templates?find=true` (auto-opens Find-my-plan); "Set
   estimates" → `/settings?focus=estimates` (scrolls to `#programme-loads` **and runs the estimates
   coach-marks** — `buildEstimatesSteps` spotlights the inputs `data-tour="settings-estimates"` then the
@@ -108,7 +108,8 @@ Prereqs: local Supabase up (project `sheetless`), `pnpm demo:seed` run, dev serv
   `useOnboardingActive()` is true; the checklist's "Choose a plan" CTA covers it.
 - **Funnel analytics** — provider-agnostic `track(event, props)` (no-op/console until
   `setAnalyticsSink` is wired). Events: `onboarding_tour_{start,step_view,complete,skip}` (`tour:
-  'app'|'live'`), `onboarding_checklist_cta`, `onboarding_{dismiss,snooze}`, `onboarding_deeplink`.
+  'app'|'live'`), `onboarding_checklist_cta`, `onboarding_{dismiss,snooze}`, `onboarding_deeplink`,
+  `live_onboarding_{start_tour,dismiss}`.
   Complete-vs-skip is read from driver.js `onDestroyStarted` + `isLastStep()`.
 - **A11y / reduced-motion** — tour `animate`/`smoothScroll` + the estimates scroll honour
   `prefersReducedMotion()`; an `@media (prefers-reduced-motion)` guard in `app.css` kills tour

@@ -40,6 +40,7 @@ export type UserProfile = {
   themePreference: ThemePreference
   programStateDefaults: ProgramStateDefaults
   onboardingCompleted: boolean
+  liveOnboardingDismissed: boolean
 }
 
 export type ProgramTemplateSummary = {

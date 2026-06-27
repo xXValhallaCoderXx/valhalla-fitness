@@ -20,6 +20,7 @@ function makeProfile(programStateDefaults: ProgramStateDefaults, units: Unit = '
     themePreference: 'system',
     programStateDefaults,
     onboardingCompleted: true,
+    liveOnboardingDismissed: true,
   }
 }
 

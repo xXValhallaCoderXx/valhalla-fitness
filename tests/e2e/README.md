@@ -46,6 +46,15 @@ Slow it down to actually follow along: `pnpm e2e --headed -- --workers=1` and ad
   form until React hydrates and enables the submit button — the auth form is
   server-rendered, so a single `fill()` can land before hydration and get reset.
 
+## Stateful profile flags
+
+- Some e2e flows mutate server-backed profile flags. Reset those flags in `beforeEach` instead of
+  relying on a freshly seeded database.
+- `live-coach-marks.spec.ts` resets `profiles.live_onboarding_dismissed` through a separate Supabase
+  client before testing the in-session onboarding card and `?tour=live` replay. Do not sign out that
+  helper client after the reset; with Supabase auth, doing so can invalidate the shared browser
+  storage state used by the test projects.
+
 ## Agent / ad-hoc screenshots
 
 Eyeball any route as the logged-in demo user:
