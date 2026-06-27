@@ -4,9 +4,8 @@ import { useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { sessionQueryOptions, todayQueryOptions } from '~/domains/session/queries'
-import { meQueryOptions } from '~/domains/account/queries'
 import { finishSessionFn } from '~/domains/session/server/session-functions'
-import { buildLiveSessionSteps } from '~/domains/onboarding/onboarding-tour'
+import { buildFocusSessionSteps, buildLiveSessionSteps } from '~/domains/onboarding/onboarding-tour'
 import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
 import type { WorkoutSession } from '~/shared/types'
 import { ConfirmDialog, EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
@@ -19,10 +18,6 @@ export function SessionPage({ sessionId, user }: { sessionId: string; user: unkn
     ...sessionQueryOptions(sessionId),
     enabled: Boolean(user),
   })
-  const meQuery = useQuery({
-    ...meQueryOptions(),
-    enabled: Boolean(user),
-  })
 
   if (!user) {
     return (
@@ -32,26 +27,18 @@ export function SessionPage({ sessionId, user }: { sessionId: string; user: unkn
     )
   }
 
-  if (sessionQuery.isPending || meQuery.isPending) return <PageSkeleton />
+  if (sessionQuery.isPending) return <PageSkeleton />
   if (sessionQuery.isError) return <PageLoadError error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
 
-  return (
-    <LoadedSessionRoute
-      sessionId={sessionId}
-      session={sessionQuery.data}
-      liveOnboardingActive={meQuery.data?.liveOnboardingDismissed === false}
-    />
-  )
+  return <LoadedSessionRoute sessionId={sessionId} session={sessionQuery.data} />
 }
 
 function LoadedSessionRoute({
   session,
   sessionId,
-  liveOnboardingActive,
 }: {
   session: WorkoutSession
   sessionId: string
-  liveOnboardingActive: boolean
 }) {
   const router = useRouter()
   const [notes, setNotes] = useState(session.notes ?? '')
@@ -66,14 +53,14 @@ function LoadedSessionRoute({
   // now lives in LiveSessionOnboarding, so nothing auto-runs here.
   const search = useRouterState({ select: (state) => state.location.search as Record<string, unknown> })
   const forceLiveTour = search.tour === 'live'
+  const forceFocusTour = search.tour === 'focus'
   // Mobile shows the single-exercise Focus view by default; Overview is the existing list.
-  // New users (live-onboarding card active) and the live walkthrough start in Overview, whose
-  // frame holds the onboarding card and the elements the tour spotlights.
-  const [mobileView, setMobileView] = useState<'focus' | 'overview'>(() =>
-    forceLiveTour || liveOnboardingActive ? 'overview' : 'focus',
-  )
+  // The live walkthrough spotlights elements in the Overview frame, so it starts there.
+  const [mobileView, setMobileView] = useState<'focus' | 'overview'>(() => (forceLiveTour ? 'overview' : 'focus'))
   const { start: startLiveTour } = useOnboardingTour(buildLiveSessionSteps, 'live')
+  const { start: startFocusTour } = useOnboardingTour(buildFocusSessionSteps, 'focus')
   const liveTourRan = useRef(false)
+  const focusTourRan = useRef(false)
   useEffect(() => {
     if (!forceLiveTour || liveTourRan.current || typeof window === 'undefined') return
     liveTourRan.current = true
@@ -82,6 +69,14 @@ function LoadedSessionRoute({
     }, 700)
     return () => window.clearTimeout(timer)
   }, [forceLiveTour, startLiveTour])
+  useEffect(() => {
+    if (!forceFocusTour || focusTourRan.current || typeof window === 'undefined') return
+    focusTourRan.current = true
+    const timer = window.setTimeout(() => {
+      if (document.querySelector('[data-tour="focus-log"]')) startFocusTour()
+    }, 700)
+    return () => window.clearTimeout(timer)
+  }, [forceFocusTour, startFocusTour])
 
   const sets = session.movements.flatMap((movement) => movement.sets)
   const incompleteSetCount = sets.filter((set) => !set.completed).length

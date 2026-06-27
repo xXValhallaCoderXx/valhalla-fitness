@@ -44,7 +44,7 @@ export function TemplateCard({
           <Heading order={2} size="h3" lh={1.15}>
             {template.name}
           </Heading>
-          <Text mt="xs" size="sm" tone="dimmed">
+          <Text mt="xs" size="sm" tone="dimmed" lineClamp={2}>
             {template.description}
           </Text>
         </div>
@@ -57,7 +57,7 @@ export function TemplateCard({
           </div>
         </Panel>
 
-        <div className="mt-auto flex flex-wrap gap-1">
+        <div className="mt-auto hidden flex-wrap gap-1 sm:flex">
           {template.tags.slice(0, 3).map((tag) => (
             <Panel key={tag} surface="inset" px={6} py={1}>
               <Caption size="0.625rem" fw={700}>

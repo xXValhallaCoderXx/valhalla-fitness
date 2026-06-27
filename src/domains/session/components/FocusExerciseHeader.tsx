@@ -21,7 +21,7 @@ export function FocusExerciseHeader({
 }) {
   const swapped = movement.performedMovementId && movement.performedMovementId !== movement.movementId
   return (
-    <div>
+    <div data-tour="focus-exercise">
       <div className="flex items-center gap-2">
         <ChevronButton dir="prev" disabled={!hasPrev} onClick={onPrev} />
         <div className="min-w-0 flex-1 text-center">

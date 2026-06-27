@@ -77,7 +77,7 @@ function AuthedProgram() {
           </div>
         }
       >
-        <Text component="span" className="block">
+        <Text component="span" className="block line-clamp-2 sm:line-clamp-none">
           {overview.position?.weekSummary ?? timeline.description}
         </Text>
         <Caption component="span" className="mt-1 block" fw={600}>

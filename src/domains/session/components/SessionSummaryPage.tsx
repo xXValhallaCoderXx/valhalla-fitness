@@ -100,7 +100,7 @@ function LoadedSummaryRoute({
             <CheckCircle2 className="mt-0.5 shrink-0" style={{ color: 'var(--vf-success-text)' }} size={20} />
             <div>
               <Text component="h2" size="sm" fw={900}>All logged work saved</Text>
-              <Caption component="p" mt={2}>Review completed work and any progression actions before heading back to Today.</Caption>
+              <Caption component="p" mt={2}>Review your work, then head back to Today.</Caption>
             </div>
           </div>
           <Link to="/today">
@@ -271,24 +271,26 @@ function receiptToneStyle(tone: ReceiptTone) {
   return { borderColor: 'var(--mantine-color-default-border)', backgroundColor: 'var(--vf-surface-2)' }
 }
 
+function receiptChangeColor(tone: ReceiptTone) {
+  if (tone === 'success') return 'var(--vf-success-text)'
+  if (tone === 'warning') return 'var(--vf-warning-text)'
+  return 'var(--mantine-color-text)'
+}
+
+// Lead with the actionable change (e.g. "87.5 kg → 90 kg") + a short why; the per-set
+// detail lives in the "Completed work" section, so the verbose "learned" line is dropped.
 function ReceiptRow({ entry }: { entry: ReceiptEntry }) {
   return (
     <div className="rounded-lg border p-3" style={receiptToneStyle(entry.tone)}>
-      <Text size="sm" fw={900}>{entry.movementName}</Text>
-      <div className="mt-1.5 grid gap-1.5">
-        <ReceiptLine label="What Sheetless learned" value={entry.learned} />
-        <ReceiptLine label="Next time" value={entry.change} />
-        {entry.why ? <ReceiptLine label="Why" value={entry.why} /> : null}
-      </div>
-    </div>
-  )
-}
-
-function ReceiptLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <SectionLabel size="0.5rem">{label}</SectionLabel>
-      <Text mt={0.5} size="sm" lh={1.3}>{value}</Text>
+      <Text size="sm" fw={700} truncate>{entry.movementName}</Text>
+      <Text mt={1} size="sm" fw={900} lh={1.25} style={{ color: receiptChangeColor(entry.tone) }}>
+        {entry.change}
+      </Text>
+      {entry.why ? (
+        <Text mt={1} size="xs" tone="dimmed" lh={1.3} className="line-clamp-2">
+          {entry.why}
+        </Text>
+      ) : null}
     </div>
   )
 }

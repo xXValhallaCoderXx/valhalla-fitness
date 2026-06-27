@@ -11,6 +11,7 @@ export function FocusStepper({
   onAdjust,
   onType,
   disabled = false,
+  dataTour,
 }: {
   label: string
   unitSuffix?: string
@@ -19,9 +20,11 @@ export function FocusStepper({
   onAdjust: (delta: number) => void
   onType: (value: number) => void
   disabled?: boolean
+  dataTour?: string
 }) {
   return (
     <div
+      data-tour={dataTour}
       className="rounded-2xl border p-3"
       style={{ borderColor: 'var(--mantine-color-default-border)', backgroundColor: 'var(--vf-surface-2)' }}
     >

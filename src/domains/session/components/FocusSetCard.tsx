@@ -91,6 +91,7 @@ export function FocusSetCard({
           onAdjust={adjustLoad}
           onType={(value) => setDraft((current) => ({ ...current, actualLoad: value }))}
           disabled={isSaving}
+          dataTour="focus-weight"
         />
         <FocusStepper
           label="Reps"
@@ -99,6 +100,7 @@ export function FocusSetCard({
           onAdjust={adjustReps}
           onType={(value) => setDraft((current) => ({ ...current, actualReps: Math.max(0, value) }))}
           disabled={isSaving}
+          dataTour="focus-reps"
         />
         <FocusRirRow
           value={effectiveActualRir}
@@ -122,6 +124,7 @@ export function FocusSetCard({
           disabled={isSaving}
           onClick={logSet}
           data-testid="focus-log-set"
+          data-tour="focus-log"
         >
           {saveFailed ? <RefreshCw size={18} /> : <Check size={18} />}
           {ctaLabel}

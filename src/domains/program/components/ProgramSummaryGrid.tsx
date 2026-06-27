@@ -40,7 +40,7 @@ export function ProgramSummaryGrid({
         <div className="mt-4 grid grid-cols-3 gap-2">
           <SummaryMetric icon={<CalendarDays size={14} />} label="Week" value={`${position?.weekNumber ?? timeline.currentWeekIndex + 1}/${timeline.totalWeeks}`} />
           <SummaryMetric icon={<ListChecks size={14} />} label="Session" value={`${position?.sessionNumber ?? timeline.currentSessionInWeek + 1}/${timeline.daysPerWeek}`} />
-          <SummaryMetric icon={<Target size={14} />} label="Progress" value={`${position?.progressPercent ?? 0}%`} />
+          <SummaryMetric icon={<Target size={14} />} label="Progress" value={`${progressValue}%`} />
         </div>
 
         <Progress value={progressValue} color="action" mt="md" size="sm" radius="xl" />

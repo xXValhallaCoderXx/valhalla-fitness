@@ -135,9 +135,6 @@ function AuthedToday() {
                 <Text mt="xs" size="sm" tone="dimmed">
                   {data.activeSession.movements.length} movements · {data.activeSession.estimatedMinutes} min
                 </Text>
-                <Caption mt="xs" fw={700}>
-                  {data.activeProgram.title} · {data.activeSession.weekLabel}
-                </Caption>
               </div>
               <Button className="w-full sm:w-auto" onClick={() => router.navigate({ to: '/sessions/$sessionId', params: { sessionId: data.activeSession!.sessionId } })}>
                 <RotateCw size={16} />

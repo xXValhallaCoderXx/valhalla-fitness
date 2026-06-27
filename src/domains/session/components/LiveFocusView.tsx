@@ -7,6 +7,7 @@ import { useAddExerciseSet } from '~/domains/session/lib/useAddExerciseSet'
 import type { WorkoutSession } from '~/shared/types'
 import { FocusComingUp } from './FocusComingUp'
 import { FocusExerciseHeader } from './FocusExerciseHeader'
+import { FocusSessionOnboarding } from './FocusSessionOnboarding'
 import { FocusSetCard } from './FocusSetCard'
 import { FocusSetProgressBar } from './FocusSetProgressBar'
 import { FocusTopBar } from './FocusTopBar'
@@ -111,6 +112,7 @@ export function LiveFocusView({
       </Box>
 
       <div className="flex-1 space-y-4 px-4 py-4">
+        <FocusSessionOnboarding />
         <FocusExerciseHeader
           movement={activeMovement}
           hasPrev={hasPrev}

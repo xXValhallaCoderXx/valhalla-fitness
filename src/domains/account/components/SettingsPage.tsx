@@ -850,7 +850,9 @@ function formatLoadDefault(value: number) {
 
 function strengthEstimateLabel(key: string) {
   const movementId = key.replace(/_one_rep_max$/, '')
-  return `${getMovementName(movementId)} estimated 1RM`
+  // Just the lift name — the "Estimated 1RMs" section header already provides the context,
+  // and the full "… estimated 1RM" truncated on mobile.
+  return getMovementName(movementId)
 }
 
 function formatEquipmentLabel(value: string) {

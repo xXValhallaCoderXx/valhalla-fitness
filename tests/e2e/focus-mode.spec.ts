@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { setLiveOnboardingDismissed } from './support/profile'
 
 /** Resume (or start) a live session from Today, hydration-safe. */
 async function enterSession(page: import('@playwright/test').Page) {
@@ -56,6 +57,24 @@ test('mobile focus mode: steppers, RIR, Overview round-trip, exercise nav', asyn
     await nextExercise.click()
     await expect(title).not.toHaveText(initial, { timeout: 5000 })
   }
+})
+
+test('mobile focus onboarding: card launches the focus tour and dismisses', async ({ page }) => {
+  test.skip(!isMobileViewport(page), 'Focus onboarding is mobile-only')
+  await setLiveOnboardingDismissed(false)
+  await enterSession(page)
+
+  const card = page.locator('[data-tour="focus-onboarding"]')
+  await expect(card).toBeVisible()
+
+  await card.getByRole('button', { name: 'Show me around' }).click()
+  await expect(page.locator('.driver-popover')).toBeVisible({ timeout: 8000 })
+  await expect(page.locator('.driver-popover-title')).toContainText('Your current lift')
+  await page.locator('.driver-popover-close-btn').click()
+  await expect(page.locator('.driver-popover')).toHaveCount(0)
+
+  await card.getByRole('button', { name: 'Dismiss' }).click()
+  await expect(card).toBeHidden({ timeout: 8000 })
 })
 
 test('desktop keeps the two-pane overview with no focus chrome', async ({ page }) => {

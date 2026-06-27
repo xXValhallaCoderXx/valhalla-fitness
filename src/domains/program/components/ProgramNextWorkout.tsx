@@ -49,7 +49,7 @@ export function NextWorkoutHero({
             <Badge color={inProgress ? 'warning' : 'action'}>{inProgress ? 'In progress' : 'Ready'}</Badge>
           </div>
           <Heading order={2} size="h3" lh={1.15}>{nextSession.title}</Heading>
-          <Text mt={4} size="sm" tone="dimmed">
+          <Text mt={4} size="sm" tone="dimmed" lineClamp={2}>
             {nextSession.movementSummary} · {formatFullDate(nextSession.scheduledDate)}
           </Text>
           <Caption mt="xs" fw={700}>{weekLine}</Caption>

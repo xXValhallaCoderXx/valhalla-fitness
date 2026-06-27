@@ -19,7 +19,7 @@ export function FocusRirRow({
         </Text>{' '}
         · could you do more?
       </Caption>
-      <div className="mt-2 grid grid-cols-4 gap-2" role="group" aria-label="Reps in reserve (RIR)">
+      <div className="mt-2 grid grid-cols-4 gap-2" role="group" aria-label="Reps in reserve (RIR)" data-tour="focus-rir">
         {RIR_OPTIONS.map((option) => {
           // The 3+ bucket also reflects any legacy values logged above 3.
           const selected = option.value === 3 ? (value ?? -1) >= 3 : value === option.value

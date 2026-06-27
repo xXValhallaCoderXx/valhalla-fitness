@@ -94,6 +94,47 @@ export function buildLiveSessionSteps(): DriveStep[] {
   ]
 }
 
+/** Spotlight a focus-mode (single-set logger) element. */
+const focusSelector = (slug: string) => `[data-tour="focus-${slug}"]`
+
+/** Coach-marks for the mobile focus logger: lift → weight → RIR → log set. */
+export function buildFocusSessionSteps(): DriveStep[] {
+  return [
+    {
+      element: focusSelector('exercise'),
+      data: { stepId: 'exercise' },
+      popover: {
+        title: 'Your current lift',
+        description: 'Move between exercises with the arrows, and tap History to see past sessions.',
+      },
+    },
+    {
+      element: focusSelector('weight'),
+      data: { stepId: 'weight' },
+      popover: {
+        title: 'Log the weight',
+        description: 'Tap − or + to adjust, or tap the number to type what you lifted.',
+      },
+    },
+    {
+      element: focusSelector('rir'),
+      data: { stepId: 'rir' },
+      popover: {
+        title: 'Rate the effort (RIR)',
+        description: 'How many reps you had left — Sheetless uses it to set up your next session.',
+      },
+    },
+    {
+      element: focusSelector('log'),
+      data: { stepId: 'log' },
+      popover: {
+        title: 'Log the set',
+        description: 'Save it and jump to the next set automatically.',
+      },
+    },
+  ]
+}
+
 /** Spotlight a Settings element. */
 const settingsSelector = (slug: string) => `[data-tour="settings-${slug}"]`
 
