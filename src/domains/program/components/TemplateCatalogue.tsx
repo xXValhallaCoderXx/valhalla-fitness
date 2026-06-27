@@ -10,7 +10,7 @@ import { CustomProgramBuilder } from './CustomProgramBuilder'
 import { FindMyPlanModal } from './FindMyPlanModal'
 import { TemplateCard, TemplateGrid } from './TemplateCard'
 
-const templateFilters = ['All', 'Custom', 'Linear', 'Training max', 'Wave', 'Volume', 'Peak', 'High volume']
+const templateFilters = ['All', 'Custom', 'Linear', '5x5', 'Training max', 'Wave', 'Volume', 'Peak', 'High volume', 'Powerbuilding', 'Hypertrophy']
 
 // Surface the most approachable plans first.
 const COMPLEXITY_ORDER: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 }

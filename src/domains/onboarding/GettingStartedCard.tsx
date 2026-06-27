@@ -9,15 +9,15 @@ import type { OnboardingStep, OnboardingStepId } from './onboarding-progress'
 function StepCta({ step }: { step: OnboardingStepId }) {
   if (step === 'plan') {
     return (
-      <Link to="/templates" search={{ find: true }} className="shrink-0" onClick={() => track('onboarding_checklist_cta', { step })}>
-        <Button size="xs">Choose a plan</Button>
+      <Link to="/templates" search={{ find: true }} className="block w-full sm:w-auto" onClick={() => track('onboarding_checklist_cta', { step })}>
+        <Button size="xs" className="w-full sm:w-auto">Choose a plan</Button>
       </Link>
     )
   }
   if (step === 'estimates') {
     return (
-      <Link to="/settings" search={{ focus: 'estimates' }} className="shrink-0" onClick={() => track('onboarding_checklist_cta', { step })}>
-        <Button size="xs">Set estimates</Button>
+      <Link to="/settings" search={{ focus: 'estimates' }} className="block w-full sm:w-auto" onClick={() => track('onboarding_checklist_cta', { step })}>
+        <Button size="xs" className="w-full sm:w-auto">Set estimates</Button>
       </Link>
     )
   }
@@ -60,7 +60,7 @@ export function GettingStartedCard({
           // Flex lives on a plain inner div: the same classes on the Mantine Paper (Panel)
           // are overridden by Mantine's layer, which would stack the CTA below the text.
           <Panel key={step.id} surface="inset" p="sm">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-start gap-3">
                 {step.done ? (
                   <CheckCircle2 size={20} color="var(--vf-success-text)" className="mt-0.5 shrink-0" />

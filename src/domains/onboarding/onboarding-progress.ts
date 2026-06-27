@@ -1,3 +1,4 @@
+import { defaultProgramStateRequirements } from '~/domains/program/lib/templates'
 import type { ProgramStateDefaults } from '~/shared/types'
 
 export type OnboardingStepId = 'plan' | 'estimates' | 'firstWorkout'
@@ -15,10 +16,20 @@ export type OnboardingProgressInput = {
   completedSessions: number
 }
 
-export function hasStrengthEstimate(defaults: ProgramStateDefaults) {
-  return Object.entries(defaults).some(
-    ([key, value]) => key.endsWith('_one_rep_max') && typeof value === 'number' && value > 0,
-  )
+/** The main-lift 1RM keys onboarding tracks (mirrors the program's required main lifts). */
+function oneRepMaxKeys() {
+  return defaultProgramStateRequirements()
+    .filter((requirement) => requirement.type === 'one_rep_max')
+    .map((requirement) => requirement.key)
+}
+
+/** True only when EVERY main-lift 1RM estimate is set — a single value isn't enough to finish setup. */
+export function hasAllStrengthEstimates(defaults: ProgramStateDefaults) {
+  const keys = oneRepMaxKeys()
+  return keys.length > 0 && keys.every((key) => {
+    const value = defaults[key]
+    return typeof value === 'number' && value > 0
+  })
 }
 
 /** Derive the getting-started checklist from real account state — nothing per-step is stored. */
@@ -26,18 +37,19 @@ export function buildOnboardingProgress(input: OnboardingProgressInput): {
   steps: OnboardingStep[]
   allDone: boolean
 } {
+  // Estimates come first: a workout needs strength maxes before a plan can set sensible loads.
   const steps: OnboardingStep[] = [
+    {
+      id: 'estimates',
+      title: 'Set your strength estimates',
+      description: 'Add an estimate for each main lift so Sheetless can set sensible starting weights.',
+      done: hasAllStrengthEstimates(input.programStateDefaults),
+    },
     {
       id: 'plan',
       title: 'Choose a training plan',
       description: 'Pick a plan that fits your experience and schedule.',
       done: input.hasActiveProgram,
-    },
-    {
-      id: 'estimates',
-      title: 'Set your strength estimates',
-      description: 'Tell Sheetless roughly what you lift so it can set sensible starting weights.',
-      done: hasStrengthEstimate(input.programStateDefaults),
     },
     {
       id: 'firstWorkout',

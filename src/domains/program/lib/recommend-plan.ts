@@ -29,7 +29,7 @@ export const DAYS_OPTIONS: { value: number; label: string }[] = [
 export const GOAL_OPTIONS: { value: PlanGoal; label: string; phrase: string; tags: string[] }[] = [
   { value: 'simple', label: 'Keep it simple', phrase: 'a simple, steady start', tags: ['beginner', 'linear', '5x5'] },
   { value: 'strength', label: 'Get stronger', phrase: 'building maximal strength', tags: ['strength', 'training max', 'wave', 'peak', 'intensity'] },
-  { value: 'muscle', label: 'Muscle + strength', phrase: 'muscle and strength together', tags: ['powerbuilding', 'volume', 'high volume'] },
+  { value: 'muscle', label: 'Muscle + strength', phrase: 'muscle and strength together', tags: ['powerbuilding', 'volume', 'high volume', 'hypertrophy'] },
 ]
 
 const EXPERIENCE_RANK: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 }
@@ -58,27 +58,37 @@ function buildReason(template: ProgramTemplateSummary, goalPhrase: string) {
 }
 
 /**
- * Pick the single best-fitting plan for the user's answers. Returns null when no
- * templates are available. Pure + deterministic so it can be unit-tested and run
- * live in the UI as answers change.
+ * Rank the available plans for the user's answers, best fit first (up to `limit`). Pure +
+ * deterministic so it can be unit-tested and run live in the UI as answers change.
  */
-export function recommendPlan(
+export function recommendPlans(
   templates: ProgramTemplateSummary[],
   answers: FindMyPlanAnswers,
-): PlanRecommendation | null {
+  limit = 3,
+): PlanRecommendation[] {
   const candidates = templates.filter((template) => template.available)
-  if (!candidates.length) return null
+  if (!candidates.length) return []
 
   const goal = GOAL_OPTIONS.find((option) => option.value === answers.goal) ?? GOAL_OPTIONS[0]
-  const best = candidates
+  return candidates
     .map((template) => ({ template, score: scoreTemplate(template, answers, goal.tags) }))
     .sort(
       (left, right) =>
         right.score - left.score ||
-        // Tie-break toward the more accessible level, then the closer schedule.
+        // Tie-break toward the more accessible level, then the closer schedule, then a stable id
+        // order so equal-scoring plans never depend on catalogue array position.
         rank(left.template.complexity) - rank(right.template.complexity) ||
-        Math.abs(left.template.daysPerWeek - answers.days) - Math.abs(right.template.daysPerWeek - answers.days),
-    )[0]
+        Math.abs(left.template.daysPerWeek - answers.days) - Math.abs(right.template.daysPerWeek - answers.days) ||
+        left.template.id.localeCompare(right.template.id),
+    )
+    .slice(0, Math.max(0, limit))
+    .map(({ template }) => ({ template, reason: buildReason(template, goal.phrase) }))
+}
 
-  return { template: best.template, reason: buildReason(best.template, goal.phrase) }
+/** The single best-fitting plan (the top of {@link recommendPlans}), or null when none are available. */
+export function recommendPlan(
+  templates: ProgramTemplateSummary[],
+  answers: FindMyPlanAnswers,
+): PlanRecommendation | null {
+  return recommendPlans(templates, answers, 1)[0] ?? null
 }

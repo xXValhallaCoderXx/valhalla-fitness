@@ -3,7 +3,7 @@ import { Badge, Button, Checkbox, Modal, NativeSelect, SegmentedControl, TextInp
 import { notifications } from '@mantine/notifications'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import { ArrowRight, Calculator, Check, Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { track } from '~/shared/lib/analytics'
 import { prefersReducedMotion } from '~/shared/lib/reduced-motion'
@@ -14,6 +14,7 @@ import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
 import { signOutFn } from '~/domains/account/server/auth-functions'
 import { updateSettingsFn } from '~/domains/account/server/profile-functions'
 import { todayQueryOptions } from '~/domains/session/queries'
+import { buildEstimatesSteps } from '~/domains/onboarding/onboarding-tour'
 import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
 import type { ProgramStateDefaults, ThemePreference, Unit, UserProfile } from '~/shared/types'
 import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, Text } from '~/components'
@@ -92,23 +93,32 @@ function AuthedSettings() {
 function SettingsForm({ me }: { me: UserProfile }) {
   const router = useRouter()
   const { start: startTour } = useOnboardingTour()
+  const { start: startEstimatesTour } = useOnboardingTour(buildEstimatesSteps, 'estimates')
   const activeSessionId = useQuery(todayQueryOptions()).data?.activeSession?.sessionId ?? null
 
-  // Scroll to the strength-estimates section when arriving from the onboarding checklist (`?focus=estimates`).
+  // Arriving from the onboarding checklist (`?focus=estimates`): scroll to the section and walk the
+  // user through the inputs + 1RM calculator.
   const focusParam = useRouterState({ select: (state) => (state.location.search as { focus?: string }).focus })
-  const focusHandled = useRef(false)
+  // No handled-ref guard: a client-side route transition mounts this component twice while
+  // preserving refs, so a ref guard would let the throwaway mount "use up" the guard and block the
+  // surviving mount from ever scheduling the tour. Keying purely off the (stable) `focusParam` plus a
+  // self-clearing timer is resilient — whichever mount survives schedules and fires it. The param is
+  // cleared only once the tour is up (so a refresh/back doesn't re-pop it), after the transition has
+  // long settled, which is a plain re-render (the started driver lives outside React and persists).
   useEffect(() => {
-    if (focusHandled.current || focusParam !== 'estimates') return
-    focusHandled.current = true
-    requestAnimationFrame(() => {
+    if (focusParam !== 'estimates') return
+    const timer = window.setTimeout(() => {
+      if (!document.querySelector('[data-tour="settings-estimates"]')) return
       document.getElementById('programme-loads')?.scrollIntoView({
         behavior: prefersReducedMotion() ? 'auto' : 'smooth',
         block: 'start',
       })
-    })
-    track('onboarding_deeplink', { target: 'estimates' })
-    void router.navigate({ to: '/settings', search: {}, replace: true })
-  }, [focusParam, router])
+      track('onboarding_deeplink', { target: 'estimates' })
+      startEstimatesTour()
+      void router.navigate({ to: '/settings', search: {}, replace: true })
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [focusParam, router, startEstimatesTour])
 
   const [units, setUnits] = useState<Unit>(me?.units ?? 'kg')
   const [rounding, setRounding] = useState(me?.rounding ?? 2.5)
@@ -435,6 +445,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
                   </Caption>
                 </div>
                 <Button
+                  data-tour="settings-e1rm-calc"
                   className="sm:shrink-0"
                   size="sm"
                   onClick={openOneRepMaxCalculator}
@@ -443,7 +454,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
                   Calculate from known sets
                 </Button>
               </div>
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+              <div data-tour="settings-estimates" className="grid grid-cols-2 gap-2 md:grid-cols-3">
                 {oneRepMaxKeys.map((key) => {
                   const value = programStateDefaults[key] ?? null
                   const label = strengthEstimateLabel(key)

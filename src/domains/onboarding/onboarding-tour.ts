@@ -39,7 +39,7 @@ export function buildOnboardingSteps(): DriveStep[] {
       data: { stepId: 'first-steps' },
       popover: {
         title: 'Your first steps',
-        description: 'Use the getting-started checklist on Today to pick a plan, set your numbers, and log your first workout.',
+        description: 'Use the getting-started checklist on Today to set your numbers, pick a plan, and log your first workout.',
       },
     },
   ]
@@ -89,6 +89,31 @@ export function buildLiveSessionSteps(): DriveStep[] {
       popover: {
         title: "Finish when you're done",
         description: 'Hit Finish to save the session and unlock your next one.',
+      },
+    },
+  ]
+}
+
+/** Spotlight a Settings element. */
+const settingsSelector = (slug: string) => `[data-tour="settings-${slug}"]`
+
+/** Coach-marks for the strength-estimates section, opened from the checklist "Set estimates" CTA. */
+export function buildEstimatesSteps(): DriveStep[] {
+  return [
+    {
+      element: settingsSelector('estimates'),
+      data: { stepId: 'inputs' },
+      popover: {
+        title: 'Enter your estimates',
+        description: 'Add a recent best for each main lift — Sheetless turns these into sensible starting weights for your plan.',
+      },
+    },
+    {
+      element: settingsSelector('e1rm-calc'),
+      data: { stepId: 'calculator' },
+      popover: {
+        title: "Don't know your max?",
+        description: 'Tap "Calculate from known sets", enter a weight and reps you\'ve hit, and we\'ll estimate your 1-rep max.',
       },
     },
   ]

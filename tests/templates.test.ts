@@ -160,6 +160,95 @@ describe('planned session progression', () => {
     expect(sessions[1]?.movements[2]?.sets[0]?.targetLoad).toBe(80)
   })
 
+  it('expands beginner upper/lower as a four-day rotation with working-load mains', () => {
+    const ulProgram: ProgramInstance = {
+      ...program,
+      templateId: 'beginner_upper_lower_lp',
+      title: 'Beginner Upper/Lower',
+      stateValues: [
+        { key: 'squat_working_load', movementId: 'squat', type: 'working_load', value: 60 },
+        { key: 'bench_press_working_load', movementId: 'bench_press', type: 'working_load', value: 45 },
+        { key: 'overhead_press_working_load', movementId: 'overhead_press', type: 'working_load', value: 30 },
+        { key: 'deadlift_working_load', movementId: 'deadlift', type: 'working_load', value: 80 },
+        { key: 'barbell_row_working_load', movementId: 'barbell_row', type: 'working_load', value: 50 },
+      ],
+    }
+    const sessions = [0, 1, 2, 3, 4].map((currentWeekIndex) =>
+      expandPlannedSession({ ...ulProgram, currentWeekIndex }, '2026-06-21'),
+    )
+    // Four distinct days, then the rotation repeats.
+    expect(sessions.map((session) => session.title)).toEqual(['Upper A', 'Lower A', 'Upper B', 'Lower B', 'Upper A'])
+    // Upper A leads with bench press, 3x5 at the working load.
+    expect(sessions[0]?.movements[0]?.movementId).toBe('bench_press')
+    expect(sessions[0]?.movements[0]?.sets).toHaveLength(3)
+    expect(sessions[0]?.movements[0]?.sets[0]?.targetLoad).toBe(45)
+    // Lower B leads with deadlift.
+    expect(sessions[3]?.movements[0]?.movementId).toBe('deadlift')
+    expect(sessions[3]?.movements[0]?.sets[0]?.targetLoad).toBe(80)
+  })
+
+  it('expands ramping 5x5 with percentage ramp sets up to the working load', () => {
+    const rampProgram: ProgramInstance = {
+      ...program,
+      templateId: 'ramping_5x5_3day',
+      stateValues: [
+        { key: 'squat_working_load', movementId: 'squat', type: 'working_load', value: 100 },
+        { key: 'bench_press_working_load', movementId: 'bench_press', type: 'working_load', value: 80 },
+        { key: 'barbell_row_working_load', movementId: 'barbell_row', type: 'working_load', value: 60 },
+        { key: 'overhead_press_working_load', movementId: 'overhead_press', type: 'working_load', value: 50 },
+        { key: 'deadlift_working_load', movementId: 'deadlift', type: 'working_load', value: 140 },
+      ],
+    }
+    const heavy = expandPlannedSession({ ...rampProgram, currentWeekIndex: 0 }, '2026-06-21')
+    expect(heavy.title).toBe('Heavy Day')
+    expect(heavy.movements[0]?.movementId).toBe('squat')
+    expect(heavy.movements[0]?.sets.map((set) => set.targetLoad)).toEqual([50, 62.5, 75, 87.5, 100])
+    expect(expandPlannedSession({ ...rampProgram, currentWeekIndex: 1 }, '2026-06-21').title).toBe('Recovery Day')
+    expect(expandPlannedSession({ ...rampProgram, currentWeekIndex: 2 }, '2026-06-21').title).toBe('Volume Day')
+  })
+
+  it('expands power + hypertrophy as four days with working-load power mains', () => {
+    const phulProgram: ProgramInstance = {
+      ...program,
+      templateId: 'power_hypertrophy_ul',
+      stateValues: [
+        { key: 'squat_working_load', movementId: 'squat', type: 'working_load', value: 120 },
+        { key: 'bench_press_working_load', movementId: 'bench_press', type: 'working_load', value: 90 },
+        { key: 'deadlift_working_load', movementId: 'deadlift', type: 'working_load', value: 150 },
+        { key: 'overhead_press_working_load', movementId: 'overhead_press', type: 'working_load', value: 55 },
+        { key: 'barbell_row_working_load', movementId: 'barbell_row', type: 'working_load', value: 70 },
+      ],
+    }
+    const sessions = [0, 1, 2, 3].map((index) => expandPlannedSession({ ...phulProgram, currentWeekIndex: index }, '2026-06-21'))
+    expect(sessions.map((session) => session.title)).toEqual(['Power Upper', 'Power Lower', 'Hypertrophy Upper', 'Hypertrophy Lower'])
+    expect(sessions[0]?.movements[0]?.movementId).toBe('bench_press')
+    expect(sessions[0]?.movements[0]?.sets).toHaveLength(3)
+    expect(sessions[0]?.movements[0]?.sets[0]?.targetLoad).toBe(90)
+    // Hypertrophy days are all user-selected accessories.
+    expect(sessions[2]?.movements.every((movement) => movement.role === 'accessory')).toBe(true)
+  })
+
+  it('expands the advanced 3-day plan with a weekly intensity top set', () => {
+    const intensityProgram: ProgramInstance = {
+      ...program,
+      templateId: 'weekly_intensity_3day',
+      stateValues: [
+        { key: 'squat_working_load', movementId: 'squat', type: 'working_load', value: 150 },
+        { key: 'bench_press_working_load', movementId: 'bench_press', type: 'working_load', value: 100 },
+        { key: 'deadlift_working_load', movementId: 'deadlift', type: 'working_load', value: 180 },
+        { key: 'overhead_press_working_load', movementId: 'overhead_press', type: 'working_load', value: 60 },
+      ],
+    }
+    const volume = expandPlannedSession({ ...intensityProgram, currentWeekIndex: 0 }, '2026-06-21')
+    expect(volume.title).toBe('Volume Day')
+    expect(volume.movements[0]?.sets).toHaveLength(5)
+    expect(volume.movements[0]?.sets[0]?.targetLoad).toBe(135)
+    const intensity = expandPlannedSession({ ...intensityProgram, currentWeekIndex: 2 }, '2026-06-21')
+    expect(intensity.title).toBe('Intensity Day')
+    expect(intensity.movements[0]?.sets.at(-1)?.targetLoad).toBe(150)
+    expect(intensity.movements[0]?.sets.at(-1)?.isTopSet).toBe(true)
+  })
+
   it('moves old-school wave from completed squat day to bench day', () => {
     const nextProgram = programForNextUncompletedSession(program, ['wave-squat-w1'], '2026-06-21')
     const nextSession = expandPlannedSession(nextProgram, '2026-06-21')

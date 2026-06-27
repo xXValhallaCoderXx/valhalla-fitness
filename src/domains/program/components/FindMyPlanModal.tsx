@@ -1,5 +1,5 @@
 import { Badge, Button, Modal, SegmentedControl } from '@mantine/core'
-import { Sparkles } from 'lucide-react'
+import { ChevronRight, Sparkles } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import type { ProgramTemplateSummary } from '~/shared/types'
@@ -7,15 +7,15 @@ import {
   DAYS_OPTIONS,
   EXPERIENCE_OPTIONS,
   GOAL_OPTIONS,
-  recommendPlan,
+  recommendPlans,
   type ExperienceLevel,
   type PlanGoal,
 } from '~/domains/program/lib/recommend-plan'
 
 /**
- * Short questionnaire that recommends one starting plan. The recommendation
- * updates live as answers change (recommendPlan is pure), and the full library
- * stays one click away via "Browse all plans".
+ * Short questionnaire that recommends a few starting plans, best fit first. The list
+ * updates live as answers change (recommendPlans is pure), and the full library stays
+ * one click away via "Browse all plans".
  */
 export function FindMyPlanModal({
   opened,
@@ -32,10 +32,11 @@ export function FindMyPlanModal({
   const [days, setDays] = useState('3')
   const [goal, setGoal] = useState<PlanGoal>('simple')
 
-  const recommendation = useMemo(
-    () => recommendPlan(templates, { experience, days: Number(days), goal }),
+  const recommendations = useMemo(
+    () => recommendPlans(templates, { experience, days: Number(days), goal }, 3),
     [templates, experience, days, goal],
   )
+  const [primary, ...alternatives] = recommendations
 
   return (
     <Modal
@@ -52,7 +53,7 @@ export function FindMyPlanModal({
       }
     >
       <Text size="sm" tone="dimmed">
-        Answer three quick questions and we&apos;ll suggest a starting point — you can still browse everything.
+        Answer three quick questions and we&apos;ll suggest a few plans that fit — you can still browse everything.
       </Text>
 
       <div className="mt-4 space-y-4">
@@ -82,26 +83,52 @@ export function FindMyPlanModal({
         </Question>
       </div>
 
-      {recommendation ? (
-        <Panel className="mt-5" p="md" style={{ borderColor: 'var(--vf-action-border)', backgroundColor: 'var(--vf-action-soft)' }}>
-          <SectionLabel>We recommend</SectionLabel>
-          <Heading order={2} size="h4" mt="xs">{recommendation.template.name}</Heading>
-          <Text mt={4} size="sm">{recommendation.reason}</Text>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <Badge color="action">{recommendation.template.complexity}</Badge>
-            <Badge>{recommendation.template.daysPerWeek} days/week</Badge>
-            <Badge color="neutral">{recommendation.template.progressionLabel}</Badge>
-          </div>
-          <Caption mt="sm" lineClamp={3}>{recommendation.template.description}</Caption>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <Button className="sm:flex-1" onClick={() => onStart(recommendation.template.id)}>
-              Start this plan
-            </Button>
-            <Button variant="default" className="sm:flex-1" onClick={onClose}>
-              Browse all plans
-            </Button>
-          </div>
-        </Panel>
+      {primary ? (
+        <>
+          <Panel className="mt-5" p="md" style={{ borderColor: 'var(--vf-action-border)', backgroundColor: 'var(--vf-action-soft)' }}>
+            <SectionLabel>We recommend</SectionLabel>
+            <Heading order={2} size="h4" mt="xs">{primary.template.name}</Heading>
+            <Text mt={4} size="sm">{primary.reason}</Text>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <Badge color="action">{primary.template.complexity}</Badge>
+              <Badge>{primary.template.daysPerWeek} days/week</Badge>
+              <Badge color="neutral">{primary.template.progressionLabel}</Badge>
+            </div>
+            <Caption mt="sm" lineClamp={3}>{primary.template.description}</Caption>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Button className="sm:flex-1" onClick={() => onStart(primary.template.id)}>
+                Start this plan
+              </Button>
+              <Button variant="default" className="sm:flex-1" onClick={onClose}>
+                Browse all plans
+              </Button>
+            </div>
+          </Panel>
+
+          {alternatives.length ? (
+            <div className="mt-4">
+              <SectionLabel className="mb-2">Other good fits</SectionLabel>
+              <div className="grid gap-2">
+                {alternatives.map((alt) => (
+                  <button
+                    key={alt.template.id}
+                    type="button"
+                    onClick={() => onStart(alt.template.id)}
+                    className="flex w-full items-center justify-between gap-3 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2.5 text-left transition hover:border-[var(--vf-action-border)]"
+                  >
+                    <div className="min-w-0">
+                      <Text fw={700} size="sm" truncate>{alt.template.name}</Text>
+                      <Caption truncate>
+                        {alt.template.complexity} · {alt.template.daysPerWeek} days/week · {alt.template.progressionLabel}
+                      </Caption>
+                    </div>
+                    <ChevronRight size={16} color="var(--mantine-color-dimmed)" className="shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : (
         <Text mt="md" size="sm" tone="dimmed">No plans are available right now.</Text>
       )}

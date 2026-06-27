@@ -16,8 +16,8 @@ A first-run onboarding experience on the **Today** page, made of two parts:
 
 1. **Getting-started checklist** (`GettingStartedCard`) — 3 steps whose done-state is **derived from
    real account data** (nothing per-step is stored):
+   - **Set your strength estimates** *(shown first — a workout needs maxes)* — done when **every** main-lift `*_one_rep_max` is saved (all 5 — squat/bench/deadlift/OHP/row, via `hasAllStrengthEstimates`) → "Set estimates" (→ Settings, opens the estimates coach-marks)
    - **Choose a training plan** — done when an active program exists → "Choose a plan" (→ Plans)
-   - **Set your strength estimates** — done when any `*_one_rep_max` is saved → "Set estimates" (→ Settings)
    - **Finish your first workout** — done when ≥1 completed session exists
    - All done → "You're all set 🎉"; **Dismiss/Done** marks onboarding complete.
 2. **Guided tour** (driver.js) — welcome → spotlights each nav item (Today / Your Plan / Insights /
@@ -100,7 +100,9 @@ Prereqs: local Supabase up (project `sheetless`), `pnpm demo:seed` run, dev serv
   replayable from Settings → Data & Sync ("Replay walkthrough" — navigates to the active session,
   disabled when there's none).
 - **Step deep-links** — "Choose a plan" → `/templates?find=true` (auto-opens Find-my-plan); "Set
-  estimates" → `/settings?focus=estimates` (scrolls to `#programme-loads`). Both handlers clear the
+  estimates" → `/settings?focus=estimates` (scrolls to `#programme-loads` **and runs the estimates
+  coach-marks** — `buildEstimatesSteps` spotlights the inputs `data-tour="settings-estimates"` then the
+  "Calculate from known sets" button `data-tour="settings-e1rm-calc"`). Both handlers clear the
   param after firing.
 - **Reduced redundancy** — `TodayPage` hides the "No active program" empty state when
   `useOnboardingActive()` is true; the checklist's "Choose a plan" CTA covers it.
@@ -137,3 +139,9 @@ Prereqs: local Supabase up (project `sheetless`), `pnpm demo:seed` run, dev serv
   the one justified exception (URL→modal sync, scoped `eslint-disable`).
 - **SSR hydration race**: clicks/fills before hydration silently no-op. Use the retry pattern
   (`expect.toPass`) — see `tests/e2e/support/auth.ts` and `onboarding.spec.ts`.
+- **Client-nav double-mount**: a client-side route transition mounts the destination component
+  **twice while preserving refs** (a fresh `page.goto`/SSR hydration does not). A one-shot effect
+  guarded by a `useRef` flag breaks: the throwaway mount consumes the guard and the surviving mount
+  skips. The estimates coach-marks trigger therefore keys off the (stable) `?focus` param + a
+  self-clearing timer with **no ref guard** (SettingsPage), and e2e covers the **client-nav** path
+  (click the CTA), not just `goto`.

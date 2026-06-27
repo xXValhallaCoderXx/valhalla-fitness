@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { buildLiveSessionSteps, buildOnboardingSteps } from '../src/domains/onboarding/onboarding-tour'
+import { buildEstimatesSteps, buildLiveSessionSteps, buildOnboardingSteps } from '../src/domains/onboarding/onboarding-tour'
 
 beforeAll(() => {
   // jsdom doesn't implement matchMedia; navSelector() in buildOnboardingSteps needs it.
@@ -26,5 +26,17 @@ describe('buildLiveSessionSteps', () => {
 describe('buildOnboardingSteps', () => {
   it('still returns the six app-shell steps', () => {
     expect(buildOnboardingSteps()).toHaveLength(6)
+  })
+})
+
+describe('buildEstimatesSteps', () => {
+  it('returns two settings steps with unique ids and settings anchors', () => {
+    const steps = buildEstimatesSteps()
+    expect(steps).toHaveLength(2)
+    for (const step of steps) {
+      expect(String(step.element)).toMatch(/^\[data-tour="settings-.+"\]$/)
+      expect(step.popover?.title).toBeTruthy()
+    }
+    expect(new Set(steps.map((step) => step.data?.stepId)).size).toBe(2)
   })
 })

@@ -49,11 +49,33 @@ test('"Choose a plan" deep-links into Find-my-plan', async ({ page }) => {
   await expect(page).not.toHaveURL(/find=/)
 })
 
-test('"Set estimates" deep-links to the strength-estimates section', async ({ page }) => {
+test('"Set estimates" deep-links to estimates and runs the coach-marks', async ({ page }) => {
   await page.goto('/settings?focus=estimates')
 
   await expect(page.locator('#programme-loads')).toBeInViewport({ timeout: 10000 })
   await expect(page).not.toHaveURL(/focus=estimates/)
+
+  // The walkthrough spotlights the inputs, then the 1RM calculator.
+  await expect(page.locator('.driver-popover')).toBeVisible({ timeout: 8000 })
+  await expect(page.locator('.driver-popover-title')).toContainText('Enter your estimates')
+  await page.locator('.driver-popover-next-btn').click()
+  await expect(page.locator('.driver-popover-title')).toContainText("Don't know your max?")
+})
+
+test('clicking "Set estimates" from the checklist (client nav) runs the coach-marks', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('sheetless.onboardingTourAutorun', '1'))
+  await login(page, DEMO_NEW)
+  await page.goto('/today')
+
+  const card = page.locator('[data-tour="getting-started"]')
+  await expect(card).toBeVisible()
+  await expect(async () => {
+    await card.getByRole('button', { name: 'Set estimates' }).click()
+    await expect(page).toHaveURL(/\/settings/, { timeout: 2000 })
+  }).toPass({ timeout: 15000 })
+
+  await expect(page.locator('.driver-popover')).toBeVisible({ timeout: 8000 })
+  await expect(page.locator('.driver-popover-title')).toContainText('Enter your estimates')
 })
 
 test('"Skip for now" hides the checklist and records a snooze', async ({ page }) => {
