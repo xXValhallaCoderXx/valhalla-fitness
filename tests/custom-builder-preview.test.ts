@@ -19,6 +19,7 @@ function makeProfile(programStateDefaults: ProgramStateDefaults, units: Unit = '
     equipmentProfile: [],
     themePreference: 'system',
     programStateDefaults,
+    onboardingCompleted: true,
   }
 }
 

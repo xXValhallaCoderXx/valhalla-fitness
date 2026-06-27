@@ -12,6 +12,7 @@ import { startSessionFn } from '~/domains/session/server/session-functions'
 import type { HistoryDashboard, PlannedSession, ProgramOverview, Unit, WorkoutSession } from '~/shared/types'
 import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatCard, Text } from '~/components'
 import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
+import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { SessionProgress, SyncPill } from './Session'
 
 export function TodayPage({ user }: { user: unknown }) {
@@ -80,6 +81,7 @@ function AuthedToday() {
   if (!data.activeProgram || !data.plannedSession) {
     return (
       <Page>
+        <OnboardingPanel />
         <EmptyState
           centered
           title="No active program"
@@ -106,6 +108,7 @@ function AuthedToday() {
 
     return (
       <Page>
+        <OnboardingPanel />
         <PageHeader
           title="Today"
           eyebrow={`${data.activeProgram.title} · ${data.plannedSession.weekLabel}`}
@@ -173,6 +176,7 @@ function AuthedToday() {
 
   return (
     <Page>
+      <OnboardingPanel />
       <PageHeader
         title="Today"
         eyebrow={`${data.activeProgram.title} · ${data.plannedSession.weekLabel}`}

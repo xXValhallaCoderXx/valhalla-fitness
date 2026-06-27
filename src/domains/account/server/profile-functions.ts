@@ -61,7 +61,15 @@ export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promi
     equipmentProfile: profile.equipment_profile ?? [],
     themePreference: (profile.theme_preference ?? 'system') as ThemePreference,
     programStateDefaults: normalizeProgramStateDefaults(profile.program_state_defaults, profile.units as Unit),
+    onboardingCompleted: Boolean(profile.onboarding_completed),
   }
+})
+
+export const completeOnboardingFn = createServerFn({ method: 'POST' }).handler(async () => {
+  const { supabase, user } = await requireUser()
+  const { error } = await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', user.id)
+  if (error) throw new Error(error.message)
+  return getMeFn()
 })
 
 export const updateSettingsFn = createServerFn({ method: 'POST' })

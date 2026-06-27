@@ -34,6 +34,7 @@ export function AppShell({ children }: { user: AuthUser | null; children: ReactN
               <Link
                 key={item.to}
                 to={item.to}
+                data-tour={`nav-${item.to.slice(1)}`}
                 className={cn(
                   'rounded-md px-3 py-1.5 text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--mantine-color-default)] hover:text-[var(--mantine-color-text)]',
                   pathname.startsWith(item.to) && 'bg-[var(--mantine-color-default)] text-[var(--vf-action-text)] shadow-[var(--vf-shadow-card)]',
@@ -57,6 +58,7 @@ export function AppShell({ children }: { user: AuthUser | null; children: ReactN
               <Link
                 key={item.to}
                 to={item.to}
+                data-tour={`mnav-${item.to.slice(1)}`}
                 className={cn(
                   'relative flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-md text-[9px] font-bold',
                   active ? 'text-[var(--vf-action-text)]' : 'text-[var(--mantine-color-dimmed)]',

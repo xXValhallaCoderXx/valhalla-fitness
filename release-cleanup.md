@@ -34,7 +34,7 @@ Plans → *Which plan should I choose?* · Session Summary → *What happened, a
 | — | Surface renames (nav + labels) | ✅ Done |
 | 4 | Your Plan (Program) page | ✅ Done |
 | 6 | Plan recommendation flow ("Find my plan") | ✅ Done |
-| **7** | **Settings & onboarding** | ⛔ Remaining |
+| 7 | Settings & onboarding (guided tour + checklist) | ✅ Done |
 | — | Brand-term explainers (cross-cutting) | ⛔ Remaining |
 
 Sprints are a vertical-slice numbering; Milestone 1 cut across 1/2/3/5 + renames.
@@ -140,15 +140,23 @@ Browser-based validation is now part of "done" — see `CLAUDE.md` and `tests/e2
 `pnpm shot <route>` screenshots any route as the logged-in demo user; `pnpm e2e` runs the suite
 (login once → reuse session). Agents should validate UI changes this way, not just typecheck + unit.
 
-## ⛔ Remaining work
+## ✅ Completed in Sprint 7 — Onboarding (guided tour + getting-started checklist)
 
-### Sprint 7 — Settings & onboarding
-*Question to answer: "How do I set up Sheetless safely?"*
-- Make **"Estimate from a recent set"** the primary starting-strength path (vs. typing a 1RM).
-- Add a **"Start conservatively"** option and guardrails/warnings for unusual estimates.
-- First-run explainer of how Sheetless adapts loads after each session.
-- Files: `src/domains/account/...` `SettingsPage`, `OneRepMaxCalculatorModal`,
-  `src/domains/program/components/TemplateStartValues.tsx`.
+- **driver.js guided tour** *(new `src/domains/onboarding/`)* — `onboarding-tour.ts` (viewport-aware
+  nav spotlights) + `useOnboardingTour.ts`; popover themed via `app.css` (`.vf-tour`). `data-tour`
+  anchors added to `AppShell` (desktop + mobile nav).
+- **Getting-started checklist** — `GettingStartedCard` + `OnboardingPanel` on Today; steps derive
+  from real state via the pure, unit-tested `onboarding-progress.ts` (plan / estimates / first workout).
+- **Server flag** — migration `…_add_onboarding_completed.sql`, `UserProfile.onboardingCompleted`,
+  `completeOnboardingFn`; demo seed sets it true. Auto-runs once (localStorage guard); replayable from
+  Settings ("Replay tour") and via `?onboarding=force` / `?tour=1` (used by the e2e).
+- **Validated with Playwright** (`tests/e2e/onboarding.spec.ts`, desktop + mobile) — checklist renders,
+  tour launches and steps through.
+- Note: the original Sprint-7 "estimate from a set / start conservatively / explain adaptation" scope
+  already existed (Settings e1RM calculator, conservative TM defaults, "Why these weights?" hint), so
+  this sprint delivered the missing first-run guidance.
+
+## ⛔ Remaining work
 
 ### Cross-cutting — brand-term explainers
 - Small reusable helper-text/tooltip shown **once in context** for Wave / Base–Peak phase /

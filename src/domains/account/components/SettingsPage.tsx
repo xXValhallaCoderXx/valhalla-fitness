@@ -11,6 +11,7 @@ import { authUserQueryOptions, meQueryOptions } from '~/domains/account/queries'
 import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
 import { signOutFn } from '~/domains/account/server/auth-functions'
 import { updateSettingsFn } from '~/domains/account/server/profile-functions'
+import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
 import type { ProgramStateDefaults, ThemePreference, Unit, UserProfile } from '~/shared/types'
 import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, Text } from '~/components'
 
@@ -87,6 +88,7 @@ function AuthedSettings() {
 
 function SettingsForm({ me }: { me: UserProfile }) {
   const router = useRouter()
+  const { start: startTour } = useOnboardingTour()
   const [units, setUnits] = useState<Unit>(me?.units ?? 'kg')
   const [rounding, setRounding] = useState(me?.rounding ?? 2.5)
   const [equipmentProfile, setEquipmentProfile] = useState<string[]>(me?.equipmentProfile ?? [])
@@ -516,6 +518,13 @@ function SettingsForm({ me }: { me: UserProfile }) {
                   <Caption>Export is a future module.</Caption>
                 </div>
                 <Button variant="default" size="xs" disabled>Export</Button>
+              </div>
+              <div className="flex items-center justify-between gap-3 p-3">
+                <div>
+                  <Text size="sm" fw={700}>Getting-started tour</Text>
+                  <Caption>Replay the welcome walkthrough.</Caption>
+                </div>
+                <Button variant="default" size="xs" onClick={() => startTour()}>Replay tour</Button>
               </div>
             </Panel>
           </SettingsSection>

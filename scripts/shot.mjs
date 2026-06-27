@@ -40,12 +40,9 @@ const context = await browser.newContext({
 })
 const page = await context.newPage()
 
-await page.goto(route, { waitUntil: 'load' }).catch(() => {})
-await page.waitForTimeout(1000)
-
-// Bounced to the auth screen? Log in and persist the session for next time.
-if (new URL(page.url()).pathname.startsWith('/auth')) {
-  console.log(`No valid session — logging in as ${email}...`)
+async function loginAndSave() {
+  console.log(`Logging in as ${email}...`)
+  await page.goto('/auth', { waitUntil: 'load' }).catch(() => {})
   const emailInput = page.getByPlaceholder('name@example.com')
   const passwordInput = page.getByPlaceholder('Password')
   const submit = page.getByRole('button', { name: /^log in$/i })
@@ -60,10 +57,19 @@ if (new URL(page.url()).pathname.startsWith('/auth')) {
   await page.waitForURL(/\/today/, { timeout: 20000 })
   mkdirSync(path.dirname(storage), { recursive: true })
   await context.storageState({ path: storage })
-  if (!new URL(page.url()).pathname.startsWith(route)) {
-    await page.goto(route, { waitUntil: 'load' }).catch(() => {})
-    await page.waitForTimeout(1000)
-  }
+}
+
+// No saved session → log in first (the demo account, or E2E_DEMO_EMAIL override).
+if (!existsSync(storage)) await loginAndSave()
+
+await page.goto(route, { waitUntil: 'load' }).catch(() => {})
+await page.waitForTimeout(headed ? 1500 : 1000)
+
+// An expired session bounces to the auth screen — log in and retry the route.
+if (new URL(page.url()).pathname.startsWith('/auth')) {
+  await loginAndSave()
+  await page.goto(route, { waitUntil: 'load' }).catch(() => {})
+  await page.waitForTimeout(1000)
 }
 
 await page.screenshot({ path: out, fullPage: true })

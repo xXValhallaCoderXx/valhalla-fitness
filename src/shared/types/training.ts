@@ -39,6 +39,7 @@ export type UserProfile = {
   equipmentProfile: string[]
   themePreference: ThemePreference
   programStateDefaults: ProgramStateDefaults
+  onboardingCompleted: boolean
 }
 
 export type ProgramTemplateSummary = {

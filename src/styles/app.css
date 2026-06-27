@@ -1,5 +1,6 @@
 @import "@mantine/core/styles.css";
 @import "@mantine/notifications/styles.css";
+@import "driver.js/dist/driver.css";
 @import "tailwindcss";
 
 * {
@@ -223,4 +224,48 @@ input[type="number"]::-webkit-outer-spin-button {
   100% {
     transform: translateX(310%);
   }
+}
+
+/* driver.js onboarding tour — themed to match the app */
+.driver-popover.vf-tour {
+  background-color: var(--mantine-color-default);
+  color: var(--mantine-color-text);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 12px;
+  box-shadow: var(--vf-shadow-panel);
+  max-width: 22rem;
+}
+
+.driver-popover.vf-tour .driver-popover-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--mantine-color-text);
+}
+
+.driver-popover.vf-tour .driver-popover-description {
+  color: var(--mantine-color-dimmed);
+  line-height: 1.4;
+}
+
+.driver-popover.vf-tour .driver-popover-progress-text {
+  color: var(--mantine-color-dimmed);
+}
+
+.driver-popover.vf-tour .driver-popover-arrow {
+  color: var(--mantine-color-default);
+}
+
+.driver-popover.vf-tour .driver-popover-navigation-btns button {
+  background-color: var(--vf-surface-2);
+  color: var(--mantine-color-text);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 8px;
+  text-shadow: none;
+  font-weight: 700;
+}
+
+.driver-popover.vf-tour .driver-popover-navigation-btns button.driver-popover-next-btn {
+  background-color: var(--mantine-primary-color-filled);
+  border-color: var(--mantine-primary-color-filled);
+  color: #fff;
 }
