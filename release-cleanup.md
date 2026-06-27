@@ -33,7 +33,7 @@ Plans → *Which plan should I choose?* · Session Summary → *What happened, a
 | 5 | Muscle Fatigue cleanup (rename + tier labels) | ✅ Done |
 | — | Surface renames (nav + labels) | ✅ Done |
 | 4 | Your Plan (Program) page | ✅ Done |
-| **6** | **Plan recommendation flow ("Find my plan")** | ⛔ Remaining |
+| 6 | Plan recommendation flow ("Find my plan") | ✅ Done |
 | **7** | **Settings & onboarding** | ⛔ Remaining |
 | — | Brand-term explainers (cross-cutting) | ⛔ Remaining |
 
@@ -121,16 +121,26 @@ Key changed/added files:
 - **Customization copy** reworded to "Tailored to you" (`ProgramLoads.tsx`).
 - Decisions: hero on top · plain explainer (no per-lift math) · keep "Training max" + explain.
 
-## ⛔ Remaining work
+## ✅ Completed in Sprint 6 — Plan recommendation flow ("Find my plan")
 
-### Sprint 6 — Plan recommendation flow ("Find my plan")
-*Question to answer: "Which plan should I choose?"*
-- Add a **"Find my plan"** entry on the Plans page: 3–4 questions (experience, days/week, goal,
-  equipment) → recommend **one** plan with a one-line reason; keep the full library accessible.
-- Make the beginner plan visibly prominent.
-- Reuse `ProgramTemplateSummary` fields (`tags`, `complexity`, `daysPerWeek`, `progressionLabel`,
-  `requiredState`) for matching; no new server data needed for a first pass.
-- Files: `src/domains/program/components/TemplateCatalogue.tsx`, `TemplatesPage`, `TemplateStartPage`.
+- **Recommender** *(new `src/domains/program/lib/recommend-plan.ts`)* — pure `recommendPlan(templates, answers)`
+  scoring built-in plans on experience level, training days, and goal (tag overlap). Unit-tested
+  against the real catalog (`tests/recommend-plan.test.ts`).
+- **Modal** *(new `src/domains/program/components/FindMyPlanModal.tsx`)* — 3 questions, live
+  recommendation card (name / level / days / method / reason), "Start this plan" → setup flow.
+- `TemplateCatalogue.tsx` — prominent "Find my plan" banner; built-in plans ordered beginner-first.
+- **Validated in-browser with Playwright** (`tests/e2e/find-my-plan.spec.ts`) — caught and fixed an
+  SSR hydration race on the open click (now a documented pattern in `CLAUDE.md`).
+- Deferred: equipment matching (templates don't carry equipment metadata — would need to derive it
+  from each plan's movements; not needed for a first pass).
+
+## Testing / validation
+
+Browser-based validation is now part of "done" — see `CLAUDE.md` and `tests/e2e/README.md`.
+`pnpm shot <route>` screenshots any route as the logged-in demo user; `pnpm e2e` runs the suite
+(login once → reuse session). Agents should validate UI changes this way, not just typecheck + unit.
+
+## ⛔ Remaining work
 
 ### Sprint 7 — Settings & onboarding
 *Question to answer: "How do I set up Sheetless safely?"*

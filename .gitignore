@@ -8,7 +8,7 @@ out
 test-results
 playwright-report
 tests/e2e/.auth/
-agent-shot.png
+*-shot.png
 .env
 .env.*
 !.env.example

@@ -1,14 +1,18 @@
 import { Badge, Button, Modal, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useRouter } from '@tanstack/react-router'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Sparkles } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
 import { Caption, EmptyState, Heading, Page, PageHeader, Panel, SectionLabel, Text } from '~/components'
 import type { ProgramTemplateSummary, TodayPayload } from '~/shared/types'
 import { CustomProgramBuilder } from './CustomProgramBuilder'
+import { FindMyPlanModal } from './FindMyPlanModal'
 import { TemplateCard, TemplateGrid } from './TemplateCard'
 
 const templateFilters = ['All', 'Custom', 'Linear', 'Training max', 'Wave', 'Volume', 'Peak', 'High volume']
+
+// Surface the most approachable plans first.
+const COMPLEXITY_ORDER: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 }
 
 export function TemplateCatalogue({
   today,
@@ -22,6 +26,7 @@ export function TemplateCatalogue({
   const [filter, setFilter] = useState('All')
   const [query, setQuery] = useState('')
   const [showBuilder, setShowBuilder] = useState(false)
+  const [showFinder, setShowFinder] = useState(false)
   const activeTemplateId = today.activeProgram?.templateId ?? null
 
   const filtered = useMemo(() => {
@@ -38,7 +43,9 @@ export function TemplateCatalogue({
   const availableTemplates = activeTemplateId
     ? filtered.filter((template) => template.id !== activeTemplateId)
     : filtered
-  const builtInTemplates = availableTemplates.filter((template) => template.origin !== 'user_created')
+  const builtInTemplates = availableTemplates
+    .filter((template) => template.origin !== 'user_created')
+    .sort((left, right) => (COMPLEXITY_ORDER[left.complexity] ?? 1) - (COMPLEXITY_ORDER[right.complexity] ?? 1))
   const customTemplates = availableTemplates.filter((template) => template.origin === 'user_created')
 
   const selectTemplate = (template: ProgramTemplateSummary) => {
@@ -81,6 +88,22 @@ export function TemplateCatalogue({
       {activeTemplate ? (
         <ActiveProgramBand template={activeTemplate} className="mb-4" />
       ) : null}
+
+      <Panel className="mb-4 max-w-4xl" p="sm" style={{ borderColor: 'var(--vf-action-border)' }}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2">
+            <Sparkles size={18} color="var(--vf-action-text)" className="mt-0.5 shrink-0" />
+            <div>
+              <Text fw={800} size="sm">Not sure where to start?</Text>
+              <Caption>Answer three quick questions and we&apos;ll pick a plan for you.</Caption>
+            </div>
+          </div>
+          <Button className="shrink-0" onClick={() => setShowFinder(true)}>
+            <Sparkles size={15} />
+            Find my plan
+          </Button>
+        </div>
+      </Panel>
 
       <Panel surface="inset" className="mb-4 max-w-4xl" px="sm" py="xs">
         <Caption>
@@ -184,6 +207,16 @@ export function TemplateCatalogue({
           onCreated={handleCustomTemplateCreated}
         />
       </Modal>
+
+      <FindMyPlanModal
+        opened={showFinder}
+        onClose={() => setShowFinder(false)}
+        templates={templates.filter((template) => template.origin !== 'user_created')}
+        onStart={(templateId) => {
+          setShowFinder(false)
+          void router.navigate({ to: '/templates/$templateId/start', params: { templateId } })
+        }}
+      />
     </Page>
   )
 }
