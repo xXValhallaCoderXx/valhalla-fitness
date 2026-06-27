@@ -1,7 +1,8 @@
-import { Checkbox, Modal, Select, TextInput } from '@mantine/core'
+import { Button, Checkbox, Modal, Select, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
+import { Caption, Panel, SectionLabel, Text } from '~/components'
 import { movementSwapOptionsQueryOptions } from '~/domains/session/queries'
 import { patchMovementInSession } from '~/domains/session/lib/session-cache'
 import { substituteMovementFn } from '~/domains/session/server/session-functions'
@@ -14,6 +15,7 @@ import type {
   WorkoutSession,
 } from '~/shared/types'
 import { HistoryStatus, RolePill } from './LiveSessionControls'
+import { defaultFieldStyles, defaultSelectStyles, insetFieldStyles } from './form-styles'
 import { phaseScopeLabel, substitutionReasons } from './live-session-utils'
 import { MovementSwapOptionRow } from './MovementSwapOptionRow'
 
@@ -143,38 +145,53 @@ export function MovementSwapModal({
       withCloseButton={!mutation.isPending}
       classNames={{
         inner: '!items-end sm:!items-center',
-        content: '!mb-0 !max-h-[92dvh] !w-full !overflow-hidden !rounded-b-none !border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)] sm:!mb-auto sm:!max-w-[60rem] sm:!rounded-lg',
-        header: '!bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
-        title: 'text-lg font-bold !text-[var(--mantine-color-text)]',
-        body: '!max-h-[calc(92dvh-4rem)] !overflow-y-auto !text-[var(--mantine-color-text)]',
-        close: '!text-[var(--mantine-color-dimmed)] hover:!bg-[var(--vf-surface-2)] hover:!text-[var(--mantine-color-text)]',
+        content: '!mb-0 !max-h-[92dvh] !w-full !overflow-hidden !rounded-b-none sm:!mb-auto sm:!max-w-[60rem] sm:!rounded-lg',
+        body: '!max-h-[calc(92dvh-4rem)] !overflow-y-auto',
+      }}
+      styles={{
+        content: {
+          border: '1px solid var(--mantine-color-default-border)',
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        header: {
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        title: {
+          color: 'var(--mantine-color-text)',
+          fontSize: 'var(--mantine-font-size-lg)',
+          fontWeight: 700,
+        },
+        body: {
+          color: 'var(--mantine-color-text)',
+        },
+        close: {
+          color: 'var(--mantine-color-dimmed)',
+        },
       }}
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
         <div className="min-h-0 space-y-3">
-          <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)]">
-              Planned
-            </p>
+          <Panel surface="inset" p="sm">
+            <SectionLabel>Planned</SectionLabel>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <p className="text-base font-extrabold">{movement.movementName}</p>
+              <Text component="p" size="md" fw={900}>{movement.movementName}</Text>
               <RolePill role={movement.role} subtle />
             </div>
             {movement.performedMovementId && movement.performedMovementId !== movement.movementId ? (
-              <p className="mt-2 text-xs font-semibold text-[var(--vf-warning-text)]">
+              <Caption component="p" mt="xs" fw={700} c="var(--vf-warning-text)">
                 Currently performed as {movement.performedMovementName}
-              </p>
+              </Caption>
             ) : null}
-            <p className="mt-2 text-xs text-[var(--mantine-color-dimmed)]">{movement.targetSummary}</p>
-          </div>
+            <Caption component="p" mt="xs">{movement.targetSummary}</Caption>
+          </Panel>
 
           <TextInput
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search alternatives"
-            classNames={{
-              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)] !text-[var(--mantine-color-text)]',
-            }}
+            styles={insetFieldStyles}
           />
 
           {optionsQuery.isPending ? (
@@ -197,12 +214,12 @@ export function MovementSwapModal({
           )}
         </div>
 
-        <div className="space-y-3 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+        <Panel surface="inset" className="space-y-3" p="sm">
           <div>
-            <p className="vf-section-label">Swap details</p>
-            <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">
+            <SectionLabel>Swap details</SectionLabel>
+            <Caption component="p" mt={4}>
               Choose why this movement is changing and whether the choice applies only now or to this phase slot.
-            </p>
+            </Caption>
           </div>
           <Select
             label="Reason"
@@ -211,12 +228,7 @@ export function MovementSwapModal({
             onChange={(value) => setReason((value ?? 'equipment_missing') as SubstitutionReason)}
             allowDeselect={false}
             disabled={mutation.isPending}
-            classNames={{
-              label: '!text-[var(--mantine-color-dimmed)] !text-xs !font-bold',
-              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
-              dropdown: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)]',
-              option: '!text-[var(--mantine-color-text)] hover:!bg-[var(--vf-surface-2)]',
-            }}
+            styles={defaultSelectStyles}
           />
           <TextInput
             label="Note"
@@ -224,47 +236,49 @@ export function MovementSwapModal({
             onChange={(event) => setNote(event.target.value)}
             placeholder="Optional"
             disabled={mutation.isPending}
-            classNames={{
-              label: '!text-[var(--mantine-color-dimmed)] !text-xs !font-bold',
-              input: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
-            }}
+            styles={defaultFieldStyles}
           />
           <Checkbox
             checked={effectiveScope === 'phase_slot'}
             disabled={!canUsePhaseScope || mutation.isPending}
             onChange={(event) => setScope(event.currentTarget.checked ? 'phase_slot' : 'session')}
             label={`Use for this slot for ${phaseLabel.toLowerCase()}`}
-            classNames={{
-              label: '!text-sm !font-semibold !text-[var(--mantine-color-text)]',
-              input: '!border-[var(--mantine-color-default-border)]',
+            styles={{
+              label: {
+                color: 'var(--mantine-color-text)',
+                fontSize: 'var(--mantine-font-size-sm)',
+                fontWeight: 600,
+              },
+              input: {
+                borderColor: 'var(--mantine-color-default-border)',
+              },
             }}
           />
-          <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3">
-            <p className="text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Selected</p>
-            <p className="mt-1 text-sm font-extrabold">{selectedOption?.movementName ?? 'No movement selected'}</p>
-            <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
+          <Panel p="sm">
+            <SectionLabel>Selected</SectionLabel>
+            <Text component="p" mt={4} size="sm" fw={900}>{selectedOption?.movementName ?? 'No movement selected'}</Text>
+            <Caption component="p" mt={2}>
               {effectiveScope === 'phase_slot' ? phaseLabel : 'This session only'}
-            </p>
-          </div>
+            </Caption>
+          </Panel>
           <div className="grid grid-cols-2 gap-2 pt-1">
-            <button
+            <Button
               type="button"
-              className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-2 text-sm font-bold text-[var(--mantine-color-text)] transition hover:bg-[var(--vf-surface-2)] disabled:opacity-60"
+              variant="default"
               disabled={mutation.isPending}
               onClick={onClose}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="rounded-md bg-[var(--mantine-primary-color-filled)] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[var(--mantine-primary-color-filled-hover)] disabled:opacity-60"
               disabled={!selectedOption || mutation.isPending}
               onClick={submit}
             >
               {mutation.isPending ? 'Swapping...' : 'Swap'}
-            </button>
+            </Button>
           </div>
-        </div>
+        </Panel>
       </div>
     </Modal>
   )

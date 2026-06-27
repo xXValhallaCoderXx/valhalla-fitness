@@ -151,11 +151,31 @@ export function AddAccessoryModal({
       withCloseButton={!mutation.isPending}
       classNames={{
         inner: '!items-end sm:!items-center',
-        content: '!mb-0 !max-h-[96dvh] !w-full !overflow-hidden !rounded-b-none !border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)] sm:!mb-auto sm:!max-w-[56rem] sm:!rounded-lg',
-        header: '!min-h-0 !bg-[var(--mantine-color-default)] !px-3 !py-2 !text-[var(--mantine-color-text)] sm:!px-4',
-        title: 'text-base font-bold !text-[var(--mantine-color-text)] sm:text-lg',
-        body: '!max-h-[calc(96dvh-3.25rem)] !overflow-y-auto !p-3 !text-[var(--mantine-color-text)] sm:!p-4',
-        close: '!text-[var(--mantine-color-dimmed)] hover:!bg-[var(--vf-surface-2)] hover:!text-[var(--mantine-color-text)]',
+        content: '!mb-0 !max-h-[96dvh] !w-full !overflow-hidden !rounded-b-none sm:!mb-auto sm:!max-w-[56rem] sm:!rounded-lg',
+        header: '!min-h-0 !px-3 !py-2 sm:!px-4',
+        body: '!max-h-[calc(96dvh-3.25rem)] !overflow-y-auto !p-3 sm:!p-4',
+      }}
+      styles={{
+        content: {
+          border: '1px solid var(--mantine-color-default-border)',
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        header: {
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        title: {
+          color: 'var(--mantine-color-text)',
+          fontSize: 'var(--mantine-font-size-lg)',
+          fontWeight: 700,
+        },
+        body: {
+          color: 'var(--mantine-color-text)',
+        },
+        close: {
+          color: 'var(--mantine-color-dimmed)',
+        },
       }}
     >
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">

@@ -3,6 +3,7 @@ import { notifications } from '@mantine/notifications'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Check, Clock3, X } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { Caption, Panel, SectionLabel, Text } from '~/components'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { cn } from '~/shared/lib/cn'
 import { resolveProgressionDecisionFn } from '~/domains/program/server/program-functions'
@@ -58,18 +59,26 @@ export function PendingReviewAlert({
   const countLabel = decisions.length === 1 ? '1 pending' : `${decisions.length} pending`
 
   return (
-    <Card className={cn('border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] p-4', className)}>
+    <Card
+      className={cn('p-4', className)}
+      style={{
+        borderColor: 'var(--vf-danger-border)',
+        backgroundColor: 'var(--vf-danger-soft)',
+      }}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <AlertTriangle className="mt-0.5 shrink-0 text-[var(--vf-danger-text)]" size={19} />
+          <AlertTriangle className="mt-0.5 shrink-0" style={{ color: 'var(--vf-danger-text)' }} size={19} />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-extrabold text-[var(--mantine-color-text)]">Progression review pending</p>
+              <Text component="p" size="sm" fw={900}>
+                Progression review pending
+              </Text>
               <Badge color="danger">{countLabel}</Badge>
             </div>
-            <p className="mt-0.5 text-xs leading-snug text-[var(--mantine-color-dimmed)]">
+            <Caption component="p" mt={2} lh={1.2}>
               {firstDecision.movementName}: {firstDecision.recommendation}
-            </p>
+            </Caption>
           </div>
         </div>
         <Button color="danger" variant="filled" className="w-full sm:w-auto" onClick={onReview}>
@@ -101,25 +110,52 @@ export function PendingProgressionReviewModal({
       size="md"
       classNames={{
         inner: '!items-end sm:!items-center',
-        content: '!mb-0 !flex !max-h-[90dvh] !flex-col !overflow-hidden !rounded-b-none !border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)] sm:!mb-auto sm:!rounded-lg',
-        header: '!bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
-        title: 'text-lg font-bold !text-[var(--mantine-color-text)]',
-        body: '!min-h-0 !flex-1 !overflow-hidden !text-[var(--mantine-color-text)]',
-        close: '!text-[var(--mantine-color-dimmed)] hover:!bg-[var(--vf-surface-2)] hover:!text-[var(--mantine-color-text)]',
+        content: '!mb-0 !flex !max-h-[90dvh] !flex-col !overflow-hidden !rounded-b-none sm:!mb-auto sm:!rounded-lg',
+        body: '!min-h-0 !flex-1 !overflow-hidden',
+      }}
+      styles={{
+        content: {
+          border: '1px solid var(--mantine-color-default-border)',
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        header: {
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        title: {
+          color: 'var(--mantine-color-text)',
+          fontSize: 'var(--mantine-font-size-lg)',
+          fontWeight: 700,
+        },
+        body: {
+          color: 'var(--mantine-color-text)',
+        },
+        close: {
+          color: 'var(--mantine-color-dimmed)',
+        },
       }}
     >
       <div className="grid max-h-[calc(90dvh-5rem)] min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-4">
-        <div className="rounded-lg border border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] p-3">
+        <Card
+          p="sm"
+          style={{
+            borderColor: 'var(--vf-danger-border)',
+            backgroundColor: 'var(--vf-danger-soft)',
+          }}
+        >
           <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 shrink-0 text-[var(--vf-danger-text)]" size={18} />
+            <AlertTriangle className="mt-0.5 shrink-0" style={{ color: 'var(--vf-danger-text)' }} size={18} />
             <div>
-              <p className="text-sm font-extrabold">Review before the next block</p>
-              <p className="mt-1 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">
+              <Text component="p" size="sm" fw={900}>
+                Review before the next block
+              </Text>
+              <Caption component="p" mt={4} lh={1.5}>
                 Accepting updates future loads. Dismissing clears the recommendation. Later leaves it pending.
-              </p>
+              </Caption>
             </div>
           </div>
-        </div>
+        </Card>
 
         <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
           {decisions.length ? (
@@ -153,18 +189,24 @@ function ProgressionDecisionCard({
   onResolve: (decisionId: string, action: ProgressionDecisionResolution) => void
 }) {
   return (
-    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+    <Panel surface="inset" p="sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-extrabold">{decision.movementName}</p>
-          <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+          <Text component="p" fw={900}>
+            {decision.movementName}
+          </Text>
+          <SectionLabel mt={4}>
             {formatRuleId(decision.ruleId)}
-          </p>
+          </SectionLabel>
         </div>
         <Badge color="danger">Pending</Badge>
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-[var(--mantine-color-dimmed)]">{decision.inputSummary}</p>
-      <p className="mt-1 text-sm font-semibold">{decision.recommendation}</p>
+      <Caption component="p" mt="sm" lh={1.5}>
+        {decision.inputSummary}
+      </Caption>
+      <Text component="p" mt={4} size="sm" fw={700}>
+        {decision.recommendation}
+      </Text>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         <ReviewActionButton
           color="success"
@@ -188,7 +230,7 @@ function ProgressionDecisionCard({
           onClick={() => onResolve(decision.id, 'dismissed')}
         />
       </div>
-    </div>
+    </Panel>
   )
 }
 
@@ -217,9 +259,11 @@ function ReviewActionButton({
 
 function ReviewModalStatus({ children }: { children: ReactNode }) {
   return (
-    <p className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 text-sm text-[var(--mantine-color-dimmed)]">
-      {children}
-    </p>
+    <Panel surface="inset" p="sm">
+      <Text component="p" size="sm" tone="dimmed">
+        {children}
+      </Text>
+    </Panel>
   )
 }
 

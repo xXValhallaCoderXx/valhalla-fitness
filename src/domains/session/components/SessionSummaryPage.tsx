@@ -1,11 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Badge, Button, Card } from '@mantine/core'
+import { Badge, Box, Button, Card } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight, CheckCircle2, Dumbbell, ListChecks, NotebookText, Sparkles, Trophy } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { sessionQueryOptions } from '~/domains/session/queries'
 import type { MovementSlot, SessionSummary, SetLog, Unit, WorkoutSession } from '~/shared/types'
-import { Caption, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton, SectionLabel, SetSummary, Text } from '~/components'
+import { Caption, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, SetSummary, StatValue, Text } from '~/components'
 import { describeSet } from '~/shared/lib/set-notation'
 import { buildSessionReceipt, summarizeMovementPerformance, type ReceiptEntry, type ReceiptTone } from '~/domains/session/lib/session-receipt'
 import { PendingProgressionReviewModal, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
@@ -88,13 +88,19 @@ function LoadedSummaryRoute({
         {completedSets.length} of {sets.length} sets completed.
       </PageHeader>
 
-      <Card className="mb-4 border-[var(--vf-success-border)] bg-[var(--vf-success-soft)] p-4">
+      <Card
+        className="mb-4 p-4"
+        style={{
+          borderColor: 'var(--vf-success-border)',
+          backgroundColor: 'var(--vf-success-soft)',
+        }}
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
-            <CheckCircle2 className="mt-0.5 shrink-0 text-[var(--vf-success-text)]" size={20} />
+            <CheckCircle2 className="mt-0.5 shrink-0" style={{ color: 'var(--vf-success-text)' }} size={20} />
             <div>
-              <h2 className="text-sm font-extrabold">All logged work saved</h2>
-              <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">Review completed work and any progression actions before heading back to Today.</p>
+              <Text component="h2" size="sm" fw={900}>All logged work saved</Text>
+              <Caption component="p" mt={2}>Review completed work and any progression actions before heading back to Today.</Caption>
             </div>
           </div>
           <Link to="/today">
@@ -113,7 +119,7 @@ function LoadedSummaryRoute({
       {receipt.length ? (
         <Card className="mb-4 p-4">
           <div className="flex items-center gap-2">
-            <Sparkles size={15} className="text-[var(--vf-action-text)]" />
+            <Sparkles size={15} style={{ color: 'var(--vf-action-text)' }} />
             <SectionLabel>What changed, and why</SectionLabel>
           </div>
           <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -130,33 +136,33 @@ function LoadedSummaryRoute({
             <Card className="p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <span className="vf-chip" data-active="true">Main lift</span>
-                  <h2 className="mt-2 truncate text-lg font-extrabold">{mainLift.movementName}</h2>
-                  <p className="mt-1 text-sm text-[var(--mantine-color-dimmed)]">{mainLift.targetSummary}</p>
+                  <Badge color="action">Main lift</Badge>
+                  <Text component="h2" mt="xs" size="lg" fw={900} truncate>{mainLift.movementName}</Text>
+                  <Text component="p" mt={4} size="sm" tone="dimmed">{mainLift.targetSummary}</Text>
                 </div>
                 <Badge color={mainLift.sets.every((set) => set.completed) ? 'success' : 'warning'}>
                   {mainLift.sets.filter((set) => set.completed).length}/{mainLift.sets.length}
                 </Badge>
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <div className="vf-inset p-3">
-                  <p className="vf-section-label">Best today</p>
+                <Panel surface="inset" p="sm">
+                  <SectionLabel>Best today</SectionLabel>
                   {topSets[0] ? (
                     <SetSummary className="mt-1" {...describeSet(topSets[0], session.units)} />
                   ) : (
-                    <p className="mt-1 text-sm font-extrabold">No top set logged</p>
+                    <Text component="p" mt={4} size="sm" fw={900}>No top set logged</Text>
                   )}
-                </div>
-                <div className="vf-inset p-3">
-                  <p className="vf-section-label">Previous comparable</p>
-                  <p className="mt-1 text-sm font-extrabold">{mainLift.previous?.label ?? 'No previous comparable'}</p>
-                </div>
+                </Panel>
+                <Panel surface="inset" p="sm">
+                  <SectionLabel>Previous comparable</SectionLabel>
+                  <Text component="p" mt={4} size="sm" fw={900}>{mainLift.previous?.label ?? 'No previous comparable'}</Text>
+                </Panel>
               </div>
             </Card>
           ) : null}
 
           <Card>
-            <h2 className="vf-section-label">Completed work</h2>
+            <SectionLabel>Completed work</SectionLabel>
             <div className="mt-3 grid gap-2">
               {session.movements.map((movement) => (
                 <MovementSummaryRow key={movement.id} movement={movement} units={session.units} />
@@ -166,50 +172,56 @@ function LoadedSummaryRoute({
 
           <Card>
             <div className="flex items-center gap-2">
-              <NotebookText size={14} className="text-[var(--mantine-color-dimmed)]" />
-              <h2 className="vf-section-label">Notes</h2>
+              <NotebookText size={14} style={{ color: 'var(--mantine-color-dimmed)' }} />
+              <SectionLabel>Notes</SectionLabel>
             </div>
-            <p className="mt-2 text-sm leading-snug text-[var(--mantine-color-dimmed)]">
+            <Text component="p" mt="xs" size="sm" tone="dimmed" lh={1.2}>
               {session.notes?.trim() || 'No session notes recorded.'}
-            </p>
+            </Text>
           </Card>
         </div>
 
         <div className="space-y-4">
           <Card>
-            <h2 className="vf-section-label">Accessory highlights</h2>
+            <SectionLabel>Accessory highlights</SectionLabel>
             {accessoryHighlights.length ? (
               <div className="mt-3 space-y-2">
                 {accessoryHighlights.map((outcome) => (
-                  <p key={outcome} className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3 text-xs font-semibold text-[var(--mantine-color-dimmed)]">
-                    {outcome}
-                  </p>
+                  <Panel key={outcome} surface="inset" p="sm">
+                    <Caption component="p" fw={700}>{outcome}</Caption>
+                  </Panel>
                 ))}
               </div>
             ) : (
-              <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">No accessory work logged in this session.</p>
+              <Text component="p" mt="xs" size="sm" tone="dimmed">No accessory work logged in this session.</Text>
             )}
           </Card>
 
           <Card>
-            <h2 className="vf-section-label">Progression actions</h2>
+            <SectionLabel>Progression actions</SectionLabel>
             {pendingDecisions.length ? (
               <>
-                <div className="mt-3 rounded-lg border border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] p-3">
+                <Card
+                  className="mt-3 p-3"
+                  style={{
+                    borderColor: 'var(--vf-danger-border)',
+                    backgroundColor: 'var(--vf-danger-soft)',
+                  }}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-extrabold">{pendingDecisions[0]?.movementName}</p>
-                      <p className="mt-1 text-xs text-[var(--mantine-color-dimmed)]">{pendingDecisions[0]?.recommendation}</p>
+                      <Text component="p" size="sm" fw={900}>{pendingDecisions[0]?.movementName}</Text>
+                      <Caption component="p" mt={4}>{pendingDecisions[0]?.recommendation}</Caption>
                     </div>
                     <Badge color="danger">{pendingDecisions.length} pending</Badge>
                   </div>
-                </div>
+                </Card>
                 <Button className="mt-3 w-full" color="danger" onClick={() => setReviewOpen(true)}>
                   Review progression
                 </Button>
               </>
             ) : (
-              <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">No recommendation was generated yet.</p>
+              <Text component="p" mt="xs" size="sm" tone="dimmed">No recommendation was generated yet.</Text>
             )}
           </Card>
 
@@ -241,15 +253,15 @@ function SummaryStat({
   tone?: 'neutral' | 'warning'
 }) {
   return (
-    <div className="vf-stat">
+    <Panel surface="inset" p="sm" className="min-w-0">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[var(--mantine-color-dimmed)]">{icon}</span>
-        <span className={tone === 'warning' ? 'text-[var(--vf-warning-text)]' : 'text-[var(--mantine-color-text)]'}>
-          <span className="vf-stat-value">{value}</span>
-        </span>
+        <Box c="dimmed" className="shrink-0">{icon}</Box>
+        <StatValue c={tone === 'warning' ? 'var(--vf-warning-text)' : undefined} size="md" ta="right" truncate>
+          {value}
+        </StatValue>
       </div>
-      <p className="vf-stat-label">{label}</p>
-    </div>
+      <Caption component="p" mt={4} fw={800} tt="uppercase">{label}</Caption>
+    </Panel>
   )
 }
 
@@ -290,11 +302,11 @@ function MovementSummaryRow({
 }) {
   const performance = summarizeMovementPerformance(movement, units)
   return (
-    <div className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+    <Panel surface="inset" p="sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-semibold">{movement.movementName}</p>
-          <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">Goal: {performance.goal}</p>
+          <Text component="p" fw={700} truncate>{movement.movementName}</Text>
+          <Caption component="p" mt={2}>Goal: {performance.goal}</Caption>
         </div>
         <Badge color={movement.role === 'main' ? 'action' : 'neutral'}>{movement.role}</Badge>
       </div>
@@ -308,18 +320,15 @@ function MovementSummaryRow({
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {movement.sets.map((set: SetLog) => (
-          <span
+          <Badge
             key={set.id}
-            className={`rounded-md border px-2 py-1 text-[11px] font-bold ${
-              set.completed
-                ? 'border-[var(--vf-success-border)] bg-[var(--vf-success-soft)] text-[var(--vf-success-text)]'
-                : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)]'
-            }`}
+            color={set.completed ? 'success' : 'neutral'}
+            variant="light"
           >
             {set.setIndex}: {describeSet(set, units).compact}
-          </span>
+          </Badge>
         ))}
       </div>
-    </div>
+    </Panel>
   )
 }

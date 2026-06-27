@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
+import { Button } from '@mantine/core'
 import {
   Calculator,
   ChevronDown,
@@ -8,6 +9,7 @@ import {
   Repeat2,
 } from 'lucide-react'
 import { useState } from 'react'
+import { Caption, Panel, SectionLabel, Text } from '~/components'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { cn } from '~/shared/lib/cn'
 import { addExerciseSetFn } from '~/domains/session/server/session-functions'
@@ -90,23 +92,31 @@ export function LiveMovementCard({
   }
 
   return (
-    <article data-tour="live-movement" className="overflow-hidden rounded-xl border border-[var(--mantine-primary-color-filled)] bg-[var(--mantine-color-default)] md:border-2 md:p-4 md:shadow-[var(--vf-shadow-card)]">
-      <div className="border-b border-[var(--mantine-color-default-border)] px-4 pb-3 pt-4 md:border-0 md:p-0">
+    <article
+      data-tour="live-movement"
+      className="overflow-hidden rounded-xl border md:border-2 md:p-4"
+      style={{
+        borderColor: 'var(--mantine-primary-color-filled)',
+        backgroundColor: 'var(--mantine-color-default)',
+        boxShadow: 'var(--vf-shadow-card)',
+      }}
+    >
+      <div className="border-b px-4 pb-3 pt-4 md:border-0 md:p-0" style={{ borderColor: 'var(--mantine-color-default-border)' }}>
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2 md:justify-start md:gap-4">
           <div className="min-w-0">
             <div className="mb-0.5 flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-[15px] font-extrabold text-[var(--mantine-color-text)] md:text-base">
+              <Text component="h2" size="md" fw={900} truncate>
                 {movement.movementName}
-              </h2>
+              </Text>
               <RolePill role={movement.role} />
             </div>
-            <p className="text-[10px] text-[var(--mantine-color-dimmed)] md:text-xs">
+            <Caption component="p" size="xs">
               {movement.targetSummary} · {session.programTitle}
-            </p>
+            </Caption>
             {movement.performedMovementId && movement.performedMovementId !== movement.movementId ? (
-              <p className="mt-1 text-[10px] font-semibold text-[var(--vf-warning-text)]">
+              <Caption component="p" mt={4} fw={700} c="var(--vf-warning-text)">
                 Performed as {movement.performedMovementName}
-              </p>
+              </Caption>
             ) : null}
           </div>
           <div className="flex gap-1.5 md:pt-0.5">
@@ -122,32 +132,41 @@ export function LiveMovementCard({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2 md:mb-3 md:px-3 md:py-2.5">
+        <Panel surface="inset" className="flex flex-wrap items-center justify-between gap-2 md:mb-3" px="sm" py="xs">
           <MetricBlock label="Top set today" value={topSet ? formatSetTarget(topSet, session.units) : 'No top set'} />
-          <div className="hidden h-7 w-px bg-[var(--mantine-color-default-border)] md:block" aria-hidden="true" />
+          <div
+            className="hidden h-7 w-px md:block"
+            style={{ backgroundColor: 'var(--mantine-color-default-border)' }}
+            aria-hidden="true"
+          />
           <MetricBlock
             label="Last comparable"
             value={movement.previous?.label ?? 'No previous comparable'}
             align="right"
           />
-          <div className="w-full border-t border-[var(--mantine-color-default-border)] pt-2 text-[10px] leading-relaxed text-[var(--mantine-color-dimmed)]">
-            <span className="font-bold text-[var(--mantine-color-text)]">Progression hint:</span>{' '}
+          <Caption
+            component="div"
+            className="w-full border-t pt-2"
+            lh={1.5}
+            style={{ borderColor: 'var(--mantine-color-default-border)' }}
+          >
+            <Text component="span" fw={700}>Progression hint:</Text>{' '}
             {getProgressionHint(movement, topSet)}
-          </div>
-        </div>
+          </Caption>
+        </Panel>
       </div>
 
-      <div className={cn(SET_GRID_CLASS, 'justify-stretch px-4 pb-1 pt-2.5 text-center text-[8px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)] sm:justify-center md:justify-stretch md:gap-2 md:px-1 md:pt-0 md:text-[9px]')}>
-        <span>#</span>
-        <span>{session.units}</span>
-        <span>Reps</span>
-        <span className="hidden md:block">Target</span>
-        <span>RIR</span>
+      <div className={cn(SET_GRID_CLASS, 'justify-stretch px-4 pb-1 pt-2.5 text-center sm:justify-center md:justify-stretch md:gap-2 md:px-1 md:pt-0')}>
+        <SectionLabel component="span" size="0.5625rem">#</SectionLabel>
+        <SectionLabel component="span" size="0.5625rem">{session.units}</SectionLabel>
+        <SectionLabel component="span" size="0.5625rem">Reps</SectionLabel>
+        <SectionLabel component="span" size="0.5625rem" className="hidden md:block">Target</SectionLabel>
+        <SectionLabel component="span" size="0.5625rem">RIR</SectionLabel>
         <span />
       </div>
-      <p className="px-4 pb-1.5 text-[9px] leading-snug text-[var(--mantine-color-dimmed)] md:px-1">
-        <span className="font-bold text-[var(--mantine-color-text)]">RIR</span> = how many more reps you could have done. Log it after each set.
-      </p>
+      <Caption component="p" className="px-4 pb-1.5 md:px-1" size="0.625rem" lh={1.2}>
+        <Text component="span" fw={700}>RIR</Text> = how many more reps you could have done. Log it after each set.
+      </Caption>
 
       <div className="space-y-2 px-4 pb-3 md:space-y-1.5 md:px-0 md:pb-0">
         {movement.sets.map((set) => (
@@ -174,16 +193,17 @@ export function LiveMovementCard({
         />
       ) : null}
 
-      <button
+      <Button
         type="button"
-        className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--mantine-color-default-border)] py-2 text-[10px] font-bold text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--vf-surface-2)] disabled:cursor-not-allowed disabled:opacity-45 md:mx-0 md:mb-0 md:mt-3 md:w-full md:rounded-lg md:bg-[var(--vf-surface-2)] md:py-1.5 md:text-[11px] md:hover:bg-[var(--vf-surface-3)]"
+        className="mx-3 mb-3 w-[calc(100%-1.5rem)] md:mx-0 md:mb-0 md:mt-3 md:w-full"
+        variant="default"
         title={movement.role === 'accessory' ? 'Add another accessory set' : 'Extra sets can only be added to accessories'}
         disabled={movement.role !== 'accessory' || addSetMutation.isPending}
         onClick={() => addSetMutation.mutate()}
       >
         <Plus size={12} />
         {addSetMutation.isPending ? 'Adding set...' : 'Add set'}
-      </button>
+      </Button>
     </article>
   )
 }
@@ -205,29 +225,35 @@ function CollapsedMovementCard({
     <button
       type="button"
       className={cn(
-        'flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-3 text-left text-[var(--mantine-color-text)] transition hover:border-[var(--vf-action-border)] md:shadow-[var(--vf-shadow-card)]',
+        'flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition',
         complete && 'opacity-55',
       )}
+      style={{
+        borderColor: 'var(--mantine-color-default-border)',
+        backgroundColor: 'var(--mantine-color-default)',
+        color: 'var(--mantine-color-text)',
+        boxShadow: 'var(--vf-shadow-card)',
+      }}
       onClick={onSelect}
     >
       <div className="min-w-0">
         <div className="mb-0.5 flex flex-wrap items-center gap-2">
           <MovementNumberBadge number={movementNumber} complete={complete} />
-          <h3 className={cn('truncate text-sm font-extrabold text-[var(--mantine-color-text)]', complete && 'line-through')}>
+          <Text component="h3" size="sm" fw={900} truncate className={cn(complete && 'line-through')}>
             {movement.movementName}
-          </h3>
+          </Text>
           <RolePill role={movement.role} subtle />
         </div>
-        <p className="pl-7 text-[10px] text-[var(--mantine-color-dimmed)] md:text-xs">
+        <Caption component="p" className="pl-7" size="xs">
           {totalSets} sets · {movement.targetSummary}
           {movement.previous?.label ? <span className="hidden sm:inline"> · {movement.previous.label}</span> : null}
-        </p>
+        </Caption>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <span className="text-[10px] font-bold text-[var(--mantine-color-dimmed)]">
+        <Caption component="span" fw={700}>
           {completedSets}/{totalSets}
-        </span>
-        <ChevronDown className="-rotate-90 text-[var(--mantine-color-dimmed)]" size={14} />
+        </Caption>
+        <ChevronDown className="-rotate-90" style={{ color: 'var(--mantine-color-dimmed)' }} size={14} />
       </div>
     </button>
   )

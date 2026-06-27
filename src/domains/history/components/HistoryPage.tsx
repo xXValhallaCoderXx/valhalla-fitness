@@ -35,6 +35,13 @@ const HISTORY_TABS: Array<{ value: HistoryTab; label: string; icon: ReactNode }>
   { value: 'sessions', label: 'Sessions', icon: <History size={14} /> },
 ]
 
+const historySearchInputStyles = {
+  input: {
+    borderColor: 'var(--mantine-color-default-border)',
+    backgroundColor: 'var(--vf-surface-2)',
+  },
+}
+
 export function HistoryPage({ user }: { user: unknown }) {
   if (!user) {
     return (
@@ -80,9 +87,23 @@ function AuthedHistory() {
         value={activeTab}
         onChange={(value) => setActiveTab((value as HistoryTab | null) ?? 'overview')}
         classNames={{
-          list: 'mb-4 !flex !flex-nowrap gap-1 overflow-x-auto border-b border-[var(--mantine-color-default-border)] px-0.5 pb-2 pt-1 no-scrollbar',
-          tab: '!my-0.5 !min-h-9 !shrink-0 !rounded-md !border-0 !px-2.5 !py-2 !text-xs !font-extrabold !leading-none data-[active=true]:!bg-[var(--vf-action-soft)] data-[active=true]:!text-[var(--vf-action-text)]',
+          list: 'mb-4 !flex !flex-nowrap gap-1 overflow-x-auto border-b px-0.5 pb-2 pt-1 no-scrollbar',
+          tab: '!my-0.5 !min-h-9 !shrink-0 !rounded-md !border-0 !px-2.5 !py-2',
           panel: 'focus-visible:outline-none',
+        }}
+        styles={{
+          list: {
+            borderColor: 'var(--mantine-color-default-border)',
+          },
+          tab: {
+            fontSize: 'var(--mantine-font-size-xs)',
+            fontWeight: 800,
+            lineHeight: 1,
+            '&[data-active]': {
+              backgroundColor: 'var(--vf-action-soft)',
+              color: 'var(--vf-action-text)',
+            },
+          },
         }}
       >
         <Tabs.List>
@@ -288,7 +309,7 @@ function MovementsTab({
         onChange={(event) => onQueryChange(event.currentTarget.value)}
         placeholder="Search movements"
         leftSection={<Search size={14} />}
-        classNames={{ input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)]' }}
+        styles={historySearchInputStyles}
       />
       {filtered.length ? (
         <div className="grid gap-2">

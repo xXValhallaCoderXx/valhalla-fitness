@@ -1,6 +1,7 @@
 import { Button, Card, Skeleton } from '@mantine/core'
 import { AlertTriangle } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { Heading, SectionLabel, Text } from '~/components/atoms'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { Page } from './Page'
 
@@ -58,13 +59,15 @@ export function PageLoadError({
     <Page>
       <Card className="mx-auto max-w-xl p-5">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="mt-0.5 shrink-0 text-[var(--vf-danger-text)]" size={20} />
+          <AlertTriangle className="mt-0.5 shrink-0" style={{ color: 'var(--vf-danger-text)' }} size={20} />
           <div className="min-w-0">
-            <p className="vf-section-label text-[var(--vf-danger-text)]">Load failed</p>
-            <h1 className="mt-2 text-lg font-bold">{title}</h1>
-            <p className="mt-2 text-sm text-[var(--mantine-color-dimmed)]">
+            <SectionLabel c="var(--vf-danger-text)">Load failed</SectionLabel>
+            <Heading order={1} size="h3" mt="xs">
+              {title}
+            </Heading>
+            <Text component="p" mt="xs" size="sm" tone="dimmed">
               {getApiErrorMessage(error, title)}
-            </p>
+            </Text>
             {onRetry ? (
               <Button className="mt-4" variant="light" color="danger" onClick={onRetry}>
                 Retry

@@ -1,6 +1,8 @@
+import { Box, Button } from '@mantine/core'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { CalendarDays, Dumbbell, History, Layers3, ListChecks, Settings } from 'lucide-react'
+import { CalendarDays, History, Layers3, ListChecks, Settings } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { BrandMark, Text } from '~/components/atoms'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { cn } from '~/shared/lib/cn'
 
@@ -20,36 +22,66 @@ export function AppShell({ children }: { user: AuthUser | null; children: ReactN
   if (isAuth) return <>{children}</>
 
   return (
-    <div className="min-h-dvh bg-[var(--mantine-color-body)] pb-[calc(4rem+env(safe-area-inset-bottom))] text-[var(--mantine-color-text)] md:pb-0">
-      <header className="sticky top-[env(safe-area-inset-top)] z-30 border-b border-[var(--mantine-color-default-border)] bg-[color:var(--mantine-color-default)/0.94] backdrop-blur-md">
+    <Box
+      bg="var(--mantine-color-body)"
+      c="var(--mantine-color-text)"
+      className="min-h-dvh pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"
+    >
+      <Box
+        component="header"
+        className="sticky top-[env(safe-area-inset-top)] z-30 backdrop-blur-md"
+        style={{
+          borderBottom: '1px solid var(--mantine-color-default-border)',
+          backgroundColor: 'color-mix(in srgb, var(--mantine-color-default) 94%, transparent)',
+        }}
+      >
         <div className="mx-auto grid h-12 max-w-[1180px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 md:px-5">
           <Link to="/today" className="flex min-w-0 items-center gap-2 justify-self-start">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--vf-brand-mark)] text-[var(--vf-brand-mark-text)]">
-              <Dumbbell size={14} />
-            </span>
-            <span className="truncate text-sm font-extrabold">Sheetless</span>
+            <BrandMark size="sm" />
+            <Text component="span" size="sm" fw={900} truncate>
+              Sheetless
+            </Text>
           </Link>
-          <nav className="hidden items-center justify-center gap-1 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-1 text-xs font-semibold shadow-[var(--vf-shadow-card)] md:flex">
-            {navItems.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                data-tour={`nav-${item.to.slice(1)}`}
-                className={cn(
-                  'rounded-md px-3 py-1.5 text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--mantine-color-default)] hover:text-[var(--mantine-color-text)]',
-                  pathname.startsWith(item.to) && 'bg-[var(--mantine-color-default)] text-[var(--vf-action-text)] shadow-[var(--vf-shadow-card)]',
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <Box
+            component="nav"
+            className="hidden items-center justify-center gap-1 rounded-lg p-1 md:flex"
+            bg="var(--vf-surface-2)"
+            style={{
+              border: '1px solid var(--mantine-color-default-border)',
+              boxShadow: 'var(--vf-shadow-card)',
+            }}
+          >
+            {navItems.map((item) => {
+              const active = pathname.startsWith(item.to)
+              return (
+                <Button
+                  key={item.to}
+                  component={Link}
+                  to={item.to}
+                  data-tour={`nav-${item.to.slice(1)}`}
+                  color={active ? 'action' : 'neutral'}
+                  variant={active ? 'light' : 'subtle'}
+                  size="compact-xs"
+                >
+                  {item.label}
+                </Button>
+              )
+            })}
+          </Box>
           <div aria-hidden="true" />
         </div>
         <NavigationProgress active={isNavigating} />
-      </header>
+      </Box>
       {children}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--mantine-color-default-border)] bg-[color:var(--mantine-color-default)/0.96] px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_36px_rgb(0_0_0/0.12)] backdrop-blur md:hidden">
+      <Box
+        component="nav"
+        className="fixed inset-x-0 bottom-0 z-40 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+        style={{
+          borderTop: '1px solid var(--mantine-color-default-border)',
+          backgroundColor: 'color-mix(in srgb, var(--mantine-color-default) 96%, transparent)',
+          boxShadow: '0 -12px 36px rgb(0 0 0 / 0.12)',
+        }}
+      >
         <div className="grid h-16 grid-cols-5">
           {navItems.map((item) => {
             const Icon = item.icon
@@ -59,21 +91,27 @@ export function AppShell({ children }: { user: AuthUser | null; children: ReactN
                 key={item.to}
                 to={item.to}
                 data-tour={`mnav-${item.to.slice(1)}`}
-                className={cn(
-                  'relative flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-md text-[9px] font-bold',
-                  active ? 'text-[var(--vf-action-text)]' : 'text-[var(--mantine-color-dimmed)]',
-                )}
+                className="relative flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-md"
+                style={{ color: active ? 'var(--vf-action-text)' : 'var(--mantine-color-dimmed)' }}
                 aria-label={item.label}
               >
-                {active ? <span className="absolute top-1 h-0.5 w-6 rounded-b-full bg-[var(--mantine-primary-color-filled)]" /> : null}
+                {active ? (
+                  <Box
+                    component="span"
+                    bg="var(--mantine-primary-color-filled)"
+                    className="absolute top-1 h-0.5 w-6 rounded-b-full"
+                  />
+                ) : null}
                 <Icon size={18} />
-                <span className="truncate">{item.label}</span>
+                <Text component="span" size="0.5625rem" fw={800} c="inherit" truncate>
+                  {item.label}
+                </Text>
               </Link>
             )
           })}
         </div>
-      </nav>
-    </div>
+      </Box>
+    </Box>
   )
 }
 
@@ -86,9 +124,11 @@ function NavigationProgress({ active }: { active: boolean }) {
         active && 'opacity-100',
       )}
     >
-      <span
+      <Box
+        component="span"
+        bg="var(--mantine-primary-color-filled)"
         className={cn(
-          'block h-full w-1/3 rounded-full bg-[var(--mantine-primary-color-filled)]',
+          'block h-full w-1/3 rounded-full',
           active && 'vf-route-progress',
         )}
       />

@@ -279,7 +279,7 @@ export function CustomProgramBuilder({
 
   return (
     <Card className="flex h-full max-h-[100dvh] flex-col overflow-hidden rounded-none sm:max-h-[92dvh] sm:rounded-lg" p={0}>
-      <div className="shrink-0 border-b border-[var(--mantine-color-default-border)] p-3 sm:p-4">
+      <div className="shrink-0 border-b p-3 sm:p-4" style={{ borderColor: 'var(--mantine-color-default-border)' }}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -353,7 +353,10 @@ export function CustomProgramBuilder({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-[var(--mantine-color-default-border)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-4">
+      <div
+        className="shrink-0 border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-4"
+        style={{ borderColor: 'var(--mantine-color-default-border)' }}
+      >
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Button variant="default" disabled={mutation.isPending || currentStepIndex === 0} onClick={() => moveStep(-1)}>
             <ChevronLeft size={14} />

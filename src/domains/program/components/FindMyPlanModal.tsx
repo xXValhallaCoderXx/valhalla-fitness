@@ -114,7 +114,11 @@ export function FindMyPlanModal({
                     key={alt.template.id}
                     type="button"
                     onClick={() => onStart(alt.template.id)}
-                    className="flex w-full items-center justify-between gap-3 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] px-3 py-2.5 text-left transition hover:border-[var(--vf-action-border)]"
+                    className="flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-left transition"
+                    style={{
+                      borderColor: 'var(--mantine-color-default-border)',
+                      backgroundColor: 'var(--vf-surface-2)',
+                    }}
                   >
                     <div className="min-w-0">
                       <Text fw={700} size="sm" truncate>{alt.template.name}</Text>

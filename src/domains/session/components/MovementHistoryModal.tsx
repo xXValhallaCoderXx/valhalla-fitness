@@ -1,9 +1,9 @@
-import { Modal } from '@mantine/core'
+import { Badge, Modal } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
+import { Caption, Panel, Text } from '~/components'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { formatCompactDate, formatRelativeTime } from '~/shared/lib/dates'
 import { movementHistoryQueryOptions } from '~/domains/history/queries'
-import { cn } from '~/shared/lib/cn'
 import type { MovementHistoryEntry, MovementSlot } from '~/shared/types'
 import { HistoryStatus } from './LiveSessionControls'
 import { formatHistorySet } from './live-session-utils'
@@ -22,18 +22,33 @@ export function MovementHistoryModal({ open, movement, onClose }: { open: boolea
       onClose={onClose}
       title={`${movement.movementName} history`}
       size="lg"
-      classNames={{
-        content: '!border !border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
-        header: '!bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
-        title: 'text-lg font-bold !text-[var(--mantine-color-text)]',
-        body: '!text-[var(--mantine-color-text)]',
-        close: '!text-[var(--mantine-color-dimmed)] hover:!bg-[var(--vf-surface-2)] hover:!text-[var(--mantine-color-text)]',
+      styles={{
+        content: {
+          border: '1px solid var(--mantine-color-default-border)',
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        header: {
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        title: {
+          color: 'var(--mantine-color-text)',
+          fontSize: 'var(--mantine-font-size-lg)',
+          fontWeight: 700,
+        },
+        body: {
+          color: 'var(--mantine-color-text)',
+        },
+        close: {
+          color: 'var(--mantine-color-dimmed)',
+        },
       }}
     >
       <div className="space-y-3">
-        <p className="text-sm text-[var(--mantine-color-dimmed)]">
+        <Text component="p" size="sm" tone="dimmed">
           Recent completed logs for this movement, including sessions from any program.
-        </p>
+        </Text>
 
         {historyQuery.isPending ? (
           <HistoryStatus>Loading recent sets…</HistoryStatus>
@@ -59,34 +74,32 @@ function MovementHistoryCard({ entry }: { entry: MovementHistoryEntry }) {
   const date = entry.completedAt ?? entry.scheduledDate
 
   return (
-    <div className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-3">
+    <Panel surface="inset" p="sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-extrabold">{entry.sessionTitle}</p>
-          <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
+          <Text component="p" size="sm" fw={900} truncate>
+            {entry.sessionTitle}
+          </Text>
+          <Caption component="p" mt={2}>
             {entry.programTitle ?? 'Training session'} · {entry.targetSummary}
-          </p>
+          </Caption>
         </div>
-        <span className="rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2 py-1 text-right">
-          <span className="block text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">{formatCompactDate(date)}</span>
-          <span className="block text-[10px] font-semibold text-[var(--mantine-color-dimmed)]">{formatRelativeTime(date)}</span>
-        </span>
+        <Panel px="sm" py={4} className="text-right">
+          <Caption component="span" display="block" fw={900} tt="uppercase">{formatCompactDate(date)}</Caption>
+          <Caption component="span" display="block" fw={600}>{formatRelativeTime(date)}</Caption>
+        </Panel>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {displaySets.map((set) => (
-          <span
+          <Badge
             key={set.id}
-            className={cn(
-              'rounded-lg border px-2 py-1 text-[11px] font-bold',
-              set.isTopSet || set.isAmrap
-                ? 'border-[var(--vf-accent-border)] bg-[var(--vf-accent-soft)] text-[var(--mantine-color-accent-filled)]'
-                : 'border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-text)]',
-            )}
+            color={set.isTopSet || set.isAmrap ? 'accent' : 'neutral'}
+            variant="light"
           >
             {set.setIndex}: {formatHistorySet(set, entry.units ?? undefined)}
-          </span>
+          </Badge>
         ))}
       </div>
-    </div>
+    </Panel>
   )
 }

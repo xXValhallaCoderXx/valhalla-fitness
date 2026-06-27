@@ -1,5 +1,6 @@
 export { Text, type TextProps } from './Text'
 export { Heading, type HeadingProps } from './Heading'
+export { BrandMark, type BrandMarkProps } from './BrandMark'
 export { SectionLabel } from './SectionLabel'
 export { StatValue } from './StatValue'
 export { Caption } from './Caption'
