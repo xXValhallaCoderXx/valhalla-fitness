@@ -111,7 +111,7 @@ function AuthedToday() {
     const completionPercent = totalSets ? Math.round((completedSets / totalSets) * 100) : 0
 
     return (
-      <Page>
+      <Page className="max-w-5xl">
         <OnboardingPanel />
         <PageHeader
           title="Today"
@@ -121,7 +121,7 @@ function AuthedToday() {
           Resume the workout currently in progress.
         </PageHeader>
         <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Panel className="space-y-4 vf-card-hover" p="md" style={{ borderColor: 'var(--vf-action-border)' }}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
@@ -179,7 +179,7 @@ function AuthedToday() {
   const plannedSetCount = countPlannedSets(data.plannedSession)
 
   return (
-    <Page>
+    <Page className="max-w-5xl">
       <OnboardingPanel />
       <PageHeader
         title="Today"
@@ -220,7 +220,7 @@ function AuthedToday() {
         <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <Panel className="space-y-4 vf-card-hover" p="md">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">

@@ -10,6 +10,14 @@ import { describeSet } from '~/shared/lib/set-notation'
 
 export const SET_GRID_CLASS = 'grid grid-cols-[1.15rem_minmax(3.75rem,1fr)_minmax(3rem,0.75fr)_minmax(4.75rem,1fr)_2.25rem] sm:grid-cols-[1.25rem_minmax(4.5rem,7.75rem)_minmax(3.25rem,6.5rem)_minmax(5rem,6.5rem)_2.25rem] md:grid-cols-[1.5rem_minmax(4.75rem,1fr)_minmax(4rem,0.8fr)_minmax(5.5rem,1fr)_minmax(7.5rem,1.35fr)_2.25rem]'
 
+// Reps-in-reserve choices. The 3+ bucket also reflects any legacy values logged above 3.
+export const RIR_OPTIONS: { value: number; label: string; hint: string }[] = [
+  { value: 0, label: '0', hint: '0 — none left, max effort' },
+  { value: 1, label: '1', hint: '1 — maybe one more rep' },
+  { value: 2, label: '2', hint: '2 — two more reps' },
+  { value: 3, label: '3+', hint: '3+ — three or more reps' },
+]
+
 export const substitutionReasons: { value: SubstitutionReason; label: string }[] = [
   { value: 'equipment_missing', label: 'Equipment taken' },
   { value: 'crowded_gym', label: 'Crowded gym' },

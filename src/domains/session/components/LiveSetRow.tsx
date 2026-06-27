@@ -1,16 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { notifications } from '@mantine/notifications'
 import { Badge } from '@mantine/core'
 import { Check, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { Caption, Text } from '~/components'
-import { getApiErrorMessage } from '~/shared/lib/api-error'
-import { patchSetInSession, type SetPatch } from '~/domains/session/lib/session-cache'
-import { upsertSetLogFn } from '~/domains/session/server/session-functions'
+import { useSetLogMutation } from '~/domains/session/lib/useSetLogMutation'
 import { cn } from '~/shared/lib/cn'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
 import { QuickAdjustButton } from './LiveSessionControls'
-import { formatNumber, formatSetTarget, roundToStep, SET_GRID_CLASS } from './live-session-utils'
+import { formatNumber, formatSetTarget, RIR_OPTIONS, roundToStep, SET_GRID_CLASS } from './live-session-utils'
 
 export function LiveSetRow({
   session,
@@ -29,7 +25,6 @@ export function LiveSetRow({
   onSelect: () => void
   onRirSelected: (setIndex: number, value: number) => void
 }) {
-  const queryClient = useQueryClient()
   const [draft, setDraft] = useState({
     actualLoad: set.actualLoad ?? set.targetLoad ?? 0,
     actualReps: set.actualReps ?? set.targetReps ?? set.targetRepMin ?? 0,
@@ -37,63 +32,7 @@ export function LiveSetRow({
   })
   const effectiveActualRir = draft.actualRir ?? (!set.completed && typeof set.actualRir !== 'number' ? suggestedRir : undefined)
 
-  const mutation = useMutation({
-    mutationKey: ['setLog', session.sessionId, movement.id, set.setIndex],
-    mutationFn: (patch: SetPatch) =>
-      upsertSetLogFn({
-        data: {
-          sessionId: session.sessionId,
-          exerciseLogId: movement.id,
-          setIndex: set.setIndex,
-          actualLoad: patch.actualLoad,
-          actualReps: patch.actualReps,
-          actualRir: patch.actualRir,
-          completed: patch.completed,
-          note: patch.note,
-          clientMutationId: patch.clientMutationId ?? crypto.randomUUID(),
-        },
-      }),
-    onMutate: async (patch) => {
-      await queryClient.cancelQueries({ queryKey: ['session', session.sessionId] })
-      const previous = queryClient.getQueryData<WorkoutSession>(['session', session.sessionId])
-      if (previous) {
-        queryClient.setQueryData(
-          ['session', session.sessionId],
-          patchSetInSession(previous, {
-            ...patch,
-            movementSlotId: movement.id,
-            setIndex: set.setIndex,
-            syncState: 'saving',
-          }),
-        )
-      }
-      return { previous }
-    },
-    onError: (error, patch, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(
-          ['session', session.sessionId],
-          patchSetInSession(context.previous, {
-            ...patch,
-            movementSlotId: movement.id,
-            setIndex: set.setIndex,
-            syncState: 'syncFailed',
-          }),
-        )
-      }
-      notifications.show({
-        color: 'danger',
-        title: 'Set not saved',
-        message: getApiErrorMessage(error, 'Unable to save this set. Retry when your connection is stable.'),
-      })
-    },
-    onSuccess: (nextSession) => {
-      queryClient.setQueryData(['session', session.sessionId], nextSession)
-      queryClient.setQueryData(['today'], (current: any) =>
-        current ? { ...current, activeSession: nextSession } : current,
-      )
-    },
-  })
+  const mutation = useSetLogMutation(session, movement, set.setIndex)
 
   const isSaving = mutation.isPending || set.syncState === 'saving'
   const saveFailed = set.syncState === 'syncFailed'
@@ -290,13 +229,6 @@ function SetValueInput({
     />
   )
 }
-
-const RIR_OPTIONS: { value: number; label: string; hint: string }[] = [
-  { value: 0, label: '0', hint: '0 — none left, max effort' },
-  { value: 1, label: '1', hint: '1 — maybe one more rep' },
-  { value: 2, label: '2', hint: '2 — two more reps' },
-  { value: 3, label: '3+', hint: '3+ — three or more reps' },
-]
 
 function RirSegmentedControl({
   value,

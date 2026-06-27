@@ -4,16 +4,23 @@ import { useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { sessionQueryOptions, todayQueryOptions } from '~/domains/session/queries'
+import { meQueryOptions } from '~/domains/account/queries'
 import { finishSessionFn } from '~/domains/session/server/session-functions'
 import { buildLiveSessionSteps } from '~/domains/onboarding/onboarding-tour'
 import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
 import type { WorkoutSession } from '~/shared/types'
 import { ConfirmDialog, EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
+import { cn } from '~/shared/lib/cn'
 import { LiveSessionFrame } from './LiveSession'
+import { LiveFocusView } from './LiveFocusView'
 
 export function SessionPage({ sessionId, user }: { sessionId: string; user: unknown }) {
   const sessionQuery = useQuery({
     ...sessionQueryOptions(sessionId),
+    enabled: Boolean(user),
+  })
+  const meQuery = useQuery({
+    ...meQueryOptions(),
     enabled: Boolean(user),
   })
 
@@ -25,18 +32,26 @@ export function SessionPage({ sessionId, user }: { sessionId: string; user: unkn
     )
   }
 
-  if (sessionQuery.isPending) return <PageSkeleton />
+  if (sessionQuery.isPending || meQuery.isPending) return <PageSkeleton />
   if (sessionQuery.isError) return <PageLoadError error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
 
-  return <LoadedSessionRoute sessionId={sessionId} session={sessionQuery.data} />
+  return (
+    <LoadedSessionRoute
+      sessionId={sessionId}
+      session={sessionQuery.data}
+      liveOnboardingActive={meQuery.data?.liveOnboardingDismissed === false}
+    />
+  )
 }
 
 function LoadedSessionRoute({
   session,
   sessionId,
+  liveOnboardingActive,
 }: {
   session: WorkoutSession
   sessionId: string
+  liveOnboardingActive: boolean
 }) {
   const router = useRouter()
   const [notes, setNotes] = useState(session.notes ?? '')
@@ -51,6 +66,12 @@ function LoadedSessionRoute({
   // now lives in LiveSessionOnboarding, so nothing auto-runs here.
   const search = useRouterState({ select: (state) => state.location.search as Record<string, unknown> })
   const forceLiveTour = search.tour === 'live'
+  // Mobile shows the single-exercise Focus view by default; Overview is the existing list.
+  // New users (live-onboarding card active) and the live walkthrough start in Overview, whose
+  // frame holds the onboarding card and the elements the tour spotlights.
+  const [mobileView, setMobileView] = useState<'focus' | 'overview'>(() =>
+    forceLiveTour || liveOnboardingActive ? 'overview' : 'focus',
+  )
   const { start: startLiveTour } = useOnboardingTour(buildLiveSessionSteps, 'live')
   const liveTourRan = useRef(false)
   useEffect(() => {
@@ -117,18 +138,32 @@ function LoadedSessionRoute({
 
   return (
     <Page className="max-w-none md:py-8">
-      <LiveSessionFrame
-        session={session}
-        activeMovementId={activeMovementId}
-        onSelectMovement={setActiveMovementId}
-        notes={notes}
-        onNotesChange={setNotes}
-        onFinish={requestFinish}
-        finishLabel={finishMutation.isPending ? 'Finishing...' : 'Finish'}
-        finishDisabled={finishMutation.isPending || finishBlocked}
-        finishBlockedReason={finishBlockedReason}
-        finishError={finishError}
-      />
+      <div className={cn('md:hidden', mobileView !== 'focus' && 'hidden')}>
+        <LiveFocusView
+          session={session}
+          activeMovementId={activeMovementId}
+          onSelectMovement={setActiveMovementId}
+          onExitToOverview={() => setMobileView('overview')}
+          onFinish={requestFinish}
+          finishLabel={finishMutation.isPending ? 'Finishing...' : 'Finish'}
+          finishDisabled={finishMutation.isPending || finishBlocked}
+        />
+      </div>
+      <div className={cn(mobileView !== 'overview' && 'hidden md:block')}>
+        <LiveSessionFrame
+          session={session}
+          activeMovementId={activeMovementId}
+          onSelectMovement={setActiveMovementId}
+          notes={notes}
+          onNotesChange={setNotes}
+          onFinish={requestFinish}
+          finishLabel={finishMutation.isPending ? 'Finishing...' : 'Finish'}
+          finishDisabled={finishMutation.isPending || finishBlocked}
+          finishBlockedReason={finishBlockedReason}
+          finishError={finishError}
+          onEnterFocus={() => setMobileView('focus')}
+        />
+      </div>
       <ConfirmDialog
         open={showFinishConfirm}
         title="Finish here?"

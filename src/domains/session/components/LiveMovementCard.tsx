@@ -132,21 +132,22 @@ export function LiveMovementCard({
           </div>
         </div>
 
-        <Panel surface="inset" className="flex flex-wrap items-center justify-between gap-2 md:mb-3" px="sm" py="xs">
-          <MetricBlock label="Top set today" value={topSet ? formatSetTarget(topSet, session.units) : 'No top set'} />
-          <div
-            className="hidden h-7 w-px md:block"
-            style={{ backgroundColor: 'var(--mantine-color-default-border)' }}
-            aria-hidden="true"
-          />
-          <MetricBlock
-            label="Last comparable"
-            value={movement.previous?.label ?? 'No previous comparable'}
-            align="right"
-          />
+        <Panel surface="inset" className="md:mb-3" px="sm" py="xs">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-x-8">
+            <MetricBlock label="Top set today" value={topSet ? formatSetTarget(topSet, session.units) : 'No top set'} />
+            <div
+              className="hidden h-7 w-px md:block"
+              style={{ backgroundColor: 'var(--mantine-color-default-border)' }}
+              aria-hidden="true"
+            />
+            <MetricBlock
+              label="Last comparable"
+              value={movement.previous?.label ?? 'No previous comparable'}
+            />
+          </div>
           <Caption
             component="div"
-            className="w-full border-t pt-2"
+            className="mt-2 border-t pt-2"
             lh={1.5}
             style={{ borderColor: 'var(--mantine-color-default-border)' }}
           >

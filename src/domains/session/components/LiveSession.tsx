@@ -1,7 +1,7 @@
 import { Box, Button, TextInput } from '@mantine/core'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
-import { BrandMark, Caption, SectionLabel, Text } from '~/components'
+import { Caption, SectionLabel, Text } from '~/components'
 import { cn } from '~/shared/lib/cn'
 import { sessionCompletion } from '~/domains/session/lib/session-cache'
 import type { WorkoutSession } from '~/shared/types'
@@ -28,6 +28,7 @@ type LiveSessionFrameProps = {
   finishDisabled: boolean
   finishBlockedReason?: string | null
   finishError?: string | null
+  onEnterFocus?: () => void
 }
 
 export function LiveSessionFrame({
@@ -41,6 +42,7 @@ export function LiveSessionFrame({
   finishDisabled,
   finishBlockedReason,
   finishError,
+  onEnterFocus,
 }: LiveSessionFrameProps) {
   const progress = sessionCompletion(session)
   const selectedMovement = session.movements.find((movement) => movement.id === activeMovementId) ?? session.movements[0]
@@ -65,6 +67,7 @@ export function LiveSessionFrame({
         finishLabel={finishLabel}
         finishDisabled={finishDisabled}
         onFinish={onFinish}
+        onEnterFocus={onEnterFocus}
       />
 
       <Box className="h-1" bg="var(--vf-surface-2)" aria-hidden="true">
@@ -140,6 +143,7 @@ function SessionContextBar({
   finishLabel,
   finishDisabled,
   onFinish,
+  onEnterFocus,
 }: {
   session: WorkoutSession
   progress: ReturnType<typeof sessionCompletion>
@@ -147,6 +151,7 @@ function SessionContextBar({
   finishLabel: string
   finishDisabled: boolean
   onFinish: () => void
+  onEnterFocus?: () => void
 }) {
   return (
     <Box
@@ -158,12 +163,6 @@ function SessionContextBar({
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="mb-1 flex items-center gap-1.5 md:hidden">
-            <BrandMark size="xs" />
-            <Text component="span" size="xs" fw={700}>
-              Sheetless
-            </Text>
-          </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <div>
               <Text component="h1" size="sm" fw={900} lh={1.1} truncate>
@@ -183,6 +182,19 @@ function SessionContextBar({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {onEnterFocus ? (
+            <span className="md:hidden">
+              <Button
+                type="button"
+                variant="default"
+                size="compact-sm"
+                onClick={onEnterFocus}
+                data-testid="enter-focus"
+              >
+                Focus
+              </Button>
+            </span>
+          ) : null}
           <Button
             type="button"
             data-tour="live-finish"
@@ -219,6 +231,7 @@ function MovementRail({
         {session.movements.map((movement) => {
           const complete = isMovementComplete(movement)
           const active = movement.id === activeMovementId
+          const completedSets = movement.sets.filter((set) => set.completed).length
           return (
             <button
               key={movement.id}
@@ -235,8 +248,11 @@ function MovementRail({
               onClick={() => onSelectMovement(movement.id)}
             >
               <MovementNumberBadge number={movement.orderIndex + 1} active={active} complete={complete} />
-              <Text component="span" size="xs" fw={active ? 900 : 600} c="inherit" truncate className={cn(complete && 'line-through')}>
+              <Text component="span" size="xs" fw={active ? 900 : 600} c="inherit" truncate className={cn('min-w-0 flex-1', complete && 'line-through')}>
                 {movement.movementName}
+              </Text>
+              <Text component="span" size="0.625rem" fw={800} c="inherit" className="shrink-0 tabular-nums" style={{ opacity: 0.8 }}>
+                {completedSets}/{movement.sets.length}
               </Text>
             </button>
           )
