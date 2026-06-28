@@ -17,7 +17,7 @@ export function MovementSwapOptionRow({
     <button
       type="button"
       className={cn(
-        'w-full rounded-xl border p-3 text-left transition',
+        'w-full rounded-2xl border p-3 text-left transition',
       )}
       style={{
         borderColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default-border)',

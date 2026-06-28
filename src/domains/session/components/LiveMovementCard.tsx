@@ -94,7 +94,7 @@ export function LiveMovementCard({
   return (
     <article
       data-tour="live-movement"
-      className="overflow-hidden rounded-xl border md:border-2 md:p-4"
+      className="overflow-hidden rounded-2xl border md:border-2 md:p-4"
       style={{
         borderColor: 'var(--mantine-primary-color-filled)',
         backgroundColor: 'var(--mantine-color-default)',
@@ -226,11 +226,11 @@ function CollapsedMovementCard({
     <button
       type="button"
       className={cn(
-        'flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition',
+        'flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition',
         complete && 'opacity-55',
       )}
       style={{
-        borderColor: 'var(--mantine-color-default-border)',
+        borderColor: 'var(--vf-card-border)',
         backgroundColor: 'var(--mantine-color-default)',
         color: 'var(--mantine-color-text)',
         boxShadow: 'var(--vf-shadow-card)',

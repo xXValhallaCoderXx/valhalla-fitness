@@ -23,8 +23,8 @@ export function FocusComingUp({
             key={movement.id}
             type="button"
             onClick={() => onJumpTo(movement.id)}
-            className="flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition active:scale-[0.99]"
-            style={{ borderColor: 'var(--mantine-color-default-border)', backgroundColor: 'var(--mantine-color-default)' }}
+            className="flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition active:scale-[0.99]"
+            style={{ borderColor: 'var(--vf-card-border)', backgroundColor: 'var(--mantine-color-default)', boxShadow: 'var(--vf-shadow-card)' }}
           >
             <MovementNumberBadge number={movement.orderIndex + 1} complete={isMovementComplete(movement)} />
             <div className="min-w-0 flex-1">

@@ -9,7 +9,7 @@ export function StatusPanel({ tone, children }: { tone: 'warning' | 'danger'; ch
     <Text
       component="p"
       size="xs"
-      className="rounded-2xl border p-3 md:rounded-xl"
+      className="rounded-2xl border p-3 md:rounded-2xl"
       c={tone === 'danger' ? 'var(--vf-danger-text)' : 'var(--vf-warning-text)'}
       style={{
         borderColor: tone === 'danger' ? 'var(--vf-danger-border)' : 'var(--vf-warning-border)',
@@ -43,7 +43,7 @@ export function HistoryStatus({ children, tone = 'neutral' }: { children: ReactN
     <Text
       component="p"
       size="sm"
-      className="rounded-xl border p-3"
+      className="rounded-2xl border p-3"
       c={tone === 'danger' ? 'var(--vf-danger-text)' : 'var(--mantine-color-dimmed)'}
       style={{
         borderColor: tone === 'danger' ? 'var(--vf-danger-border)' : 'var(--mantine-color-default-border)',
@@ -71,7 +71,7 @@ export function ToolButton({
   return (
     <button
       type="button"
-      className="flex h-8 w-8 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-45 md:h-7 md:w-auto md:gap-1 md:rounded-lg md:px-2"
+      className="flex h-8 w-8 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-45 md:h-7 md:w-auto md:gap-1 md:rounded-full md:px-2.5"
       style={{
         borderColor: 'var(--mantine-color-default-border)',
         backgroundColor: 'var(--vf-surface-2)',
@@ -141,7 +141,7 @@ export function QuickAdjustButton({ children, onClick }: { children: ReactNode; 
   return (
     <button
       type="button"
-      className="rounded-lg border px-1.5 py-1 transition md:rounded-md md:px-2 md:py-0.5"
+      className="rounded-full border px-2 py-1 transition md:rounded-full md:px-2.5 md:py-0.5"
       style={{
         borderColor: 'var(--mantine-color-default-border)',
         backgroundColor: 'var(--mantine-color-default)',

@@ -131,11 +131,11 @@ export const mantineTheme = createTheme({
         xl: '1.375rem',
     },
     radius: {
-        xs: '0.1875rem',
-        sm: '0.375rem',
-        md: '0.5rem',
-        lg: '0.625rem',
-        xl: '0.75rem',
+        xs: '0.25rem',
+        sm: '0.5rem',
+        md: '0.6875rem',
+        lg: '1rem',
+        xl: '1.25rem',
     },
     shadows: {
         xs: '0 1px 1px rgb(8 17 20 / 0.05)',
@@ -194,7 +194,8 @@ export const mantineTheme = createTheme({
             styles: {
                 root: {
                     backgroundColor: 'var(--mantine-color-default)',
-                    borderColor: 'var(--mantine-color-default-border)',
+                    borderColor: 'var(--vf-card-border)',
+                    boxShadow: 'var(--vf-shadow-card)',
                     color: 'var(--mantine-color-text)',
                 },
             },
@@ -279,7 +280,7 @@ export const mantineTheme = createTheme({
             styles: {
                 root: {
                     backgroundColor: 'var(--mantine-color-default)',
-                    borderColor: 'var(--mantine-color-default-border)',
+                    borderColor: 'var(--vf-card-border)',
                     color: 'var(--mantine-color-text)',
                 },
             },
@@ -320,6 +321,7 @@ export const mantineCssVariablesResolver: CSSVariablesResolver = () => ({
         '--mantine-color-default-hover': '#f5f9fa',
         '--mantine-color-default-color': '#152027',
         '--mantine-color-default-border': '#d5e0e3',
+        '--vf-card-border': 'transparent',
         '--vf-bg-elevated': '#eaf1f3',
         '--vf-surface-2': '#f6faf9',
         '--vf-surface-3': '#edf4f5',
@@ -343,7 +345,8 @@ export const mantineCssVariablesResolver: CSSVariablesResolver = () => ({
         '--vf-brand-mark-text': '#fbfdfc',
         '--vf-focus-ring': 'rgb(25 127 154 / 0.2)',
         '--vf-focus-outline': '#197f9a',
-        '--vf-shadow-card': '0 1px 2px rgb(8 17 20 / 0.06)',
+        '--vf-shadow-card': '0 1px 2px rgb(8 17 20 / 0.05), 0 8px 24px -6px rgb(8 17 20 / 0.1)',
+        '--vf-shadow-card-raised': '0 2px 4px rgb(8 17 20 / 0.06), 0 16px 40px -8px rgb(8 17 20 / 0.16)',
         '--vf-shadow-panel': '0 22px 58px rgb(8 17 20 / 0.14)',
     },
     dark: {
@@ -354,6 +357,7 @@ export const mantineCssVariablesResolver: CSSVariablesResolver = () => ({
         '--mantine-color-default-hover': '#17252b',
         '--mantine-color-default-color': '#eef7f6',
         '--mantine-color-default-border': '#2a3a40',
+        '--vf-card-border': '#2a3a40',
         '--vf-bg-elevated': '#0c171b',
         '--vf-surface-2': '#162328',
         '--vf-surface-3': '#203139',
@@ -377,7 +381,8 @@ export const mantineCssVariablesResolver: CSSVariablesResolver = () => ({
         '--vf-brand-mark-text': '#081114',
         '--vf-focus-ring': 'rgb(127 200 220 / 0.23)',
         '--vf-focus-outline': '#7fc8dc',
-        '--vf-shadow-card': 'none',
+        '--vf-shadow-card': '0 1px 2px rgb(0 0 0 / 0.4), 0 10px 30px -8px rgb(0 0 0 / 0.55)',
+        '--vf-shadow-card-raised': '0 2px 4px rgb(0 0 0 / 0.4), 0 18px 44px -10px rgb(0 0 0 / 0.55)',
         '--vf-shadow-panel': '0 30px 80px rgb(0 0 0 / 0.38)',
     },
 })

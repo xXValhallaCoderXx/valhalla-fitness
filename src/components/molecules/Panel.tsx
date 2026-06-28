@@ -17,6 +17,7 @@ export function Panel({ surface = 'panel', style, ...props }: PanelProps) {
       withBorder
       style={{
         backgroundColor: inset ? 'var(--vf-surface-2)' : 'var(--mantine-color-default)',
+        borderColor: inset ? 'var(--mantine-color-default-border)' : 'var(--vf-card-border)',
         boxShadow: inset ? undefined : 'var(--vf-shadow-card)',
         ...style,
       }}

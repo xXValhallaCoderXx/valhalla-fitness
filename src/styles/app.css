@@ -87,8 +87,8 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .vf-card-hover:hover {
-  border-color: var(--vf-action-border);
-  box-shadow: var(--vf-shadow-card);
+  border-color: var(--vf-action-border) !important;
+  box-shadow: var(--vf-shadow-card-raised) !important;
   transform: translateY(-1px);
 }
 
@@ -115,7 +115,7 @@ input[type="number"]::-webkit-outer-spin-button {
   align-items: center;
   background: var(--vf-surface-2);
   border: 1px solid var(--mantine-color-default-border);
-  border-radius: var(--mantine-radius-md);
+  border-radius: 9999px;
   color: var(--mantine-color-dimmed);
   display: inline-flex;
   font-size: 0.6875rem;
@@ -153,7 +153,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .vf-panel {
   background: var(--mantine-color-default);
-  border: 1px solid var(--mantine-color-default-border);
+  border: 1px solid var(--vf-card-border);
   border-radius: var(--mantine-radius-lg);
   box-shadow: var(--vf-shadow-card);
   color: var(--mantine-color-text);

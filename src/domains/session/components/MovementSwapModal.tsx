@@ -145,7 +145,7 @@ export function MovementSwapModal({
       withCloseButton={!mutation.isPending}
       classNames={{
         inner: '!items-end sm:!items-center',
-        content: '!mb-0 !max-h-[92dvh] !w-full !overflow-hidden !rounded-b-none sm:!mb-auto sm:!max-w-[60rem] sm:!rounded-lg',
+        content: '!mb-0 !max-h-[92dvh] !w-full !overflow-hidden !rounded-b-none sm:!mb-auto sm:!max-w-[60rem] sm:!rounded-2xl',
         body: '!max-h-[calc(92dvh-4rem)] !overflow-y-auto',
       }}
       styles={{
