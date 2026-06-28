@@ -164,6 +164,7 @@ function LoadedSessionRoute({
         title="Finish here?"
         confirmLabel="Finish anyway"
         cancelLabel="Keep going"
+        tone="warning"
         isPending={finishMutation.isPending}
         onCancel={() => setShowFinishConfirm(false)}
         onConfirm={confirmFinish}

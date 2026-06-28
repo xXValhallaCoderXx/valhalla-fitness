@@ -66,7 +66,7 @@ export function NextWorkoutHero({
         <Panel surface="inset" p="sm" className="mt-4" style={{ borderColor: 'var(--vf-action-border)', backgroundColor: 'var(--vf-action-soft)' }}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <Badge color="action"><Dumbbell size={12} /> Main lift</Badge>
+              <Badge color="action" leftSection={<Dumbbell size={12} />}>Main lift</Badge>
               <Heading mt="xs" order={3} size="h4" lh={1.15} className="truncate">{main.movementName}</Heading>
               <Text size="sm" tone="dimmed">{main.targetSummary}</Text>
             </div>
