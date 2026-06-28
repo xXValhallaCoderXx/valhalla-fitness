@@ -1,29 +1,67 @@
 export const heroCopy = {
-  eyebrow: 'Strength training without spreadsheet brain',
-  headline: 'Stop guessing.',
-  headlineAccent: 'Get stronger.',
+  eyebrow: 'Back-to-basics strength training',
+  headline: 'Keep the logic.',
+  headlineAccent: 'Lose the spreadsheet.',
   subhead:
-    'Sheetless gives beginner-friendly strength plans, fast workout logging, and plain-language coaching receipts that explain exactly why your next workout changes.',
-  highlights: ['9 built-in programs', 'Adaptive progression', 'No spreadsheet required'],
+    'Sheetless turns the notebook-and-spreadsheet approach to strength training into a simple app. Pick a plan, log your reps and effort, and see exactly why your next workout changes.',
+  highlights: ['No black-box AI', 'Transparent progression', 'Real strength programs'],
+}
+
+export const philosophyCopy = {
+  eyebrow: 'Why Sheetless',
+  heading: 'Back to basics, not backwards.',
+  body1:
+    'A notebook teaches you to pay attention. A spreadsheet teaches you how progression works. Sheetless keeps that discipline and removes the admin.',
+  body2:
+    'No random workouts. No mystery algorithm. No formulas between sets — just a plan, a log, and a clear next step.',
+  chips: ['Random workouts', 'Mystery algorithms', 'Formulas between sets'],
 }
 
 export const comparisonCopy = {
   eyebrow: 'From spreadsheet to Sheetless',
-  heading: "The spreadsheet got you started. It won't get you stronger.",
+  heading: 'The spreadsheet was never the problem.',
   subhead:
-    "You shouldn't have to maintain formulas to train well. Log what happened — Sheetless does the progression math and hands you the decision in plain language.",
+    'Spreadsheets taught a lot of us how training works — sets, reps, percentages, estimated maxes, progression rules. They made the logic visible. They just were not built for the gym floor. Sheetless keeps the useful part and removes the broken formulas, hidden tabs, and guesswork between sets.',
   beforeLabel: 'Before · your spreadsheet',
   beforeFootnote: 'Which week am I on? Did the formula break again?',
-  bridge: 'Sheetless does the math',
+  bridge: 'Sheetless keeps the logic',
   afterLabel: 'After · Sheetless',
-  afterFootnote: 'One decision, in words you can act on.',
+  afterFootnote: 'Same rules — one decision you can act on.',
+  closing: 'Keep the thinking. Lose the maintenance.',
 }
+
+export type NoBlackBoxPoint = {
+  title: string
+  body: string
+}
+
+export const noBlackBoxCopy = {
+  eyebrow: 'No black box',
+  heading: 'Not an AI coach. A training system that shows its work.',
+  subhead:
+    'Sheetless does not invent your workout from a prompt. It follows transparent progression rules based on your plan, your reps, your effort, and your history. When your next weight changes, you see why.',
+}
+
+export const noBlackBoxPoints: NoBlackBoxPoint[] = [
+  {
+    title: 'Rules over vibes',
+    body: 'Progression comes from your plan, not a mystery recommendation.',
+  },
+  {
+    title: 'Receipts over guesses',
+    body: 'Every change has a reason attached.',
+  },
+  {
+    title: 'You stay in the loop',
+    body: 'Sheetless helps you understand your training instead of hiding it.',
+  },
+]
 
 export const focusDemoCopy = {
   eyebrow: 'Focus Mode',
-  heading: 'Your whole session, logged in seconds.',
+  heading: 'Built for between sets.',
   subhead:
-    "Tap a set as you finish it, mark how it felt, and keep moving. Sheetless tracks the rest and turns it into tomorrow's prescription.",
+    'No scrolling through a spreadsheet, no editing cells. Focus Mode keeps the next set obvious — weight, reps, effort, done — with the technical detail nearby for lifters who want it.',
   hint: 'Live demo — tap the sets and RIR',
 }
 
@@ -91,21 +129,43 @@ export const marketingFeatures: MarketingFeature[] = [
 
 export const howItWorksSteps = [
   {
-    label: 'Load',
-    title: 'Pick the right plan',
-    body: 'Start from one of nine built-in strength programs, or use the quiz when you are not sure what fits.',
+    label: 'Plan',
+    title: 'Pick a real strength plan',
+    body: 'Choose a built-in strength program, or answer a few questions and let Sheetless recommend one.',
   },
   {
     label: 'Log',
     title: 'Record the real session',
-    body: 'Track completed, partial, and missed work quickly. Good training data should not require perfect workouts.',
+    body: 'Track completed, partial, and missed work — reps, effort, and rest. Good training data should not require perfect workouts.',
+  },
+  {
+    label: 'Learn',
+    title: 'See what it means',
+    body: 'Sheetless reads your performance back in plain language, with the progression rule it used.',
   },
   {
     label: 'Adapt',
-    title: 'Know what changed',
-    body: 'Sheetless turns your result into the next prescription and explains the decision in normal language.',
+    title: 'Get the next call',
+    body: 'Your next workout is ready, with the reason attached — no spreadsheet to update.',
   },
 ]
+
+export const coachingReceiptCopy = {
+  eyebrow: 'Coaching receipts',
+  heading: 'Every workout ends with a reason.',
+  subhead:
+    'Most apps tell you what you did. Sheetless tells you what it means — then turns it into your next prescription.',
+  context: 'Squat · Week 4',
+  youHitLabel: 'You hit',
+  youHitValue: '87.5 kg × 5',
+  youHitNote: 'about 2 reps left · RIR 2',
+  nextLabel: 'Next squat session',
+  nextValue: '90 kg × 5',
+  whyLabel: 'Why',
+  whyBody:
+    'You completed the target work with effort to spare, so Sheetless adds 2.5 kg next time.',
+  footnote: 'No guessing. No spreadsheet editing. No black box.',
+}
 
 export type ProgramShowcaseGroup = {
   level: 'Beginner' | 'Intermediate' | 'Advanced'
@@ -184,9 +244,9 @@ export const programShowcaseGroups: ProgramShowcaseGroup[] = [
 ]
 
 export const beginnerFriendlyPoints = [
-  'Plain language comes first; the technical detail is there as quiet proof.',
+  'Plain language comes first; the technical term stays attached as quiet proof.',
   'Partial sessions and missed targets still count, so the next workout reflects what actually happened.',
-  'No jargon is required: log load, reps, and effort when you can, then let Sheetless do the translation.',
+  'No jargon required: log load, reps, and effort, and let Sheetless do the translation.',
 ]
 
 /** Themed accent token per program level, used for the legend dots and card top accents. */
@@ -223,7 +283,7 @@ export const footerNav = [
 export const footerLegal = {
   copyright:
     '© 2026 Sheetless. Built-in programs are original Sheetless tools, not affiliated with any coach or book.',
-  tagline: 'Strength training without spreadsheet brain.',
+  tagline: 'Transparent strength training — no black box, no spreadsheet maintenance.',
 }
 
 export const marketingNavLinks = [
@@ -231,4 +291,3 @@ export const marketingNavLinks = [
   { label: 'How it works', href: '#how' },
   { label: 'Programs', href: '#programs' },
 ] as const
-

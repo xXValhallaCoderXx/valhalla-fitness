@@ -9,11 +9,12 @@ export function BeginnerFriendly() {
         <div className="min-w-0">
           <SectionLabel>Beginner friendly, not watered down</SectionLabel>
           <Heading order={2} size="2rem" lh={1.1} mt="xs">
-            Plain language first. Technical proof when you want it.
+            Plain language first. The real terms stay attached.
           </Heading>
           <Text component="p" tone="dimmed" fw={600} mt="sm">
-            Sheetless keeps the main decision visible: what to do next, and why. You can learn the details over
-            time without needing them before your first session.
+            You do not need to know RIR, e1RM, or training max before your first session. Sheetless explains
+            the action in normal language and keeps the technical detail nearby as proof — so you learn the
+            system as you train.
           </Text>
         </div>
 

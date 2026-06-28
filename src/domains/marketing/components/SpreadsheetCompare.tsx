@@ -223,6 +223,12 @@ export function SpreadsheetCompare() {
             </div>
           </div>
         </div>
+
+        <div className="mx-auto mt-12 max-w-xl text-center">
+          <Heading order={3} size="1.2rem" lh={1.2}>
+            {comparisonCopy.closing}
+          </Heading>
+        </div>
       </div>
     </section>
   )
