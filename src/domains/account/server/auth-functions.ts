@@ -1,9 +1,15 @@
 import { createServerFn } from '@tanstack/react-start'
+import { isAuthDisabled } from '~/shared/lib/auth-config'
 
 export type AuthUser = {
   id: string
   email: string | null
 }
+
+const AUTH_DISABLED_RESULT = {
+  ok: false,
+  message: 'Sign-in is disabled on this deployment.',
+} as const
 
 async function hasSupabaseEnv() {
   const { hasSupabaseEnv } = await import('~/shared/server/supabase')
@@ -35,6 +41,7 @@ export const fetchUserFn = createServerFn({ method: 'GET' }).handler(async () =>
 export const signInWithPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string; password: string }) => data)
   .handler(async ({ data }) => {
+    if (isAuthDisabled()) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
@@ -46,6 +53,7 @@ export const signInWithPasswordFn = createServerFn({ method: 'POST' })
 export const signUpWithPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string; password: string }) => data)
   .handler(async ({ data }) => {
+    if (isAuthDisabled()) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
     const { data: signUpData, error } = await supabase.auth.signUp({
       email: data.email,
@@ -63,6 +71,7 @@ export const signUpWithPasswordFn = createServerFn({ method: 'POST' })
 export const sendMagicLinkFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string }) => data)
   .handler(async ({ data }) => {
+    if (isAuthDisabled()) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
     const origin = process.env.APP_ORIGIN ?? 'http://localhost:3000'
     const { error } = await supabase.auth.signInWithOtp({
@@ -77,6 +86,7 @@ export const sendMagicLinkFn = createServerFn({ method: 'POST' })
 export const resetPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string }) => data)
   .handler(async ({ data }) => {
+    if (isAuthDisabled()) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
     const origin = process.env.APP_ORIGIN ?? 'http://localhost:3000'
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
