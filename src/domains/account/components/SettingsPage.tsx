@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Badge, Button, Checkbox, Modal, NativeSelect, SegmentedControl, TextInput } from '@mantine/core'
+import { Badge, Button, Modal, NativeSelect, SegmentedControl, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useRouter, useRouterState } from '@tanstack/react-router'
-import { ArrowRight, Calculator, Check, Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User, X } from 'lucide-react'
+import { ArrowRight, Calculator, Check, Cloud, Compass, Download, Dumbbell, Gauge, Layers, LogOut, Monitor, Moon, RefreshCw, SlidersHorizontal, Sun, User, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { track } from '~/shared/lib/analytics'
@@ -50,6 +50,8 @@ const settingsSections = [
   { id: 'account', label: 'Account', icon: User },
 ]
 
+const sectionIds = settingsSections.map((section) => section.id)
+
 type KnownSetInput = {
   weight: string
   reps: string
@@ -95,6 +97,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
   const { start: startTour } = useOnboardingTour()
   const { start: startEstimatesTour } = useOnboardingTour(buildEstimatesSteps, 'estimates')
   const activeSessionId = useQuery(todayQueryOptions()).data?.activeSession?.sessionId ?? null
+  const activeSection = useActiveSection(sectionIds)
 
   // Arriving from the onboarding checklist (`?focus=estimates`): scroll to the section and walk the
   // user through the inputs + 1RM calculator.
@@ -311,80 +314,22 @@ function SettingsForm({ me }: { me: UserProfile }) {
         </Panel>
       ) : null}
 
-      <div className="grid gap-3 lg:grid-cols-[10rem_minmax(0,1fr)]">
-        <aside className="hidden lg:block">
-          <Panel p="xs" className="sticky top-16 flex flex-col">
-            <SectionLabel className="px-2 pb-2">Settings</SectionLabel>
-            {settingsSections.map((item) => {
-              const Icon = item.icon
-              return (
-                <a
-                  key={item.id}
-                  href={`#${item.id}`}
-                  className="flex items-center gap-2 rounded-md px-2.5 py-2 transition focus-visible:outline-none"
-                >
-                  <Icon size={14} color="var(--mantine-color-dimmed)" />
-                  <Text size="xs" fw={700} tone="dimmed">{item.label}</Text>
-                </a>
-              )
-            })}
-          </Panel>
-        </aside>
+      <div className="grid gap-3 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-6">
+        <SettingsSidebar active={activeSection} />
 
-        <div className="space-y-4">
+        <div className="space-y-8">
           <SettingsSection
             id="preferences"
+            icon={SlidersHorizontal}
             title="Preferences"
             description="Units and rounding are reused when you start a new programme."
           >
-            <Panel className="grid gap-3" p="sm">
-              <div className="grid gap-3 lg:hidden">
-                <div>
+            <Panel p="md">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid content-start gap-1.5">
                   <SectionLabel>Theme</SectionLabel>
-                  <Caption mt={2}>{themeOptions.find((option) => option.value === themePreference)?.description}</Caption>
-                </div>
-                <SegmentedControl
-                  value={themePreference}
-                  onChange={(value) => setThemePreference(value as ThemePreference)}
-                  data={themeOptions.map((option) => {
-                    const Icon = option.icon
-                    return {
-                      value: option.value,
-                      label: (
-                        <span className="inline-flex items-center gap-1.5">
-                          <Icon size={14} />
-                          {option.label}
-                        </span>
-                      ),
-                    }
-                  })}
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <NativeSelect
-                    label="Units"
-                    value={units}
-                    data={[
-                      { value: 'kg', label: 'kg' },
-                      { value: 'lb', label: 'lb' },
-                    ]}
-                    onChange={(event) => handleUnitsChange(event.target.value as Unit)}
-                  />
-                  <NativeSelect
-                    label="Rounding"
-                    value={String(rounding)}
-                    data={roundingOptions}
-                    onChange={(event) => setRounding(Number(event.target.value))}
-                  />
-                </div>
-              </div>
-
-              <div className="hidden gap-4 lg:grid lg:grid-cols-2 lg:items-start">
-                <div className="grid gap-2">
-                  <div>
-                    <SectionLabel>Theme</SectionLabel>
-                    <Caption mt={2}>{themeOptions.find((option) => option.value === themePreference)?.description}</Caption>
-                  </div>
                   <SegmentedControl
+                    fullWidth
                     value={themePreference}
                     onChange={(value) => setThemePreference(value as ThemePreference)}
                     data={themeOptions.map((option) => {
@@ -400,29 +345,28 @@ function SettingsForm({ me }: { me: UserProfile }) {
                       }
                     })}
                   />
+                  <Caption mt={1}>{themeOptions.find((option) => option.value === themePreference)?.description}</Caption>
                 </div>
-                <div className="grid gap-2">
-                  <div>
-                    <SectionLabel>Load defaults</SectionLabel>
-                    <Caption mt={2}>Units and rounding for new programmes.</Caption>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <NativeSelect
-                      leftSection={<Caption fw={800}>Units</Caption>}
-                      leftSectionWidth={58}
+                <div className="grid grid-cols-2 content-start gap-3">
+                  <div className="grid content-start gap-1.5">
+                    <SectionLabel>Units</SectionLabel>
+                    <SegmentedControl
+                      fullWidth
                       value={units}
+                      onChange={(value) => handleUnitsChange(value as Unit)}
                       data={[
                         { value: 'kg', label: 'kg' },
                         { value: 'lb', label: 'lb' },
                       ]}
-                      onChange={(event) => handleUnitsChange(event.target.value as Unit)}
                     />
-                    <NativeSelect
-                      leftSection={<Caption fw={800}>Round</Caption>}
-                      leftSectionWidth={64}
+                  </div>
+                  <div className="grid content-start gap-1.5">
+                    <SectionLabel>Round</SectionLabel>
+                    <SegmentedControl
+                      fullWidth
                       value={String(rounding)}
+                      onChange={(value) => setRounding(Number(value))}
                       data={roundingOptions}
-                      onChange={(event) => setRounding(Number(event.target.value))}
                     />
                   </div>
                 </div>
@@ -432,44 +376,33 @@ function SettingsForm({ me }: { me: UserProfile }) {
 
           <SettingsSection
             id="programme-loads"
+            icon={Gauge}
             title="Strength Estimates"
             description="Saved estimated 1RMs are used to suggest starting values when you begin a programme."
+            actions={
+              <Button data-tour="settings-e1rm-calc" size="sm" onClick={openOneRepMaxCalculator}>
+                <Calculator size={14} />
+                Calculate from known sets
+              </Button>
+            }
           >
-            <Panel p="sm">
-              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <SectionLabel>Estimated 1RMs</SectionLabel>
-                  <Caption mt={3} maw="42rem" lh={1.4}>
-                    Enter a current strength estimate for each main lift. Programme-specific training maxes and
-                    working loads are derived later on the start screen.
-                  </Caption>
-                </div>
-                <Button
-                  data-tour="settings-e1rm-calc"
-                  className="sm:shrink-0"
-                  size="sm"
-                  onClick={openOneRepMaxCalculator}
-                >
-                  <Calculator size={14} />
-                  Calculate from known sets
-                </Button>
-              </div>
-              <div data-tour="settings-estimates" className="grid grid-cols-2 gap-2 md:grid-cols-3">
+            <Panel p="md">
+              <div data-tour="settings-estimates" className="grid grid-cols-2 gap-2 md:[grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))]">
                 {oneRepMaxKeys.map((key) => {
                   const value = programStateDefaults[key] ?? null
                   const label = strengthEstimateLabel(key)
                   const isSet = hasLoadDefault(value)
                   return (
-                    <div key={key} className="grid min-w-0 gap-1">
+                    <Panel key={key} surface="inset" p="xs" className="grid min-w-0 gap-1.5">
                       <div className="flex min-w-0 items-center justify-between gap-1">
-                        <SectionLabel className="min-w-0" size="0.5rem" lh={1.1} truncate>
+                        <SectionLabel className="min-w-0" lh={1.1} truncate>
                           {label}
                         </SectionLabel>
                         <Badge className="shrink-0" color={isSet ? 'success' : 'warning'}>
                           {isSet ? 'Set' : 'Unset'}
                         </Badge>
                       </div>
-                      <span className="relative block pt-0.5">
+                      <span className="relative block">
                         <TextInput
                           classNames={{ input: 'pr-24 text-right' }}
                           type="number"
@@ -491,11 +424,11 @@ function SettingsForm({ me }: { me: UserProfile }) {
                           <X size={14} color="var(--mantine-color-dimmed)" />
                         </button>
                       </span>
-                    </div>
+                    </Panel>
                   )
                 })}
               </div>
-              <Caption mt="sm" lh={1.4}>
+              <Caption mt="md" lh={1.4}>
                 These estimates are global defaults. Active programmes keep their own load values after start, and
                 history can still show e1RM trends from logged sets.
               </Caption>
@@ -504,94 +437,127 @@ function SettingsForm({ me }: { me: UserProfile }) {
 
           <SettingsSection
             id="equipment"
+            icon={Dumbbell}
             title="Equipment Profile"
             description="Select available equipment to filter alternatives."
+            actions={
+              <Badge color="action" variant="light">
+                {equipmentProfile.length} of {equipmentOptions.length} selected
+              </Badge>
+            }
           >
-            <Panel p="sm">
-              <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
-                {equipmentOptions.map((item) => (
-                  <Panel key={item} surface="inset" className="min-w-0" px="xs" py={6}>
-                    <Checkbox
-                      size="sm"
-                      checked={equipmentProfile.includes(item)}
-                      label={
-                        <Text component="span" size="sm" fw={700} truncate>
-                          {formatEquipmentLabel(item)}
-                        </Text>
-                      }
-                      onChange={(event) => {
+            <Panel p="md">
+              <div className="grid grid-cols-2 gap-2 md:[grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))]">
+                {equipmentOptions.map((item) => {
+                  const selected = equipmentProfile.includes(item)
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() =>
                         setEquipmentProfile((current) =>
-                          event.target.checked ? [...current, item] : current.filter((value) => value !== item),
+                          selected ? current.filter((value) => value !== item) : [...current, item],
                         )
+                      }
+                      className="flex items-center gap-3 rounded-[var(--mantine-radius-md)] px-3 py-2.5 text-left transition-colors"
+                      style={{
+                        border: `1px solid ${selected ? 'var(--vf-action-border)' : 'var(--mantine-color-default-border)'}`,
+                        backgroundColor: selected ? 'var(--vf-action-soft)' : 'var(--mantine-color-default)',
                       }}
-                    />
-                  </Panel>
-                ))}
+                    >
+                      <span
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                        style={{
+                          border: `1px solid ${selected ? 'var(--vf-action-text)' : 'var(--mantine-color-default-border)'}`,
+                          backgroundColor: selected ? 'var(--vf-action-text)' : 'transparent',
+                          color: 'var(--mantine-color-white)',
+                        }}
+                      >
+                        {selected ? <Check size={15} strokeWidth={3} /> : null}
+                      </span>
+                      <Text
+                        component="span"
+                        size="sm"
+                        fw={700}
+                        truncate
+                        c={selected ? 'var(--vf-action-text)' : undefined}
+                      >
+                        {formatEquipmentLabel(item)}
+                      </Text>
+                    </button>
+                  )
+                })}
               </div>
             </Panel>
           </SettingsSection>
 
           <SettingsSection
             id="data-sync"
+            icon={Cloud}
             title="Data & Sync"
             description="Manage training data and sync status."
           >
             <Panel p={0} className="divide-y divide-[var(--mantine-color-default-border)]">
-              <div className="flex items-center justify-between gap-3 p-3">
-                <div>
-                  <Text size="sm" fw={700}>Sync Status</Text>
-                  <Caption>Current browser session</Caption>
-                </div>
-                <Badge color="success">Synced</Badge>
-              </div>
-              <div className="flex items-center justify-between gap-3 p-3">
-                <div>
-                  <Text size="sm" fw={700}>Export Data</Text>
-                  <Caption>Export is a future module.</Caption>
-                </div>
-                <Button variant="default" size="xs" disabled>Export</Button>
-              </div>
-              <div className="flex items-center justify-between gap-3 p-3">
-                <div>
-                  <Text size="sm" fw={700}>Getting-started tour</Text>
-                  <Caption>Replay the welcome walkthrough.</Caption>
-                </div>
-                <Button variant="default" size="xs" onClick={() => startTour()}>Replay tour</Button>
-              </div>
-              <div className="flex items-center justify-between gap-3 p-3">
-                <div>
-                  <Text size="sm" fw={700}>Workout walkthrough</Text>
-                  <Caption>
-                    {activeSessionId
-                      ? 'Replay the in-session coach-marks.'
-                      : 'Start a workout to replay the in-session coach-marks.'}
-                  </Caption>
-                </div>
-                <Button
-                  variant="default"
-                  size="xs"
-                  disabled={!activeSessionId}
-                  onClick={() => {
-                    if (!activeSessionId) return
-                    void router.navigate({
-                      to: '/sessions/$sessionId',
-                      params: { sessionId: activeSessionId },
-                      search: { tour: 'live' },
-                    })
-                  }}
-                >
-                  Replay walkthrough
-                </Button>
-              </div>
+              <DataRow
+                icon={RefreshCw}
+                title="Sync Status"
+                caption="Current browser session"
+                action={<Badge color="success">Synced</Badge>}
+              />
+              <DataRow
+                icon={Download}
+                title="Export Data"
+                caption="Export is a future module."
+                action={
+                  <div className="flex items-center gap-2">
+                    <Badge color="warning" variant="light">Soon</Badge>
+                    <Button variant="default" size="xs" disabled>Export</Button>
+                  </div>
+                }
+              />
+              <DataRow
+                icon={Compass}
+                title="Getting-started tour"
+                caption="Replay the welcome walkthrough."
+                action={<Button variant="default" size="xs" onClick={() => startTour()}>Replay tour</Button>}
+              />
+              <DataRow
+                icon={Layers}
+                title="Workout walkthrough"
+                caption={
+                  activeSessionId
+                    ? 'Replay the in-session coach-marks.'
+                    : 'Start a workout to replay the in-session coach-marks.'
+                }
+                action={
+                  <Button
+                    variant="default"
+                    size="xs"
+                    disabled={!activeSessionId}
+                    onClick={() => {
+                      if (!activeSessionId) return
+                      void router.navigate({
+                        to: '/sessions/$sessionId',
+                        params: { sessionId: activeSessionId },
+                        search: { tour: 'live' },
+                      })
+                    }}
+                  >
+                    Replay walkthrough
+                  </Button>
+                }
+              />
             </Panel>
           </SettingsSection>
 
           <SettingsSection
             id="account"
+            icon={User}
             title="Account"
             description="Login identity and session controls."
           >
-            <Panel p="sm">
+            <Panel p="md">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <label className="grid min-w-0 gap-1 sm:flex-1">
                   <SectionLabel>Email Address</SectionLabel>
@@ -635,24 +601,141 @@ function SettingsForm({ me }: { me: UserProfile }) {
 
 function SettingsSection({
   id,
+  icon: Icon,
   title,
   description,
+  actions,
   children,
 }: {
   id: string
+  icon: LucideIcon
   title: string
   description: string
+  actions?: ReactNode
   children: ReactNode
 }) {
   return (
     <section id={id} className="scroll-mt-24">
-      <div className="mb-1.5">
-        <Heading order={2} size="h5">{title}</Heading>
-        <Caption size="0.625rem">{description}</Caption>
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+            style={{ backgroundColor: 'var(--vf-action-soft)', border: '1px solid var(--vf-action-border)' }}
+          >
+            <Icon size={20} color="var(--vf-action-text)" />
+          </div>
+          <div className="min-w-0">
+            <Heading order={2} size="h5">{title}</Heading>
+            <Caption size="0.625rem">{description}</Caption>
+          </div>
+        </div>
+        {actions ? <div className="shrink-0">{actions}</div> : null}
       </div>
       {children}
     </section>
   )
+}
+
+function SettingsSidebar({ active }: { active: string }) {
+  return (
+    <aside className="hidden lg:block">
+      <div className="sticky top-16 flex flex-col gap-3">
+        <Panel p="xs" className="flex flex-col">
+          <SectionLabel className="px-2 pb-1 pt-1">Settings</SectionLabel>
+          {settingsSections.map((item) => {
+            const Icon = item.icon
+            const isActive = active === item.id
+            return (
+              <a
+                key={item.id}
+                href={`#${item.id}`}
+                onClick={(event) => {
+                  event.preventDefault()
+                  scrollToSection(item.id)
+                }}
+                className="flex items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors focus-visible:outline-none"
+                style={{
+                  backgroundColor: isActive ? 'var(--vf-action-soft)' : undefined,
+                  color: isActive ? 'var(--vf-action-text)' : 'var(--mantine-color-dimmed)',
+                }}
+              >
+                <Icon size={16} color="currentColor" />
+                <Text component="span" size="sm" fw={700} c="currentColor">{item.label}</Text>
+              </a>
+            )
+          })}
+        </Panel>
+        <Panel surface="inset" p="sm">
+          <div className="flex items-center gap-2">
+            <Cloud size={16} color="var(--vf-action-text)" />
+            <Text size="sm" fw={800}>Local-first</Text>
+          </div>
+          <Caption mt={6} lh={1.45}>
+            Changes save on this device and sync to your Supabase account automatically.
+          </Caption>
+        </Panel>
+      </div>
+    </aside>
+  )
+}
+
+function DataRow({
+  icon: Icon,
+  title,
+  caption,
+  action,
+}: {
+  icon: LucideIcon
+  title: string
+  caption: string
+  action: ReactNode
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 p-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <div
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
+          style={{ backgroundColor: 'var(--vf-surface-2)' }}
+        >
+          <Icon size={16} color="var(--mantine-color-dimmed)" />
+        </div>
+        <div className="min-w-0">
+          <Text size="sm" fw={700}>{title}</Text>
+          <Caption>{caption}</Caption>
+        </div>
+      </div>
+      <div className="shrink-0">{action}</div>
+    </div>
+  )
+}
+
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({
+    behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    block: 'start',
+  })
+}
+
+function useActiveSection(ids: string[]) {
+  const [active, setActive] = useState(ids[0] ?? '')
+  useEffect(() => {
+    const elements = ids
+      .map((id) => document.getElementById(id))
+      .filter((element): element is HTMLElement => Boolean(element))
+    if (!elements.length) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        if (visible[0]) setActive(visible[0].target.id)
+      },
+      { rootMargin: '-72px 0px -55% 0px', threshold: 0 },
+    )
+    elements.forEach((element) => observer.observe(element))
+    return () => observer.disconnect()
+  }, [ids])
+  return active
 }
 
 function OneRepMaxCalculatorModal({
