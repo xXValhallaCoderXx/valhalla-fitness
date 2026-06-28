@@ -17,6 +17,22 @@ test.describe('logged out marketing', () => {
     }).toPass({ timeout: 15000 })
   })
 
+  test('the header theme toggle switches light/dark', async ({ page }) => {
+    await page.goto('/')
+
+    await expect(async () => {
+      const before = await page.evaluate(() =>
+        document.documentElement.getAttribute('data-mantine-color-scheme'),
+      )
+      await page.getByRole('button', { name: /Switch to (dark|light) mode/ }).click()
+      await expect
+        .poll(() =>
+          page.evaluate(() => document.documentElement.getAttribute('data-mantine-color-scheme')),
+        )
+        .not.toBe(before)
+    }).toPass({ timeout: 15000 })
+  })
+
   test('the Focus Mode demo logs sets interactively', async ({ page }) => {
     await page.goto('/')
 

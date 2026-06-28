@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
 import { BrandLockup } from '~/components'
 import { marketingNavLinks } from '~/domains/marketing/lib/marketing-content'
+import { MarketingThemeToggle } from './MarketingThemeToggle'
 
 export function MarketingNav() {
   return (
@@ -35,6 +36,7 @@ export function MarketingNav() {
               </Anchor>
             ))}
           </div>
+          <MarketingThemeToggle />
           <Button component={Link} to="/auth" variant="default" size="sm" className="hidden sm:inline-flex">
             Sign in
           </Button>
