@@ -27,7 +27,7 @@ export function TemplateCard({
         style={{
           height: 3,
           margin: '-0.625rem -0.625rem 0',
-          backgroundColor: sourceColor(template),
+          backgroundColor: complexityColor(template.complexity),
         }}
       />
 
@@ -52,7 +52,7 @@ export function TemplateCard({
         <Panel surface="inset" p="xs">
           <div className="grid grid-cols-3 gap-2">
             <TemplateMetric label="Schedule" value={`${template.daysPerWeek}/wk`} />
-            <TemplateMetric label="Level" value={template.complexity} />
+            <TemplateMetric label="Level" value={template.complexity} valueColor={complexityColor(template.complexity)} />
             <TemplateMetric label="Progression" value={template.progressionLabel} />
           </div>
         </Panel>
@@ -88,21 +88,29 @@ export function TemplateCard({
   )
 }
 
-function sourceColor(template: ProgramTemplateSummary) {
-  if (template.origin === 'user_created') return 'var(--vf-accent-text)'
-  if (template.source === 'training_max_wave') return 'var(--vf-action-text)'
-  if (template.source === 'wave_powerbuilding') return 'var(--vf-warning-text)'
-  if (template.source === 'volume_strength') return 'var(--vf-accent-text)'
+/** Accent token per experience level, shared with the catalogue + marketing showcase feel. */
+export function complexityColor(complexity: string) {
+  if (complexity === 'Beginner') return 'var(--vf-success-text)'
+  if (complexity === 'Advanced') return 'var(--vf-warning-text)'
+  if (complexity === 'Intermediate') return 'var(--vf-action-text)'
   return 'var(--mantine-color-dimmed)'
 }
 
-function TemplateMetric({ label, value }: { label: string; value: string | number }) {
+function TemplateMetric({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string
+  value: string | number
+  valueColor?: string
+}) {
   return (
     <div className="min-w-0">
       <SectionLabel component="p" size="0.5625rem" truncate>
         {label}
       </SectionLabel>
-      <Text mt={2} size="xs" fw={900} truncate>
+      <Text mt={2} size="xs" fw={900} truncate c={valueColor}>
         {value}
       </Text>
     </div>

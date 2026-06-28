@@ -1,14 +1,16 @@
 import { Badge, Button, Modal, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
+import { useQuery } from '@tanstack/react-query'
 import { useRouter, useRouterState } from '@tanstack/react-router'
-import { Plus, Search, Sparkles } from 'lucide-react'
+import { Eye, Layers3, Plus, RotateCcw, Search, Sparkles, Wrench, type LucideIcon } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { track } from '~/shared/lib/analytics'
 import { Caption, EmptyState, Heading, Page, PageHeader, Panel, SectionLabel, Text } from '~/components'
-import type { ProgramTemplateSummary, TodayPayload } from '~/shared/types'
+import { programOverviewQueryOptions } from '~/domains/program/queries'
+import type { ProgramOverview, ProgramTemplateSummary, TodayPayload } from '~/shared/types'
 import { CustomProgramBuilder } from './CustomProgramBuilder'
 import { FindMyPlanModal } from './FindMyPlanModal'
-import { TemplateCard, TemplateGrid } from './TemplateCard'
+import { complexityColor, TemplateCard, TemplateGrid } from './TemplateCard'
 
 const templateFilters = ['All', 'Custom', 'Linear', '5x5', 'Training max', 'Wave', 'Volume', 'Peak', 'High volume', 'Powerbuilding', 'Hypertrophy']
 
@@ -29,6 +31,10 @@ export function TemplateCatalogue({
   const [showBuilder, setShowBuilder] = useState(false)
   const [showFinder, setShowFinder] = useState(false)
   const activeTemplateId = today.activeProgram?.templateId ?? null
+  const overviewQuery = useQuery({
+    ...programOverviewQueryOptions(),
+    enabled: Boolean(activeTemplateId),
+  })
 
   // Open Find-my-plan once when arriving from the onboarding checklist (`?find=1`), then strip
   // the param so a refresh/back won't re-pop it. Done in an effect (not a state initializer)
@@ -101,14 +107,25 @@ export function TemplateCatalogue({
       </PageHeader>
 
       {activeTemplate ? (
-        <ActiveProgramBand template={activeTemplate} className="mb-4" />
+        <ActiveProgramBand
+          template={activeTemplate}
+          position={overviewQuery.data?.position ?? null}
+          className="mb-4"
+          onResume={() => router.navigate({ to: '/today' })}
+          onView={() => router.navigate({ to: '/templates/$templateId/start', params: { templateId: activeTemplate.id } })}
+        />
       ) : null}
 
       <Panel className="mb-4 max-w-4xl" p="sm" style={{ borderColor: 'var(--vf-action-border)' }}>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-2">
-            <Sparkles size={18} color="var(--vf-action-text)" className="mt-0.5 shrink-0" />
-            <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+              style={{ backgroundColor: 'var(--vf-action-soft)', border: '1px solid var(--vf-action-border)' }}
+            >
+              <Sparkles size={18} color="var(--vf-action-text)" />
+            </div>
+            <div className="min-w-0">
               <Text fw={800} size="sm">Not sure where to start?</Text>
               <Caption>Answer three quick questions and we&apos;ll pick a plan for you.</Caption>
             </div>
@@ -120,14 +137,10 @@ export function TemplateCatalogue({
         </div>
       </Panel>
 
-      <Panel surface="inset" className="mb-4 max-w-4xl" px="sm" py="xs">
-        <Caption>
-          Built-in programs are original Sheetless programming tools and are not official, affiliated, or endorsed
-          templates from any coach, author, book, or program.
-        </Caption>
-      </Panel>
-
-      <div className="mb-5 space-y-3 md:mb-6">
+      <div
+        className="sticky top-16 z-30 -mx-4 mb-5 space-y-3 px-4 py-3 md:-mx-8 md:px-8 md:mb-6 lg:-mx-10 lg:px-10"
+        style={{ backgroundColor: 'var(--mantine-color-body)' }}
+      >
         <div className="max-w-4xl">
           <TextInput
             leftSection={<Search size={16} />}
@@ -141,6 +154,7 @@ export function TemplateCatalogue({
             <Button
               key={item}
               size="xs"
+              radius="xl"
               variant={filter === item ? 'filled' : 'default'}
               className="shrink-0"
               onClick={() => setFilter(item)}
@@ -151,10 +165,18 @@ export function TemplateCatalogue({
         </div>
       </div>
 
+      <Panel surface="inset" className="mb-4 max-w-4xl" px="sm" py="xs">
+        <Caption>
+          Built-in programs are original Sheetless programming tools and are not official, affiliated, or endorsed
+          templates from any coach, author, book, or program.
+        </Caption>
+      </Panel>
+
       <div className="space-y-6">
         {builtInTemplates.length ? (
           <section>
             <TemplateSectionHeader
+              icon={Layers3}
               label="Sheetless library"
               count={builtInTemplates.length}
               helper="Original presets and progression tools."
@@ -170,6 +192,7 @@ export function TemplateCatalogue({
         {customTemplates.length || filter === 'Custom' ? (
           <section>
             <TemplateSectionHeader
+              icon={Wrench}
               label="Custom"
               count={customTemplates.length}
               helper="Templates you build for your own training."
@@ -237,62 +260,117 @@ export function TemplateCatalogue({
 }
 
 function TemplateSectionHeader({
+  icon: Icon,
   label,
   count,
   helper,
 }: {
+  icon: LucideIcon
   label: string
   count: number
   helper: string
 }) {
   return (
-    <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-      <div>
-        <SectionLabel>{label}</SectionLabel>
-        <Caption mt={2}>{helper}</Caption>
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="flex min-w-0 items-center gap-3">
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+          style={{ backgroundColor: 'var(--vf-action-soft)', border: '1px solid var(--vf-action-border)' }}
+        >
+          <Icon size={20} color="var(--vf-action-text)" />
+        </div>
+        <div className="min-w-0">
+          <SectionLabel>{label}</SectionLabel>
+          <Caption mt={2}>{helper}</Caption>
+        </div>
       </div>
-      <Badge color="neutral">{count} matching</Badge>
+      <Badge color="neutral" variant="light">{count} matching</Badge>
     </div>
   )
 }
 
 function ActiveProgramBand({
   template,
+  position,
   className,
+  onResume,
+  onView,
 }: {
   template: ProgramTemplateSummary
+  position: ProgramOverview['position']
   className?: string
+  onResume: () => void
+  onView: () => void
 }) {
+  // Week-based progress (matches "Week X of Y"); position.progressPercent is a session metric
+  // that can exceed 100% for short repeating templates, so it's not used for the bar.
+  const percent =
+    position && position.totalWeeks > 0
+      ? Math.min(100, Math.max(0, Math.round((position.weekNumber / position.totalWeeks) * 100)))
+      : null
+  const showProgress = position != null && percent != null
   return (
-    <Panel className={className} p="sm" style={{ borderColor: 'var(--vf-action-border)' }}>
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+    <Panel
+      className={`relative overflow-hidden ${className ?? ''}`}
+      p="md"
+      style={{ borderColor: 'var(--vf-action-border)' }}
+    >
+      <div className="vf-radial-glow absolute inset-0" aria-hidden />
+      <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-center">
         <div className="min-w-0">
-          <div className="mb-1 flex flex-wrap items-center gap-2">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
             <Badge color="action" variant="filled">Active program</Badge>
-            <Badge color={template.origin === 'user_created' ? 'accent' : 'neutral'}>{template.sourceLabel}</Badge>
+            <Badge color={template.origin === 'user_created' ? 'accent' : 'neutral'} variant="light">
+              {template.sourceLabel}
+            </Badge>
           </div>
-          <Heading order={2} size="h4" className="truncate">
+          <Heading order={2} size="h3" className="truncate">
             {template.name}
           </Heading>
           <Text mt={3} size="sm" tone="dimmed" lineClamp={2}>
             {template.description}
           </Text>
+          {showProgress ? (
+            <div className="mt-4 max-w-xl">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <Caption fw={700}>
+                  Week {position.weekNumber} of {position.totalWeeks} · {position.phaseLabel}
+                </Caption>
+                <Caption fw={800} tone="action">{percent}%</Caption>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full" style={{ backgroundColor: 'var(--vf-surface-3)' }}>
+                <div
+                  className="h-full rounded-full transition-[width] duration-300"
+                  style={{ width: `${percent}%`, backgroundColor: 'var(--vf-action-text)' }}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
-        <div className="grid grid-cols-3 gap-2 md:w-[20rem]">
-          <ActiveBandMetric label="Days" value={`${template.daysPerWeek}/wk`} />
-          <ActiveBandMetric label="Level" value={template.complexity} />
-          <ActiveBandMetric label="Method" value={template.progressionLabel} />
+        <div className="grid gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            <ActiveBandMetric label="Days" value={`${template.daysPerWeek}/wk`} />
+            <ActiveBandMetric label="Level" value={template.complexity} valueColor={complexityColor(template.complexity)} />
+          </div>
+          <Button onClick={onResume}>
+            <RotateCcw size={16} />
+            Resume training
+          </Button>
+          <Button variant="default" onClick={onView}>
+            <Eye size={16} />
+            View plan
+          </Button>
         </div>
       </div>
     </Panel>
   )
 }
 
-function ActiveBandMetric({ label, value }: { label: string; value: string | number }) {
+function ActiveBandMetric({ label, value, valueColor }: { label: string; value: string | number; valueColor?: string }) {
   return (
     <Panel surface="inset" px="xs" py={6} className="min-w-0">
       <SectionLabel size="0.5625rem" truncate>{label}</SectionLabel>
-      <Text mt={2} size="xs" fw={900} truncate>{value}</Text>
+      <Text mt={2} size="xs" fw={900} truncate c={valueColor}>{value}</Text>
     </Panel>
   )
 }

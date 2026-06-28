@@ -27,7 +27,7 @@ export async function login(page: Page, user: Credentials = DEMO_USER) {
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
 
   const email = page.getByPlaceholder('name@example.com')
-  const password = page.getByPlaceholder('Password')
+  const password = page.locator('input[type="password"]')
   const submit = page.getByRole('button', { name: /^log in$/i })
 
   await expect(async () => {

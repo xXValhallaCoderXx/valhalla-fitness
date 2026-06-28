@@ -46,8 +46,13 @@ export function FindMyPlanModal({
       size="lg"
       radius="lg"
       title={
-        <span className="flex items-center gap-2">
-          <Sparkles size={16} color="var(--vf-action-text)" />
+        <span className="flex items-center gap-2.5">
+          <span
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: 'var(--vf-action-soft)', border: '1px solid var(--vf-action-border)' }}
+          >
+            <Sparkles size={16} color="var(--vf-action-text)" />
+          </span>
           <Text component="span" fw={800}>Find my plan</Text>
         </span>
       }
@@ -114,7 +119,7 @@ export function FindMyPlanModal({
                     key={alt.template.id}
                     type="button"
                     onClick={() => onStart(alt.template.id)}
-                    className="flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-left transition"
+                    className="vf-card-hover flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-left"
                     style={{
                       borderColor: 'var(--mantine-color-default-border)',
                       backgroundColor: 'var(--vf-surface-2)',
