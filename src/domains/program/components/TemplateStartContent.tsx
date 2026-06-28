@@ -372,6 +372,7 @@ export function TemplateStartContent({
         title="Replace active programme?"
         confirmLabel="Replace programme"
         confirmVariant="danger"
+        tone="danger"
         isPending={startMutation.isPending}
         onCancel={() => setShowSwitchConfirm(false)}
         onConfirm={confirmSwitch}

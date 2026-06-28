@@ -7,6 +7,7 @@ import { sessionQueryOptions } from '~/domains/session/queries'
 import type { MovementSlot, SessionSummary, SetLog, Unit, WorkoutSession } from '~/shared/types'
 import { Caption, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, SetSummary, StatValue, Text } from '~/components'
 import { describeSet } from '~/shared/lib/set-notation'
+import { cn } from '~/shared/lib/cn'
 import { buildSessionReceipt, summarizeMovementPerformance, type ReceiptEntry, type ReceiptTone } from '~/domains/session/lib/session-receipt'
 import { PendingProgressionReviewModal, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
 
@@ -116,18 +117,13 @@ function LoadedSummaryRoute({
         <SummaryStat icon={<ArrowRight size={15} />} label="Decisions" value={decisionCount} tone={decisionCount ? 'warning' : 'neutral'} />
       </div>
 
+      {/* Mobile keeps "What changed" full-width here; desktop relocates it into the right rail below.
+          Visibility lives on a plain div — Tailwind's display utilities don't override a Mantine Card's
+          layered root styles. */}
       {receipt.length ? (
-        <Card className="mb-4 p-4">
-          <div className="flex items-center gap-2">
-            <Sparkles size={15} style={{ color: 'var(--vf-action-text)' }} />
-            <SectionLabel>What changed, and why</SectionLabel>
-          </div>
-          <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-            {receipt.map((entry, index) => (
-              <ReceiptRow key={`${entry.movementName}-${index}`} entry={entry} />
-            ))}
-          </div>
-        </Card>
+        <div className="mb-4 lg:hidden">
+          <WhatChangedCard receipt={receipt} />
+        </div>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -163,7 +159,7 @@ function LoadedSummaryRoute({
 
           <Card>
             <SectionLabel>Completed work</SectionLabel>
-            <div className="mt-3 grid gap-2">
+            <div className="mt-3 grid gap-2 lg:grid-cols-2">
               {session.movements.map((movement) => (
                 <MovementSummaryRow key={movement.id} movement={movement} units={session.units} />
               ))}
@@ -181,7 +177,12 @@ function LoadedSummaryRoute({
           </Card>
         </div>
 
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
+          {receipt.length ? (
+            <div className="hidden lg:block">
+              <WhatChangedCard receipt={receipt} single />
+            </div>
+          ) : null}
           <Card>
             <SectionLabel>Accessory highlights</SectionLabel>
             {accessoryHighlights.length ? (
@@ -225,7 +226,7 @@ function LoadedSummaryRoute({
             )}
           </Card>
 
-          <Link to="/today">
+          <Link to="/today" className="lg:hidden">
             <Button className="w-full">Finish review</Button>
           </Link>
         </div>
@@ -292,6 +293,24 @@ function ReceiptRow({ entry }: { entry: ReceiptEntry }) {
         </Text>
       ) : null}
     </div>
+  )
+}
+
+// Coaching "receipt" panel. Rendered full-width on mobile and relocated into the desktop
+// right rail (`single` → 1-column stack so it fits the 22rem column with no empty space).
+function WhatChangedCard({ receipt, single = false }: { receipt: ReceiptEntry[]; single?: boolean }) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2">
+        <Sparkles size={15} style={{ color: 'var(--vf-action-text)' }} />
+        <SectionLabel>What changed, and why</SectionLabel>
+      </div>
+      <div className={cn('mt-3 grid gap-2.5', !single && 'sm:grid-cols-2')}>
+        {receipt.map((entry, index) => (
+          <ReceiptRow key={`${entry.movementName}-${index}`} entry={entry} />
+        ))}
+      </div>
+    </Card>
   )
 }
 

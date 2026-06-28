@@ -54,7 +54,7 @@ export function LiveSessionFrame({
     <Box
       bg="var(--mantine-color-body)"
       c="var(--mantine-color-text)"
-      className="-mx-3 -my-4 min-h-[calc(100dvh-3.5rem)] md:mx-auto md:my-0 md:min-h-0 md:max-w-[1180px] md:rounded-xl md:border"
+      className="-mx-3 -my-4 min-h-[calc(100dvh-3.5rem)] md:mx-auto md:my-0 md:min-h-0 md:max-w-[1180px] md:rounded-2xl md:border"
       style={{
         borderColor: 'var(--mantine-color-default-border)',
         boxShadow: 'var(--vf-shadow-panel)',
@@ -265,10 +265,11 @@ function MovementRail({
 function LiveNotesBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <label
-      className="grid gap-1 rounded-xl border p-4"
+      className="grid gap-1 rounded-2xl border p-4"
       style={{
-        borderColor: 'var(--mantine-color-default-border)',
+        borderColor: 'var(--vf-card-border)',
         backgroundColor: 'var(--mantine-color-default)',
+        boxShadow: 'var(--vf-shadow-card)',
       }}
     >
       <SectionLabel>Session notes</SectionLabel>

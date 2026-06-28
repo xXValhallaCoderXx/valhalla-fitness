@@ -87,9 +87,69 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .vf-card-hover:hover {
-  border-color: var(--vf-action-border);
-  box-shadow: var(--vf-shadow-card);
+  border-color: var(--vf-action-border) !important;
+  box-shadow: var(--vf-shadow-card-raised) !important;
   transform: translateY(-1px);
+}
+
+/* Marketing landing-page helpers (theme-token driven). */
+html {
+  scroll-behavior: smooth;
+}
+
+.vf-nav-link {
+  transition: color 160ms ease;
+}
+
+.vf-nav-link:hover {
+  color: var(--mantine-color-text) !important;
+}
+
+.vf-floaty {
+  animation: vf-floaty 7s ease-in-out infinite;
+}
+
+@keyframes vf-floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-9px);
+  }
+}
+
+/* Soft radial spotlight derived from the action token, no raw hexes. */
+.vf-radial-glow {
+  background: radial-gradient(
+    circle at var(--vf-glow-x, 80%) var(--vf-glow-y, 0%),
+    color-mix(in srgb, var(--vf-action-text) 16%, transparent),
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+/* Faint dotted grid, masked to fade out, used behind hero / CTA. */
+.vf-dot-grid {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--mantine-color-text) 7%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 26px 26px;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, #000, transparent 72%);
+  mask-image: linear-gradient(180deg, #000, transparent 72%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .vf-floaty {
+    animation: none;
+  }
 }
 
 .live-session-input:focus,
@@ -115,7 +175,7 @@ input[type="number"]::-webkit-outer-spin-button {
   align-items: center;
   background: var(--vf-surface-2);
   border: 1px solid var(--mantine-color-default-border);
-  border-radius: var(--mantine-radius-md);
+  border-radius: 9999px;
   color: var(--mantine-color-dimmed);
   display: inline-flex;
   font-size: 0.6875rem;
@@ -153,7 +213,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .vf-panel {
   background: var(--mantine-color-default);
-  border: 1px solid var(--mantine-color-default-border);
+  border: 1px solid var(--vf-card-border);
   border-radius: var(--mantine-radius-lg);
   box-shadow: var(--vf-shadow-card);
   color: var(--mantine-color-text);
