@@ -374,11 +374,13 @@ export function AuthPage() {
             </div>
           </Card>
 
-          <Caption component="p" ta="center" fw={600} mt="md" className="mx-auto" maw="20rem">
-            {authDisabled
-              ? 'Synced workouts require a Sheetless account.'
-              : 'By continuing you agree to the Terms and acknowledge the Privacy Policy.'}
-          </Caption>
+          <div className="mt-4 flex justify-center">
+            <Caption component="p" ta="center" fw={600} maw="20rem">
+              {authDisabled
+                ? 'Synced workouts require a Sheetless account.'
+                : 'By continuing you agree to the Terms and acknowledge the Privacy Policy.'}
+            </Caption>
+          </div>
         </div>
       </Box>
     </Box>
