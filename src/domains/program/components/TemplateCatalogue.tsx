@@ -316,7 +316,7 @@ function ActiveProgramBand({
       style={{ borderColor: 'var(--vf-action-border)' }}
     >
       <div className="vf-radial-glow absolute inset-0" aria-hidden />
-      <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-center">
+      <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-center">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <Badge color="action" variant="filled">Active program</Badge>
@@ -331,7 +331,7 @@ function ActiveProgramBand({
             {template.description}
           </Text>
           {showProgress ? (
-            <div className="mt-4 max-w-xl">
+            <div className="mt-4">
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <Caption fw={700}>
                   Week {position.weekNumber} of {position.totalWeeks} · {position.phaseLabel}
