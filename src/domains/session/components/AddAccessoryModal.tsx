@@ -151,7 +151,7 @@ export function AddAccessoryModal({
       withCloseButton={!mutation.isPending}
       classNames={{
         inner: '!items-end sm:!items-center',
-        content: '!mb-0 !max-h-[96dvh] !w-full !overflow-hidden !rounded-b-none sm:!mb-auto sm:!max-w-[56rem] sm:!rounded-lg',
+        content: '!mb-0 !max-h-[96dvh] !w-full !overflow-hidden !rounded-b-none sm:!mb-auto sm:!max-w-[56rem] sm:!rounded-2xl',
         header: '!min-h-0 !px-3 !py-2 sm:!px-4',
         body: '!max-h-[calc(96dvh-3.25rem)] !overflow-y-auto !p-3 sm:!p-4',
       }}

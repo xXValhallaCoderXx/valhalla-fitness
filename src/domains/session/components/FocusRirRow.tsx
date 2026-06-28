@@ -31,7 +31,7 @@ export function FocusRirRow({
               aria-label={option.hint}
               aria-pressed={selected}
               disabled={disabled}
-              className="rounded-xl border py-3 text-center transition active:scale-95"
+              className="rounded-2xl border py-3 text-center transition active:scale-95"
               style={{
                 borderColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default-border)',
                 backgroundColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default)',

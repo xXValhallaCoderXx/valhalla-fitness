@@ -68,7 +68,7 @@ export function LiveSetRow({
       role="button"
       tabIndex={0}
       className={cn(
-        'rounded-xl border px-4 py-2 transition md:rounded-lg md:px-1 md:py-1.5',
+        'rounded-2xl border px-4 py-2 transition md:rounded-xl md:px-1 md:py-1.5',
         rowState === 'future' && 'border-dashed',
       )}
       style={{
@@ -152,7 +152,7 @@ export function LiveSetRow({
         <button
           type="button"
           data-tour={isSelected ? 'live-complete' : undefined}
-          className="flex h-8 w-8 items-center justify-center justify-self-center rounded-lg border transition"
+          className="flex h-8 w-8 items-center justify-center justify-self-center rounded-full border transition"
           style={{
             borderColor: set.completed
               ? 'var(--vf-success-text)'

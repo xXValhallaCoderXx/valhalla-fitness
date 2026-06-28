@@ -3,7 +3,7 @@ import { notifications } from '@mantine/notifications'
 import { useMutation } from '@tanstack/react-query'
 import { KeyRound, Link as LinkIcon, Mail } from 'lucide-react'
 import { useState } from 'react'
-import { BrandMark, Caption, Heading, Panel, SectionLabel, StatValue, Text } from '~/components'
+import { BrandLockup, BrandMark, Caption, Heading, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { useCompleteAuthRedirect } from '~/domains/account/lib/useCompleteAuthRedirect'
 import {
   resetPasswordFn,
@@ -252,17 +252,6 @@ export function AuthPage() {
         </Card>
       </Box>
     </Box>
-  )
-}
-
-function BrandLockup({ size = 'sm' }: { size?: 'sm' | 'md' }) {
-  return (
-    <div className="flex items-center gap-2">
-      <BrandMark size={size} />
-      <Text component="span" size="sm" fw={900} truncate>
-        Sheetless
-      </Text>
-    </div>
   )
 }
 

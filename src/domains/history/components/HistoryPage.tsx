@@ -633,26 +633,27 @@ function BestSetCard({ set, compact = false }: { set: HistoryBestSet; compact?: 
   const primary = formatBestSetPrimary(set)
   const rir = typeof set.rir === 'number' ? `RIR ${set.rir}` : null
   const e1rm = typeof set.e1rm === 'number' ? `e1RM ${formatNumber(set.e1rm)} ${set.units ?? ''}`.trim() : null
+  const meta = [rir, e1rm].filter(Boolean).join(' · ')
   const emphasized = set.type !== 'accessory'
 
   return (
     <Panel
-      p="xs"
+      p="sm"
       style={{
         borderColor: emphasized ? 'var(--vf-accent-border)' : 'var(--mantine-color-default-border)',
         backgroundColor: emphasized ? 'var(--vf-accent-soft)' : 'var(--vf-surface-2)',
       }}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-start gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span
-            className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md sm:h-6 sm:w-6"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
             style={{ backgroundColor: 'var(--mantine-color-default)', color: 'var(--vf-accent-text)' }}
           >
             <Trophy size={12} />
           </span>
           <div className="min-w-0">
-            <Text size="sm" fw={900} truncate>{set.movementName}</Text>
+            <Text size="sm" fw={800} truncate>{set.movementName}</Text>
             {!compact ? <Caption mt={1} truncate>{set.sessionTitle}</Caption> : null}
           </div>
         </div>
@@ -660,13 +661,12 @@ function BestSetCard({ set, compact = false }: { set: HistoryBestSet; compact?: 
           <Badge color={set.type === 'accessory' ? 'neutral' : 'action'}>
             {formatRecordType(set.type)}
           </Badge>
-          {!compact ? <Caption size="0.625rem" fw={800}>{formatCompactDate(set.performedAt)}</Caption> : null}
+          {!compact ? <Caption size="0.625rem" fw={700}>{formatCompactDate(set.performedAt)}</Caption> : null}
         </div>
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <StatValue size="sm">{primary}</StatValue>
-        {rir ? <Badge color="neutral">{rir}</Badge> : null}
-        {e1rm ? <Badge color="action">{e1rm}</Badge> : null}
+        {meta ? <Caption fw={700}>{meta}</Caption> : null}
       </div>
     </Panel>
   )
@@ -871,6 +871,8 @@ function WorkoutSummaryModal({
   )
 }
 
+const setTableColumns = 'grid grid-cols-[1.75rem_1fr_1fr_2.75rem] items-center gap-x-3'
+
 function WorkoutMovementSummary({ session, movement }: { session: WorkoutSession; movement: WorkoutSession['movements'][number] }) {
   const completedSets = movement.sets.filter((set) => set.completed)
   const displaySets = completedSets.length ? completedSets : movement.sets
@@ -884,16 +886,46 @@ function WorkoutMovementSummary({ session, movement }: { session: WorkoutSession
         </div>
         <Badge color={movement.role === 'main' ? 'action' : 'neutral'}>{movement.role}</Badge>
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {displaySets.map((set) => (
-          <Badge
-            key={set.id}
-            color={set.isTopSet || set.isAmrap ? 'accent' : set.completed ? 'success' : 'neutral'}
-            tt="none"
-          >
-            {set.setIndex}: {formatSetLog(set, session.units)}
-          </Badge>
-        ))}
+      <div className="mt-2.5 space-y-0.5">
+        <div className={cn(setTableColumns, 'px-2')}>
+          <SectionLabel size="0.5625rem">Set</SectionLabel>
+          <SectionLabel size="0.5625rem">Weight</SectionLabel>
+          <SectionLabel size="0.5625rem">Reps</SectionLabel>
+          <SectionLabel size="0.5625rem" ta="right">RIR</SectionLabel>
+        </div>
+        {displaySets.map((set) => {
+          const highlight = set.isTopSet || set.isAmrap
+          const load = set.actualLoad ?? set.targetLoad
+          const reps =
+            set.actualReps ??
+            set.targetReps ??
+            (set.targetRepMin && set.targetRepMax ? `${set.targetRepMin}-${set.targetRepMax}` : set.targetRepMin)
+          return (
+            <div
+              key={set.id}
+              className={cn(setTableColumns, 'rounded-md px-2 py-1')}
+              style={highlight ? { backgroundColor: 'var(--vf-accent-soft)' } : undefined}
+            >
+              <Text
+                size="xs"
+                fw={800}
+                className="tabular-nums"
+                c={highlight ? 'var(--vf-accent-text)' : 'var(--mantine-color-dimmed)'}
+              >
+                {set.setIndex}
+              </Text>
+              <Text size="sm" fw={700} className="tabular-nums">
+                {load == null ? '—' : `${formatNumber(load)} ${session.units}`}
+              </Text>
+              <Text size="sm" fw={700} className="tabular-nums">
+                {reps == null ? '—' : `${reps}${set.isAmrap ? '+' : ''}`}
+              </Text>
+              <Text size="sm" fw={700} ta="right" tone="dimmed" className="tabular-nums">
+                {typeof set.actualRir === 'number' ? set.actualRir : '—'}
+              </Text>
+            </div>
+          )
+        })}
       </div>
     </Panel>
   )

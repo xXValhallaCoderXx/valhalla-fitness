@@ -120,7 +120,7 @@ export function FocusSetCard({
         <Button
           fullWidth
           size="lg"
-          radius="md"
+          radius="lg"
           disabled={isSaving}
           onClick={logSet}
           data-testid="focus-log-set"

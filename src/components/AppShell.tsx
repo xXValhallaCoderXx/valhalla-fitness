@@ -17,9 +17,9 @@ const navItems = [
 export function AppShell({ children }: { user: AuthUser | null; children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const isNavigating = useRouterState({ select: (state) => state.isLoading })
-  const isAuth = pathname.startsWith('/auth')
+  const isChromeless = pathname === '/' || pathname.startsWith('/auth')
 
-  if (isAuth) return <>{children}</>
+  if (isChromeless) return <>{children}</>
 
   return (
     <Box
