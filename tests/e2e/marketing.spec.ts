@@ -16,6 +16,20 @@ test.describe('logged out marketing', () => {
       await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible({ timeout: 1000 })
     }).toPass({ timeout: 15000 })
   })
+
+  test('the Focus Mode demo logs sets interactively', async ({ page }) => {
+    await page.goto('/')
+
+    // The demo starts with set 1 pre-logged.
+    await expect(page.getByText('1 of 5 sets')).toBeVisible()
+
+    // Tapping the next set's complete toggle advances the progress (retry past the
+    // SSR hydration race where early clicks no-op).
+    await expect(async () => {
+      await page.getByRole('button', { name: 'Toggle set 2 complete' }).click()
+      await expect(page.getByText('2 of 5 sets')).toBeVisible({ timeout: 1000 })
+    }).toPass({ timeout: 15000 })
+  })
 })
 
 // Reuses the authenticated session from auth.setup.ts.

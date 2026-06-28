@@ -1,5 +1,5 @@
 import { Activity, BarChart3, ClipboardList, Crosshair, Gauge, TrendingUp, type LucideIcon } from 'lucide-react'
-import { BrandMark, Heading, Panel, SectionLabel, Text } from '~/components'
+import { Heading, Panel, SectionLabel, Text } from '~/components'
 import {
   marketingFeatures,
   type MarketingFeatureId,
@@ -16,7 +16,7 @@ const featureIcons: Record<MarketingFeatureId, LucideIcon> = {
 
 export function FeaturesGrid() {
   return (
-    <section className="px-4 py-12 md:px-6 md:py-16">
+    <section id="features" className="px-4 py-12 md:px-6 md:py-20">
       <div className="mx-auto max-w-[1180px]">
         <div className="max-w-2xl">
           <SectionLabel>What Sheetless handles</SectionLabel>
@@ -32,10 +32,16 @@ export function FeaturesGrid() {
           {marketingFeatures.map((feature) => {
             const Icon = featureIcons[feature.id]
             return (
-              <Panel key={feature.id} p="md" className="h-full">
-                <BrandMark size="md" muted withBorder>
-                  <Icon color="var(--vf-action-text)" size={16} />
-                </BrandMark>
+              <Panel key={feature.id} p="md" className="vf-card-hover h-full">
+                <div
+                  className="flex h-11 w-11 items-center justify-center rounded-xl"
+                  style={{
+                    backgroundColor: 'var(--vf-action-soft)',
+                    border: '1px solid var(--vf-action-border)',
+                  }}
+                >
+                  <Icon color="var(--vf-action-text)" size={20} />
+                </div>
                 <Heading order={3} size="1.05rem" mt="md">
                   {feature.title}
                 </Heading>

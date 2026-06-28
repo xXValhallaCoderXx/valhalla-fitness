@@ -1,8 +1,46 @@
 export const heroCopy = {
-  headline: 'Stop guessing. Get stronger.',
+  eyebrow: 'Strength training without spreadsheet brain',
+  headline: 'Stop guessing.',
+  headlineAccent: 'Get stronger.',
   subhead:
     'Sheetless gives beginner-friendly strength plans, fast workout logging, and plain-language coaching receipts that explain exactly why your next workout changes.',
+  highlights: ['9 built-in programs', 'Adaptive progression', 'No spreadsheet required'],
 }
+
+export const comparisonCopy = {
+  eyebrow: 'From spreadsheet to Sheetless',
+  heading: "The spreadsheet got you started. It won't get you stronger.",
+  subhead:
+    "You shouldn't have to maintain formulas to train well. Log what happened — Sheetless does the progression math and hands you the decision in plain language.",
+  beforeLabel: 'Before · your spreadsheet',
+  beforeFootnote: 'Which week am I on? Did the formula break again?',
+  bridge: 'Sheetless does the math',
+  afterLabel: 'After · Sheetless',
+  afterFootnote: 'One decision, in words you can act on.',
+}
+
+export const focusDemoCopy = {
+  eyebrow: 'Focus Mode',
+  heading: 'Your whole session, logged in seconds.',
+  subhead:
+    "Tap a set as you finish it, mark how it felt, and keep moving. Sheetless tracks the rest and turns it into tomorrow's prescription.",
+  hint: 'Live demo — tap the sets and RIR',
+}
+
+export const focusDemoBullets = [
+  {
+    title: 'Tap a set to log it',
+    body: 'One tap marks the set complete and banks the weight and reps.',
+  },
+  {
+    title: 'RIR is effort, not failure',
+    body: 'Log how many reps you had left — or skip it and just train.',
+  },
+  {
+    title: 'Tomorrow is already decided',
+    body: 'Finish the session and your next loads are set automatically.',
+  },
+]
 
 export type MarketingFeatureId =
   | 'adaptive'
@@ -150,4 +188,47 @@ export const beginnerFriendlyPoints = [
   'Partial sessions and missed targets still count, so the next workout reflects what actually happened.',
   'No jargon is required: log load, reps, and effort when you can, then let Sheetless do the translation.',
 ]
+
+/** Themed accent token per program level, used for the legend dots and card top accents. */
+export const programLevelColor: Record<ProgramShowcaseGroup['level'], string> = {
+  Beginner: 'var(--vf-success-text)',
+  Intermediate: 'var(--vf-action-text)',
+  Advanced: 'var(--vf-warning-text)',
+}
+
+/** Flattened program list (keeps the level) for the showcase card grid. */
+export const programShowcaseCards = programShowcaseGroups.flatMap((group) =>
+  group.programs.map((program) => ({ ...program, level: group.level })),
+)
+
+export const footerNav = [
+  {
+    title: 'Product',
+    links: [
+      { label: 'Features', href: '#features' },
+      { label: 'How it works', href: '#how' },
+      { label: 'Programs', href: '#programs' },
+    ],
+  },
+  {
+    title: 'Get started',
+    links: [
+      { label: 'Create account', to: '/auth' },
+      { label: 'Sign in', to: '/auth' },
+      { label: 'Find My Plan quiz', to: '/auth' },
+    ],
+  },
+] as const
+
+export const footerLegal = {
+  copyright:
+    '© 2026 Sheetless. Built-in programs are original Sheetless tools, not affiliated with any coach or book.',
+  tagline: 'Strength training without spreadsheet brain.',
+}
+
+export const marketingNavLinks = [
+  { label: 'Features', href: '#features' },
+  { label: 'How it works', href: '#how' },
+  { label: 'Programs', href: '#programs' },
+] as const
 
