@@ -1,6 +1,7 @@
 import { Button } from '@mantine/core'
 import { RefreshCw, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Heading, Panel, Text } from '~/components'
 
 type UpdateServiceWorker = (reloadPage?: boolean) => Promise<void>
 
@@ -33,12 +34,20 @@ export function PwaUpdatePrompt() {
   if (!updateServiceWorker && !offlineReady) return null
 
   return (
-    <div className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 mx-auto max-w-md rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-3 text-[var(--mantine-color-text)] shadow-[var(--vf-shadow-panel)] md:bottom-4">
+    <Panel
+      className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 mx-auto max-w-md md:bottom-4"
+      p="sm"
+      style={{ boxShadow: 'var(--vf-shadow-panel)' }}
+    >
       {updateServiceWorker ? (
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-extrabold">Update available</p>
-            <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">Reload when you are ready to use the latest version.</p>
+            <Heading order={2} size="h5">
+              Update available
+            </Heading>
+            <Text component="p" mt={2} size="xs" tone="dimmed">
+              Reload when you are ready to use the latest version.
+            </Text>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button
@@ -58,14 +67,18 @@ export function PwaUpdatePrompt() {
       ) : (
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-extrabold">Ready offline</p>
-            <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">The app shell is cached for faster launches.</p>
+            <Heading order={2} size="h5">
+              Ready offline
+            </Heading>
+            <Text component="p" mt={2} size="xs" tone="dimmed">
+              The app shell is cached for faster launches.
+            </Text>
           </div>
           <Button size="xs" variant="default" onClick={() => setOfflineReady(false)}>
             OK
           </Button>
         </div>
       )}
-    </div>
+    </Panel>
   )
 }

@@ -78,17 +78,22 @@ export function evaluateTrainingMaxBand(
 
   let band: 'reset' | 'hold' | 'standard' | 'double'
   let next = currentTm
+  let rationale: string
   if (minimumMissed) {
     band = 'reset'
     next = mround(currentTm * 0.9, rounding)
+    rationale = 'You missed target reps, so Sheetless backs the weight off to rebuild it safely.'
   } else if (hasGrinder) {
     band = 'hold'
+    rationale = 'Your last set was very hard (about 1 rep left), so Sheetless holds the weight to let you own it.'
   } else if (allDoubleEligible) {
     band = 'double'
     next = mround(currentTm + (isUpper ? 5 : 7.5), rounding)
+    rationale = 'You beat the target by 2+ reps with reps to spare, so Sheetless makes a bigger jump.'
   } else {
     band = 'standard'
     next = mround(currentTm + (isUpper ? 2.5 : 5), rounding)
+    rationale = 'You beat the target with good effort, so Sheetless progresses the lift.'
   }
 
   return {
@@ -105,6 +110,7 @@ export function evaluateTrainingMaxBand(
       band === 'hold'
         ? `Repeat ${currentTm} next cycle.`
         : `Move TM from ${currentTm} to ${next}.`,
+    rationale,
     previousValue: currentTm,
     recommendedValue: next,
   }
@@ -137,6 +143,10 @@ export function evaluatePlusSetWave(
       extraReps > 0
         ? `Add ${mround(jump, rounding)} based on ${extraReps} extra ${extraReps === 1 ? 'rep' : 'reps'}.`
         : 'Repeat the load next wave; no extra reps were logged on the plus set.',
+    rationale:
+      extraReps > 0
+        ? `You logged ${extraReps} extra ${extraReps === 1 ? 'rep' : 'reps'} on the rep-out set, so Sheetless adds a proportional amount.`
+        : 'No extra reps were logged on the rep-out set, so Sheetless repeats the load.',
     previousValue: anchor,
     recommendedValue: recommended,
   }
@@ -176,6 +186,7 @@ export function evaluateSimpleLinearCompletion(
     status: 'pending',
     inputSummary: `${getMovementName(movementId)} completed all target work at or above the target reps and RIR.`,
     recommendation: `Move the working load from ${currentAnchor} to ${recommended}.`,
+    rationale: 'You completed every set at the target reps and effort, so Sheetless adds a small increase.',
     previousValue: currentAnchor,
     recommendedValue: recommended,
   }

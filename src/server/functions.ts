@@ -1,6 +1,6 @@
 // Grouped view of client-callable TanStack server functions.
 // Domain code should generally import from src/domains/*/server/*-functions directly.
-export { getMeFn, updateSettingsFn } from '~/domains/account/server/profile-functions'
+export { dismissLiveOnboardingFn, getMeFn, updateSettingsFn } from '~/domains/account/server/profile-functions'
 export { listAccessoryMovementOptionsFn } from '~/domains/movement/server/movement-functions'
 export {
   createCustomProgramTemplateFn,

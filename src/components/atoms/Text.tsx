@@ -12,6 +12,5 @@ export interface TextProps extends MantineTextProps, ElementProps<'p', keyof Man
  * inline Tailwind typography/color utilities.
  */
 export function Text({ tone, c, component, ...props }: TextProps) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return <MantineText component={component as any} c={c ?? toneColor(tone)} {...props} />
 }

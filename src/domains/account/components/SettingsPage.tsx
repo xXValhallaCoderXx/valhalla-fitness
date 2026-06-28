@@ -1,16 +1,21 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Badge, Button, Checkbox, Modal, NativeSelect, NumberInput, SegmentedControl, TextInput } from '@mantine/core'
+import { Badge, Button, Checkbox, Modal, NativeSelect, SegmentedControl, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { useRouter } from '@tanstack/react-router'
-import { Calculator, Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useRouterState } from '@tanstack/react-router'
+import { ArrowRight, Calculator, Check, Cloud, Dumbbell, Gauge, LogOut, Monitor, Moon, SlidersHorizontal, Sun, User, X } from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { track } from '~/shared/lib/analytics'
+import { prefersReducedMotion } from '~/shared/lib/reduced-motion'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { e1rm, mround } from '~/domains/program/lib/progression'
 import { authUserQueryOptions, meQueryOptions } from '~/domains/account/queries'
 import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
 import { signOutFn } from '~/domains/account/server/auth-functions'
 import { updateSettingsFn } from '~/domains/account/server/profile-functions'
+import { todayQueryOptions } from '~/domains/session/queries'
+import { buildEstimatesSteps } from '~/domains/onboarding/onboarding-tour'
+import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
 import type { ProgramStateDefaults, ThemePreference, Unit, UserProfile } from '~/shared/types'
 import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, Text } from '~/components'
 
@@ -52,6 +57,11 @@ type KnownSetInput = {
 }
 
 const oneRepMaxKeys = ['squat_one_rep_max', 'bench_press_one_rep_max', 'deadlift_one_rep_max', 'overhead_press_one_rep_max', 'barbell_row_one_rep_max']
+const roundingOptions = [
+  { value: '1.25', label: '1.25' },
+  { value: '2.5', label: '2.5' },
+  { value: '5', label: '5' },
+]
 
 export function SettingsPage({ user }: { user: unknown }) {
   if (!user) {
@@ -82,6 +92,34 @@ function AuthedSettings() {
 
 function SettingsForm({ me }: { me: UserProfile }) {
   const router = useRouter()
+  const { start: startTour } = useOnboardingTour()
+  const { start: startEstimatesTour } = useOnboardingTour(buildEstimatesSteps, 'estimates')
+  const activeSessionId = useQuery(todayQueryOptions()).data?.activeSession?.sessionId ?? null
+
+  // Arriving from the onboarding checklist (`?focus=estimates`): scroll to the section and walk the
+  // user through the inputs + 1RM calculator.
+  const focusParam = useRouterState({ select: (state) => (state.location.search as { focus?: string }).focus })
+  // No handled-ref guard: a client-side route transition mounts this component twice while
+  // preserving refs, so a ref guard would let the throwaway mount "use up" the guard and block the
+  // surviving mount from ever scheduling the tour. Keying purely off the (stable) `focusParam` plus a
+  // self-clearing timer is resilient — whichever mount survives schedules and fires it. The param is
+  // cleared only once the tour is up (so a refresh/back doesn't re-pop it), after the transition has
+  // long settled, which is a plain re-render (the started driver lives outside React and persists).
+  useEffect(() => {
+    if (focusParam !== 'estimates') return
+    const timer = window.setTimeout(() => {
+      if (!document.querySelector('[data-tour="settings-estimates"]')) return
+      document.getElementById('programme-loads')?.scrollIntoView({
+        behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+        block: 'start',
+      })
+      track('onboarding_deeplink', { target: 'estimates' })
+      startEstimatesTour()
+      void router.navigate({ to: '/settings', search: {}, replace: true })
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [focusParam, router, startEstimatesTour])
+
   const [units, setUnits] = useState<Unit>(me?.units ?? 'kg')
   const [rounding, setRounding] = useState(me?.rounding ?? 2.5)
   const [equipmentProfile, setEquipmentProfile] = useState<string[]>(me?.equipmentProfile ?? [])
@@ -170,15 +208,49 @@ function SettingsForm({ me }: { me: UserProfile }) {
   )
   const hasCalculatedOneRepMax = hasLoadDefault(calculatedOneRepMax)
 
+  const liftOptions = useMemo(() => buildLiftOptions(programStateDefaults, units), [programStateDefaults, units])
+  const setOneRepMaxCount = useMemo(
+    () => oneRepMaxKeys.filter((key) => hasLoadDefault(programStateDefaults[key] ?? null)).length,
+    [programStateDefaults],
+  )
+  const nextUnsetOneRepMaxKey = useMemo(
+    () => nextUnsetKey(programStateDefaults, selectedOneRepMaxKey),
+    [programStateDefaults, selectedOneRepMaxKey],
+  )
+
+  const resetKnownSetInput = () => setKnownSetInput({ weight: '', reps: '', rir: '0' })
+
+  const openOneRepMaxCalculator = () => {
+    setSelectedOneRepMaxKey(firstUnsetKey(programStateDefaults) ?? oneRepMaxKeys[0]!)
+    resetKnownSetInput()
+    setShowOneRepMaxCalculator(true)
+  }
+
+  const handleSelectedKeyChange = (key: string) => {
+    setSelectedOneRepMaxKey(key)
+    resetKnownSetInput()
+  }
+
   const applyCalculatedOneRepMax = () => {
     if (!hasLoadDefault(calculatedOneRepMax)) return
-    setProgramStateDefaults((current) => {
-      return {
-        ...current,
-        [selectedOneRepMaxKey]: calculatedOneRepMax,
-      }
-    })
+    setProgramStateDefaults((current) => ({
+      ...current,
+      [selectedOneRepMaxKey]: calculatedOneRepMax,
+    }))
     setShowOneRepMaxCalculator(false)
+  }
+
+  const applyCalculatedOneRepMaxAndNext = () => {
+    if (!hasLoadDefault(calculatedOneRepMax)) return
+    const updated = { ...programStateDefaults, [selectedOneRepMaxKey]: calculatedOneRepMax }
+    setProgramStateDefaults(updated)
+    const target = nextUnsetKey(updated, selectedOneRepMaxKey)
+    if (target) {
+      setSelectedOneRepMaxKey(target)
+      resetKnownSetInput()
+    } else {
+      setShowOneRepMaxCalculator(false)
+    }
   }
 
   const signOutMutation = useMutation({
@@ -239,9 +311,9 @@ function SettingsForm({ me }: { me: UserProfile }) {
         </Panel>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[11rem_minmax(0,1fr)]">
+      <div className="grid gap-3 lg:grid-cols-[10rem_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <Panel p="xs" className="flex flex-col">
+          <Panel p="xs" className="sticky top-16 flex flex-col">
             <SectionLabel className="px-2 pb-2">Settings</SectionLabel>
             {settingsSections.map((item) => {
               const Icon = item.icon
@@ -259,14 +331,14 @@ function SettingsForm({ me }: { me: UserProfile }) {
           </Panel>
         </aside>
 
-        <div className="space-y-5">
-          <section id="preferences" className="scroll-mt-24">
-            <div className="mb-2">
-              <Heading order={2} size="h5">Preferences</Heading>
-              <Caption size="0.625rem">Units and rounding are reused when you start a new programme.</Caption>
-            </div>
-            <Panel className="space-y-3" p="md">
-              <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_16rem] md:items-end">
+        <div className="space-y-4">
+          <SettingsSection
+            id="preferences"
+            title="Preferences"
+            description="Units and rounding are reused when you start a new programme."
+          >
+            <Panel className="grid gap-3" p="sm">
+              <div className="grid gap-3 lg:hidden">
                 <div>
                   <SectionLabel>Theme</SectionLabel>
                   <Caption mt={2}>{themeOptions.find((option) => option.value === themePreference)?.description}</Caption>
@@ -287,108 +359,166 @@ function SettingsForm({ me }: { me: UserProfile }) {
                     }
                   })}
                 />
+                <div className="grid grid-cols-2 gap-2">
+                  <NativeSelect
+                    label="Units"
+                    value={units}
+                    data={[
+                      { value: 'kg', label: 'kg' },
+                      { value: 'lb', label: 'lb' },
+                    ]}
+                    onChange={(event) => handleUnitsChange(event.target.value as Unit)}
+                  />
+                  <NativeSelect
+                    label="Rounding"
+                    value={String(rounding)}
+                    data={roundingOptions}
+                    onChange={(event) => setRounding(Number(event.target.value))}
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <NativeSelect
-                  label="Units"
-                  value={units}
-                  data={[
-                    { value: 'kg', label: 'kg' },
-                    { value: 'lb', label: 'lb' },
-                  ]}
-                  onChange={(event) => handleUnitsChange(event.target.value as Unit)}
-                />
-                <NumberInput
-                  label="Rounding"
-                  value={rounding}
-                  min={0.5}
-                  step={0.5}
-                  onChange={(value) => setRounding(typeof value === 'number' ? value : Number(value))}
-                />
-              </div>
-            </Panel>
-          </section>
 
-          <section id="programme-loads" className="scroll-mt-24">
-            <div className="mb-2">
-              <Heading order={2} size="h5">Strength Estimates</Heading>
-              <Caption size="0.625rem">
-                Saved estimated 1RMs are used to suggest starting values when you begin a programme.
-              </Caption>
-            </div>
-            <Panel className="space-y-4" p="md">
-              <Panel surface="inset" p="sm">
-                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="hidden gap-4 lg:grid lg:grid-cols-2 lg:items-start">
+                <div className="grid gap-2">
                   <div>
-                    <SectionLabel>Estimated 1RMs</SectionLabel>
-                    <Caption mt={4} maw="42rem" lh={1.45}>
-                      Enter a current strength estimate for each main lift. Programme-specific training maxes and
-                      working loads are derived later on the start screen.
-                    </Caption>
+                    <SectionLabel>Theme</SectionLabel>
+                    <Caption mt={2}>{themeOptions.find((option) => option.value === themePreference)?.description}</Caption>
                   </div>
-                  <Button variant="default" size="xs" onClick={() => setShowOneRepMaxCalculator(true)}>
-                    <Calculator size={14} />
-                    Calculate from known sets
-                  </Button>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {oneRepMaxKeys.map((key) => {
-                    const value = programStateDefaults[key] ?? null
-                    const label = strengthEstimateLabel(key)
-                    return (
-                      <div key={key} className="grid gap-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <SectionLabel size="0.5625rem">{label}</SectionLabel>
-                          <Badge color={hasLoadDefault(value) ? 'success' : 'warning'} size="xs">
-                            {hasLoadDefault(value) ? 'Set' : 'Unset'}
-                          </Badge>
-                        </div>
-                        <span className="relative block">
-                          <TextInput
-                            classNames={{ input: 'pr-24 text-right' }}
-                            type="number"
-                            placeholder="Unset"
-                            value={value ?? ''}
-                            onChange={(event) => updateProgramStateDefault(key, loadDefaultFromInput(event.target.value))}
-                          />
-                          <span className="pointer-events-none absolute right-14 top-1/2 -translate-y-1/2">
-                            <Caption fw={800}>
-                            {units}
-                            </Caption>
+                  <SegmentedControl
+                    value={themePreference}
+                    onChange={(value) => setThemePreference(value as ThemePreference)}
+                    data={themeOptions.map((option) => {
+                      const Icon = option.icon
+                      return {
+                        value: option.value,
+                        label: (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Icon size={14} />
+                            {option.label}
                           </span>
-                          <button
-                            type="button"
-                            aria-label={`Clear ${label}`}
-                            className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md transition"
-                            onClick={() => updateProgramStateDefault(key, null)}
-                          >
-                            <X size={14} color="var(--mantine-color-dimmed)" />
-                          </button>
-                        </span>
-                      </div>
-                    )
-                  })}
+                        ),
+                      }
+                    })}
+                  />
                 </div>
-                <Caption mt="sm" lh={1.45}>
-                  These estimates are global defaults. Active programmes keep their own load values after start, and
-                  history can still show e1RM trends from logged sets.
-                </Caption>
-              </Panel>
+                <div className="grid gap-2">
+                  <div>
+                    <SectionLabel>Load defaults</SectionLabel>
+                    <Caption mt={2}>Units and rounding for new programmes.</Caption>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <NativeSelect
+                      leftSection={<Caption fw={800}>Units</Caption>}
+                      leftSectionWidth={58}
+                      value={units}
+                      data={[
+                        { value: 'kg', label: 'kg' },
+                        { value: 'lb', label: 'lb' },
+                      ]}
+                      onChange={(event) => handleUnitsChange(event.target.value as Unit)}
+                    />
+                    <NativeSelect
+                      leftSection={<Caption fw={800}>Round</Caption>}
+                      leftSectionWidth={64}
+                      value={String(rounding)}
+                      data={roundingOptions}
+                      onChange={(event) => setRounding(Number(event.target.value))}
+                    />
+                  </div>
+                </div>
+              </div>
             </Panel>
-          </section>
+          </SettingsSection>
 
-          <section id="equipment" className="scroll-mt-24">
-            <div className="mb-2">
-              <Heading order={2} size="h5">Equipment Profile</Heading>
-              <Caption size="0.625rem">Select available equipment to filter alternatives.</Caption>
-            </div>
-            <Panel p="md">
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <SettingsSection
+            id="programme-loads"
+            title="Strength Estimates"
+            description="Saved estimated 1RMs are used to suggest starting values when you begin a programme."
+          >
+            <Panel p="sm">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <SectionLabel>Estimated 1RMs</SectionLabel>
+                  <Caption mt={3} maw="42rem" lh={1.4}>
+                    Enter a current strength estimate for each main lift. Programme-specific training maxes and
+                    working loads are derived later on the start screen.
+                  </Caption>
+                </div>
+                <Button
+                  data-tour="settings-e1rm-calc"
+                  className="sm:shrink-0"
+                  size="sm"
+                  onClick={openOneRepMaxCalculator}
+                >
+                  <Calculator size={14} />
+                  Calculate from known sets
+                </Button>
+              </div>
+              <div data-tour="settings-estimates" className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                {oneRepMaxKeys.map((key) => {
+                  const value = programStateDefaults[key] ?? null
+                  const label = strengthEstimateLabel(key)
+                  const isSet = hasLoadDefault(value)
+                  return (
+                    <div key={key} className="grid min-w-0 gap-1">
+                      <div className="flex min-w-0 items-center justify-between gap-1">
+                        <SectionLabel className="min-w-0" size="0.5rem" lh={1.1} truncate>
+                          {label}
+                        </SectionLabel>
+                        <Badge className="shrink-0" color={isSet ? 'success' : 'warning'}>
+                          {isSet ? 'Set' : 'Unset'}
+                        </Badge>
+                      </div>
+                      <span className="relative block pt-0.5">
+                        <TextInput
+                          classNames={{ input: 'pr-24 text-right' }}
+                          type="number"
+                          placeholder="Unset"
+                          value={value ?? ''}
+                          onChange={(event) => updateProgramStateDefault(key, loadDefaultFromInput(event.target.value))}
+                        />
+                        <span className="pointer-events-none absolute right-14 top-1/2 -translate-y-1/2">
+                          <Caption fw={800}>
+                            {units}
+                          </Caption>
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`Clear ${label}`}
+                          className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md transition"
+                          onClick={() => updateProgramStateDefault(key, null)}
+                        >
+                          <X size={14} color="var(--mantine-color-dimmed)" />
+                        </button>
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+              <Caption mt="sm" lh={1.4}>
+                These estimates are global defaults. Active programmes keep their own load values after start, and
+                history can still show e1RM trends from logged sets.
+              </Caption>
+            </Panel>
+          </SettingsSection>
+
+          <SettingsSection
+            id="equipment"
+            title="Equipment Profile"
+            description="Select available equipment to filter alternatives."
+          >
+            <Panel p="sm">
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
                 {equipmentOptions.map((item) => (
-                  <Panel key={item} surface="inset" px="sm" py="xs">
+                  <Panel key={item} surface="inset" className="min-w-0" px="xs" py={6}>
                     <Checkbox
+                      size="sm"
                       checked={equipmentProfile.includes(item)}
-                      label={formatEquipmentLabel(item)}
+                      label={
+                        <Text component="span" size="sm" fw={700} truncate>
+                          {formatEquipmentLabel(item)}
+                        </Text>
+                      }
                       onChange={(event) => {
                         setEquipmentProfile((current) =>
                           event.target.checked ? [...current, item] : current.filter((value) => value !== item),
@@ -399,121 +529,194 @@ function SettingsForm({ me }: { me: UserProfile }) {
                 ))}
               </div>
             </Panel>
-          </section>
+          </SettingsSection>
 
-          <section id="data-sync" className="scroll-mt-24">
-            <div className="mb-2">
-              <Heading order={2} size="h5">Data & Sync</Heading>
-              <Caption size="0.625rem">Manage training data and sync status.</Caption>
-            </div>
+          <SettingsSection
+            id="data-sync"
+            title="Data & Sync"
+            description="Manage training data and sync status."
+          >
             <Panel p={0} className="divide-y divide-[var(--mantine-color-default-border)]">
-              <div className="flex items-center justify-between gap-3 p-4">
+              <div className="flex items-center justify-between gap-3 p-3">
                 <div>
                   <Text size="sm" fw={700}>Sync Status</Text>
                   <Caption>Current browser session</Caption>
                 </div>
                 <Badge color="success">Synced</Badge>
               </div>
-              <div className="flex items-center justify-between gap-3 p-4">
+              <div className="flex items-center justify-between gap-3 p-3">
                 <div>
                   <Text size="sm" fw={700}>Export Data</Text>
                   <Caption>Export is a future module.</Caption>
                 </div>
-                <Button variant="default" disabled>Export</Button>
+                <Button variant="default" size="xs" disabled>Export</Button>
+              </div>
+              <div className="flex items-center justify-between gap-3 p-3">
+                <div>
+                  <Text size="sm" fw={700}>Getting-started tour</Text>
+                  <Caption>Replay the welcome walkthrough.</Caption>
+                </div>
+                <Button variant="default" size="xs" onClick={() => startTour()}>Replay tour</Button>
+              </div>
+              <div className="flex items-center justify-between gap-3 p-3">
+                <div>
+                  <Text size="sm" fw={700}>Workout walkthrough</Text>
+                  <Caption>
+                    {activeSessionId
+                      ? 'Replay the in-session coach-marks.'
+                      : 'Start a workout to replay the in-session coach-marks.'}
+                  </Caption>
+                </div>
+                <Button
+                  variant="default"
+                  size="xs"
+                  disabled={!activeSessionId}
+                  onClick={() => {
+                    if (!activeSessionId) return
+                    void router.navigate({
+                      to: '/sessions/$sessionId',
+                      params: { sessionId: activeSessionId },
+                      search: { tour: 'live' },
+                    })
+                  }}
+                >
+                  Replay walkthrough
+                </Button>
               </div>
             </Panel>
-          </section>
+          </SettingsSection>
 
-          <section id="account" className="scroll-mt-24">
-            <div className="mb-2">
-              <Heading order={2} size="h5">Account</Heading>
-              <Caption size="0.625rem">Login identity and session controls.</Caption>
-            </div>
-            <Panel className="space-y-3" p="md">
-              <label className="grid gap-1">
-                <SectionLabel>Email Address</SectionLabel>
-                <TextInput type="email" value={me?.email ?? ''} readOnly />
-              </label>
-              <Button className="w-full sm:w-auto" color="danger" variant="light" disabled={signOutMutation.isPending} onClick={() => signOutMutation.mutate()}>
-                <LogOut size={14} />
-                {signOutMutation.isPending ? 'Signing out...' : 'Sign out'}
-              </Button>
+          <SettingsSection
+            id="account"
+            title="Account"
+            description="Login identity and session controls."
+          >
+            <Panel p="sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <label className="grid min-w-0 gap-1 sm:flex-1">
+                  <SectionLabel>Email Address</SectionLabel>
+                  <TextInput type="email" value={me?.email ?? ''} readOnly />
+                </label>
+                <Button className="w-full sm:w-auto sm:shrink-0" color="danger" variant="light" disabled={signOutMutation.isPending} onClick={() => signOutMutation.mutate()}>
+                  <LogOut size={14} />
+                  {signOutMutation.isPending ? 'Signing out...' : 'Sign out'}
+                </Button>
+              </div>
             </Panel>
-          </section>
+          </SettingsSection>
         </div>
       </div>
 
       <OneRepMaxCalculatorModal
         opened={showOneRepMaxCalculator}
-        keys={oneRepMaxKeys}
         selectedKey={selectedOneRepMaxKey}
+        liftOptions={liftOptions}
         units={units}
         knownSetInput={knownSetInput}
         calculatedValue={calculatedOneRepMax}
         canApply={hasCalculatedOneRepMax}
-        onSelectedKeyChange={setSelectedOneRepMaxKey}
+        isLastUnset={nextUnsetOneRepMaxKey === null}
+        setCount={setOneRepMaxCount}
+        totalCount={oneRepMaxKeys.length}
+        onSelectedKeyChange={handleSelectedKeyChange}
         onKnownSetChange={(field, value) =>
           setKnownSetInput((current) => ({
             ...current,
             [field]: value,
           }))
         }
-        onApply={applyCalculatedOneRepMax}
+        onApplyAndClose={applyCalculatedOneRepMax}
+        onApplyAndNext={applyCalculatedOneRepMaxAndNext}
         onClose={() => setShowOneRepMaxCalculator(false)}
       />
     </Page>
   )
 }
 
+function SettingsSection({
+  id,
+  title,
+  description,
+  children,
+}: {
+  id: string
+  title: string
+  description: string
+  children: ReactNode
+}) {
+  return (
+    <section id={id} className="scroll-mt-24">
+      <div className="mb-1.5">
+        <Heading order={2} size="h5">{title}</Heading>
+        <Caption size="0.625rem">{description}</Caption>
+      </div>
+      {children}
+    </section>
+  )
+}
+
 function OneRepMaxCalculatorModal({
   opened,
-  keys,
   selectedKey,
+  liftOptions,
   units,
   knownSetInput,
   calculatedValue,
   canApply,
+  isLastUnset,
+  setCount,
+  totalCount,
   onSelectedKeyChange,
   onKnownSetChange,
-  onApply,
+  onApplyAndClose,
+  onApplyAndNext,
   onClose,
 }: {
   opened: boolean
-  keys: string[]
   selectedKey: string
+  liftOptions: Array<{ group: string; items: Array<{ value: string; label: string }> }>
   units: Unit
   knownSetInput: KnownSetInput
   calculatedValue: number | null
   canApply: boolean
+  isLastUnset: boolean
+  setCount: number
+  totalCount: number
   onSelectedKeyChange: (key: string) => void
   onKnownSetChange: (field: keyof KnownSetInput, value: string) => void
-  onApply: () => void
+  onApplyAndClose: () => void
+  onApplyAndNext: () => void
   onClose: () => void
 }) {
-  const selectedMovementId = selectedKey.replace(/_one_rep_max$/, '')
-  const selectedMovementName = getMovementName(selectedMovementId)
-
   return (
-    <Modal opened={opened} onClose={onClose} title="Calculate estimated 1RM" size="lg">
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title="Calculate estimated 1RM"
+      size="md"
+      classNames={{
+        inner: '!items-end sm:!items-center',
+        content: '!mb-0 !rounded-b-none sm:!rounded-lg',
+        body: '!max-h-[calc(92dvh-3.25rem)] !overflow-y-auto',
+      }}
+    >
       <div className="space-y-4">
         <div>
           <Text size="sm" fw={900}>Calculate from a known set</Text>
           <Caption mt={4} lh={1.45}>
-            Choose the lift, enter a recent hard set, then apply the estimated one-rep max to that lift.
+            Choose the lift, enter a recent hard set, then apply the estimated one-rep max to that lift. These estimates
+            suggest future programme starting values, not live values for active programmes.
           </Caption>
-          <Caption mt="xs" fw={700}>
-            These estimates help future programmes suggest starting values. They are not live values for active programmes.
-          </Caption>
+          <Text mt="xs" size="xs" fw={800} tone="action">
+            {setCount} of {totalCount} lifts set
+          </Text>
         </div>
 
         <Panel surface="inset" className="grid gap-3" p="sm">
           <NativeSelect
             label="Lift"
             value={selectedKey}
-            data={keys.map((key) => {
-                const movementId = key.replace(/_one_rep_max$/, '')
-                return { value: key, label: getMovementName(movementId) }
-              })}
+            data={liftOptions}
             onChange={(event) => onSelectedKeyChange(event.target.value)}
           />
 
@@ -547,10 +750,22 @@ function OneRepMaxCalculatorModal({
           </Panel>
         </Panel>
 
-        <div className="flex justify-end">
-          <Button disabled={!canApply} onClick={onApply}>
-            <Calculator size={14} />
-            Apply to {selectedMovementName}
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="default" disabled={!canApply} onClick={onApplyAndClose}>
+            Set &amp; close
+          </Button>
+          <Button disabled={!canApply} onClick={onApplyAndNext}>
+            {isLastUnset ? (
+              <>
+                <Check size={14} />
+                Done
+              </>
+            ) : (
+              <>
+                Set &amp; next
+                <ArrowRight size={14} />
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -575,6 +790,36 @@ function sameNumberRecord(left: ProgramStateDefaults, right: ProgramStateDefault
 
 function hasLoadDefault(value: number | null | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function buildLiftOptions(defaults: ProgramStateDefaults, units: Unit) {
+  const groups: Array<{ group: string; items: Array<{ value: string; label: string }> }> = []
+  const unset = oneRepMaxKeys.filter((key) => !hasLoadDefault(defaults[key] ?? null))
+  const set = oneRepMaxKeys.filter((key) => hasLoadDefault(defaults[key] ?? null))
+  if (unset.length) {
+    groups.push({
+      group: 'Not set yet',
+      items: unset.map((key) => ({ value: key, label: getMovementName(key.replace(/_one_rep_max$/, '')) })),
+    })
+  }
+  if (set.length) {
+    groups.push({
+      group: 'Already set',
+      items: set.map((key) => ({
+        value: key,
+        label: `${getMovementName(key.replace(/_one_rep_max$/, ''))} · ${formatLoadDefault(defaults[key]!)} ${units}`,
+      })),
+    })
+  }
+  return groups
+}
+
+function firstUnsetKey(defaults: ProgramStateDefaults) {
+  return oneRepMaxKeys.find((key) => !hasLoadDefault(defaults[key] ?? null)) ?? null
+}
+
+function nextUnsetKey(defaults: ProgramStateDefaults, excludeKey: string) {
+  return oneRepMaxKeys.find((key) => key !== excludeKey && !hasLoadDefault(defaults[key] ?? null)) ?? null
 }
 
 function loadDefaultFromInput(value: string) {
@@ -605,7 +850,9 @@ function formatLoadDefault(value: number) {
 
 function strengthEstimateLabel(key: string) {
   const movementId = key.replace(/_one_rep_max$/, '')
-  return `${getMovementName(movementId)} estimated 1RM`
+  // Just the lift name — the "Estimated 1RMs" section header already provides the context,
+  // and the full "… estimated 1RM" truncated on mobile.
+  return getMovementName(movementId)
 }
 
 function formatEquipmentLabel(value: string) {

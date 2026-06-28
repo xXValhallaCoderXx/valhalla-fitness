@@ -3,6 +3,7 @@ import { Check } from 'lucide-react'
 import { useState } from 'react'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
 import type { ProgramTimelineModel } from '~/domains/program/lib/program-timeline'
+import { ProgramInfoHint } from './ProgramInfoHint'
 
 export function ProgramTimeline({
   currentSessionIndex,
@@ -31,7 +32,12 @@ export function ProgramTimeline({
     <Card p="md">
       <Group align="flex-start" justify="space-between" gap="md" wrap="nowrap">
         <div>
-          <SectionLabel>Timeline</SectionLabel>
+          <Group gap="xs">
+            <SectionLabel>Timeline</SectionLabel>
+            <ProgramInfoHint label="Why can't I see later weights?">
+              Later weeks open as you go — Sheetless sets their exact loads from how your recent sessions actually went, so they aren&apos;t fixed yet.
+            </ProgramInfoHint>
+          </Group>
           <Caption mt={4}>{timeline.description}</Caption>
         </div>
         <Badge color="action">{status}</Badge>
@@ -74,7 +80,7 @@ export function ProgramTimeline({
                         <Caption>{week.subtitle}</Caption>
                       </div>
                       <Group className="shrink-0" gap="xs" wrap="nowrap">
-                        {complete ? <Badge color="success">Done</Badge> : current ? <Badge color="action">Current</Badge> : <Badge>Locked</Badge>}
+                        {complete ? <Badge color="success">Done</Badge> : current ? <Badge color="action">Current</Badge> : <Badge>Upcoming</Badge>}
                         <Caption fw={700}>{expanded ? 'Hide' : 'Details'}</Caption>
                       </Group>
                     </Group>

@@ -25,6 +25,17 @@ export const bodyRegionLabels: Record<BodyRegionId, string> = {
   calves: 'Calves',
 }
 
+/** Plain-language fatigue level for each load tier, shown in the Muscle Fatigue view. */
+export const bodyLoadTierLabels: Record<BodyLoadTier, string> = {
+  fresh: 'Fresh',
+  low: 'Light',
+  moderate: 'Worked hard',
+  high: 'Very fatigued',
+}
+
+/** One-line explanation of what the Muscle Fatigue metric measures. */
+export const bodyLoadExplanation = 'How hard each muscle group has worked recently, based on your logged sets.'
+
 export const bodyRegionOrder: BodyRegionId[] = [
   'chest',
   'shoulders',

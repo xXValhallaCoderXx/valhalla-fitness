@@ -166,6 +166,318 @@ function alternating5x5Weeks(): TemplateDefinition['weeks'] {
   ]
 }
 
+/** Generic straight-set working-load LP prescription (generalises the 5x5/1x5 helpers). */
+function workingLoadPrescription(sets: number, reps: number) {
+  return {
+    targetSummary: `${sets}x${reps} @ current working load`,
+    progressionRuleId: 'simple_linear_completion',
+    sets: repeatedSets(sets, {
+      targetLoad: workingLoad(),
+      targetReps: reps,
+      label: String(reps),
+    }),
+  }
+}
+
+/** Movement-specific linear increments shared by the working-load LP templates. */
+const linearIncrements = {
+  squat: { kg: 2.5, lb: 5 },
+  bench_press: { kg: 2.5, lb: 5 },
+  overhead_press: { kg: 2.5, lb: 5 },
+  deadlift: { kg: 5, lb: 10 },
+  barbell_row: { kg: 2.5, lb: 5 },
+}
+
+const beginnerUpperLowerMovementIds = ['squat', 'bench_press', 'deadlift', 'overhead_press', 'barbell_row'] as const
+
+function beginnerUpperLowerSessions(): TemplateDefinition['sessions'] {
+  const main = (id: string, movementId: string) => ({ id, role: 'main' as const, movementId, prescriptionId: 'main' })
+  const acc = (id: string, movementId: string, prescriptionId: string) => ({ id, role: 'accessory' as const, movementId, prescriptionId })
+  return [
+    {
+      id: 'upper-a',
+      title: 'Upper A',
+      estimatedMinutes: 60,
+      slots: [
+        main('bench', 'bench_press'),
+        main('row', 'barbell_row'),
+        acc('lat', 'lat_pulldown', 'vertical-pull'),
+        acc('incline', 'incline_dumbbell_press', 'compound-accessory'),
+        acc('triceps', 'triceps_pressdown', 'isolation'),
+      ],
+    },
+    {
+      id: 'lower-a',
+      title: 'Lower A',
+      estimatedMinutes: 60,
+      slots: [
+        main('squat', 'squat'),
+        acc('rdl', 'romanian_deadlift', 'hinge-accessory'),
+        acc('legpress', 'leg_press', 'compound-accessory'),
+        acc('crunch', 'cable_crunch', 'core'),
+      ],
+    },
+    {
+      id: 'upper-b',
+      title: 'Upper B',
+      estimatedMinutes: 60,
+      slots: [
+        main('press', 'overhead_press'),
+        acc('pullup', 'pull_up', 'vertical-pull'),
+        acc('inclinebb', 'incline_bench_press', 'compound-accessory'),
+        acc('dbrow', 'dumbbell_row', 'compound-accessory'),
+        acc('curl', 'barbell_curl', 'isolation'),
+      ],
+    },
+    {
+      id: 'lower-b',
+      title: 'Lower B',
+      estimatedMinutes: 60,
+      slots: [
+        main('deadlift', 'deadlift'),
+        acc('frontsquat', 'front_squat', 'compound-accessory'),
+        acc('legcurl', 'seated_leg_curl', 'isolation'),
+        acc('backext', 'back_extension', 'core'),
+      ],
+    },
+  ]
+}
+
+function beginnerUpperLowerWeeks(): TemplateDefinition['weeks'] {
+  return [
+    {
+      label: 'Week 1',
+      phaseKey: 'lp',
+      phaseLabel: 'Linear progression',
+      summary: 'Two upper and two lower days. Add weight to the main lifts whenever you complete every set.',
+      hardness: 'Medium',
+      prescriptions: {
+        main: workingLoadPrescription(3, 5),
+        'vertical-pull': accessoryPrescription(3, 6, 10),
+        'hinge-accessory': accessoryPrescription(3, 8, 12),
+        'compound-accessory': accessoryPrescription(3, 8, 12),
+        isolation: accessoryPrescription(3, 10, 15),
+        core: accessoryPrescription(3, 12, 20),
+      },
+    },
+  ]
+}
+
+function percentWorkingLoad(percentValue: number) {
+  return { kind: 'percent_of_state' as const, stateType: 'working_load' as const, percent: percentValue, default: 'low' as const }
+}
+
+/** Straight sets at a fixed percentage of the working load (no auto-progression — volume/recovery work). */
+function workingLoadPercentPrescription(sets: number, reps: number, percentValue: number) {
+  return {
+    targetSummary: `${sets}x${reps} @ ~${Math.round(percentValue * 100)}% working load`,
+    sets: repeatedSets(sets, { targetLoad: percentWorkingLoad(percentValue), targetReps: reps, label: String(reps) }),
+  }
+}
+
+/** Ascending ramp sets up to one top set at the working load; the top set drives weekly LP. */
+function rampToTopPrescription(rampPercents: number[], topReps: number) {
+  return {
+    targetSummary: `Ramp to a top set of ${topReps} at the working load`,
+    progressionRuleId: 'simple_linear_completion',
+    sets: [
+      ...rampPercents.map((p): TemplateSetDefinition => ({ targetLoad: percentWorkingLoad(p), targetReps: topReps, label: String(topReps) })),
+      { targetLoad: workingLoad(), targetReps: topReps, isTopSet: true, label: String(topReps) },
+    ],
+  }
+}
+
+// --- Ramping 5x5 (intermediate, weekly LP) -------------------------------------------------
+const ramping5x5MovementIds = ['squat', 'bench_press', 'deadlift', 'overhead_press', 'barbell_row'] as const
+
+function ramping5x5Sessions(): TemplateDefinition['sessions'] {
+  return [
+    {
+      id: 'heavy',
+      title: 'Heavy Day',
+      estimatedMinutes: 65,
+      slots: [
+        { id: 'squat', role: 'main', movementId: 'squat', prescriptionId: 'ramp-top' },
+        { id: 'bench', role: 'main', movementId: 'bench_press', prescriptionId: 'ramp-top' },
+        { id: 'row', role: 'main', movementId: 'barbell_row', prescriptionId: 'ramp-top' },
+        { id: 'chins', role: 'accessory', movementId: 'chin_up', prescriptionId: 'vertical-pull' },
+      ],
+    },
+    {
+      id: 'recovery',
+      title: 'Recovery Day',
+      estimatedMinutes: 55,
+      slots: [
+        { id: 'squat', role: 'main', movementId: 'squat', prescriptionId: 'light' },
+        { id: 'press', role: 'main', movementId: 'overhead_press', prescriptionId: 'ramp-top' },
+        { id: 'deadlift', role: 'main', movementId: 'deadlift', prescriptionId: 'ramp-deadlift' },
+        { id: 'core', role: 'accessory', movementId: 'cable_crunch', prescriptionId: 'core' },
+      ],
+    },
+    {
+      id: 'volume',
+      title: 'Volume Day',
+      estimatedMinutes: 65,
+      slots: [
+        { id: 'squat', role: 'main', movementId: 'squat', prescriptionId: 'volume' },
+        { id: 'bench', role: 'main', movementId: 'bench_press', prescriptionId: 'volume' },
+        { id: 'row', role: 'main', movementId: 'barbell_row', prescriptionId: 'volume' },
+        { id: 'chins', role: 'accessory', movementId: 'chin_up', prescriptionId: 'vertical-pull' },
+      ],
+    },
+  ]
+}
+
+function ramping5x5Weeks(): TemplateDefinition['weeks'] {
+  return [
+    {
+      label: 'Week 1',
+      phaseKey: 'ramp',
+      phaseLabel: 'Weekly ramp',
+      summary: 'A heavy ramp day, a lighter recovery day, and a volume day. Add weight to your top sets each week.',
+      hardness: 'Hard',
+      prescriptions: {
+        'ramp-top': rampToTopPrescription([0.5, 0.625, 0.75, 0.875], 5),
+        'ramp-deadlift': rampToTopPrescription([0.6, 0.8], 5),
+        light: workingLoadPercentPrescription(4, 5, 0.8),
+        volume: workingLoadPercentPrescription(5, 5, 0.9),
+        'vertical-pull': accessoryPrescription(3, 6, 10),
+        core: accessoryPrescription(3, 12, 20),
+      },
+    },
+  ]
+}
+
+// --- Power + Hypertrophy Upper/Lower (intermediate powerbuilding) ---------------------------
+const powerHypertrophyMovementIds = ['squat', 'bench_press', 'deadlift', 'overhead_press', 'barbell_row'] as const
+
+function powerHypertrophySessions(): TemplateDefinition['sessions'] {
+  return [
+    {
+      id: 'power-upper',
+      title: 'Power Upper',
+      estimatedMinutes: 65,
+      slots: [
+        { id: 'bench', role: 'main', movementId: 'bench_press', prescriptionId: 'power' },
+        { id: 'press', role: 'main', movementId: 'overhead_press', prescriptionId: 'power' },
+        { id: 'row', role: 'main', movementId: 'barbell_row', prescriptionId: 'power' },
+        { id: 'pullup', role: 'accessory', movementId: 'pull_up', prescriptionId: 'vertical-pull' },
+        { id: 'triceps', role: 'accessory', movementId: 'triceps_pressdown', prescriptionId: 'isolation' },
+      ],
+    },
+    {
+      id: 'power-lower',
+      title: 'Power Lower',
+      estimatedMinutes: 65,
+      slots: [
+        { id: 'squat', role: 'main', movementId: 'squat', prescriptionId: 'power' },
+        { id: 'deadlift', role: 'main', movementId: 'deadlift', prescriptionId: 'power' },
+        { id: 'legpress', role: 'accessory', movementId: 'leg_press', prescriptionId: 'compound-accessory' },
+        { id: 'core', role: 'accessory', movementId: 'cable_crunch', prescriptionId: 'core' },
+      ],
+    },
+    {
+      id: 'hyper-upper',
+      title: 'Hypertrophy Upper',
+      estimatedMinutes: 60,
+      slots: [
+        { id: 'incline', role: 'accessory', movementId: 'incline_dumbbell_press', prescriptionId: 'compound-accessory' },
+        { id: 'row', role: 'accessory', movementId: 'chest_supported_row', prescriptionId: 'compound-accessory' },
+        { id: 'reardelt', role: 'accessory', movementId: 'rear_delt_fly', prescriptionId: 'isolation' },
+        { id: 'curl', role: 'accessory', movementId: 'barbell_curl', prescriptionId: 'isolation' },
+        { id: 'triceps', role: 'accessory', movementId: 'overhead_triceps_extension', prescriptionId: 'isolation' },
+      ],
+    },
+    {
+      id: 'hyper-lower',
+      title: 'Hypertrophy Lower',
+      estimatedMinutes: 60,
+      slots: [
+        { id: 'frontsquat', role: 'accessory', movementId: 'front_squat', prescriptionId: 'compound-accessory' },
+        { id: 'rdl', role: 'accessory', movementId: 'romanian_deadlift', prescriptionId: 'compound-accessory' },
+        { id: 'legcurl', role: 'accessory', movementId: 'seated_leg_curl', prescriptionId: 'isolation' },
+        { id: 'legraise', role: 'accessory', movementId: 'hanging_leg_raise', prescriptionId: 'core' },
+      ],
+    },
+  ]
+}
+
+function powerHypertrophyWeeks(): TemplateDefinition['weeks'] {
+  return [
+    {
+      label: 'Week 1',
+      phaseKey: 'pwr-hyp',
+      phaseLabel: 'Power + hypertrophy',
+      summary: 'Two heavy power days that add weight weekly, plus two higher-rep hypertrophy days.',
+      hardness: 'Hard',
+      prescriptions: {
+        power: workingLoadPrescription(3, 5),
+        'vertical-pull': accessoryPrescription(3, 6, 10),
+        'compound-accessory': accessoryPrescription(3, 8, 12),
+        isolation: accessoryPrescription(3, 10, 15),
+        core: accessoryPrescription(3, 12, 20),
+      },
+    },
+  ]
+}
+
+// --- 3-Day Strength: Volume to Intensity (advanced, weekly progression) ---------------------
+const weeklyIntensityMovementIds = ['squat', 'bench_press', 'deadlift', 'overhead_press'] as const
+
+function weeklyIntensitySessions(): TemplateDefinition['sessions'] {
+  return [
+    {
+      id: 'volume',
+      title: 'Volume Day',
+      estimatedMinutes: 70,
+      slots: [
+        { id: 'squat', role: 'main', movementId: 'squat', prescriptionId: 'volume' },
+        { id: 'bench', role: 'main', movementId: 'bench_press', prescriptionId: 'volume' },
+        { id: 'row', role: 'accessory', movementId: 'barbell_row', prescriptionId: 'compound-accessory' },
+      ],
+    },
+    {
+      id: 'recovery',
+      title: 'Recovery Day',
+      estimatedMinutes: 55,
+      slots: [
+        { id: 'squat', role: 'main', movementId: 'squat', prescriptionId: 'light' },
+        { id: 'press', role: 'main', movementId: 'overhead_press', prescriptionId: 'intensity' },
+        { id: 'chins', role: 'accessory', movementId: 'chin_up', prescriptionId: 'vertical-pull' },
+      ],
+    },
+    {
+      id: 'intensity',
+      title: 'Intensity Day',
+      estimatedMinutes: 65,
+      slots: [
+        { id: 'squat', role: 'main', movementId: 'squat', prescriptionId: 'intensity' },
+        { id: 'bench', role: 'main', movementId: 'bench_press', prescriptionId: 'intensity' },
+        { id: 'deadlift', role: 'main', movementId: 'deadlift', prescriptionId: 'intensity' },
+      ],
+    },
+  ]
+}
+
+function weeklyIntensityWeeks(): TemplateDefinition['weeks'] {
+  return [
+    {
+      label: 'Week 1',
+      phaseKey: 'weekly',
+      phaseLabel: 'Weekly progression',
+      summary: 'A high-volume day, a lighter recovery day, and an intensity day chasing a new top set each week.',
+      hardness: 'Hard',
+      prescriptions: {
+        volume: workingLoadPercentPrescription(5, 5, 0.9),
+        light: workingLoadPercentPrescription(2, 5, 0.8),
+        intensity: rampToTopPrescription([0.6, 0.8], 5),
+        'compound-accessory': accessoryPrescription(3, 8, 12),
+        'vertical-pull': accessoryPrescription(3, 6, 10),
+      },
+    },
+  ]
+}
+
 function requiredTrainingMaxState(): TemplateDefinition['requiredState'] {
   return mainLiftIds.map((movementId) => ({
     key: programStateKey(movementId, 'training_max'),
@@ -512,6 +824,78 @@ export const fallbackTemplateDefinitions: Record<string, TemplateDefinition> = {
           barbell_row: { kg: 2.5, lb: 5 },
         },
       },
+    },
+  },
+  'beginner_upper_lower_lp': {
+    schemaVersion: '2026.06.dsl',
+    id: 'beginner_upper_lower_lp',
+    name: 'Beginner Upper/Lower',
+    durationWeeks: 1,
+    daysPerWeek: 4,
+    requiredState: requiredWorkingLoadState(beginnerUpperLowerMovementIds),
+    timelineDescription: 'Four-day upper/lower split with straight-set linear progression on the main lifts.',
+    sessions: beginnerUpperLowerSessions(),
+    weeks: beginnerUpperLowerWeeks(),
+    progressionRules: {
+      main: 'simple_linear_completion',
+      accessory: 'accessory_double_progression',
+    },
+    progressionConfig: {
+      simple_linear_completion: { increments: linearIncrements },
+    },
+  },
+  'ramping_5x5_3day': {
+    schemaVersion: '2026.06.dsl',
+    id: 'ramping_5x5_3day',
+    name: 'Ramping 5x5',
+    durationWeeks: 1,
+    daysPerWeek: 3,
+    requiredState: requiredWorkingLoadState(ramping5x5MovementIds),
+    timelineDescription: 'Three-day weekly ramp — heavy, recovery, and volume days with weekly load increases.',
+    sessions: ramping5x5Sessions(),
+    weeks: ramping5x5Weeks(),
+    progressionRules: {
+      main: 'simple_linear_completion',
+      accessory: 'accessory_double_progression',
+    },
+    progressionConfig: {
+      simple_linear_completion: { increments: linearIncrements },
+    },
+  },
+  'power_hypertrophy_ul': {
+    schemaVersion: '2026.06.dsl',
+    id: 'power_hypertrophy_ul',
+    name: 'Power + Hypertrophy U/L',
+    durationWeeks: 1,
+    daysPerWeek: 4,
+    requiredState: requiredWorkingLoadState(powerHypertrophyMovementIds),
+    timelineDescription: 'Four-day powerbuilding split — two heavy power days and two higher-rep hypertrophy days.',
+    sessions: powerHypertrophySessions(),
+    weeks: powerHypertrophyWeeks(),
+    progressionRules: {
+      main: 'simple_linear_completion',
+      accessory: 'accessory_double_progression',
+    },
+    progressionConfig: {
+      simple_linear_completion: { increments: linearIncrements },
+    },
+  },
+  'weekly_intensity_3day': {
+    schemaVersion: '2026.06.dsl',
+    id: 'weekly_intensity_3day',
+    name: '3-Day Strength (Volume to Intensity)',
+    durationWeeks: 1,
+    daysPerWeek: 3,
+    requiredState: requiredWorkingLoadState(weeklyIntensityMovementIds),
+    timelineDescription: 'Three-day weekly progression — a volume day, a recovery day, and an intensity day chasing a new top set.',
+    sessions: weeklyIntensitySessions(),
+    weeks: weeklyIntensityWeeks(),
+    progressionRules: {
+      main: 'simple_linear_completion',
+      accessory: 'accessory_double_progression',
+    },
+    progressionConfig: {
+      simple_linear_completion: { increments: linearIncrements },
     },
   },
   'healthy-531-fsl': {

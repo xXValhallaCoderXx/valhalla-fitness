@@ -4,6 +4,9 @@ import { meQueryOptions } from '~/domains/account/queries'
 import { loadRouteQuery } from '~/shared/lib/route-loading'
 
 export const Route = createFileRoute('/settings')({
+  validateSearch: (search: Record<string, unknown>): { focus?: 'estimates' } => ({
+    focus: search.focus === 'estimates' ? 'estimates' : undefined,
+  }),
   loader: async ({ context }) => {
     if ((context as any).user) await loadRouteQuery(context.queryClient, meQueryOptions())
   },

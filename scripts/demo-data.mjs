@@ -149,6 +149,69 @@ const DEMO_USERS = [
     acceptedDecisions: ['squat', 'deadlift'],
     pendingDecisions: ['bench_press'],
   },
+
+  // ---- Onboarding test accounts (onboarding_completed = false) ----
+  {
+    // Nothing set up → pure first-run: tour auto-runs, all checklist steps empty.
+    email: `demo.new@${DEMO_EMAIL_DOMAIN}`,
+    displayName: 'Sam New',
+    units: 'kg',
+    rounding: 2.5,
+    equipmentProfile: ['barbell', 'plates', 'rack', 'bench'],
+    profileOnly: true,
+    onboardingCompleted: false,
+  },
+  {
+    // Strength estimates saved, but no plan or sessions → only the "estimates" step is done.
+    email: `demo.estimates@${DEMO_EMAIL_DOMAIN}`,
+    displayName: 'Riley Estimates',
+    units: 'kg',
+    rounding: 2.5,
+    equipmentProfile: ['barbell', 'plates', 'rack', 'bench', 'dumbbells', 'cable', 'machine'],
+    oneRepMaxes: { squat: 110, bench_press: 75, deadlift: 140, overhead_press: 50, barbell_row: 70 },
+    profileOnly: true,
+    onboardingCompleted: false,
+  },
+  {
+    // Plan started + estimates, but no completed workout → plan + estimates done, workout not.
+    email: `demo.started@${DEMO_EMAIL_DOMAIN}`,
+    displayName: 'Casey Started',
+    title: 'Casey - Beginner 5x5 (just started)',
+    templateId: 'generic_alternating_5x5_lp',
+    units: 'kg',
+    rounding: 2.5,
+    completedSessions: 0,
+    activeSession: false,
+    equipmentProfile: ['barbell', 'plates', 'rack', 'bench', 'dumbbells', 'machine', 'cable'],
+    stateKind: 'working_load',
+    startValues: { squat: 60, bench_press: 40, overhead_press: 25, deadlift: 80, barbell_row: 40 },
+    currentValues: { squat: 60, bench_press: 40, overhead_press: 25, deadlift: 80, barbell_row: 40 },
+    oneRepMaxes: { squat: 90, bench_press: 60, deadlift: 120, overhead_press: 40, barbell_row: 60 },
+    baseAccessories: { lat_pulldown: 45, seated_cable_row: 45, hamstring_curl: 30, cable_crunch: 30 },
+    acceptedDecisions: [],
+    pendingDecisions: [],
+    onboardingCompleted: false,
+  },
+  {
+    // Fully set up but onboarding not dismissed → all steps done, "You're all set" state.
+    email: `demo.ready@${DEMO_EMAIL_DOMAIN}`,
+    displayName: 'Jamie Ready',
+    title: 'Jamie - Beginner 5x5',
+    templateId: 'generic_alternating_5x5_lp',
+    units: 'kg',
+    rounding: 2.5,
+    completedSessions: 6,
+    activeSession: false,
+    equipmentProfile: ['barbell', 'plates', 'rack', 'bench', 'dumbbells', 'machine', 'cable'],
+    stateKind: 'working_load',
+    startValues: { squat: 62.5, bench_press: 37.5, overhead_press: 25, deadlift: 85, barbell_row: 40 },
+    currentValues: { squat: 75, bench_press: 47.5, overhead_press: 30, deadlift: 105, barbell_row: 50 },
+    oneRepMaxes: { squat: 110, bench_press: 70, deadlift: 150, overhead_press: 45, barbell_row: 72.5 },
+    baseAccessories: { leg_press: 100, lat_pulldown: 45, seated_cable_row: 47.5, hamstring_curl: 32.5, cable_crunch: 32.5 },
+    acceptedDecisions: ['squat', 'bench_press'],
+    pendingDecisions: ['deadlift'],
+    onboardingCompleted: false,
+  },
 ]
 
 const action = process.argv[2] ?? 'seed'
@@ -271,7 +334,7 @@ async function seedDemoUsers() {
     const authUser = await createDemoAuthUser(demo)
     const userClient = await createSignedInClient(demo)
     await seedProfile(userClient, authUser.id, demo)
-    await seedProgram(userClient, authUser.id, demo)
+    if (!demo.profileOnly) await seedProgram(userClient, authUser.id, demo)
     await userClient.auth.signOut()
   }
 
@@ -407,6 +470,8 @@ async function seedProfile(client, userId, demo) {
     theme_preference: 'system',
     equipment_profile: demo.equipmentProfile,
     program_state_defaults: profileDefaultsForDemo(demo),
+    onboarding_completed: demo.onboardingCompleted ?? true,
+    live_onboarding_dismissed: demo.liveOnboardingDismissed ?? false,
   }, { onConflict: 'id' })
   if (error) throw new Error(`Unable to seed profile for ${demo.email}: ${error.message}`)
 }
@@ -813,10 +878,10 @@ function stateValuesForDemo(definition, demo, sessionIndex) {
 
 function profileDefaultsForDemo(demo) {
   const defaults = {}
-  for (const [movementId, value] of Object.entries(demo.oneRepMaxes)) {
+  for (const [movementId, value] of Object.entries(demo.oneRepMaxes ?? {})) {
     defaults[`${movementId}_one_rep_max`] = value
   }
-  for (const [movementId, value] of Object.entries(demo.currentValues)) {
+  for (const [movementId, value] of Object.entries(demo.currentValues ?? {})) {
     defaults[`${movementId}_${demo.stateKind}`] = value
   }
   return defaults
@@ -1045,7 +1110,7 @@ function timestampForDate(date, hour) {
 function printDemoUsers() {
   console.log('\nDemo users:')
   for (const user of DEMO_USERS) {
-    console.log(`- ${user.displayName}: ${user.email} / ${DEMO_PASSWORD} (${user.templateId})`)
+    console.log(`- ${user.displayName}: ${user.email} / ${DEMO_PASSWORD} (${user.templateId ?? 'profile only'})`)
   }
   console.log('')
 }

@@ -1,6 +1,6 @@
 import { Badge, Button, Card, Group, Progress } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
-import { Activity, ArrowRight, CalendarDays, Dumbbell, ListChecks, Target } from 'lucide-react'
+import { Activity, CalendarDays, ListChecks, Target } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Caption, Heading, Panel, SectionLabel, StatCard, Text } from '~/components'
 import type { BodyLoadRegion, ProgramOverview } from '~/shared/types'
@@ -15,19 +15,18 @@ export function ProgramSummaryGrid({
   timeline: ProgramTimelineModel
 }) {
   const position = overview.position
-  const nextSession = overview.nextSession
   const topRegions = overview.bodyLoad.topRegions.slice(0, 3)
   const progressValue = Math.min(100, Math.max(0, position?.progressPercent ?? 0))
 
   return (
-    <div className="mb-4 grid gap-4 lg:grid-cols-[1.1fr_1fr_0.9fr]">
+    <div className="mb-4 grid gap-4 lg:grid-cols-2">
       <Card p="md">
         <Group align="flex-start" justify="space-between" gap="md" wrap="nowrap">
           <div>
             <Group gap="xs">
               <SectionLabel>Current position</SectionLabel>
-              <ProgramInfoHint label="Current position">
-                This is derived from the active template definition and the program's current session index.
+              <ProgramInfoHint label="What is a wave?">
+                Your plan moves in waves — a few weeks building up, then a lighter week to recover before the next push. Your current phase shows where you are in that cycle.
               </ProgramInfoHint>
             </Group>
             <Heading order={3} size="h4" mt="xs">
@@ -41,7 +40,7 @@ export function ProgramSummaryGrid({
         <div className="mt-4 grid grid-cols-3 gap-2">
           <SummaryMetric icon={<CalendarDays size={14} />} label="Week" value={`${position?.weekNumber ?? timeline.currentWeekIndex + 1}/${timeline.totalWeeks}`} />
           <SummaryMetric icon={<ListChecks size={14} />} label="Session" value={`${position?.sessionNumber ?? timeline.currentSessionInWeek + 1}/${timeline.daysPerWeek}`} />
-          <SummaryMetric icon={<Target size={14} />} label="Progress" value={`${position?.progressPercent ?? 0}%`} />
+          <SummaryMetric icon={<Target size={14} />} label="Progress" value={`${progressValue}%`} />
         </div>
 
         <Progress value={progressValue} color="action" mt="md" size="sm" radius="xl" />
@@ -50,83 +49,10 @@ export function ProgramSummaryGrid({
 
       <Card p="md">
         <Group align="flex-start" justify="space-between" gap="md" wrap="nowrap">
-          <div className="min-w-0">
-            <SectionLabel>Next session</SectionLabel>
-            <Text size="lg" fw={800} mt="xs" truncate>
-              {nextSession?.title ?? 'No session queued'}
-            </Text>
-            <Caption mt={4}>{nextSession?.movementSummary ?? 'Start a program to queue work.'}</Caption>
-          </div>
-          <Badge color={nextSession?.status === 'in_progress' ? 'warning' : nextSession?.status === 'completed' ? 'success' : 'action'}>
-            {nextSession?.status.replaceAll('_', ' ') ?? 'planned'}
-          </Badge>
-        </Group>
-
-        <Card
-          component="details"
-          p="sm"
-          mt="sm"
-          radius="md"
-          style={{ backgroundColor: 'var(--vf-surface-2)' }}
-        >
-          <summary className="cursor-pointer list-none">
-            <Group align="flex-start" justify="space-between" gap="md" wrap="nowrap">
-              <div>
-                <Caption fw={800}>Key work</Caption>
-                <Text mt={4} size="sm" fw={700}>
-                  {nextSession?.keyPrescription ?? 'No prescription'}
-                </Text>
-              </div>
-              <SectionLabel component="span" className="shrink-0">
-                {nextSession?.movements.length ? `${nextSession.movements.length} movements` : 'Details'}
-              </SectionLabel>
-            </Group>
-          </summary>
-          {nextSession?.movements.length ? (
-            <div className="mt-3 space-y-1.5 border-t pt-3">
-              {nextSession.movements.map((movement, index) => (
-                <Panel key={`${movement.role}-${movement.movementName}-${index}`} surface="panel" px="xs" py={6}>
-                  <Group align="flex-start" justify="space-between" gap="md" wrap="nowrap">
-                    <div className="min-w-0">
-                      <Text size="xs" fw={700} truncate>
-                        {movement.movementName}
-                      </Text>
-                      <Caption size="0.625rem" truncate>
-                        {movement.targetSummary}
-                      </Caption>
-                    </div>
-                    <SectionLabel component="span" className="shrink-0">
-                      {movement.role}
-                    </SectionLabel>
-                  </Group>
-                </Panel>
-              ))}
-            </div>
-          ) : null}
-        </Card>
-
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <SummaryMetric icon={<Dumbbell size={14} />} label="Main" value={nextSession?.mainCount ?? 0} />
-          <SummaryMetric icon={<Dumbbell size={14} />} label="Variations" value={nextSession?.variationCount ?? 0} />
-          <SummaryMetric icon={<ListChecks size={14} />} label="Accessories" value={nextSession?.accessoryCount ?? 0} />
-        </div>
-
-        {nextSession ? (
-          <Link to={nextSession.href}>
-            <Button className="mt-3 w-full" variant="light">
-              <ArrowRight size={14} />
-              Open session
-            </Button>
-          </Link>
-        ) : null}
-      </Card>
-
-      <Card p="md">
-        <Group align="flex-start" justify="space-between" gap="md" wrap="nowrap">
           <div>
-            <SectionLabel>Body load</SectionLabel>
+            <SectionLabel>Muscle Fatigue</SectionLabel>
             <Heading order={3} size="h4" mt="xs">
-              {overview.bodyLoad.freshRegionCount} fresh regions
+              {topRegions.length ? `${topRegions[0].label} worked hardest` : 'All muscles fresh'}
             </Heading>
           </div>
           <Activity size={18} color="var(--vf-action-text)" />

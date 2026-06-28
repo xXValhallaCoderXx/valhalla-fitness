@@ -1,3 +1,5 @@
+import { Badge } from '@mantine/core'
+import { Caption, Text } from '~/components'
 import { cn } from '~/shared/lib/cn'
 import type { MovementSwapOption } from '~/shared/types'
 import { formatEquipmentLabel } from './live-session-utils'
@@ -16,31 +18,31 @@ export function MovementSwapOptionRow({
       type="button"
       className={cn(
         'w-full rounded-xl border p-3 text-left transition',
-        selected
-          ? 'border-[var(--mantine-primary-color-filled)] bg-[var(--vf-action-soft)]'
-          : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] hover:border-[var(--vf-action-border)]',
       )}
+      style={{
+        borderColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default-border)',
+        backgroundColor: selected ? 'var(--vf-action-soft)' : 'var(--vf-surface-2)',
+      }}
       onClick={onSelect}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-extrabold text-[var(--mantine-color-text)]">{option.movementName}</p>
-          <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
+          <Text component="p" size="sm" fw={900}>
+            {option.movementName}
+          </Text>
+          <Caption component="p" mt={2}>
             {option.relationshipLabel} · {option.category}
-          </p>
+          </Caption>
         </div>
-        <span className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">
+        <Badge color="neutral" variant="default">
           {swapOptionSourceLabel(option.source)}
-        </span>
+        </Badge>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {option.equipment.map((item) => (
-          <span
-            key={item}
-            className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--mantine-color-dimmed)]"
-          >
+          <Badge key={item} color="neutral" variant="default">
             {formatEquipmentLabel(item)}
-          </span>
+          </Badge>
         ))}
       </div>
     </button>

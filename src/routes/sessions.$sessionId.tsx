@@ -1,5 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { SessionPage } from '~/domains/session/components/SessionPage'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { sessionQueryOptions } from '~/domains/session/queries'
 import { loadRouteQuery } from '~/shared/lib/route-loading'
 
@@ -9,11 +8,9 @@ export const Route = createFileRoute('/sessions/$sessionId')({
       await loadRouteQuery(context.queryClient, sessionQueryOptions(params.sessionId))
     }
   },
-  component: SessionRoute,
+  component: SessionLayout,
 })
 
-function SessionRoute() {
-  const { sessionId } = Route.useParams()
-  const user = (Route.useRouteContext() as any).user
-  return <SessionPage sessionId={sessionId} user={user} />
+function SessionLayout() {
+  return <Outlet />
 }

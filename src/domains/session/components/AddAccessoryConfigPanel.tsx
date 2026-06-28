@@ -1,8 +1,9 @@
-import { Checkbox, Select, TextInput } from '@mantine/core'
+import { ActionIcon, Button, Checkbox, Select, TextInput } from '@mantine/core'
 import { Info } from 'lucide-react'
+import { Caption, Panel, SectionLabel, Text } from '~/components'
 import { accessoryProgressionOptions } from '~/domains/session/lib/accessories'
-import { cn } from '~/shared/lib/cn'
 import type { AccessoryProgressionMethod, SwapScope } from '~/shared/types'
+import { defaultFieldStyles, defaultSelectStyles } from './form-styles'
 
 type AddAccessoryConfigPanelProps = {
   progressionMethod: AccessoryProgressionMethod
@@ -50,20 +51,20 @@ export function AddAccessoryConfigPanel({
   onSubmit,
 }: AddAccessoryConfigPanelProps) {
   return (
-    <div className="space-y-2.5 rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-2.5 sm:p-3">
+    <Panel surface="inset" className="space-y-2.5" p="sm">
       <div>
         <div className="flex items-center justify-between gap-2">
-          <p className="vf-section-label">Progression</p>
-          <button
-            type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] text-[var(--mantine-color-dimmed)] transition hover:bg-[var(--vf-surface-2)] hover:text-[var(--mantine-color-text)]"
+          <SectionLabel>Progression</SectionLabel>
+          <ActionIcon
+            variant="default"
+            size="sm"
             aria-label="Explain progression methods"
             aria-pressed={methodHelpOpen}
             title="Explain progression methods"
             onClick={() => onMethodHelpOpenChange(!methodHelpOpen)}
           >
             <Info size={13} />
-          </button>
+          </ActionIcon>
         </div>
       </div>
       <Select
@@ -73,16 +74,11 @@ export function AddAccessoryConfigPanel({
         onChange={(value) => onProgressionMethodChange((value ?? 'history_only') as AccessoryProgressionMethod)}
         allowDeselect={false}
         disabled={isPending}
-        classNames={{
-          label: '!text-[var(--mantine-color-dimmed)] !text-xs !font-bold',
-          input: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
-          dropdown: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)]',
-          option: '!text-[var(--mantine-color-text)] hover:!bg-[var(--vf-surface-2)]',
-        }}
+        styles={defaultSelectStyles}
       />
       {methodHelpOpen || progressionMethod === 'double_progression' ? <ProgressionMethodInfo /> : null}
       <div>
-        <p className="mb-1 text-xs font-bold text-[var(--mantine-color-dimmed)]">Reps</p>
+        <SectionLabel className="mb-1">Reps</SectionLabel>
         <div className="grid grid-cols-2 gap-2">
           <TextInput
             aria-label="Minimum reps"
@@ -92,11 +88,11 @@ export function AddAccessoryConfigPanel({
             inputMode="numeric"
             maxLength={3}
             disabled={isPending}
-            classNames={{
-              input: cn(
-                '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
-                repTargetError && '!border-[var(--vf-danger-border)]',
-              ),
+            styles={{
+              input: {
+                ...defaultFieldStyles.input,
+                borderColor: repTargetError ? 'var(--vf-danger-border)' : defaultFieldStyles.input.borderColor,
+              },
             }}
           />
           <TextInput
@@ -107,16 +103,18 @@ export function AddAccessoryConfigPanel({
             inputMode="numeric"
             maxLength={3}
             disabled={isPending}
-            classNames={{
-              input: cn(
-                '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
-                repTargetError && '!border-[var(--vf-danger-border)]',
-              ),
+            styles={{
+              input: {
+                ...defaultFieldStyles.input,
+                borderColor: repTargetError ? 'var(--vf-danger-border)' : defaultFieldStyles.input.borderColor,
+              },
             }}
           />
         </div>
         {repTargetError ? (
-          <p className="mt-1 text-[11px] font-semibold text-[var(--vf-danger-text)]">{repTargetError}</p>
+          <Caption component="p" mt={4} fw={700} c="var(--vf-danger-text)">
+            {repTargetError}
+          </Caption>
         ) : null}
       </div>
       <AccessoryGuidance />
@@ -126,67 +124,81 @@ export function AddAccessoryConfigPanel({
         onChange={(event) => onNoteChange(event.target.value)}
         placeholder="Optional"
         disabled={isPending}
-        classNames={{
-          label: '!text-[var(--mantine-color-dimmed)] !text-xs !font-bold',
-          input: '!border-[var(--mantine-color-default-border)] !bg-[var(--mantine-color-default)] !text-[var(--mantine-color-text)]',
-        }}
+        styles={defaultFieldStyles}
       />
       <Checkbox
         checked={scope === 'phase_slot'}
         disabled={isPending}
         onChange={(event) => onScopeChange(event.currentTarget.checked ? 'phase_slot' : 'session')}
         label={phaseLabel}
-        classNames={{
-          label: '!text-xs !font-semibold !text-[var(--mantine-color-text)] sm:!text-sm',
-          input: '!border-[var(--mantine-color-default-border)]',
+        styles={{
+          label: {
+            color: 'var(--mantine-color-text)',
+            fontSize: 'var(--mantine-font-size-sm)',
+            fontWeight: 600,
+          },
+          input: {
+            borderColor: 'var(--mantine-color-default-border)',
+          },
         }}
       />
-      <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] p-2.5">
-        <p className="text-[10px] font-extrabold uppercase tracking-wide text-[var(--mantine-color-dimmed)]">Selected</p>
-        <p className="mt-1 text-sm font-extrabold">{selectedMovementName ?? 'No movement selected'}</p>
-        <p className="mt-0.5 text-xs text-[var(--mantine-color-dimmed)]">
+      <Panel p="sm">
+        <SectionLabel>Selected</SectionLabel>
+        <Text component="p" mt={4} size="sm" fw={900}>
+          {selectedMovementName ?? 'No movement selected'}
+        </Text>
+        <Caption component="p" mt={2}>
           {parsedRepLabel ?? 'No reps'} reps · {progressionMethod === 'double_progression' ? 'Double progression' : 'History only'} · {scope === 'phase_slot' ? phaseLabel : 'This session only'}
-        </p>
-      </div>
-      <div className="sticky bottom-0 -mx-2.5 -mb-2.5 grid grid-cols-2 gap-2 border-t border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] p-2.5 pt-2 sm:-mx-3 sm:-mb-3 sm:p-3 lg:static lg:mx-0 lg:mb-0 lg:border-t-0 lg:bg-transparent lg:p-0 lg:pt-1">
-        <button
+        </Caption>
+      </Panel>
+      <div
+        className="sticky bottom-0 -mx-2.5 -mb-2.5 grid grid-cols-2 gap-2 border-t p-2.5 pt-2 sm:-mx-3 sm:-mb-3 sm:p-3 lg:static lg:mx-0 lg:mb-0 lg:border-t-0 lg:p-0 lg:pt-1"
+        style={{
+          borderColor: 'var(--mantine-color-default-border)',
+          backgroundColor: 'var(--vf-surface-2)',
+        }}
+      >
+        <Button
           type="button"
-          className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-4 py-2 text-sm font-bold text-[var(--mantine-color-text)] transition hover:bg-[var(--vf-surface-2)] disabled:opacity-60"
+          variant="default"
           disabled={isPending}
           onClick={onClose}
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="rounded-md bg-[var(--mantine-primary-color-filled)] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[var(--mantine-primary-color-filled-hover)] disabled:opacity-60"
           disabled={!canSubmit || isPending}
           onClick={onSubmit}
         >
           {isPending ? 'Adding...' : 'Add'}
-        </button>
+        </Button>
       </div>
-    </div>
+    </Panel>
   )
 }
 
 function ProgressionMethodInfo() {
   return (
-    <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2.5 py-2 text-[11px] leading-snug text-[var(--mantine-color-dimmed)]">
-      <span className="font-bold text-[var(--mantine-color-text)]">Double progression</span> keeps the load the same until all sets reach the max reps at the target RIR, then suggests adding load next time. None only records history.
-    </div>
+    <Panel px="sm" py="xs">
+      <Caption component="p" lh={1.3}>
+        <Text component="span" fw={700}>Double progression</Text> keeps the load the same until all sets reach the max reps at the target RIR, then suggests adding load next time. None only records history.
+      </Caption>
+    </Panel>
   )
 }
 
 function AccessoryGuidance() {
   return (
-    <div className="rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-2.5 py-2 text-[11px] leading-snug text-[var(--mantine-color-dimmed)]">
-      <div className="flex items-center gap-1.5 font-bold text-[var(--mantine-color-text)]">
+    <Panel px="sm" py="xs">
+      <Text component="div" className="flex items-center gap-1.5" fw={700}>
         <Info size={13} />
         Accessory rep targets
-      </div>
-      <p className="mt-1">Most accessories sit around 8-20 reps. Use 6-10 for heavier close variations, and 12-30 for isolation or pump work.</p>
-    </div>
+      </Text>
+      <Caption component="p" mt={4} lh={1.3}>
+        Most accessories sit around 8-20 reps. Use 6-10 for heavier close variations, and 12-30 for isolation or pump work.
+      </Caption>
+    </Panel>
   )
 }
 

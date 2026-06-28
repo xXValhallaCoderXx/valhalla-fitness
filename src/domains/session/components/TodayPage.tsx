@@ -12,6 +12,8 @@ import { startSessionFn } from '~/domains/session/server/session-functions'
 import type { HistoryDashboard, PlannedSession, ProgramOverview, Unit, WorkoutSession } from '~/shared/types'
 import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatCard, Text } from '~/components'
 import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
+import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
+import { useOnboardingActive } from '~/domains/onboarding/useOnboardingActive'
 import { SessionProgress, SyncPill } from './Session'
 
 export function TodayPage({ user }: { user: unknown }) {
@@ -35,6 +37,7 @@ export function TodayPage({ user }: { user: unknown }) {
 
 function AuthedToday() {
   const router = useRouter()
+  const { active: onboardingActive } = useOnboardingActive()
   const todayQuery = useQuery(todayQueryOptions())
   const overviewQuery = useQuery({
     ...programOverviewQueryOptions(),
@@ -80,16 +83,20 @@ function AuthedToday() {
   if (!data.activeProgram || !data.plannedSession) {
     return (
       <Page>
-        <EmptyState
-          title="No active program"
-          action={
-            <Link to="/templates">
-              <Button>Choose a program</Button>
-            </Link>
-          }
-        >
-          Start a template to generate today&apos;s session.
-        </EmptyState>
+        <OnboardingPanel />
+        {!onboardingActive ? (
+          <EmptyState
+            centered
+            title="No active program"
+            action={
+              <Link to="/templates">
+                <Button>Browse plans</Button>
+              </Link>
+            }
+          >
+            Choose a training template to generate your daily sessions and start tracking your progress.
+          </EmptyState>
+        ) : null}
       </Page>
     )
   }
@@ -104,7 +111,8 @@ function AuthedToday() {
     const completionPercent = totalSets ? Math.round((completedSets / totalSets) * 100) : 0
 
     return (
-      <Page>
+      <Page className="max-w-5xl">
+        <OnboardingPanel />
         <PageHeader
           title="Today"
           eyebrow={`${data.activeProgram.title} · ${data.plannedSession.weekLabel}`}
@@ -113,7 +121,7 @@ function AuthedToday() {
           Resume the workout currently in progress.
         </PageHeader>
         <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Panel className="space-y-4 vf-card-hover" p="md" style={{ borderColor: 'var(--vf-action-border)' }}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
@@ -127,9 +135,6 @@ function AuthedToday() {
                 <Text mt="xs" size="sm" tone="dimmed">
                   {data.activeSession.movements.length} movements · {data.activeSession.estimatedMinutes} min
                 </Text>
-                <Caption mt="xs" fw={700}>
-                  {data.activeProgram.title} · {data.activeSession.weekLabel}
-                </Caption>
               </div>
               <Button className="w-full sm:w-auto" onClick={() => router.navigate({ to: '/sessions/$sessionId', params: { sessionId: data.activeSession!.sessionId } })}>
                 <RotateCw size={16} />
@@ -171,7 +176,8 @@ function AuthedToday() {
   const plannedSetCount = countPlannedSets(data.plannedSession)
 
   return (
-    <Page>
+    <Page className="max-w-5xl">
+      <OnboardingPanel />
       <PageHeader
         title="Today"
         eyebrow={`${data.activeProgram.title} · ${data.plannedSession.weekLabel}`}
@@ -211,7 +217,7 @@ function AuthedToday() {
         <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <Panel className="space-y-4 vf-card-hover" p="md">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
@@ -348,7 +354,7 @@ function BodyLoadPanel({ history }: { history?: HistoryDashboard }) {
   return (
     <Panel p="sm">
       <div className="flex items-center justify-between gap-3">
-        <SectionLabel>Body load</SectionLabel>
+        <SectionLabel>Muscle Fatigue</SectionLabel>
         <Badge>{history?.bodyLoad.windowDays ?? 0} days</Badge>
       </div>
       <div className="mt-3 grid gap-2">
@@ -363,7 +369,7 @@ function BodyLoadPanel({ history }: { history?: HistoryDashboard }) {
             </Text>
           </div>
         )) : (
-          <Caption>No recent body-load data.</Caption>
+          <Caption>No recent muscle fatigue data.</Caption>
         )}
       </div>
     </Panel>

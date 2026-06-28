@@ -1,10 +1,12 @@
-import { Badge } from '@mantine/core'
+import { Badge, Button } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton, Caption, Text } from '~/components'
 import { buildProgramTimeline } from '~/domains/program/lib/program-timeline'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
 import { CurrentLoadsCard, CustomizationCard, ProgramLoadChips } from './ProgramLoads'
+import { NextWorkoutHero } from './ProgramNextWorkout'
 import { ProgramMobileSection } from './ProgramMobileSection'
 import { RecentProgramSessions } from './ProgramRecentSessions'
 import { ProgramSummaryGrid } from './ProgramSummaryGrid'
@@ -46,7 +48,17 @@ function AuthedProgram() {
   if (!program) {
     return (
       <Page>
-        <EmptyState title="No active program">Start a template to see its timeline and current loads here.</EmptyState>
+        <EmptyState
+          centered
+          title="No active program"
+          action={
+            <Link to="/templates">
+              <Button>Browse plans</Button>
+            </Link>
+          }
+        >
+          Choose a training template to view your program timeline, progression schedule, and current training loads.
+        </EmptyState>
       </Page>
     )
   }
@@ -57,7 +69,7 @@ function AuthedProgram() {
     <Page>
       <PageHeader
         title={program.title}
-        eyebrow="Program"
+        eyebrow="Your Plan"
         actions={
           <div className="flex flex-wrap justify-end gap-2">
             {program.customizationStatus === 'customized' ? <Badge color="warning">Customized</Badge> : null}
@@ -65,7 +77,7 @@ function AuthedProgram() {
           </div>
         }
       >
-        <Text component="span" className="block">
+        <Text component="span" className="block line-clamp-2 sm:line-clamp-none">
           {overview.position?.weekSummary ?? timeline.description}
         </Text>
         <Caption component="span" className="mt-1 block" fw={600}>
@@ -74,6 +86,8 @@ function AuthedProgram() {
       </PageHeader>
 
       <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
+
+      <NextWorkoutHero overview={overview} timeline={timeline} />
 
       <ProgramSummaryGrid overview={overview} timeline={timeline} />
 

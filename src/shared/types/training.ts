@@ -39,6 +39,8 @@ export type UserProfile = {
   equipmentProfile: string[]
   themePreference: ThemePreference
   programStateDefaults: ProgramStateDefaults
+  onboardingCompleted: boolean
+  liveOnboardingDismissed: boolean
 }
 
 export type ProgramTemplateSummary = {
@@ -341,6 +343,8 @@ export type ProgressionDecision = {
   status: 'pending' | 'accepted' | 'dismissed' | 'superseded'
   inputSummary: string
   recommendation: string
+  /** Plain-language "why" behind the recommendation, shown in the coaching receipt. */
+  rationale?: string | null
   previousValue?: number | null
   recommendedValue?: number | null
 }

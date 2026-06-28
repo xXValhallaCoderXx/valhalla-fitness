@@ -12,6 +12,9 @@ export const customProgramMethodologySchema = z.enum(['none', 'training_max_wave
 
 export type CustomProgramMethodology = z.infer<typeof customProgramMethodologySchema>
 
+export const MAX_ACCESSORIES_PER_DAY = 6
+export const MAX_LOGGER_EXERCISES_PER_DAY = 12
+
 export type CustomProgramBuilderInput = z.infer<typeof customProgramBuilderInputSchema>
 
 type PrescriptionDefinition = TemplateDefinition['weeks'][number]['prescriptions'][string]
@@ -119,8 +122,8 @@ const builderSessionSchema = z.object({
   mainSetCount: z.coerce.number().int().min(1).max(10),
   mainTargetReps: z.coerce.number().int().min(1).max(30),
   mainTargetRir: z.coerce.number().min(0).max(10).nullable().optional(),
-  accessories: z.array(accessorySchema).max(6),
-  loggerExercises: z.array(loggerExerciseSchema).max(12).default([]),
+  accessories: z.array(accessorySchema).max(MAX_ACCESSORIES_PER_DAY),
+  loggerExercises: z.array(loggerExerciseSchema).max(MAX_LOGGER_EXERCISES_PER_DAY).default([]),
 })
 
 export const customProgramBuilderInputSchema = z.object({
@@ -160,27 +163,17 @@ export function createDefaultCustomProgramBuilderInput({
   daysPerWeek?: number
 } = {}): CustomProgramBuilderInput {
   const normalizedDaysPerWeek = clampDaysPerWeek(daysPerWeek)
+  // Seven distinct day templates so 5-7 day programmes stay balanced without simply
+  // duplicating heavy main work. Days 5-7 reuse a competition main (required) but with a
+  // different variation and accessory focus to keep weekly volume varied and recoverable.
   const dayDefaults = [
-    {
-      mainMovementId: 'squat',
-      variationMovementId: methodology === 'plus_set_wave' ? 'front_squat' : null,
-      accessoryMovementId: 'leg_press',
-    },
-    {
-      mainMovementId: 'bench_press',
-      variationMovementId: methodology === 'plus_set_wave' ? 'close_grip_bench_press' : null,
-      accessoryMovementId: 'chest_supported_row',
-    },
-    {
-      mainMovementId: 'deadlift',
-      variationMovementId: methodology === 'plus_set_wave' ? 'romanian_deadlift' : null,
-      accessoryMovementId: 'hamstring_curl',
-    },
-    {
-      mainMovementId: 'overhead_press',
-      variationMovementId: methodology === 'plus_set_wave' ? 'push_press' : null,
-      accessoryMovementId: 'face_pull',
-    },
+    { mainMovementId: 'squat', variation: 'front_squat', accessoryMovementId: 'leg_press' },
+    { mainMovementId: 'bench_press', variation: 'close_grip_bench_press', accessoryMovementId: 'chest_supported_row' },
+    { mainMovementId: 'deadlift', variation: 'romanian_deadlift', accessoryMovementId: 'hamstring_curl' },
+    { mainMovementId: 'overhead_press', variation: 'push_press', accessoryMovementId: 'face_pull' },
+    { mainMovementId: 'squat', variation: 'pause_squat', accessoryMovementId: 'split_squat' },
+    { mainMovementId: 'bench_press', variation: 'incline_bench_press', accessoryMovementId: 'dumbbell_row' },
+    { mainMovementId: 'deadlift', variation: 'stiff_leg_deadlift', accessoryMovementId: 'back_extension' },
   ]
 
   return {
@@ -193,7 +186,7 @@ export function createDefaultCustomProgramBuilderInput({
       return {
         title: methodology === 'none' ? `Day ${index + 1}` : customSessionTitle(index, day.mainMovementId, movementCatalog),
         mainMovementId: day.mainMovementId,
-        variationMovementId: day.variationMovementId,
+        variationMovementId: methodology === 'plus_set_wave' ? day.variation : null,
         mainSetCount: methodology === 'simple_linear' ? 3 : 4,
         mainTargetReps: methodology === 'simple_linear' ? 5 : 8,
         mainTargetRir: methodology === 'none' ? 2 : 1,
@@ -713,7 +706,7 @@ function repeatedSets(
   }))
 }
 
-function anchorMovementIdFor(movementId: string, catalog: Record<string, Movement>) {
+export function anchorMovementIdFor(movementId: string, catalog: Record<string, Movement>) {
   const movement = catalog[movementId]
   return movement?.variationOf ?? movementId
 }

@@ -25,7 +25,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "playwright": "playwright test"
+    "playwright": "playwright test",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:ui": "playwright test --ui",
+    "e2e:auth": "playwright test --project=setup",
+    "shot": "node scripts/shot.mjs"
   },
   "dependencies": {
     "@mantine/core": "^9.3.2",
@@ -42,6 +47,7 @@
     "clsx": "2.1.1",
     "dayjs": "^1.11.21",
     "dexie": "4.4.4",
+    "driver.js": "^1.6.0",
     "lucide-react": "1.21.0",
     "nitro": "3.0.260610-beta",
     "react": "19.2.7",

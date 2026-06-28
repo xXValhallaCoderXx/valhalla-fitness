@@ -18,6 +18,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as SessionsSessionIdIndexRouteImport } from './routes/sessions.$sessionId.index'
 import { Route as TemplatesTemplateIdStartRouteImport } from './routes/templates.$templateId.start'
 import { Route as SessionsSessionIdSummaryRouteImport } from './routes/sessions.$sessionId.summary'
 
@@ -66,6 +67,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/callback',
   getParentRoute: () => AuthRoute,
 } as any)
+const SessionsSessionIdIndexRoute = SessionsSessionIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SessionsSessionIdRoute,
+} as any)
 const TemplatesTemplateIdStartRoute =
   TemplatesTemplateIdStartRouteImport.update({
     id: '/$templateId/start',
@@ -91,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/sessions/$sessionId': typeof SessionsSessionIdRouteWithChildren
   '/sessions/$sessionId/summary': typeof SessionsSessionIdSummaryRoute
   '/templates/$templateId/start': typeof TemplatesTemplateIdStartRoute
+  '/sessions/$sessionId/': typeof SessionsSessionIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,9 +108,9 @@ export interface FileRoutesByTo {
   '/templates': typeof TemplatesRouteWithChildren
   '/today': typeof TodayRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/sessions/$sessionId': typeof SessionsSessionIdRouteWithChildren
   '/sessions/$sessionId/summary': typeof SessionsSessionIdSummaryRoute
   '/templates/$templateId/start': typeof TemplatesTemplateIdStartRoute
+  '/sessions/$sessionId': typeof SessionsSessionIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -118,6 +125,7 @@ export interface FileRoutesById {
   '/sessions/$sessionId': typeof SessionsSessionIdRouteWithChildren
   '/sessions/$sessionId/summary': typeof SessionsSessionIdSummaryRoute
   '/templates/$templateId/start': typeof TemplatesTemplateIdStartRoute
+  '/sessions/$sessionId/': typeof SessionsSessionIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -133,6 +141,7 @@ export interface FileRouteTypes {
     | '/sessions/$sessionId'
     | '/sessions/$sessionId/summary'
     | '/templates/$templateId/start'
+    | '/sessions/$sessionId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -143,9 +152,9 @@ export interface FileRouteTypes {
     | '/templates'
     | '/today'
     | '/auth/callback'
-    | '/sessions/$sessionId'
     | '/sessions/$sessionId/summary'
     | '/templates/$templateId/start'
+    | '/sessions/$sessionId'
   id:
     | '__root__'
     | '/'
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/sessions/$sessionId'
     | '/sessions/$sessionId/summary'
     | '/templates/$templateId/start'
+    | '/sessions/$sessionId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -237,6 +247,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/sessions/$sessionId/': {
+      id: '/sessions/$sessionId/'
+      path: '/'
+      fullPath: '/sessions/$sessionId/'
+      preLoaderRoute: typeof SessionsSessionIdIndexRouteImport
+      parentRoute: typeof SessionsSessionIdRoute
+    }
     '/templates/$templateId/start': {
       id: '/templates/$templateId/start'
       path: '/$templateId/start'
@@ -278,10 +295,12 @@ const TemplatesRouteWithChildren = TemplatesRoute._addFileChildren(
 
 interface SessionsSessionIdRouteChildren {
   SessionsSessionIdSummaryRoute: typeof SessionsSessionIdSummaryRoute
+  SessionsSessionIdIndexRoute: typeof SessionsSessionIdIndexRoute
 }
 
 const SessionsSessionIdRouteChildren: SessionsSessionIdRouteChildren = {
   SessionsSessionIdSummaryRoute: SessionsSessionIdSummaryRoute,
+  SessionsSessionIdIndexRoute: SessionsSessionIdIndexRoute,
 }
 
 const SessionsSessionIdRouteWithChildren =

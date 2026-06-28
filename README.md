@@ -13,7 +13,7 @@ The app is focused on a reliable gym workflow:
 
 This repository is in active MVP development and architecture cleanup.
 
-- The app works end-to-end for auth, program start, live session logging, summary, program view, and history.
+- The app works end-to-end for auth, program start, live session logging, optional onboarding walkthroughs, summary, program view, and history.
 - A domain-colocation refactor is in progress (`src/domains/*`, `src/shared/*`), while some legacy paths still coexist (`src/lib`, `src/server`).
 - UI conventions are shifting to Mantine-first primitives (`src/components/atoms`, `src/components/molecules`) with Tailwind used for layout only.
 
@@ -24,7 +24,7 @@ This repository is in active MVP development and architecture cleanup.
 - `/history` — recent sessions, body-load/history analytics
 - `/templates` — template/program library
 - `/templates/:templateId/start` — program setup/start flow
-- `/sessions/:sessionId` — live workout session
+- `/sessions/:sessionId` — live workout session with optional in-session walkthrough
 - `/sessions/:sessionId/summary` — post-session summary
 - `/settings` — units/theme/preferences/account settings
 - `/auth` + `/auth/callback` — sign-in and auth callback
@@ -112,6 +112,7 @@ src/
     session/
     history/
     movement/
+    onboarding/
   shared/                 Cross-domain shared code
     lib/
     server/
@@ -128,6 +129,12 @@ src/
 - Tailwind is reserved for **layout** concerns (grid/flex/spacing/sizing/position/overflow).
 - Avoid inline Tailwind typography/color/background/border-color utilities in app code.
 - Prefer shared atoms/molecules + Mantine props and theme tokens.
+
+## Onboarding
+
+- Today-page onboarding uses the server flag `profiles.onboarding_completed`.
+- Live-session onboarding is separate and uses `profiles.live_onboarding_dismissed`, so dismissing the workout card persists across devices.
+- The live workout walkthrough is opt-in from the live session card. Settings can still replay it by navigating to an active session with `?tour=live`.
 
 See `AGENTS.md` for the latest contributor/developer rules.
 

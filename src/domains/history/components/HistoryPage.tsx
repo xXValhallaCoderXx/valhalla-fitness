@@ -1,5 +1,6 @@
-import { Badge, Modal, Tabs, TextInput } from '@mantine/core'
+import { Badge, Button, Modal, Tabs, TextInput } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { Activity, BarChart3, ChevronRight, Dumbbell, History, ListChecks, Search, Trophy } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
@@ -7,6 +8,7 @@ import { cn } from '~/shared/lib/cn'
 import { formatCompactDate, formatFullDate, formatRelativeTime } from '~/shared/lib/dates'
 import { activeProgramQueryOptions } from '~/domains/program/queries'
 import { historyDashboardQueryOptions } from '~/domains/history/queries'
+import { bodyLoadExplanation, bodyLoadTierLabels } from '~/domains/history/lib/body-load'
 import { sessionQueryOptions } from '~/domains/session/queries'
 import type {
   BodyLoadRegion,
@@ -27,11 +29,18 @@ type HistoryTab = 'overview' | 'body-load' | 'movements' | 'records' | 'sessions
 
 const HISTORY_TABS: Array<{ value: HistoryTab; label: string; icon: ReactNode }> = [
   { value: 'overview', label: 'Overview', icon: <BarChart3 size={14} /> },
-  { value: 'body-load', label: 'Body Load', icon: <Activity size={14} /> },
+  { value: 'body-load', label: 'Muscle Fatigue', icon: <Activity size={14} /> },
   { value: 'movements', label: 'Movements', icon: <Dumbbell size={14} /> },
   { value: 'records', label: 'Records', icon: <Trophy size={14} /> },
   { value: 'sessions', label: 'Sessions', icon: <History size={14} /> },
 ]
+
+const historySearchInputStyles = {
+  input: {
+    borderColor: 'var(--mantine-color-default-border)',
+    backgroundColor: 'var(--vf-surface-2)',
+  },
+}
 
 export function HistoryPage({ user }: { user: unknown }) {
   if (!user) {
@@ -78,9 +87,23 @@ function AuthedHistory() {
         value={activeTab}
         onChange={(value) => setActiveTab((value as HistoryTab | null) ?? 'overview')}
         classNames={{
-          list: 'mb-4 !flex !flex-nowrap gap-1 overflow-x-auto border-b border-[var(--mantine-color-default-border)] px-0.5 pb-2 pt-1 no-scrollbar',
-          tab: '!my-0.5 !min-h-9 !shrink-0 !rounded-md !border-0 !px-2.5 !py-2 !text-xs !font-extrabold !leading-none data-[active=true]:!bg-[var(--vf-action-soft)] data-[active=true]:!text-[var(--vf-action-text)]',
+          list: 'mb-4 !flex !flex-nowrap gap-1 overflow-x-auto border-b px-0.5 pb-2 pt-1 no-scrollbar',
+          tab: '!my-0.5 !min-h-9 !shrink-0 !rounded-md !border-0 !px-2.5 !py-2',
           panel: 'focus-visible:outline-none',
+        }}
+        styles={{
+          list: {
+            borderColor: 'var(--mantine-color-default-border)',
+          },
+          tab: {
+            fontSize: 'var(--mantine-font-size-xs)',
+            fontWeight: 800,
+            lineHeight: 1,
+            '&[data-active]': {
+              backgroundColor: 'var(--vf-action-soft)',
+              color: 'var(--vf-action-text)',
+            },
+          },
         }}
       >
         <Tabs.List>
@@ -135,7 +158,7 @@ function OverviewTab({
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         <OverviewMetric label="Sessions" value={data.overview.completedSessions} icon={<History size={15} />} />
         <OverviewMetric label="Logged sets" value={data.overview.loggedSets} icon={<ListChecks size={15} />} tone="success" />
-        <OverviewMetric label="Completed load" value={formatLoad(data.overview.completedVolume, data.overview.units)} icon={<BarChart3 size={15} />} wide />
+        <OverviewMetric label="Total weight lifted" value={formatLoad(data.overview.completedVolume, data.overview.units)} icon={<BarChart3 size={15} />} wide />
         <OverviewMetric label="Movements" value={data.overview.uniqueMovements} icon={<Dumbbell size={15} />} />
         <OverviewMetric
           label="Latest session"
@@ -175,13 +198,13 @@ function OverviewTab({
 
           <div className="space-y-4">
             <Panel p="md">
-              <SectionLabel>Top body load</SectionLabel>
+              <SectionLabel>Most worked recently</SectionLabel>
               <div className="mt-3 space-y-2">
                 {data.bodyLoad.topRegions.slice(0, 4).map((region) => (
                   <BodyRegionRow key={region.regionId} region={region} compact />
                 ))}
                 {!data.bodyLoad.topRegions.length ? (
-                  <Text size="sm" tone="dimmed">No body-load data yet.</Text>
+                  <Text size="sm" tone="dimmed">No muscle fatigue data yet.</Text>
                 ) : null}
               </div>
             </Panel>
@@ -211,10 +234,18 @@ function OverviewTab({
           </div>
         </div>
       ) : (
-        <EmptyState title="No completed sessions yet">
+        <EmptyState
+          centered
+          title="No completed sessions yet"
+          action={
+            <Link to="/templates">
+              <Button>Browse plans</Button>
+            </Link>
+          }
+        >
           {activeProgramTitle
-            ? `${activeProgramTitle} is active. Finish your first workout and training stats will appear here.`
-            : 'Finish a workout and your training stats will appear here.'}
+            ? `${activeProgramTitle} is active. Complete your first session to start building your training stats, muscle fatigue, and volume trends.`
+            : 'Complete a session to start building your training history, muscle fatigue, and volume trends.'}
         </EmptyState>
       )}
     </div>
@@ -225,13 +256,14 @@ function BodyLoadTab({ data }: { data: HistoryDashboard }) {
   return (
     <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[minmax(0,1fr)_18rem] lg:grid-cols-[minmax(0,1fr)_22rem]">
       <Panel p="md">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <SectionLabel>Body load</SectionLabel>
+            <SectionLabel>Muscle Fatigue</SectionLabel>
             <Text mt={4} size="sm" fw={900}>Last {data.bodyLoad.windowDays} days</Text>
           </div>
-          <Badge color="success">{data.bodyLoad.freshRegionCount} fresh</Badge>
+          <Badge color="success">{data.bodyLoad.freshRegionCount} of {data.bodyLoad.regions.length} fresh</Badge>
         </div>
+        <Caption mb="md">{bodyLoadExplanation}</Caption>
         <BodyLoadMap regions={data.bodyLoad.regions} />
       </Panel>
 
@@ -277,7 +309,7 @@ function MovementsTab({
         onChange={(event) => onQueryChange(event.currentTarget.value)}
         placeholder="Search movements"
         leftSection={<Search size={14} />}
-        classNames={{ input: '!border-[var(--mantine-color-default-border)] !bg-[var(--vf-surface-2)]' }}
+        styles={historySearchInputStyles}
       />
       {filtered.length ? (
         <div className="grid gap-2">
@@ -294,7 +326,7 @@ function MovementsTab({
 
 function RecordsTab({ data }: { data: HistoryDashboard }) {
   return data.bestSets.length ? (
-    <div className="grid gap-3 md:grid-cols-2">
+    <div className="grid gap-2 md:grid-cols-2">
       {data.bestSets.map((set) => (
         <BestSetCard key={`${set.movementId}-${set.id}`} set={set} />
       ))}
@@ -472,7 +504,7 @@ function BodyLoadMap({ regions }: { regions: BodyLoadRegion[] }) {
       <svg
         viewBox="0 0 300 420"
         role="img"
-        aria-label="Body load map"
+        aria-label="Muscle fatigue map"
         className="vf-body-load-map"
       >
         <g stroke="var(--mantine-color-default-border)" strokeWidth="3">
@@ -511,9 +543,14 @@ function BodyRegionRow({ region, compact = false }: { region: BodyLoadRegion; co
             </Caption>
           ) : null}
         </div>
-        <StatValue size="sm" tone={toneForTier(region.tier)} ta="right">
-          {region.impactPercent}%
-        </StatValue>
+        <div className="text-right">
+          <StatValue size="sm" tone={toneForTier(region.tier)}>
+            {region.impactPercent}%
+          </StatValue>
+          <Caption size="0.625rem" fw={800} tone={toneForTier(region.tier)}>
+            {bodyLoadTierLabels[region.tier]}
+          </Caption>
+        </div>
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-full" style={{ backgroundColor: 'var(--vf-surface-inset)' }}>
         <div
@@ -536,14 +573,39 @@ function BodyRegionRow({ region, compact = false }: { region: BodyLoadRegion; co
 function MovementSummaryCard({ movement, units }: { movement: HistoryMovementSummary; units?: Unit | null }) {
   return (
     <Panel p="sm">
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_7rem_8rem_minmax(0,1.5fr)_auto] md:items-center">
+      <div className="md:hidden">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <Text size="sm" fw={900} truncate>{movement.movementName}</Text>
+            <Caption mt={1} fw={700} tt="capitalize" truncate>{movement.category.replaceAll('_', ' ')}</Caption>
+          </div>
+          <Badge className="shrink-0">{movement.totalCompletedSets} sets</Badge>
+        </div>
+        <div className="mt-2 grid grid-cols-[4.5rem_5.25rem_minmax(0,1fr)] gap-2">
+          <CompactInsightCell label="Last" value={formatCompactDate(movement.lastPerformedAt)} />
+          <CompactInsightCell label="Volume" value={formatLoad(movement.totalVolume, units)} />
+          <div className="min-w-0">
+            <SectionLabel size="0.5rem">Best set</SectionLabel>
+            <Text mt={1} size="xs" fw={800} tone="accent" truncate>
+              {movement.bestSet ? formatBestSet(movement.bestSet) : 'No best set yet'}
+            </Text>
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden gap-3 md:grid md:grid-cols-[minmax(0,1.4fr)_7rem_8rem_minmax(0,1.5fr)_auto] md:items-center">
         <div className="min-w-0">
           <Text fw={900} truncate>{movement.movementName}</Text>
           <Caption mt={2} fw={700} tt="capitalize">{movement.category.replaceAll('_', ' ')}</Caption>
         </div>
         <InsightCell label="Last" value={formatCompactDate(movement.lastPerformedAt)} />
         <InsightCell label="Volume" value={formatLoad(movement.totalVolume, units)} />
-        <Panel surface="inset" px="sm" py="xs" style={{ borderColor: 'var(--vf-accent-border)', backgroundColor: 'var(--vf-accent-soft)' }}>
+        <Panel
+          surface="inset"
+          px="sm"
+          py="xs"
+          style={{ borderColor: 'var(--vf-accent-border)', backgroundColor: 'var(--vf-accent-soft)' }}
+        >
           <SectionLabel size="0.5625rem">Best set</SectionLabel>
           <Text mt={2} size="xs" fw={800} tone="accent" lineClamp={2} lh={1.25}>
             {movement.bestSet ? formatBestSet(movement.bestSet) : 'No best set yet'}
@@ -558,6 +620,15 @@ function MovementSummaryCard({ movement, units }: { movement: HistoryMovementSum
   )
 }
 
+function CompactInsightCell({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <SectionLabel size="0.5rem">{label}</SectionLabel>
+      <Text mt={1} size="xs" fw={900} truncate>{value}</Text>
+    </div>
+  )
+}
+
 function BestSetCard({ set, compact = false }: { set: HistoryBestSet; compact?: boolean }) {
   const primary = formatBestSetPrimary(set)
   const rir = typeof set.rir === 'number' ? `RIR ${set.rir}` : null
@@ -566,7 +637,7 @@ function BestSetCard({ set, compact = false }: { set: HistoryBestSet; compact?: 
 
   return (
     <Panel
-      p={compact ? 'xs' : 'sm'}
+      p="xs"
       style={{
         borderColor: emphasized ? 'var(--vf-accent-border)' : 'var(--mantine-color-default-border)',
         backgroundColor: emphasized ? 'var(--vf-accent-soft)' : 'var(--vf-surface-2)',
@@ -575,26 +646,28 @@ function BestSetCard({ set, compact = false }: { set: HistoryBestSet; compact?: 
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-2">
           <span
-            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+            className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md sm:h-6 sm:w-6"
             style={{ backgroundColor: 'var(--mantine-color-default)', color: 'var(--vf-accent-text)' }}
           >
-            <Trophy size={13} />
+            <Trophy size={12} />
           </span>
           <div className="min-w-0">
             <Text size="sm" fw={900} truncate>{set.movementName}</Text>
-            {!compact ? <Caption mt={2}>{set.sessionTitle}</Caption> : null}
+            {!compact ? <Caption mt={1} truncate>{set.sessionTitle}</Caption> : null}
           </div>
         </div>
-        <Badge color={set.type === 'accessory' ? 'neutral' : 'action'}>{formatRecordType(set.type)}</Badge>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <Badge color={set.type === 'accessory' ? 'neutral' : 'action'}>
+            {formatRecordType(set.type)}
+          </Badge>
+          {!compact ? <Caption size="0.625rem" fw={800}>{formatCompactDate(set.performedAt)}</Caption> : null}
+        </div>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <StatValue size={compact ? 'sm' : 'md'}>{primary}</StatValue>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <StatValue size="sm">{primary}</StatValue>
         {rir ? <Badge color="neutral">{rir}</Badge> : null}
         {e1rm ? <Badge color="action">{e1rm}</Badge> : null}
       </div>
-      {!compact ? (
-        <Caption mt={4} fw={700}>{formatCompactDate(set.performedAt)}</Caption>
-      ) : null}
     </Panel>
   )
 }
@@ -626,7 +699,7 @@ function RecentWorkoutCard({ session, onOpen }: { session: RecentHistoryEntry; o
   return (
     <button
       type="button"
-      className="vf-card-hover rounded-lg border p-3 transition"
+      className="vf-card-hover relative rounded-lg border p-2.5 pr-8 transition sm:p-3 sm:pr-3"
       style={{
         backgroundColor: 'var(--mantine-color-default)',
         borderColor: 'var(--mantine-color-default-border)',
@@ -636,10 +709,17 @@ function RecentWorkoutCard({ session, onOpen }: { session: RecentHistoryEntry; o
       }}
       onClick={onOpen}
     >
-      <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
-        <div className="flex min-w-0 items-start gap-3">
+      <Caption
+        size="0.625rem"
+        fw={800}
+        className="absolute right-8 top-2.5 sm:hidden"
+      >
+        {formatRelativeTime(date)}
+      </Caption>
+      <div className="grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+        <div className="flex min-w-0 items-start gap-2 sm:gap-3">
           <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border sm:h-9 sm:w-9 sm:rounded-lg"
             style={{
               backgroundColor: 'var(--vf-surface-2)',
               borderColor: 'var(--mantine-color-default-border)',
@@ -649,9 +729,9 @@ function RecentWorkoutCard({ session, onOpen }: { session: RecentHistoryEntry; o
             {session.completedAt ? <Trophy size={16} /> : <Dumbbell size={16} />}
           </div>
           <div className="min-w-0">
-            <Text fw={900} truncate>{session.title}</Text>
-            <Caption mt={2}>{session.programTitle ?? 'Training session'}</Caption>
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <Text size="sm" fw={900} truncate>{session.title}</Text>
+            <Caption mt={1} truncate>{session.programTitle ?? 'Training session'}</Caption>
+            <div className="mt-1.5 flex flex-wrap gap-1">
               {session.weekLabel ? <Badge>{session.weekLabel}</Badge> : null}
               {session.hardness ? <Badge color={session.hardness === 'Hard' ? 'danger' : 'neutral'}>{session.hardness}</Badge> : null}
               <Badge>{session.movementCount} movements</Badge>
@@ -659,13 +739,18 @@ function RecentWorkoutCard({ session, onOpen }: { session: RecentHistoryEntry; o
             </div>
           </div>
         </div>
-        <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
+        <div className="hidden shrink-0 items-center justify-between gap-2 sm:flex sm:justify-end">
           <div className="text-right">
             <Text size="xs" fw={900}>{formatCompactDate(date)}</Text>
             <Caption size="0.625rem" fw={700}>{formatRelativeTime(date)}</Caption>
           </div>
           <ChevronRight size={16} color="var(--mantine-color-dimmed)" />
         </div>
+        <ChevronRight
+          className="absolute right-2 top-1/2 -translate-y-1/2 sm:hidden"
+          size={16}
+          color="var(--mantine-color-dimmed)"
+        />
       </div>
     </button>
   )
@@ -881,9 +966,9 @@ function formatBestSet(set: HistoryBestSet) {
 }
 
 function formatBestSetPrimary(set: HistoryBestSet) {
-  const load = set.load == null ? 'bodyweight' : `${formatNumber(set.load)} ${set.units ?? ''}`.trim()
+  const load = set.load == null ? 'Bodyweight' : `${formatNumber(set.load)} ${set.units ?? ''}`.trim()
   const reps = `${set.reps ?? '-'}${set.type === 'amrap' ? '+' : ''}`
-  return `${load} x ${reps}`
+  return `${load} × ${reps} reps`
 }
 
 function formatLoad(value?: number | null, units?: Unit | null) {

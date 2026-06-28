@@ -1,16 +1,29 @@
 import { ActionIcon, Badge, Button, Card, NumberInput, Select, TextInput, Tooltip } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { useMutation } from '@tanstack/react-query'
-import { Check, ChevronLeft, ChevronRight, Info, Plus, Trash2, X } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Plus, Trash2, X } from 'lucide-react'
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import {
   createDefaultCustomProgramBuilderInput,
   customProgramMethodologies,
+  MAX_ACCESSORIES_PER_DAY,
+  MAX_LOGGER_EXERCISES_PER_DAY,
   type CustomProgramBuilderInput,
   type CustomProgramMethodology,
 } from '~/domains/program/lib/custom-templates'
+import {
+  evaluateCustomProgramDraft,
+  hasBlockingIssue,
+  recommendedDaysFor,
+  type GuidanceCheck,
+  type GuidanceIssue,
+  type GuidanceSeverity,
+} from '~/domains/program/lib/custom-builder-guidance'
+import { buildProgressionPreview, type ProgressionPreview } from '~/domains/program/lib/custom-builder-preview'
+import { ProgramInfoHint } from '~/domains/program/components/ProgramInfoHint'
+import { meQueryOptions } from '~/domains/account/queries'
 import {
   accessoryMovementOptions,
   clampBuilderDayCount,
@@ -27,7 +40,56 @@ import {
 } from '~/domains/program/lib/custom-builder-ui'
 import { createCustomProgramTemplateFn } from '~/domains/program/server/program-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import type { ProgramTemplateSummary } from '~/shared/types'
+import type { ProgramTemplateSummary, UserProfile } from '~/shared/types'
+
+const GUIDANCE_SEVERITY_STYLE: Record<GuidanceSeverity, { style: CSSProperties; Icon: typeof AlertTriangle }> = {
+  block: {
+    style: { borderColor: 'var(--vf-danger-border)', backgroundColor: 'var(--vf-danger-soft)', color: 'var(--vf-danger-text)' },
+    Icon: AlertTriangle,
+  },
+  warning: {
+    style: { borderColor: 'var(--vf-warning-border)', backgroundColor: 'var(--vf-warning-soft)', color: 'var(--vf-warning-text)' },
+    Icon: AlertTriangle,
+  },
+  info: {
+    style: { borderColor: 'var(--vf-action-border)', backgroundColor: 'var(--vf-action-soft)', color: 'var(--vf-action-text)' },
+    Icon: Info,
+  },
+}
+
+const GUIDANCE_SEVERITY_ORDER: Record<GuidanceSeverity, number> = { block: 0, warning: 1, info: 2 }
+
+function issuesForChecks(issues: GuidanceIssue[], checks: GuidanceCheck[]) {
+  return issues.filter((issue) => checks.includes(issue.check))
+}
+
+function issuesForScope(issues: GuidanceIssue[], scope: 'global' | number) {
+  return issues.filter((issue) => issue.scope === scope)
+}
+
+function GuidanceList({ issues, className }: { issues: GuidanceIssue[]; className?: string }) {
+  if (!issues.length) return null
+  return (
+    <div className={`grid gap-2${className ? ` ${className}` : ''}`}>
+      {issues.map((issue) => {
+        const { style, Icon } = GUIDANCE_SEVERITY_STYLE[issue.severity]
+        return (
+          <div key={issue.id} className="flex items-start gap-2 rounded-lg border p-3" style={style}>
+            <Icon size={16} className="mt-0.5 shrink-0" />
+            <Text size="sm" c="inherit">
+              {issue.message}
+              {issue.fix ? (
+                <Text component="span" display="block" size="sm" c="inherit" mt={2} style={{ opacity: 0.8 }}>
+                  {issue.fix}
+                </Text>
+              ) : null}
+            </Text>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 export function CustomProgramBuilder({
   titleId,
@@ -116,7 +178,7 @@ export function CustomProgramBuilder({
     setDraft((current) => ({
       ...current,
       sessions: current.sessions.map((session, index) =>
-        index === sessionIndex
+        index === sessionIndex && session.accessories.length < MAX_ACCESSORIES_PER_DAY
           ? {
               ...session,
               accessories: [
@@ -173,7 +235,7 @@ export function CustomProgramBuilder({
     setDraft((current) => ({
       ...current,
       sessions: current.sessions.map((session, index) =>
-        index === sessionIndex
+        index === sessionIndex && session.loggerExercises.length < MAX_LOGGER_EXERCISES_PER_DAY
           ? {
               ...session,
               loggerExercises: [
@@ -211,14 +273,13 @@ export function CustomProgramBuilder({
     if (next) setStep(next.id)
   }
 
-  const canCreate =
-    draft.name.trim().length >= 3 &&
-    draft.sessions.length === draft.daysPerWeek &&
-    (draft.methodology !== 'none' || draft.sessions.every((session) => session.loggerExercises.length > 0))
+  const meQuery = useQuery(meQueryOptions())
+  const issues = useMemo(() => evaluateCustomProgramDraft(draft), [draft])
+  const canCreate = !hasBlockingIssue(issues)
 
   return (
     <Card className="flex h-full max-h-[100dvh] flex-col overflow-hidden rounded-none sm:max-h-[92dvh] sm:rounded-lg" p={0}>
-      <div className="shrink-0 border-b p-3 sm:p-4">
+      <div className="shrink-0 border-b p-3 sm:p-4" style={{ borderColor: 'var(--mantine-color-default-border)' }}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -259,6 +320,7 @@ export function CustomProgramBuilder({
         {step === 'methodology' ? (
           <CustomMethodologyStep
             draft={draft}
+            issues={issuesForChecks(issues, ['name', 'schedule_fit'])}
             onDraftChange={updateDraft}
             onMethodologyChange={setMethodology}
             onDaysChange={setDaysPerWeek}
@@ -266,26 +328,35 @@ export function CustomProgramBuilder({
         ) : step === 'main_lifts' && draft.methodology === 'none' ? (
           <CustomLoggerExercisesStep
             draft={draft}
+            issues={issuesForChecks(issues, ['logger_empty', 'session_count'])}
             onSessionChange={updateSession}
             onExerciseChange={updateLoggerExercise}
             onAddExercise={addLoggerExercise}
             onRemoveExercise={removeLoggerExercise}
           />
         ) : step === 'main_lifts' ? (
-          <CustomMovementsStep draft={draft} onSessionChange={updateSession} />
+          <CustomMovementsStep
+            draft={draft}
+            issues={issuesForChecks(issues, ['duplicate_main', 'weekly_balance', 'session_count'])}
+            onSessionChange={updateSession}
+          />
         ) : step === 'accessories' && draft.methodology !== 'none' ? (
           <CustomAccessoriesStep
             draft={draft}
+            issues={issuesForChecks(issues, ['accessory_volume'])}
             onAccessoryChange={updateAccessory}
             onAddAccessory={addAccessory}
             onRemoveAccessory={removeAccessory}
           />
         ) : (
-          <CustomReviewStep draft={draft} />
+          <CustomReviewStep draft={draft} issues={issues} profile={meQuery.data ?? null} />
         )}
       </div>
 
-      <div className="shrink-0 border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-4">
+      <div
+        className="shrink-0 border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-4"
+        style={{ borderColor: 'var(--mantine-color-default-border)' }}
+      >
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Button variant="default" disabled={mutation.isPending || currentStepIndex === 0} onClick={() => moveStep(-1)}>
             <ChevronLeft size={14} />
@@ -407,15 +478,18 @@ function CurrentPlanSummary({ draft }: { draft: CustomProgramBuilderInput }) {
 
 function CustomMethodologyStep({
   draft,
+  issues,
   onDraftChange,
   onMethodologyChange,
   onDaysChange,
 }: {
   draft: CustomProgramBuilderInput
+  issues: GuidanceIssue[]
   onDraftChange: (patch: Partial<CustomProgramBuilderInput>) => void
   onMethodologyChange: (methodology: CustomProgramMethodology) => void
   onDaysChange: (daysPerWeek: number) => void
 }) {
+  const recommendedDays = recommendedDaysFor(draft.methodology)
   return (
     <div className="grid gap-4">
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem]">
@@ -430,7 +504,12 @@ function CustomMethodologyStep({
           onChange={(event) => onDraftChange({ goal: event.target.value })}
         />
         <NumberInput
-          label="Days per week"
+          label={
+            <span className="inline-flex items-center gap-1">
+              Days per week
+              <ProgramInfoHint label="Day count guidance">{recommendedDays.rationale}</ProgramInfoHint>
+            </span>
+          }
           min={1}
           max={7}
           allowDecimal={false}
@@ -439,6 +518,8 @@ function CustomMethodologyStep({
           onChange={(value) => onDaysChange(clampBuilderDayCount(value, draft.daysPerWeek))}
         />
       </div>
+
+      <GuidanceList issues={issues} />
 
       <div className="grid gap-3 md:grid-cols-2">
         {(Object.keys(customProgramMethodologies) as CustomProgramMethodology[]).map((methodology) => {
@@ -489,9 +570,11 @@ function CustomMethodologyStep({
 
 function CustomMovementsStep({
   draft,
+  issues,
   onSessionChange,
 }: {
   draft: CustomProgramBuilderInput
+  issues: GuidanceIssue[]
   onSessionChange: (sessionIndex: number, patch: Partial<CustomProgramBuilderInput['sessions'][number]>) => void
 }) {
   const supportsVariation = draft.methodology === 'plus_set_wave'
@@ -501,9 +584,11 @@ function CustomMovementsStep({
         <SectionLabel>Regulated structure</SectionLabel>
         <Caption mt={4}>{customProgramMethodologies[draft.methodology].regulationSummary}</Caption>
       </Panel>
+      <GuidanceList issues={issuesForScope(issues, 'global')} />
       {draft.sessions.map((session, index) => (
         <Panel key={index} surface="inset" p="sm">
           <Text mb="sm" size="sm" fw={800}>{customBuilderDayTitle(index, session.mainMovementId)}</Text>
+          <GuidanceList issues={issuesForScope(issues, index)} className="mb-3" />
           <div className="grid gap-3 md:grid-cols-[minmax(12rem,20rem)_minmax(12rem,1fr)] md:items-end">
             <div className="min-w-0">
               <BuilderSelect
@@ -545,12 +630,14 @@ function CustomMovementsStep({
 
 function CustomLoggerExercisesStep({
   draft,
+  issues,
   onSessionChange,
   onExerciseChange,
   onAddExercise,
   onRemoveExercise,
 }: {
   draft: CustomProgramBuilderInput
+  issues: GuidanceIssue[]
   onSessionChange: (sessionIndex: number, patch: Partial<CustomProgramBuilderInput['sessions'][number]>) => void
   onExerciseChange: (
     sessionIndex: number,
@@ -571,16 +658,28 @@ function CustomLoggerExercisesStep({
 
       {draft.sessions.map((session, sessionIndex) => (
         <Panel key={sessionIndex} surface="inset" p="sm">
+          <GuidanceList issues={issuesForScope(issues, sessionIndex)} className="mb-3" />
           <div className="mb-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             <TextInput
               label={`Day ${sessionIndex + 1} title`}
               value={session.title}
               onChange={(event) => onSessionChange(sessionIndex, { title: event.target.value })}
             />
-            <Button variant="default" onClick={() => onAddExercise(sessionIndex)}>
-              <Plus size={14} />
-              Add exercise
-            </Button>
+            <Tooltip
+              label={`Up to ${MAX_LOGGER_EXERCISES_PER_DAY} exercises per day`}
+              disabled={session.loggerExercises.length < MAX_LOGGER_EXERCISES_PER_DAY}
+            >
+              <span>
+                <Button
+                  variant="default"
+                  disabled={session.loggerExercises.length >= MAX_LOGGER_EXERCISES_PER_DAY}
+                  onClick={() => onAddExercise(sessionIndex)}
+                >
+                  <Plus size={14} />
+                  Add exercise
+                </Button>
+              </span>
+            </Tooltip>
           </div>
 
           <div className="grid gap-2">
@@ -649,11 +748,13 @@ function CustomLoggerExercisesStep({
 
 function CustomAccessoriesStep({
   draft,
+  issues,
   onAccessoryChange,
   onAddAccessory,
   onRemoveAccessory,
 }: {
   draft: CustomProgramBuilderInput
+  issues: GuidanceIssue[]
   onAccessoryChange: (
     sessionIndex: number,
     accessoryIndex: number,
@@ -664,7 +765,9 @@ function CustomAccessoriesStep({
 }) {
   return (
     <div className="grid gap-3">
-      {draft.sessions.map((session, sessionIndex) => (
+      {draft.sessions.map((session, sessionIndex) => {
+        const atAccessoryCap = session.accessories.length >= MAX_ACCESSORIES_PER_DAY
+        return (
         <Panel key={sessionIndex} surface="inset" p="sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
@@ -678,11 +781,16 @@ function CustomAccessoriesStep({
                 </Panel>
               </div>
             </div>
-            <Button variant="default" onClick={() => onAddAccessory(sessionIndex)}>
-              <Plus size={14} />
-              Add
-            </Button>
+            <Tooltip label={`Up to ${MAX_ACCESSORIES_PER_DAY} accessories per day`} disabled={!atAccessoryCap}>
+              <span>
+                <Button variant="default" disabled={atAccessoryCap} onClick={() => onAddAccessory(sessionIndex)}>
+                  <Plus size={14} />
+                  Add
+                </Button>
+              </span>
+            </Tooltip>
           </div>
+          <GuidanceList issues={issuesForScope(issues, sessionIndex)} className="mt-3" />
           <div className="mt-3 grid gap-2">
             {session.accessories.map((accessory, accessoryIndex) => (
               <BuilderExerciseRow
@@ -739,23 +847,38 @@ function CustomAccessoriesStep({
             ) : null}
           </div>
         </Panel>
-      ))}
+        )
+      })}
     </div>
   )
 }
 
-function CustomReviewStep({ draft }: { draft: CustomProgramBuilderInput }) {
+function CustomReviewStep({
+  draft,
+  issues,
+  profile,
+}: {
+  draft: CustomProgramBuilderInput
+  issues: GuidanceIssue[]
+  profile: UserProfile | null
+}) {
   const methodology = customProgramMethodologies[draft.methodology]
+  const preview = useMemo(() => buildProgressionPreview(draft, profile), [draft, profile])
+  const orderedIssues = [...issues].sort(
+    (left, right) => GUIDANCE_SEVERITY_ORDER[left.severity] - GUIDANCE_SEVERITY_ORDER[right.severity],
+  )
   const accessoryCount = draft.sessions.reduce((total, session) => total + session.accessories.length, 0)
   const loggerExerciseCount = draft.sessions.reduce((total, session) => total + session.loggerExercises.length, 0)
   return (
     <div className="grid gap-4">
+      <GuidanceList issues={orderedIssues} />
       <div className="grid gap-3 md:grid-cols-4">
         <ReviewMetric label="Method" value={methodology.shortLabel} />
         <ReviewMetric label="Schedule" value={`${draft.daysPerWeek} days/wk`} />
         <ReviewMetric label="Sessions" value={draft.sessions.length} />
         <ReviewMetric label={draft.methodology === 'none' ? 'Exercises' : 'Accessories'} value={draft.methodology === 'none' ? loggerExerciseCount : accessoryCount} />
       </div>
+      {preview ? <ProgressionPreviewPanel preview={preview} /> : null}
       <Panel surface="inset" p="sm">
         <Text size="sm" fw={800}>{draft.name}</Text>
         {draft.goal ? <Caption mt={4}>{draft.goal}</Caption> : null}
@@ -797,6 +920,38 @@ function ReviewMetric({ label, value }: { label: string; value: ReactNode }) {
     <Panel surface="inset" p="sm">
       <SectionLabel>{label}</SectionLabel>
       <Text mt={4} size="sm" fw={800}>{value}</Text>
+    </Panel>
+  )
+}
+
+function ProgressionPreviewPanel({ preview }: { preview: ProgressionPreview }) {
+  return (
+    <Panel surface="inset" p="sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1">
+          <SectionLabel>Progression preview</SectionLabel>
+          <ProgramInfoHint label="About this preview">
+            Example loads for one main lift so you can picture the plan. It assumes average progress — your real numbers depend on what you log.
+          </ProgramInfoHint>
+        </span>
+        <Badge color={preview.isEstimated ? 'neutral' : 'success'}>
+          {preview.isEstimated ? 'Example numbers' : 'From your 1RM'}
+        </Badge>
+      </div>
+      <Caption mt={4}>
+        {preview.movementName} · {preview.anchorLabel} {preview.anchorValue} {preview.units}
+        {preview.isEstimated ? ' (example — set yours when you start)' : ''}
+      </Caption>
+      <div className="mt-3 grid gap-1">
+        {preview.rows.map((row, index) => (
+          <div key={index} className="grid grid-cols-[minmax(6rem,auto)_1fr_auto] items-center gap-2">
+            <Caption fw={700}>{row.label}</Caption>
+            <Caption>{row.scheme}</Caption>
+            <Text size="sm" fw={800}>{row.load} {preview.units}</Text>
+          </div>
+        ))}
+      </div>
+      <Text mt={3} size="xs" tone="dimmed">{preview.note}</Text>
     </Panel>
   )
 }

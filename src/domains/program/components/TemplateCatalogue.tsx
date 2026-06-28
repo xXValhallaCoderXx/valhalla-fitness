@@ -1,14 +1,19 @@
 import { Badge, Button, Modal, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { useRouter } from '@tanstack/react-router'
-import { Plus, Search } from 'lucide-react'
-import { useId, useMemo, useState } from 'react'
+import { useRouter, useRouterState } from '@tanstack/react-router'
+import { Plus, Search, Sparkles } from 'lucide-react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { track } from '~/shared/lib/analytics'
 import { Caption, EmptyState, Heading, Page, PageHeader, Panel, SectionLabel, Text } from '~/components'
 import type { ProgramTemplateSummary, TodayPayload } from '~/shared/types'
 import { CustomProgramBuilder } from './CustomProgramBuilder'
+import { FindMyPlanModal } from './FindMyPlanModal'
 import { TemplateCard, TemplateGrid } from './TemplateCard'
 
-const templateFilters = ['All', 'Custom', 'Linear', 'Training max', 'Wave', 'Volume', 'Peak', 'High volume']
+const templateFilters = ['All', 'Custom', 'Linear', '5x5', 'Training max', 'Wave', 'Volume', 'Peak', 'High volume', 'Powerbuilding', 'Hypertrophy']
+
+// Surface the most approachable plans first.
+const COMPLEXITY_ORDER: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 }
 
 export function TemplateCatalogue({
   today,
@@ -22,7 +27,22 @@ export function TemplateCatalogue({
   const [filter, setFilter] = useState('All')
   const [query, setQuery] = useState('')
   const [showBuilder, setShowBuilder] = useState(false)
+  const [showFinder, setShowFinder] = useState(false)
   const activeTemplateId = today.activeProgram?.templateId ?? null
+
+  // Open Find-my-plan once when arriving from the onboarding checklist (`?find=1`), then strip
+  // the param so a refresh/back won't re-pop it. Done in an effect (not a state initializer)
+  // because the router search isn't reliably readable during the hydration render.
+  const findParam = useRouterState({ select: (state) => (state.location.search as { find?: boolean }).find })
+  const findHandled = useRef(false)
+  useEffect(() => {
+    if (findHandled.current || findParam !== true) return
+    findHandled.current = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from URL param to modal
+    setShowFinder(true)
+    track('onboarding_deeplink', { target: 'find-my-plan' })
+    void router.navigate({ to: '/templates', search: {}, replace: true })
+  }, [findParam, router])
 
   const filtered = useMemo(() => {
     return templates.filter((template) => {
@@ -38,7 +58,9 @@ export function TemplateCatalogue({
   const availableTemplates = activeTemplateId
     ? filtered.filter((template) => template.id !== activeTemplateId)
     : filtered
-  const builtInTemplates = availableTemplates.filter((template) => template.origin !== 'user_created')
+  const builtInTemplates = availableTemplates
+    .filter((template) => template.origin !== 'user_created')
+    .sort((left, right) => (COMPLEXITY_ORDER[left.complexity] ?? 1) - (COMPLEXITY_ORDER[right.complexity] ?? 1))
   const customTemplates = availableTemplates.filter((template) => template.origin === 'user_created')
 
   const selectTemplate = (template: ProgramTemplateSummary) => {
@@ -56,23 +78,47 @@ export function TemplateCatalogue({
   return (
     <Page className="max-w-[1180px] md:px-8 lg:px-10">
       <PageHeader
-        title="Choose a program"
+        title="Choose a plan"
         actions={
-          <div className="flex flex-wrap justify-end gap-2">
-            <Badge color="neutral" variant="light">{templates.length} programs available</Badge>
-            <Button onClick={() => setShowBuilder(true)}>
+          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-wrap sm:justify-end">
+            <Badge color="neutral" variant="light">{templates.length} plans available</Badge>
+            <Button
+              className="h-8 min-h-8 px-3 sm:hidden"
+              hiddenFrom="sm"
+              onClick={() => setShowBuilder(true)}
+            >
+              <Plus size={14} />
+              Create
+            </Button>
+            <Button visibleFrom="sm" onClick={() => setShowBuilder(true)}>
               <Plus size={16} />
               Create programme
             </Button>
           </div>
         }
       >
-        Select a structured program to start your next training cycle.
+        Select a structured plan to start your next training cycle.
       </PageHeader>
 
       {activeTemplate ? (
         <ActiveProgramBand template={activeTemplate} className="mb-4" />
       ) : null}
+
+      <Panel className="mb-4 max-w-4xl" p="sm" style={{ borderColor: 'var(--vf-action-border)' }}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2">
+            <Sparkles size={18} color="var(--vf-action-text)" className="mt-0.5 shrink-0" />
+            <div>
+              <Text fw={800} size="sm">Not sure where to start?</Text>
+              <Caption>Answer three quick questions and we&apos;ll pick a plan for you.</Caption>
+            </div>
+          </div>
+          <Button className="shrink-0" onClick={() => setShowFinder(true)}>
+            <Sparkles size={15} />
+            Find my plan
+          </Button>
+        </div>
+      </Panel>
 
       <Panel surface="inset" className="mb-4 max-w-4xl" px="sm" py="xs">
         <Caption>
@@ -176,6 +222,16 @@ export function TemplateCatalogue({
           onCreated={handleCustomTemplateCreated}
         />
       </Modal>
+
+      <FindMyPlanModal
+        opened={showFinder}
+        onClose={() => setShowFinder(false)}
+        templates={templates.filter((template) => template.origin !== 'user_created')}
+        onStart={(templateId) => {
+          setShowFinder(false)
+          void router.navigate({ to: '/templates/$templateId/start', params: { templateId } })
+        }}
+      />
     </Page>
   )
 }

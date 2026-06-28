@@ -1,60 +1,57 @@
+import { Badge } from '@mantine/core'
 import { Check } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { cn } from '~/shared/lib/cn'
+import { Caption, SectionLabel, Text } from '~/components'
 import type { MovementSlot } from '~/shared/types'
 
 export function StatusPanel({ tone, children }: { tone: 'warning' | 'danger'; children: ReactNode }) {
   return (
-    <p
-      className={cn(
-        'rounded-2xl border p-3 text-xs md:rounded-xl',
-        tone === 'warning' && 'border-[var(--vf-warning-border)] bg-[var(--vf-warning-soft)] text-[var(--vf-warning-text)]',
-        tone === 'danger' && 'border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] text-[var(--vf-danger-text)]',
-      )}
+    <Text
+      component="p"
+      size="xs"
+      className="rounded-2xl border p-3 md:rounded-xl"
+      c={tone === 'danger' ? 'var(--vf-danger-text)' : 'var(--vf-warning-text)'}
+      style={{
+        borderColor: tone === 'danger' ? 'var(--vf-danger-border)' : 'var(--vf-warning-border)',
+        backgroundColor: tone === 'danger' ? 'var(--vf-danger-soft)' : 'var(--vf-warning-soft)',
+      }}
       role={tone === 'danger' ? 'alert' : 'status'}
     >
       {children}
-    </p>
+    </Text>
   )
 }
 
 export function MetaPill({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'danger' }) {
   return (
-    <span
-      className={cn(
-        'rounded-full border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider',
-        tone === 'danger'
-          ? 'border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] text-[var(--vf-danger-text)]'
-          : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]',
-      )}
-    >
+    <Badge color={tone === 'danger' ? 'danger' : 'neutral'} variant="light" radius="xl">
       {children}
-    </span>
+    </Badge>
   )
 }
 
 export function RolePill({ role, subtle = false }: { role: MovementSlot['role']; subtle?: boolean }) {
-  const roleColor = role === 'main' ? 'text-[var(--mantine-color-accent-filled)]' : 'text-[var(--mantine-color-dimmed)]'
-  const roleBg = role === 'main' ? 'bg-[var(--vf-accent-soft)]' : 'bg-[var(--vf-surface-2)]'
   return (
-    <span
-      className={cn(
-        'rounded border border-[var(--mantine-color-default-border)] px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wider md:text-[9px]',
-        roleColor,
-        roleBg,
-        subtle && 'opacity-90',
-      )}
-    >
+    <Badge color={role === 'main' ? 'accent' : 'neutral'} variant="light" style={{ opacity: subtle ? 0.9 : undefined }}>
       {role}
-    </span>
+    </Badge>
   )
 }
 
 export function HistoryStatus({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'danger' }) {
   return (
-    <p className={cn('rounded-xl border p-3 text-sm', tone === 'danger' ? 'border-[var(--vf-danger-border)] bg-[var(--vf-danger-soft)] text-[var(--vf-danger-text)]' : 'border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)]')}>
+    <Text
+      component="p"
+      size="sm"
+      className="rounded-xl border p-3"
+      c={tone === 'danger' ? 'var(--vf-danger-text)' : 'var(--mantine-color-dimmed)'}
+      style={{
+        borderColor: tone === 'danger' ? 'var(--vf-danger-border)' : 'var(--mantine-color-default-border)',
+        backgroundColor: tone === 'danger' ? 'var(--vf-danger-soft)' : 'var(--vf-surface-2)',
+      }}
+    >
       {children}
-    </p>
+    </Text>
   )
 }
 
@@ -74,25 +71,34 @@ export function ToolButton({
   return (
     <button
       type="button"
-      className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--mantine-color-default-border)] bg-[var(--vf-surface-2)] text-[var(--mantine-color-dimmed)] transition hover:border-[var(--vf-action-border)] hover:bg-[var(--vf-surface-3)] hover:text-[var(--mantine-color-text)] disabled:cursor-not-allowed disabled:opacity-45 md:h-7 md:w-auto md:gap-1 md:rounded-lg md:px-2 md:text-[11px] md:font-semibold"
+      className="flex h-8 w-8 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-45 md:h-7 md:w-auto md:gap-1 md:rounded-lg md:px-2"
+      style={{
+        borderColor: 'var(--mantine-color-default-border)',
+        backgroundColor: 'var(--vf-surface-2)',
+        color: 'var(--mantine-color-dimmed)',
+      }}
       title={title}
       aria-label={title}
       disabled={disabled}
       onClick={onClick}
     >
       {icon}
-      <span className="hidden md:inline">{label}</span>
+      <Text component="span" size="0.6875rem" fw={700} c="inherit" className="hidden md:inline">
+        {label}
+      </Text>
     </button>
   )
 }
 
 export function MetricBlock({ label, value, align = 'left' }: { label: string; value: string; align?: 'left' | 'right' }) {
   return (
-    <div className={cn(align === 'right' && 'text-right')}>
-      <p className="text-[8px] font-extrabold uppercase tracking-wider text-[var(--mantine-color-dimmed)] md:text-[9px]">
+    <div style={{ textAlign: align }}>
+      <SectionLabel size="0.5625rem" lh={1}>
         {label}
-      </p>
-      <p className="mt-0.5 text-[11px] font-bold text-[var(--mantine-color-text)] md:text-sm">{value}</p>
+      </SectionLabel>
+      <Text component="p" mt={2} size="sm" fw={700}>
+        {value}
+      </Text>
     </div>
   )
 }
@@ -108,21 +114,25 @@ export function MovementNumberBadge({
 }) {
   if (complete) {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
+      <span
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+        style={{ backgroundColor: 'var(--vf-success-text)', color: 'white' }}
+      >
         <Check size={10} />
       </span>
     )
   }
   return (
     <span
-      className={cn(
-        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-extrabold',
-        active
-          ? 'bg-[var(--mantine-primary-color-filled)] text-white'
-          : 'bg-[var(--vf-surface-3)] text-[var(--mantine-color-dimmed)]',
-      )}
+      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+      style={{
+        backgroundColor: active ? 'var(--mantine-primary-color-filled)' : 'var(--vf-surface-3)',
+        color: active ? 'white' : 'var(--mantine-color-dimmed)',
+      }}
     >
-      {number}
+      <Text component="span" size="0.5625rem" fw={900} c="inherit">
+        {number}
+      </Text>
     </span>
   )
 }
@@ -131,10 +141,17 @@ export function QuickAdjustButton({ children, onClick }: { children: ReactNode; 
   return (
     <button
       type="button"
-      className="rounded-lg border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-default)] px-1.5 py-1 text-[9px] font-bold text-[var(--mantine-color-dimmed)] transition hover:border-[var(--vf-action-border)] hover:bg-[var(--vf-surface-2)] md:rounded-md md:px-2 md:py-0.5 md:text-[10px]"
+      className="rounded-lg border px-1.5 py-1 transition md:rounded-md md:px-2 md:py-0.5"
+      style={{
+        borderColor: 'var(--mantine-color-default-border)',
+        backgroundColor: 'var(--mantine-color-default)',
+        color: 'var(--mantine-color-dimmed)',
+      }}
       onClick={onClick}
     >
-      {children}
+      <Caption component="span" fw={700} c="inherit">
+        {children}
+      </Caption>
     </button>
   )
 }
