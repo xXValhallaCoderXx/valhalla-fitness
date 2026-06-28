@@ -1,7 +1,7 @@
 import { ActionIcon, Badge, Button, Card, NumberInput, Select, TextInput, Tooltip } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Plus, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Plus, Trash2, Wrench, X } from 'lucide-react'
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import { getMovementName } from '~/domains/movement/lib/movements'
@@ -281,16 +281,24 @@ export function CustomProgramBuilder({
     <Card className="flex h-full max-h-[100dvh] flex-col overflow-hidden rounded-none sm:max-h-[92dvh] sm:rounded-lg" p={0}>
       <div className="shrink-0 border-b p-3 sm:p-4" style={{ borderColor: 'var(--mantine-color-default-border)' }}>
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <Heading id={titleId} order={2} size="h3" className="truncate">
-                Create programme
-              </Heading>
-              <Badge color="action">Custom</Badge>
+          <div className="flex min-w-0 items-start gap-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+              style={{ backgroundColor: 'var(--vf-action-soft)', border: '1px solid var(--vf-action-border)' }}
+            >
+              <Wrench size={20} color="var(--vf-action-text)" />
             </div>
-            <Text mt={3} size="sm" tone="dimmed">
-              Build a constrained template from supported methodology presets.
-            </Text>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Heading id={titleId} order={2} size="h3" className="truncate">
+                  Create programme
+                </Heading>
+                <Badge color="action">Custom</Badge>
+              </div>
+              <Text mt={3} size="sm" tone="dimmed">
+                Build a constrained template from supported methodology presets.
+              </Text>
+            </div>
           </div>
           <Tooltip label="Close">
             <ActionIcon
@@ -392,65 +400,64 @@ function BuilderStepNavigation({
   disabled: boolean
   onStepChange: (step: CustomBuilderStep) => void
 }) {
+  const currentIndex = steps.findIndex((item) => item.id === currentStep)
   return (
-    <>
-      <div className="mt-3 flex gap-1 overflow-x-auto pb-1 no-scrollbar md:hidden">
-        {steps.map((item, index) => (
-          <BuilderMobileStepTab
-            key={item.id}
-            index={index}
-            label={item.label}
-            active={currentStep === item.id}
-            disabled={disabled}
-            onClick={() => onStepChange(item.id)}
-          />
-        ))}
-      </div>
-      <div className="mt-4 hidden gap-2 md:grid md:grid-cols-4">
-        {steps.map((item, index) => (
-          <Button
-            key={item.id}
-            variant={currentStep === item.id ? 'filled' : 'default'}
-            className="min-w-0"
-            disabled={disabled}
-            onClick={() => onStepChange(item.id)}
-          >
-            {index + 1}. {item.label}
-          </Button>
-        ))}
-      </div>
-    </>
+    <div className="mt-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar md:mt-4">
+      {steps.map((item, index) => (
+        <BuilderStepTab
+          key={item.id}
+          index={index}
+          label={item.label}
+          active={currentStep === item.id}
+          done={index < currentIndex}
+          disabled={disabled}
+          onClick={() => onStepChange(item.id)}
+        />
+      ))}
+    </div>
   )
 }
 
-function BuilderMobileStepTab({
+function BuilderStepTab({
   index,
   label,
   active,
+  done,
   disabled,
   onClick,
 }: {
   index: number
   label: string
   active: boolean
+  done: boolean
   disabled: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
-      className="min-h-8 min-w-[6.75rem] shrink-0 rounded-md px-2"
+      className="flex min-h-9 shrink-0 items-center gap-2 rounded-lg border px-2.5 transition-colors md:flex-1 md:min-w-0"
       style={{
-        backgroundColor: active ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default)',
-        border: '1px solid var(--mantine-color-default-border)',
-        color: active ? 'var(--mantine-color-white)' : 'var(--mantine-color-text)',
+        backgroundColor: active ? 'var(--vf-action-soft)' : 'var(--mantine-color-default)',
+        borderColor: active ? 'var(--vf-action-border)' : 'var(--mantine-color-default-border)',
         opacity: disabled ? 0.55 : 1,
       }}
       disabled={disabled}
       onClick={onClick}
     >
-      <Caption component="span" fw={900} truncate c="inherit">
-        {index + 1}. {label}
+      <span
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+        style={{
+          backgroundColor: done ? 'var(--vf-success-text)' : active ? 'var(--vf-action-text)' : 'var(--vf-surface-3)',
+          color: done || active ? 'var(--mantine-color-white)' : 'var(--mantine-color-dimmed)',
+          fontSize: '0.625rem',
+          fontWeight: 800,
+        }}
+      >
+        {done ? <Check size={12} strokeWidth={3} /> : index + 1}
+      </span>
+      <Caption component="span" fw={800} truncate c={active ? 'var(--vf-action-text)' : undefined}>
+        {label}
       </Caption>
     </button>
   )
@@ -551,14 +558,24 @@ function CustomMethodologyStep({
                     <Caption fw={600}>{option.regulationSummary}</Caption>
                   </span>
                 </span>
-                <Tooltip label={option.tooltip} multiline w={260}>
-                  <span
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <Info size={15} />
-                  </span>
-                </Tooltip>
+                <span className="flex shrink-0 flex-col items-center gap-2">
+                  {selected ? (
+                    <span
+                      className="flex h-6 w-6 items-center justify-center rounded-full"
+                      style={{ backgroundColor: 'var(--vf-action-text)', color: 'var(--mantine-color-white)' }}
+                    >
+                      <Check size={13} strokeWidth={3} />
+                    </span>
+                  ) : null}
+                  <Tooltip label={option.tooltip} multiline w={260}>
+                    <span
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <Info size={15} />
+                    </span>
+                  </Tooltip>
+                </span>
               </span>
             </button>
           )
