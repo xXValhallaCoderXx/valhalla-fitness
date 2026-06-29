@@ -1,8 +1,7 @@
 import { Badge, Card, Divider, Group } from '@mantine/core'
-import { Sparkles } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Heading, SectionLabel, StatValue, Text } from '~/components'
-import type { ProgramCustomizationSummary, ProgramInstance, ProgramOverview } from '~/shared/types'
+import type { ProgramInstance, ProgramOverview } from '~/shared/types'
 import type { ProgramPhaseMap as ProgramPhaseMapModel } from '~/domains/program/lib/program-phase-map'
 import { ProgramPhaseMap } from './ProgramPhaseMap'
 import { ProgramInfoHint } from './ProgramInfoHint'
@@ -28,13 +27,22 @@ export function ProgramCommandBar({
 
   const here = [phaseMap.currentPhaseLabel, phaseMap.currentWaveLabel].filter(Boolean).join(' · ')
 
+  const swaps = program.customizationSummary.movementOverrideCount
+  const adds = program.customizationSummary.accessoryAdditionCount
+  const tailoredSummary = `Tailored to you: ${swaps} exercise${swaps === 1 ? '' : 's'} swapped, ${adds} accessor${adds === 1 ? 'y' : 'ies'} added. Loads & progress carry on as normal.`
+
   return (
     <Card p="lg" className="mb-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <Group gap="xs">
             <SectionLabel>Your plan</SectionLabel>
-            {customized ? <Badge color="warning">Customized</Badge> : null}
+            {customized ? (
+              <Group gap={4} wrap="nowrap">
+                <Badge color="warning">Customized</Badge>
+                <ProgramInfoHint label="What's customized">{tailoredSummary}</ProgramInfoHint>
+              </Group>
+            ) : null}
           </Group>
           <Heading order={1} size="h2" mt={6} lh={1.1}>
             {program.title}
@@ -55,7 +63,7 @@ export function ProgramCommandBar({
 
       <Divider my="md" />
 
-      <Group justify="space-between" gap="sm" mb="sm" wrap="nowrap">
+      <div className="mb-3 flex flex-col gap-1 lg:flex-row lg:items-center lg:justify-between lg:gap-2">
         <Group gap="xs" wrap="nowrap">
           <SectionLabel>Program timeline</SectionLabel>
           <ProgramInfoHint label="What is a wave?">
@@ -63,7 +71,7 @@ export function ProgramCommandBar({
           </ProgramInfoHint>
         </Group>
         {here ? (
-          <Text size="xs" tone="dimmed" ta="right">
+          <Text size="xs" tone="dimmed" ta={{ base: 'left', lg: 'right' }}>
             You&apos;re in{' '}
             <Text component="span" size="xs" fw={700}>
               {here}
@@ -71,7 +79,7 @@ export function ProgramCommandBar({
             — Week {phaseMap.currentWeekNumber} of {phaseMap.totalWeeks}
           </Text>
         ) : null}
-      </Group>
+      </div>
 
       <div className="hidden lg:block">
         <ProgramPhaseMap phaseMap={phaseMap} variant="full" />
@@ -79,8 +87,6 @@ export function ProgramCommandBar({
       <div className="lg:hidden">
         <ProgramPhaseMap phaseMap={phaseMap} variant="compact" />
       </div>
-
-      {customized ? <TailoredLine summary={program.customizationSummary} /> : null}
     </Card>
   )
 }
@@ -120,33 +126,6 @@ function StatTile({
           </Text>
         ) : null}
       </StatValue>
-    </div>
-  )
-}
-
-function TailoredLine({ summary }: { summary: ProgramCustomizationSummary }) {
-  const swaps = summary.movementOverrideCount
-  const adds = summary.accessoryAdditionCount
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 9,
-        marginTop: 'var(--mantine-spacing-md)',
-        padding: '11px 14px',
-        backgroundColor: 'var(--vf-warning-soft)',
-        border: '1px solid var(--vf-warning-border)',
-        borderRadius: 'var(--mantine-radius-md)',
-      }}
-    >
-      <Sparkles size={15} color="var(--vf-warning-text)" style={{ flexShrink: 0 }} />
-      <Text size="sm" tone="warning">
-        <Text component="span" size="sm" fw={800} tone="warning">
-          Tailored to you
-        </Text>{' '}
-        — {swaps} exercise{swaps === 1 ? '' : 's'} swapped, {adds} accessor{adds === 1 ? 'y' : 'ies'} added. Loads &amp; progress carry on as normal.
-      </Text>
     </div>
   )
 }
