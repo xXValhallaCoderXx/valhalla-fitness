@@ -1,6 +1,6 @@
-const title = 'Sheetless | Stop guessing. Get stronger.'
+const title = 'Sheetless | Keep the logic. Lose the spreadsheet.'
 const description =
-  'Beginner-friendly strength training with adaptive progression, fast workout logging, and plain-language coaching receipts.'
+  'Back-to-basics strength training: pick a plan, log your reps and effort, and see exactly why your next workout changes. Transparent progression, no black-box AI.'
 
 export function marketingHead() {
   return {
@@ -17,4 +17,3 @@ export function marketingHead() {
     ],
   }
 }
-

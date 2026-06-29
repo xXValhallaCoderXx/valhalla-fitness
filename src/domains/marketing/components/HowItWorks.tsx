@@ -1,8 +1,8 @@
-import { ClipboardCheck, Dumbbell, Sparkles } from 'lucide-react'
+import { BookOpen, ClipboardCheck, Dumbbell, Sparkles } from 'lucide-react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import { howItWorksSteps } from '~/domains/marketing/lib/marketing-content'
 
-const stepIcons = [Dumbbell, ClipboardCheck, Sparkles]
+const stepIcons = [Dumbbell, ClipboardCheck, BookOpen, Sparkles]
 
 export function HowItWorks() {
   return (
@@ -11,14 +11,14 @@ export function HowItWorks() {
         <div className="max-w-2xl">
           <SectionLabel>How it works</SectionLabel>
           <Heading order={2} size="2rem" lh={1.1} mt="xs">
-            Load. Log. Adapt.
+            Plan. Log. Learn. Adapt.
           </Heading>
           <Text component="p" tone="dimmed" fw={600} mt="sm">
             The loop stays simple, even when the program logic gets more advanced.
           </Text>
         </div>
 
-        <div className="mt-8 grid gap-3 md:grid-cols-3">
+        <div className="mt-8 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {howItWorksSteps.map((step, index) => {
             const Icon = stepIcons[index]
             return (

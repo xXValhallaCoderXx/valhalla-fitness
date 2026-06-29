@@ -37,7 +37,7 @@ export function FinalCta() {
               </Button>
             </div>
             <Caption fw={600} mt="md">
-              No spreadsheet, no credit card — just your next session.
+              No black box. No credit card. Just your next session.
             </Caption>
           </div>
         </Panel>

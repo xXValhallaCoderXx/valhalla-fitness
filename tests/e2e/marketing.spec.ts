@@ -7,7 +7,15 @@ test.describe('logged out marketing', () => {
     await page.goto('/')
 
     await expect(page).toHaveURL(/\/$/)
-    await expect(page.getByRole('heading', { name: 'Stop guessing. Get stronger.' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Keep the logic. Lose the spreadsheet.' }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Not an AI coach. A training system that shows its work.' }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Every workout ends with a reason.' }),
+    ).toBeVisible()
 
     await expect(async () => {
       await page.goto('/')

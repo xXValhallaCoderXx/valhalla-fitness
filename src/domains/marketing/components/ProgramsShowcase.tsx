@@ -14,10 +14,12 @@ export function ProgramsShowcase() {
         <div className="max-w-2xl">
           <SectionLabel>Built-in programs</SectionLabel>
           <Heading order={2} size="2rem" lh={1.1} mt="xs">
-            Nine strength programs, grouped by where you are now.
+            Real plans. Clear rules.
           </Heading>
           <Text component="p" tone="dimmed" fw={600} mt="sm">
-            Start simple, move into weekly structure, or run advanced waves without rebuilding the plan yourself.
+            Nine built-in programs, grouped by where you are now. Every plan has visible progression logic,
+            plain-language prescriptions, and receipts that explain what changed — start simple, move into
+            weekly structure, or run advanced waves without rebuilding the plan yourself.
           </Text>
         </div>
 
