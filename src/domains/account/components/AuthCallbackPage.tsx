@@ -23,6 +23,17 @@ export type AuthCallbackSearch = {
   errorDescription?: string
 }
 
+const pkceVerifierMissingMessage =
+  'This sign-in link was opened without the browser cookie created when it was requested. Request a new magic link from this browser, then open the latest email link in the same browser.'
+
+function getCallbackMessage(message: string | undefined) {
+  if (!message) return undefined
+  if (message.toLowerCase().includes('pkce code verifier not found')) {
+    return pkceVerifierMissingMessage
+  }
+  return message
+}
+
 export function AuthCallbackPage({ search }: { search: AuthCallbackSearch }) {
   const router = useRouter()
   const completeAuthRedirect = useCompleteAuthRedirect()
@@ -80,9 +91,7 @@ export function AuthCallbackPage({ search }: { search: AuthCallbackSearch }) {
 
   const hashError = hashParams?.get('error_description') ?? hashParams?.get('error')
   const callbackError = search.errorDescription ?? search.error ?? hashError
-  const message = callbackError
-    ? callbackError
-    : mutation.data?.message ?? 'Completing sign in...'
+  const message = getCallbackMessage(callbackError ?? mutation.data?.message) ?? 'Completing sign in...'
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
