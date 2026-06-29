@@ -32,6 +32,67 @@ export const GOAL_OPTIONS: { value: PlanGoal; label: string; phrase: string; tag
   { value: 'muscle', label: 'Muscle + strength', phrase: 'muscle and strength together', tags: ['powerbuilding', 'volume', 'high volume', 'hypertrophy'] },
 ]
 
+/**
+ * Ordered questions driving the step-by-step picker. Adding a question later is data-only
+ * (extend this array + the matching field on {@link FindMyPlanAnswers}); the wizard renders
+ * whatever is here.
+ */
+export type FindMyPlanQuestion = {
+  key: keyof FindMyPlanAnswers
+  title: string
+  helper: string
+  options: { value: string | number; label: string; sub: string }[]
+}
+
+export const FIND_MY_PLAN_QUESTIONS: FindMyPlanQuestion[] = [
+  {
+    key: 'experience',
+    title: 'How much lifting experience do you have?',
+    helper: "No wrong answer — we'll match the structure to you.",
+    options: [
+      { value: 'Beginner', label: 'New to lifting', sub: 'Under 6 months, or coming back' },
+      { value: 'Intermediate', label: 'Some experience', sub: 'Training fairly consistently' },
+      { value: 'Advanced', label: 'Very experienced', sub: 'Years under the bar' },
+    ],
+  },
+  {
+    key: 'days',
+    title: 'How many days a week can you train?',
+    helper: 'Be honest about your week — consistency beats ambition.',
+    options: [
+      { value: 3, label: '2–3 days', sub: 'A shorter week' },
+      { value: 4, label: '4+ days', sub: 'More frequency' },
+    ],
+  },
+  {
+    key: 'goal',
+    title: "What's your main goal right now?",
+    helper: 'You can switch focus later as you progress.',
+    options: [
+      { value: 'simple', label: 'Keep it simple', sub: 'Build the habit' },
+      { value: 'strength', label: 'Get stronger', sub: 'Chase the numbers' },
+      { value: 'muscle', label: 'Muscle + strength', sub: 'Size and power' },
+    ],
+  },
+]
+
+/** Plain-English, tap-to-explain blurbs for the plan tags shown on the result. */
+export const TAG_GLOSSARY: Record<string, string> = {
+  linear: 'Linear progression — add a little weight each session you complete all your reps.',
+  '5x5': '5×5 — five sets of five reps on your main lifts.',
+  beginner: 'Beginner — built for lifters new to structured training.',
+  'upper-lower': 'Upper/Lower — alternate upper-body and lower-body days.',
+  strength: 'Strength — focused on lifting heavier over time.',
+  'training max': 'Training max — a working number (~90% of your best) your percentages are based on.',
+  wave: 'Wave — loads build over a few weeks, then reset a little heavier.',
+  volume: 'Volume — higher total sets and reps to drive the adaptation.',
+  'high volume': 'High volume — extended, higher-set training for work capacity and size.',
+  hypertrophy: 'Hypertrophy — higher-rep work aimed at muscle size.',
+  powerbuilding: 'Powerbuilding — heavy strength work plus muscle-building volume.',
+  peak: 'Peak — a phase that sharpens strength toward a heavy top set.',
+  intensity: 'Intensity — how heavy the weight is relative to your max.',
+}
+
 const EXPERIENCE_RANK: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 }
 
 function rank(complexity: string) {

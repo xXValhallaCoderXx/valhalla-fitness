@@ -11,15 +11,20 @@ test('find my plan recommends a plan and adapts to the answers', async ({ page }
   }).toPass({ timeout: 15000 })
 
   const dialog = page.getByRole('dialog')
-  // Default answers (new lifter / 2–3 days / keep it simple) → the beginner plan, plus alternatives.
+
+  // Walk the three steps (each answer auto-advances): new lifter / 2–3 days / keep it simple.
+  await dialog.getByRole('button', { name: 'New to lifting' }).click()
+  await dialog.getByRole('button', { name: '2–3 days' }).click()
+  await dialog.getByRole('button', { name: 'Keep it simple' }).click()
   await expect(dialog.getByText('We recommend')).toBeVisible()
   await expect(dialog.getByText('Beginner 5x5 Linear')).toBeVisible()
   await expect(dialog.getByText('Other good fits')).toBeVisible()
 
-  // Changing answers updates the recommendation live.
-  await dialog.getByText('Very experienced').click()
-  await dialog.getByText('4+ days').click()
-  await dialog.getByText('Muscle + strength').click()
+  // Re-answer from scratch — very experienced / 4+ days / muscle → the advanced plan.
+  await dialog.getByRole('button', { name: 'Start over' }).click()
+  await dialog.getByRole('button', { name: 'Very experienced' }).click()
+  await dialog.getByRole('button', { name: '4+ days' }).click()
+  await dialog.getByRole('button', { name: 'Muscle + strength' }).click()
   await expect(dialog.getByText('Old School Wave Powerbuilding')).toBeVisible()
 
   // Starting the recommended plan routes into its setup flow.
@@ -36,9 +41,11 @@ test('find my plan recommends a new gap-filling plan and starts it from the DB s
   }).toPass({ timeout: 15000 })
 
   const dialog = page.getByRole('dialog')
-  // Beginner + 4+ days + keep it simple — previously fell back to the 3-day 5x5; now the new
-  // four-day upper/lower split fills the gap.
-  await dialog.getByText('4+ days').click()
+
+  // Beginner + 4+ days + keep it simple — the new four-day upper/lower split fills the gap.
+  await dialog.getByRole('button', { name: 'New to lifting' }).click()
+  await dialog.getByRole('button', { name: '4+ days' }).click()
+  await dialog.getByRole('button', { name: 'Keep it simple' }).click()
   await expect(dialog.getByText('Beginner Upper/Lower')).toBeVisible()
 
   // Start it — proves the DB-seeded template + version load the setup screen end-to-end.

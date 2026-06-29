@@ -81,6 +81,22 @@ export function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }
 
+/**
+ * The RIR to show/commit for a set row: a draft (just-tapped) value wins, then whatever is already
+ * saved on the set, and only while the set is still open does the carried-over suggestion apply.
+ * Reading the saved value is what keeps a completed set's chip from reverting to the empty default.
+ */
+export function resolveSetRir(input: {
+  draftRir?: number
+  savedRir?: number | null
+  completed: boolean
+  suggestedRir?: number
+}): number | undefined {
+  if (typeof input.draftRir === 'number') return input.draftRir
+  if (typeof input.savedRir === 'number') return input.savedRir
+  return input.completed ? undefined : input.suggestedRir
+}
+
 export function formatCategoryLabel(value: string) {
   return formatEquipmentLabel(value)
 }

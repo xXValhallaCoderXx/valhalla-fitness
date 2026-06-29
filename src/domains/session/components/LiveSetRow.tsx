@@ -5,7 +5,7 @@ import { Caption, Text } from '~/components'
 import { useSetLogMutation } from '~/domains/session/lib/useSetLogMutation'
 import { cn } from '~/shared/lib/cn'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
-import { formatSetTarget, RIR_OPTIONS, roundToStep, SET_GRID_CLASS } from './live-session-utils'
+import { formatSetTarget, resolveSetRir, RIR_OPTIONS, roundToStep, SET_GRID_CLASS } from './live-session-utils'
 
 function rirLabel(value: number) {
   return value >= 3 ? '3+' : String(value)
@@ -34,7 +34,12 @@ export function LiveSetRow({
     actualRir: set.actualRir ?? undefined,
   })
   const [pickerOpen, setPickerOpen] = useState(false)
-  const effectiveActualRir = draft.actualRir ?? (!set.completed && typeof set.actualRir !== 'number' ? suggestedRir : undefined)
+  const effectiveActualRir = resolveSetRir({
+    draftRir: draft.actualRir,
+    savedRir: set.actualRir,
+    completed: set.completed,
+    suggestedRir,
+  })
 
   const mutation = useSetLogMutation(session, movement, set.setIndex)
 
@@ -42,25 +47,32 @@ export function LiveSetRow({
   const saveFailed = set.syncState === 'syncFailed'
   const isEditingDisabled = set.completed || isSaving
   const isFuture = !set.completed && !isSelected
-  const rowState = saveFailed ? 'failed' : isSelected ? 'current' : set.completed ? 'complete' : 'future'
+  // A completed set always reads as 'complete' (blue), even while it's still the selected row —
+  // otherwise the set you just completed stays white until the selection moves to the next one.
+  const rowState = saveFailed ? 'failed' : set.completed ? 'complete' : isSelected ? 'current' : 'future'
 
-  // The RIR chip stays empty until tapped; a carried-over suggestion shows as a hint, not a commitment.
-  const rirConfirmed = draft.actualRir != null
+  // A committed RIR (just-tapped draft, or already saved on the set) shows solid; a carried-over
+  // suggestion on an open set shows as a muted hint until it's committed.
+  const rirConfirmed = draft.actualRir != null || typeof set.actualRir === 'number'
   const rirChipLabel = effectiveActualRir == null ? 'RIR' : rirLabel(effectiveActualRir)
 
   const complete = () => {
     if (isSaving) return
     const completed = saveFailed ? set.completed : !set.completed
+    const actualRir = effectiveActualRir
     mutation.mutate({
       exerciseLogId: movement.id,
       movementSlotId: movement.id,
       setIndex: set.setIndex,
       actualLoad: Number(draft.actualLoad),
       actualReps: Number(draft.actualReps),
-      actualRir: effectiveActualRir,
+      actualRir,
       completed,
       clientMutationId: crypto.randomUUID(),
     })
+    // Completing commits the effective RIR (accepting a carried-over suggestion counts) and carries
+    // it on to the next set, so the chain continues without tapping the picker on every set.
+    if (completed && typeof actualRir === 'number') onRirSelected(set.setIndex, actualRir)
   }
 
   const selectRir = (value: number) => {

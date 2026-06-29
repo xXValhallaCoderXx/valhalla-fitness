@@ -181,11 +181,6 @@ export const programShowcaseGroups: ProgramShowcaseGroup[] = [
         meta: '4 days/week - Plus-set waves',
         summary: 'Upper/lower wave structure with base and peak phases plus bodybuilding layers.',
       },
-      {
-        name: 'Volume-Intensity Strength',
-        meta: '3 days/week - Alternating waves',
-        summary: 'Whole-body training alternating volume waves with top-set intensity waves.',
-      },
     ],
   },
 ]

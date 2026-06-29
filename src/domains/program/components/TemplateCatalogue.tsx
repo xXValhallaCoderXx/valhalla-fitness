@@ -250,6 +250,7 @@ export function TemplateCatalogue({
         opened={showFinder}
         onClose={() => setShowFinder(false)}
         templates={templates.filter((template) => template.origin !== 'user_created')}
+        showBrowseAll
         onStart={(templateId) => {
           setShowFinder(false)
           void router.navigate({ to: '/templates/$templateId/start', params: { templateId } })

@@ -1,6 +1,11 @@
-import { Link } from '@tanstack/react-router'
-import { ArrowRight, CalendarDays } from 'lucide-react'
+import { Button } from '@mantine/core'
+import { useQuery } from '@tanstack/react-query'
+import { Link, useRouter } from '@tanstack/react-router'
+import { CalendarDays, Sparkles } from 'lucide-react'
+import { useState } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
+import { FindMyPlanModal } from '~/domains/program/components/FindMyPlanModal'
+import { templatesQueryOptions } from '~/domains/program/queries'
 import {
   programLevelColor,
   programShowcaseCards,
@@ -8,6 +13,20 @@ import {
 } from '~/domains/marketing/lib/marketing-content'
 
 export function ProgramsShowcase() {
+  const router = useRouter()
+  const [showFinder, setShowFinder] = useState(false)
+  // Templates are public (listTemplatesFn needs no auth), so logged-out visitors can take the
+  // quiz right here. Prefetch on hover/focus so the recommendation is ready on open, without
+  // loading templates for visitors who never touch the quiz.
+  const [armed, setArmed] = useState(false)
+  const templatesQuery = useQuery({ ...templatesQueryOptions(), enabled: armed })
+  const quizTemplates = (templatesQuery.data ?? []).filter((template) => template.origin !== 'user_created')
+  const arm = () => setArmed(true)
+  const openFinder = () => {
+    setArmed(true)
+    setShowFinder(true)
+  }
+
   return (
     <section id="programs" className="px-4 py-12 md:px-6 md:py-20">
       <div className="mx-auto max-w-[1180px]">
@@ -62,31 +81,35 @@ export function ProgramsShowcase() {
               </div>
             </Panel>
           ))}
+        </div>
 
-          <Link
-            to="/auth"
-            className="vf-card-hover flex flex-col items-center justify-center rounded-[var(--mantine-radius-lg)] p-5 text-center"
-            style={{
-              minHeight: '8rem',
-              border: '1px dashed var(--vf-action-border)',
-              backgroundColor: 'var(--vf-action-soft)',
-            }}
-          >
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl"
-              style={{ backgroundColor: 'var(--mantine-color-default)', border: '1px solid var(--vf-action-border)' }}
-            >
-              <ArrowRight color="var(--vf-action-text)" size={19} />
-            </div>
-            <Text component="p" fw={700} mt="sm">
+        {/* "There's more" + centered Find-my-plan CTA, below the three cards. */}
+        <div className="mt-10 flex flex-col items-center gap-4 text-center">
+          <Caption component="p" maw="34rem">
+            Three of the built-in plans — the full library runs from simple linear progression to advanced waves.
+          </Caption>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Button onClick={openFinder} onMouseEnter={arm} onFocus={arm}>
+              <Sparkles size={16} />
+              Find my plan
+            </Button>
+            <Button component={Link} to="/auth" variant="default">
               Browse all plans
-            </Text>
-            <Caption fw={600} mt={2}>
-              Or take the Find My Plan quiz
-            </Caption>
-          </Link>
+            </Button>
+          </div>
         </div>
       </div>
+
+      <FindMyPlanModal
+        opened={showFinder}
+        onClose={() => setShowFinder(false)}
+        templates={quizTemplates}
+        onStart={() => {
+          // Logged-out visitors need an account to start a plan — funnel them to sign-up.
+          setShowFinder(false)
+          void router.navigate({ to: '/auth' })
+        }}
+      />
     </section>
   )
 }
