@@ -42,17 +42,17 @@ test.describe('logged out marketing', () => {
     }).toPass({ timeout: 15000 })
   })
 
-  test('the Focus Mode demo logs sets interactively', async ({ page }) => {
+  test('the Focus Mode demo logs a set and advances', async ({ page }) => {
     await page.goto('/')
 
-    // The demo starts with set 1 pre-logged.
-    await expect(page.getByText('1 of 5 sets')).toBeVisible()
+    // Set 1 is pre-logged, so the active set is set 2.
+    await expect(page.getByText('Set 2 of 5')).toBeVisible()
 
-    // Tapping the next set's complete toggle advances the progress (retry past the
-    // SSR hydration race where early clicks no-op).
+    // Logging the set advances focus to the next one (retry past the SSR hydration
+    // race where early clicks no-op).
     await expect(async () => {
-      await page.getByRole('button', { name: 'Toggle set 2 complete' }).click()
-      await expect(page.getByText('2 of 5 sets')).toBeVisible({ timeout: 1000 })
+      await page.getByRole('button', { name: 'Log set' }).click()
+      await expect(page.getByText('Set 3 of 5')).toBeVisible({ timeout: 1000 })
     }).toPass({ timeout: 15000 })
   })
 
