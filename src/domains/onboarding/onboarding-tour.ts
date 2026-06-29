@@ -64,7 +64,7 @@ export function buildLiveSessionSteps(): DriveStep[] {
       data: { stepId: 'weight' },
       popover: {
         title: 'Log the weight',
-        description: 'Type what you lifted, or nudge it with the quick +/− buttons under the row.',
+        description: 'Tap the weight and reps cells and type what you lifted for each set.',
       },
     },
     {

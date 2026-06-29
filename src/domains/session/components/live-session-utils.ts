@@ -2,13 +2,18 @@ import type {
   AccessoryMovementOption,
   MovementHistorySet,
   MovementSlot,
+  PreviousComparable,
   SetLog,
   SubstitutionReason,
   WorkoutSession,
 } from '~/shared/types'
 import { describeSet } from '~/shared/lib/set-notation'
 
-export const SET_GRID_CLASS = 'grid grid-cols-[1.15rem_minmax(3.75rem,1fr)_minmax(3rem,0.75fr)_minmax(4.75rem,1fr)_2.25rem] sm:grid-cols-[1.25rem_minmax(4.5rem,7.75rem)_minmax(3.25rem,6.5rem)_minmax(5rem,6.5rem)_2.25rem] md:grid-cols-[1.5rem_minmax(4.75rem,1fr)_minmax(4rem,0.8fr)_minmax(5.5rem,1fr)_minmax(7.5rem,1.35fr)_2.25rem]'
+// Overview-only set table: SET · TARGET · KG · REPS · RIR · ✓ (Target is shown on mobile too,
+// freed up by the narrow RIR chip). Desktop KG/Reps columns are wider to host the inline ±
+// steppers on the selected row. Focus mode uses its own FocusSetCard layout.
+export const SET_GRID_CLASS =
+  'grid grid-cols-[1.375rem_minmax(0,1fr)_3.25rem_2.75rem_3rem_1.75rem] md:grid-cols-[2.25rem_minmax(0,1fr)_8rem_7.5rem_5.5rem_2.75rem]'
 
 // Reps-in-reserve choices. The 3+ bucket also reflects any legacy values logged above 3.
 export const RIR_OPTIONS: { value: number; label: string; hint: string }[] = [
@@ -56,6 +61,16 @@ export function formatHistorySet(set: MovementHistorySet, units?: string) {
   return describeSet(set, units).compact
 }
 
+/**
+ * Compact "last time" label for the movement header, e.g. "90 kg × 5" — the full detail
+ * (date, e1RM, RIR) stays in `previous.label` and is surfaced via tooltip.
+ */
+export function formatPreviousShort(previous: PreviousComparable, units?: string) {
+  const loadText = typeof previous.load === 'number' ? `${formatNumber(previous.load)}${units ? ` ${units}` : ''}` : 'BW'
+  const repsText = typeof previous.reps === 'number' ? String(previous.reps) : '—'
+  return `${loadText} × ${repsText}`
+}
+
 export function roundToStep(value: number, step: number) {
   if (!Number.isFinite(value)) return 0
   if (!step) return value
@@ -64,6 +79,22 @@ export function roundToStep(value: number, step: number) {
 
 export function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
+}
+
+/**
+ * The RIR to show/commit for a set row: a draft (just-tapped) value wins, then whatever is already
+ * saved on the set, and only while the set is still open does the carried-over suggestion apply.
+ * Reading the saved value is what keeps a completed set's chip from reverting to the empty default.
+ */
+export function resolveSetRir(input: {
+  draftRir?: number
+  savedRir?: number | null
+  completed: boolean
+  suggestedRir?: number
+}): number | undefined {
+  if (typeof input.draftRir === 'number') return input.draftRir
+  if (typeof input.savedRir === 'number') return input.savedRir
+  return input.completed ? undefined : input.suggestedRir
 }
 
 export function formatCategoryLabel(value: string) {

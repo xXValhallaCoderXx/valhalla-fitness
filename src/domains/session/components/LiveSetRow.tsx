@@ -1,12 +1,15 @@
 import { Badge } from '@mantine/core'
-import { Check, RefreshCw } from 'lucide-react'
-import { useState } from 'react'
+import { Check, Minus, Plus, RefreshCw } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { Caption, Text } from '~/components'
 import { useSetLogMutation } from '~/domains/session/lib/useSetLogMutation'
 import { cn } from '~/shared/lib/cn'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
-import { QuickAdjustButton } from './LiveSessionControls'
-import { formatNumber, formatSetTarget, RIR_OPTIONS, roundToStep, SET_GRID_CLASS } from './live-session-utils'
+import { formatSetTarget, resolveSetRir, RIR_OPTIONS, roundToStep, SET_GRID_CLASS } from './live-session-utils'
+
+function rirLabel(value: number) {
+  return value >= 3 ? '3+' : String(value)
+}
 
 export function LiveSetRow({
   session,
@@ -30,7 +33,13 @@ export function LiveSetRow({
     actualReps: set.actualReps ?? set.targetReps ?? set.targetRepMin ?? 0,
     actualRir: set.actualRir ?? undefined,
   })
-  const effectiveActualRir = draft.actualRir ?? (!set.completed && typeof set.actualRir !== 'number' ? suggestedRir : undefined)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const effectiveActualRir = resolveSetRir({
+    draftRir: draft.actualRir,
+    savedRir: set.actualRir,
+    completed: set.completed,
+    suggestedRir,
+  })
 
   const mutation = useSetLogMutation(session, movement, set.setIndex)
 
@@ -38,27 +47,44 @@ export function LiveSetRow({
   const saveFailed = set.syncState === 'syncFailed'
   const isEditingDisabled = set.completed || isSaving
   const isFuture = !set.completed && !isSelected
-  const rowState = saveFailed ? 'failed' : isSelected ? 'current' : set.completed ? 'complete' : 'future'
+  // A completed set always reads as 'complete' (blue), even while it's still the selected row —
+  // otherwise the set you just completed stays white until the selection moves to the next one.
+  const rowState = saveFailed ? 'failed' : set.completed ? 'complete' : isSelected ? 'current' : 'future'
+
+  // A committed RIR (just-tapped draft, or already saved on the set) shows solid; a carried-over
+  // suggestion on an open set shows as a muted hint until it's committed.
+  const rirConfirmed = draft.actualRir != null || typeof set.actualRir === 'number'
+  const rirChipLabel = effectiveActualRir == null ? 'RIR' : rirLabel(effectiveActualRir)
 
   const complete = () => {
     if (isSaving) return
     const completed = saveFailed ? set.completed : !set.completed
+    const actualRir = effectiveActualRir
     mutation.mutate({
       exerciseLogId: movement.id,
       movementSlotId: movement.id,
       setIndex: set.setIndex,
       actualLoad: Number(draft.actualLoad),
       actualReps: Number(draft.actualReps),
-      actualRir: effectiveActualRir,
+      actualRir,
       completed,
       clientMutationId: crypto.randomUUID(),
     })
+    // Completing commits the effective RIR (accepting a carried-over suggestion counts) and carries
+    // it on to the next set, so the chain continues without tapping the picker on every set.
+    if (completed && typeof actualRir === 'number') onRirSelected(set.setIndex, actualRir)
   }
 
+  const selectRir = (value: number) => {
+    setDraft((current) => ({ ...current, actualRir: value }))
+    onRirSelected(set.setIndex, value)
+    setPickerOpen(false)
+  }
+
+  // Desktop-only ± steppers on the selected row, so weight/reps can be set without the keyboard.
   const adjustLoad = (delta: number) => {
     setDraft((current) => ({ ...current, actualLoad: roundToStep(Number(current.actualLoad) + delta, session.rounding) }))
   }
-
   const adjustReps = (delta: number) => {
     setDraft((current) => ({ ...current, actualReps: Math.max(0, Number(current.actualReps) + delta) }))
   }
@@ -68,25 +94,24 @@ export function LiveSetRow({
       role="button"
       tabIndex={0}
       className={cn(
-        'rounded-2xl border px-4 py-2 transition md:rounded-xl md:px-1 md:py-1.5',
+        'rounded-2xl border px-3 py-2 transition md:rounded-xl md:px-2 md:py-1.5',
         rowState === 'future' && 'border-dashed',
       )}
       style={{
         borderColor:
-          rowState === 'current'
-            ? 'var(--mantine-primary-color-filled)'
-            : rowState === 'failed'
-              ? 'var(--vf-danger-border)'
+          rowState === 'failed'
+            ? 'var(--vf-danger-border)'
+            : rowState === 'complete'
+              ? 'var(--vf-action-border)'
               : 'var(--mantine-color-default-border)',
         backgroundColor:
-          rowState === 'current'
-            ? 'var(--vf-action-soft)'
-            : rowState === 'failed'
-              ? 'var(--vf-danger-soft)'
-              : rowState === 'complete'
-                ? 'var(--vf-surface-2)'
-                : 'var(--mantine-color-default)',
-        opacity: rowState === 'complete' ? 0.65 : undefined,
+          rowState === 'failed'
+            ? 'var(--vf-danger-soft)'
+            : rowState === 'complete'
+              ? 'var(--vf-action-soft)'
+              : 'var(--mantine-color-default)',
+        // Active row gets a calm teal left accent rather than a heavy full border.
+        boxShadow: rowState === 'current' ? 'inset 3px 0 0 var(--mantine-primary-color-filled)' : undefined,
       }}
       onClick={(event) => {
         const target = event.target as HTMLElement
@@ -100,7 +125,7 @@ export function LiveSetRow({
         }
       }}
     >
-      <div className={cn(SET_GRID_CLASS, 'items-center justify-stretch gap-1.5 sm:justify-center sm:gap-2 md:justify-stretch md:gap-2')}>
+      <div className={cn(SET_GRID_CLASS, 'items-center gap-1.5 md:gap-2')}>
         <Text
           component="div"
           ta="center"
@@ -111,23 +136,7 @@ export function LiveSetRow({
           {set.setIndex}
         </Text>
 
-        <SetValueInput
-          value={draft.actualLoad}
-          disabled={isEditingDisabled}
-          muted={set.completed || isFuture}
-          onFocus={onSelect}
-          onChange={(value) => setDraft((current) => ({ ...current, actualLoad: value }))}
-          dataTour={isSelected ? 'live-weight' : undefined}
-        />
-        <SetValueInput
-          value={draft.actualReps}
-          disabled={isEditingDisabled}
-          muted={set.completed || isFuture}
-          onFocus={onSelect}
-          onChange={(value) => setDraft((current) => ({ ...current, actualReps: value }))}
-        />
-
-        <Caption component="div" className="hidden md:block" ta="center" size="0.625rem">
+        <Caption component="div" className="min-w-0 truncate" size="0.625rem">
           {set.isTopSet || set.isAmrap ? (
             <Badge color="accent">Top</Badge>
           ) : set.isBackoff ? (
@@ -137,22 +146,58 @@ export function LiveSetRow({
           )}
         </Caption>
 
-        <RirSegmentedControl
-          value={effectiveActualRir}
-          onChange={(value) => {
-            setDraft((current) => ({ ...current, actualRir: value }))
-            onRirSelected(set.setIndex, value)
-          }}
+        <StepCell
+          value={draft.actualLoad}
           disabled={isEditingDisabled}
           muted={set.completed || isFuture}
+          showSteppers={isSelected && !isEditingDisabled}
+          step={session.rounding}
+          onAdjust={adjustLoad}
           onFocus={onSelect}
-          dataTour={isSelected ? 'live-rir' : undefined}
+          onChange={(value) => setDraft((current) => ({ ...current, actualLoad: value }))}
+          dataTour={isSelected ? 'live-weight' : undefined}
+          decreaseLabel="Decrease weight"
+          increaseLabel="Increase weight"
+        />
+        <StepCell
+          value={draft.actualReps}
+          disabled={isEditingDisabled}
+          muted={set.completed || isFuture}
+          showSteppers={isSelected && !isEditingDisabled}
+          step={1}
+          onAdjust={adjustReps}
+          onFocus={onSelect}
+          onChange={(value) => setDraft((current) => ({ ...current, actualReps: value }))}
+          decreaseLabel="Decrease reps"
+          increaseLabel="Increase reps"
         />
 
         <button
           type="button"
+          data-tour={isSelected ? 'live-rir' : undefined}
+          className="vf-chip w-full justify-center"
+          data-active={rirConfirmed ? 'true' : undefined}
+          disabled={isEditingDisabled}
+          style={
+            isSelected && effectiveActualRir == null
+              ? { borderStyle: 'dashed', borderColor: 'var(--vf-action-border)', color: 'var(--vf-action-text)' }
+              : undefined
+          }
+          aria-label="Reps in reserve (RIR)"
+          aria-expanded={pickerOpen}
+          title="How many more reps could you have done?"
+          onClick={() => {
+            onSelect()
+            if (!isEditingDisabled) setPickerOpen((open) => !open)
+          }}
+        >
+          {rirChipLabel}
+        </button>
+
+        <button
+          type="button"
           data-tour={isSelected ? 'live-complete' : undefined}
-          className="flex h-8 w-8 items-center justify-center justify-self-center rounded-full border transition"
+          className="flex h-7 w-7 items-center justify-center justify-self-center rounded-full border transition md:h-8 md:w-8"
           style={{
             borderColor: set.completed
               ? 'var(--vf-success-text)'
@@ -178,105 +223,123 @@ export function LiveSetRow({
         </button>
       </div>
 
-      {isSelected && !set.completed ? (
-        <Caption component="div" className="mt-2 flex flex-wrap items-center gap-1.5 pl-7 md:gap-2 md:pl-8" size="0.625rem">
-          <span>load</span>
-          {[-5, -session.rounding, session.rounding, 5].map((delta) => (
-            <QuickAdjustButton key={`load-${delta}`} onClick={() => adjustLoad(delta)}>
-              {delta > 0 ? `+${formatNumber(delta)}` : formatNumber(delta)}
-            </QuickAdjustButton>
-          ))}
-          <span className="ml-1">reps</span>
-          <QuickAdjustButton onClick={() => adjustReps(-1)}>−1</QuickAdjustButton>
-          <QuickAdjustButton onClick={() => adjustReps(1)}>+1</QuickAdjustButton>
-        </Caption>
+      {pickerOpen && !isEditingDisabled ? (
+        <div className="mt-2.5">
+          <Caption component="p" className="mb-1.5" size="0.625rem">
+            How many more reps could you have done?
+          </Caption>
+          <div className="flex gap-2">
+            {RIR_OPTIONS.map((option) => {
+              // The 3+ bucket also reflects any legacy values logged above 3.
+              const selected = option.value === 3 ? (effectiveActualRir ?? -1) >= 3 : effectiveActualRir === option.value
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  title={`How many more reps could you have done? ${option.hint}`}
+                  aria-label={option.hint}
+                  className="flex-1 rounded-lg border py-2 transition"
+                  style={{
+                    borderColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default-border)',
+                    backgroundColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default)',
+                    color: selected ? 'white' : 'var(--mantine-color-text)',
+                    fontSize: 'var(--mantine-font-size-sm)',
+                    fontWeight: 700,
+                  }}
+                  onClick={() => selectRir(option.value)}
+                >
+                  {option.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       ) : null}
     </div>
   )
 }
 
-function SetValueInput({
+function StepCell({
   value,
   disabled,
   muted,
+  showSteppers,
+  step,
+  onAdjust,
   onFocus,
   onChange,
   dataTour,
+  decreaseLabel,
+  increaseLabel,
 }: {
   value: number
   disabled: boolean
   muted: boolean
+  showSteppers: boolean
+  step: number
+  onAdjust: (delta: number) => void
   onFocus: () => void
   onChange: (value: number) => void
   dataTour?: string
+  decreaseLabel: string
+  increaseLabel: string
 }) {
   return (
-    <input
-      type="number"
-      data-tour={dataTour}
-      className="live-session-input w-full rounded-lg border py-1.5 text-center outline-none transition md:px-2 md:py-1"
-      style={{
-        borderColor: 'var(--mantine-color-default-border)',
-        backgroundColor: 'var(--mantine-color-default)',
-        color: muted ? 'var(--mantine-color-dimmed)' : 'var(--mantine-color-text)',
-        fontSize: 'var(--mantine-font-size-sm)',
-        fontWeight: muted ? 600 : 700,
-      }}
-      value={Number.isFinite(value) ? value : 0}
-      disabled={disabled}
-      onFocus={onFocus}
-      onChange={(event) => onChange(Number(event.target.value))}
-    />
+    <div className="flex items-center gap-1">
+      {showSteppers ? (
+        <StepIconButton className="hidden md:inline-flex" ariaLabel={decreaseLabel} onClick={() => onAdjust(-step)}>
+          <Minus size={13} />
+        </StepIconButton>
+      ) : null}
+      <input
+        type="number"
+        data-tour={dataTour}
+        className="live-session-input min-w-0 flex-1 rounded-lg border py-1.5 text-center outline-none transition md:px-1 md:py-1"
+        style={{
+          borderColor: 'var(--mantine-color-default-border)',
+          backgroundColor: 'var(--mantine-color-default)',
+          color: muted ? 'var(--mantine-color-dimmed)' : 'var(--mantine-color-text)',
+          fontSize: 'var(--mantine-font-size-sm)',
+          fontWeight: muted ? 600 : 700,
+        }}
+        value={Number.isFinite(value) ? value : 0}
+        disabled={disabled}
+        onFocus={onFocus}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+      {showSteppers ? (
+        <StepIconButton className="hidden md:inline-flex" ariaLabel={increaseLabel} onClick={() => onAdjust(step)}>
+          <Plus size={13} />
+        </StepIconButton>
+      ) : null}
+    </div>
   )
 }
 
-function RirSegmentedControl({
-  value,
-  onChange,
-  disabled,
-  muted,
-  onFocus,
-  dataTour,
+function StepIconButton({
+  children,
+  ariaLabel,
+  onClick,
+  className,
 }: {
-  value?: number
-  onChange: (value: number) => void
-  disabled: boolean
-  muted: boolean
-  onFocus: () => void
-  dataTour?: string
+  children: ReactNode
+  ariaLabel: string
+  onClick: () => void
+  className?: string
 }) {
   return (
-    <div className="flex gap-0.5" role="group" aria-label="Reps in reserve (RIR)" data-tour={dataTour}>
-      {RIR_OPTIONS.map((option) => {
-        // The 3+ bucket also reflects any legacy values logged above 3.
-        const selected = option.value === 3 ? (value ?? -1) >= 3 : value === option.value
-        return (
-          <button
-            key={option.value}
-            type="button"
-            title={`How many more reps could you have done? ${option.hint}`}
-            aria-label={option.hint}
-            className={cn(
-              'flex-1 rounded-md border py-1 transition',
-              muted && !selected && 'opacity-80',
-            )}
-            style={{
-              borderColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default-border)',
-              backgroundColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default)',
-              color: selected ? 'white' : 'var(--mantine-color-dimmed)',
-              fontSize: '0.5625rem',
-              fontWeight: 900,
-            }}
-            disabled={disabled}
-            onClick={() => {
-              onFocus()
-              onChange(option.value)
-            }}
-          >
-            {option.label}
-          </button>
-        )
-      })}
-    </div>
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      onClick={onClick}
+      className={cn('h-7 w-7 shrink-0 items-center justify-center rounded-full border transition active:scale-95', className)}
+      style={{
+        borderColor: 'var(--mantine-color-default-border)',
+        backgroundColor: 'var(--vf-surface-2)',
+        color: 'var(--mantine-color-dimmed)',
+      }}
+    >
+      {children}
+    </button>
   )
 }

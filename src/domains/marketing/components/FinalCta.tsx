@@ -32,12 +32,9 @@ export function FinalCta() {
                 Get started — it's free
                 <ArrowRight color="currentColor" size={17} />
               </Button>
-              <Button component={Link} to="/auth" variant="default" size="md">
-                Sign in
-              </Button>
             </div>
             <Caption fw={600} mt="md">
-              No black box. No credit card. Just your next session.
+              No credit card. Just your next session.
             </Caption>
           </div>
         </Panel>

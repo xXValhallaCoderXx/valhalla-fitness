@@ -11,11 +11,12 @@ test.describe('logged out marketing', () => {
       page.getByRole('heading', { name: 'Keep the logic. Lose the spreadsheet.' }),
     ).toBeVisible()
     await expect(
-      page.getByRole('heading', { name: 'Not an AI coach. A training system that shows its work.' }),
+      page.getByRole('heading', { name: "The old way worked. The upkeep didn't." }),
     ).toBeVisible()
     await expect(
-      page.getByRole('heading', { name: 'Every workout ends with a reason.' }),
+      page.getByRole('heading', { name: 'Pick a plan. Log the session. Get the next call.' }),
     ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Real plans. Clear rules.' })).toBeVisible()
 
     await expect(async () => {
       await page.goto('/')
@@ -53,6 +54,27 @@ test.describe('logged out marketing', () => {
       await page.getByRole('button', { name: 'Toggle set 2 complete' }).click()
       await expect(page.getByText('2 of 5 sets')).toBeVisible({ timeout: 1000 })
     }).toPass({ timeout: 15000 })
+  })
+
+  test('the Find My Plan quiz opens and recommends a plan (no login)', async ({ page }) => {
+    await page.goto('/')
+
+    await expect(async () => {
+      await page.getByRole('button', { name: 'Find my plan' }).click()
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 1000 })
+    }).toPass({ timeout: 15000 })
+
+    const dialog = page.getByRole('dialog')
+    // Walk the three steps (new lifter / 2–3 days / keep it simple) → the beginner plan.
+    await dialog.getByRole('button', { name: 'New to lifting' }).click()
+    await dialog.getByRole('button', { name: '2–3 days' }).click()
+    await dialog.getByRole('button', { name: 'Keep it simple' }).click()
+    await expect(dialog.getByText('We recommend')).toBeVisible()
+    await expect(dialog.getByText('Beginner 5x5 Linear')).toBeVisible()
+
+    // Starting a plan requires an account, so it funnels to /auth.
+    await dialog.getByRole('button', { name: 'Start this plan' }).click()
+    await expect(page).toHaveURL(/\/auth/, { timeout: 5000 })
   })
 })
 

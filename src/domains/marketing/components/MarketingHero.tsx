@@ -1,6 +1,6 @@
 import { Button } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, Check, LogIn } from 'lucide-react'
+import { ArrowRight, Check } from 'lucide-react'
 import { Caption, Heading, Text } from '~/components'
 import { heroCopy } from '~/domains/marketing/lib/marketing-content'
 import { HeroPreview } from './HeroPreview'
@@ -51,10 +51,6 @@ export function MarketingHero() {
             <Button component={Link} to="/auth" size="md">
               Get started — it's free
               <ArrowRight color="currentColor" size={17} />
-            </Button>
-            <Button component={Link} to="/auth" variant="default" size="md">
-              <LogIn color="currentColor" size={17} />
-              Sign in
             </Button>
           </div>
 

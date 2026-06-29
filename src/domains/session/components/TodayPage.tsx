@@ -2,7 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Badge, Button } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { Link, useRouter } from '@tanstack/react-router'
-import { Activity, ArrowRight, CalendarDays, CheckCircle2, Dumbbell, Layers3, ListChecks, Play, RotateCw } from 'lucide-react'
+import { Activity, ArrowRight, CheckCircle2, Dumbbell, Layers3, ListChecks, Play, RotateCw } from 'lucide-react'
 import { useState } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { historyDashboardQueryOptions } from '~/domains/history/queries'
@@ -274,17 +274,6 @@ function AuthedToday() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
           <StatCard label="Planned sets" value={plannedSetCount} icon={<ListChecks size={15} />} />
           <StatCard label="Movements" value={data.plannedSession.movements.length} icon={<Layers3 size={15} />} />
-          <Panel p="sm">
-            <div className="flex items-center gap-2">
-              <CalendarDays size={14} color="var(--vf-action-text)" />
-              <SectionLabel>Up next</SectionLabel>
-            </div>
-            <Text mt="xs" size="sm" lh={1.35} tone="dimmed">
-              {data.completedSession
-                ? `${data.plannedSession.title} is queued next. Review any progression decisions before starting if needed.`
-                : 'Finish today\'s session to unlock reviewable progression recommendations.'}
-            </Text>
-          </Panel>
           <ProgramProgressPanel overview={overviewQuery.data} fallbackWeekLabel={data.plannedSession.weekLabel} />
           <WeeklyVolumePanel history={historyQuery.data} />
           <BodyLoadPanel history={historyQuery.data} />
