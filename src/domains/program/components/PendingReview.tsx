@@ -109,7 +109,7 @@ export function PendingProgressionReviewModal({
       title="Progression review"
       size="md"
       classNames={{
-        inner: '!items-end sm:!items-center',
+        inner: '!items-end !p-0 sm:!items-center sm:!p-4',
         content: '!mb-0 !flex !max-h-[90dvh] !flex-col !overflow-hidden !rounded-b-none sm:!mb-auto sm:!rounded-lg',
         body: '!min-h-0 !flex-1 !overflow-hidden',
       }}
