@@ -291,7 +291,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
 
       {hasPendingChanges ? (
         <Panel
-          className="sticky top-16 z-30 mb-4"
+          className="sticky top-0 z-30 mb-4"
           p="sm"
           style={{ borderColor: 'var(--vf-warning-border)', backgroundColor: 'var(--vf-warning-soft)' }}
         >
@@ -639,7 +639,7 @@ function SettingsSection({
 function SettingsSidebar({ active }: { active: string }) {
   return (
     <aside className="hidden lg:block">
-      <div className="sticky top-16 flex flex-col gap-3">
+      <div className="sticky top-0 flex flex-col gap-3">
         <Panel p="xs" className="flex flex-col">
           <SectionLabel className="px-2 pb-1 pt-1">Settings</SectionLabel>
           {settingsSections.map((item) => {

@@ -282,7 +282,7 @@ export function TemplateStartContent({
         </div>
 
         <StartSummaryPanel
-          className="hidden lg:sticky lg:top-16 lg:block"
+          className="hidden lg:sticky lg:top-0 lg:block"
           units={me.units}
           rounding={me.rounding}
           visibleState={visibleState}

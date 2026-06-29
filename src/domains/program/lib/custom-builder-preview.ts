@@ -71,41 +71,31 @@ function percentScheme(percent: number, reps: number) {
   return `${Math.round(percent * 100)}% × ${reps}+`
 }
 
-export function buildProgressionPreview(
-  draft: CustomProgramBuilderInput,
-  profile: UserProfile | null,
-): ProgressionPreview | null {
-  if (draft.methodology === 'none') return null
+type PreviewContext = {
+  methodology: CustomProgramBuilderInput['methodology']
+  units: Unit
+  rounding: number
+  defaults: Record<string, number | null>
+  anchorPercent: number
+}
 
-  const units: Unit = profile?.units ?? 'kg'
-  const rounding = profile?.rounding ?? defaultRounding(units)
-  const defaults = profile?.programStateDefaults ?? {}
-  const anchorPercent = draft.methodology === 'simple_linear' ? DEFAULT_WORKING_LOAD_PERCENT : DEFAULT_TRAINING_MAX_PERCENT
-
-  const mains = uniqueMainMovements(draft)
-  const resolveSaved = (movementId: string) =>
-    suggestedLoadFromOneRepMax(defaults, movementId, anchorPercent, rounding)
-
-  // Prefer a lift the user actually has data for so the example uses real numbers.
-  const featured = mains.find((movementId) => resolveSaved(movementId) != null) ?? mains[0]
-  if (!featured) return null
-
-  const savedAnchor = resolveSaved(featured)
+function buildPreviewForMovement(movementId: string, ctx: PreviewContext): ProgressionPreview {
+  const { methodology, units, rounding, defaults, anchorPercent } = ctx
+  const savedAnchor = suggestedLoadFromOneRepMax(defaults, movementId, anchorPercent, rounding)
   const isEstimated = savedAnchor == null
-  const anchorValue = savedAnchor ?? exampleAnchorFor(featured, units, rounding)
-  const movementName = getMovementName(featured)
-
+  const anchorValue = savedAnchor ?? exampleAnchorFor(movementId, units, rounding)
+  const movementName = getMovementName(movementId)
   const round = (value: number) => mround(value, rounding)
 
-  if (draft.methodology === 'simple_linear') {
-    const increment = standardIncrement(featured, units)
+  if (methodology === 'simple_linear') {
+    const increment = standardIncrement(movementId, units)
     const rows: ProgressionPreviewRow[] = Array.from({ length: 6 }, (_, index) => ({
       label: `Session ${index + 1}`,
       scheme: '3 × 5',
       load: round(anchorValue + increment * index),
     }))
     return {
-      movementId: featured,
+      movementId,
       movementName,
       anchorLabel: 'Working load',
       anchorValue,
@@ -116,8 +106,8 @@ export function buildProgressionPreview(
     }
   }
 
-  if (draft.methodology === 'training_max_wave') {
-    const increment = standardIncrement(featured, units)
+  if (methodology === 'training_max_wave') {
+    const increment = standardIncrement(movementId, units)
     const weeks: Array<{ percent: number; reps: number }> = [
       { percent: 0.85, reps: 5 },
       { percent: 0.9, reps: 3 },
@@ -135,7 +125,7 @@ export function buildProgressionPreview(
       })
     }
     return {
-      movementId: featured,
+      movementId,
       movementName,
       anchorLabel: 'Training max',
       anchorValue,
@@ -161,7 +151,7 @@ export function buildProgressionPreview(
     load: round(anchorValue * wave.percent),
   }))
   return {
-    movementId: featured,
+    movementId,
     movementName,
     anchorLabel: 'Training max',
     anchorValue,
@@ -170,4 +160,24 @@ export function buildProgressionPreview(
     note: 'Loads climb from base to peak; banking extra reps on the + set pushes your training max up.',
     rows,
   }
+}
+
+/**
+ * One illustrative progression example per distinct main lift in the draft (deduped). Each lift
+ * anchors to the user's saved 1RM where available, otherwise an example anchor. Empty for the
+ * logger-only methodology.
+ */
+export function buildProgressionPreviews(
+  draft: CustomProgramBuilderInput,
+  profile: UserProfile | null,
+): ProgressionPreview[] {
+  if (draft.methodology === 'none') return []
+
+  const units: Unit = profile?.units ?? 'kg'
+  const rounding = profile?.rounding ?? defaultRounding(units)
+  const defaults = profile?.programStateDefaults ?? {}
+  const anchorPercent = draft.methodology === 'simple_linear' ? DEFAULT_WORKING_LOAD_PERCENT : DEFAULT_TRAINING_MAX_PERCENT
+  const ctx: PreviewContext = { methodology: draft.methodology, units, rounding, defaults, anchorPercent }
+
+  return uniqueMainMovements(draft).map((movementId) => buildPreviewForMovement(movementId, ctx))
 }

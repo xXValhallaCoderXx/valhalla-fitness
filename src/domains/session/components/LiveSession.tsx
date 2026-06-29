@@ -155,7 +155,7 @@ function SessionContextBar({
 }) {
   return (
     <Box
-      className="sticky top-[calc(3rem+env(safe-area-inset-top))] z-20 border-b px-4 py-2.5 backdrop-blur md:static md:px-5"
+      className="sticky top-0 z-20 border-b px-4 py-2.5 backdrop-blur md:static md:px-5"
       style={{
         borderColor: 'var(--mantine-color-default-border)',
         backgroundColor: 'color-mix(in srgb, var(--mantine-color-default) 95%, transparent)',

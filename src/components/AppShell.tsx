@@ -19,17 +19,20 @@ export function AppShell({ children }: { user: AuthUser | null; children: ReactN
   const isNavigating = useRouterState({ select: (state) => state.isLoading })
   const isChromeless = pathname === '/' || pathname.startsWith('/auth')
 
+  // The app shell is a fixed-height flex column with an internal scroll area, so the document
+  // itself never scrolls. This keeps the mobile address bar from collapsing/expanding (which
+  // otherwise shifts the fixed nav + dvh content between pages).
   if (isChromeless) return <>{children}</>
 
   return (
     <Box
       bg="var(--mantine-color-body)"
       c="var(--mantine-color-text)"
-      className="min-h-dvh pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"
+      className="flex h-dvh flex-col overflow-hidden"
     >
       <Box
         component="header"
-        className="sticky top-[env(safe-area-inset-top)] z-30 backdrop-blur-md"
+        className="relative z-30 shrink-0 pt-[env(safe-area-inset-top)] backdrop-blur-md"
         style={{
           borderBottom: '1px solid var(--mantine-color-default-border)',
           backgroundColor: 'color-mix(in srgb, var(--mantine-color-default) 94%, transparent)',
@@ -72,10 +75,13 @@ export function AppShell({ children }: { user: AuthUser | null; children: ReactN
         </div>
         <NavigationProgress active={isNavigating} />
       </Box>
-      {children}
+      {/* key by pathname so each route mounts a fresh scroll area (starts at the top). */}
+      <div key={pathname} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" style={{ scrollbarGutter: 'stable' }}>
+        {children}
+      </div>
       <Box
         component="nav"
-        className="fixed inset-x-0 bottom-0 z-40 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+        className="z-40 shrink-0 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
         style={{
           borderTop: '1px solid var(--mantine-color-default-border)',
           backgroundColor: 'color-mix(in srgb, var(--mantine-color-default) 96%, transparent)',

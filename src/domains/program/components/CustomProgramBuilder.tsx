@@ -1,7 +1,7 @@
 import { ActionIcon, Badge, Button, Card, NumberInput, Select, TextInput, Tooltip } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Plus, Trash2, Wrench, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, CircleCheck, Gauge, Info, PencilLine, Plus, Trash2, Wand2, X } from 'lucide-react'
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import { getMovementName } from '~/domains/movement/lib/movements'
@@ -21,7 +21,7 @@ import {
   type GuidanceIssue,
   type GuidanceSeverity,
 } from '~/domains/program/lib/custom-builder-guidance'
-import { buildProgressionPreview, type ProgressionPreview } from '~/domains/program/lib/custom-builder-preview'
+import { buildProgressionPreviews, type ProgressionPreview } from '~/domains/program/lib/custom-builder-preview'
 import { ProgramInfoHint } from '~/domains/program/components/ProgramInfoHint'
 import { meQueryOptions } from '~/domains/account/queries'
 import {
@@ -74,12 +74,12 @@ function GuidanceList({ issues, className }: { issues: GuidanceIssue[]; classNam
       {issues.map((issue) => {
         const { style, Icon } = GUIDANCE_SEVERITY_STYLE[issue.severity]
         return (
-          <div key={issue.id} className="flex items-start gap-2 rounded-lg border p-3" style={style}>
+          <div key={issue.id} className="flex items-start gap-2.5 rounded-xl border p-3" style={style}>
             <Icon size={16} className="mt-0.5 shrink-0" />
-            <Text size="sm" c="inherit">
+            <Text size="sm" fw={600} c="inherit">
               {issue.message}
               {issue.fix ? (
-                <Text component="span" display="block" size="sm" c="inherit" mt={2} style={{ opacity: 0.8 }}>
+                <Text component="span" display="block" size="sm" fw={400} c="inherit" mt={2} style={{ opacity: 0.85 }}>
                   {issue.fix}
                 </Text>
               ) : null}
@@ -278,15 +278,15 @@ export function CustomProgramBuilder({
   const canCreate = !hasBlockingIssue(issues)
 
   return (
-    <Card className="flex h-full max-h-[100dvh] flex-col overflow-hidden rounded-none sm:max-h-[92dvh] sm:rounded-lg" p={0}>
+    <Card className="flex h-full max-h-[92dvh] flex-col overflow-hidden rounded-t-2xl rounded-b-none sm:max-h-[92dvh] sm:rounded-lg" p={0}>
       <div className="shrink-0 border-b p-3 sm:p-4" style={{ borderColor: 'var(--mantine-color-default-border)' }}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
               style={{ backgroundColor: 'var(--vf-action-soft)', border: '1px solid var(--vf-action-border)' }}
             >
-              <Wrench size={20} color="var(--vf-action-text)" />
+              <Wand2 size={21} color="var(--vf-action-text)" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
@@ -324,7 +324,7 @@ export function CustomProgramBuilder({
         {step !== 'methodology' ? <CurrentPlanSummary draft={draft} /> : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4" style={{ backgroundColor: 'var(--mantine-color-body)' }}>
         {step === 'methodology' ? (
           <CustomMethodologyStep
             draft={draft}
@@ -362,27 +362,25 @@ export function CustomProgramBuilder({
       </div>
 
       <div
-        className="shrink-0 border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-4"
+        className="shrink-0 border-t p-3 pb-[calc(1.75rem+env(safe-area-inset-bottom))] sm:p-4 sm:pb-3"
         style={{ borderColor: 'var(--mantine-color-default-border)' }}
       >
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <Button variant="default" disabled={mutation.isPending || currentStepIndex === 0} onClick={() => moveStep(-1)}>
+        <div className="flex items-center justify-between gap-3">
+          <Button variant="default" className="shrink-0" disabled={mutation.isPending || currentStepIndex === 0} onClick={() => moveStep(-1)}>
             <ChevronLeft size={14} />
             Back
           </Button>
-          <div className="flex gap-2 sm:justify-end">
-            {!isReview ? (
-              <Button className="flex-1 sm:flex-none" disabled={mutation.isPending} onClick={() => moveStep(1)}>
-                Next
-                <ChevronRight size={14} />
-              </Button>
-            ) : (
-              <Button className="flex-1 sm:flex-none" disabled={mutation.isPending || !canCreate} onClick={() => mutation.mutate()}>
-                <Check size={16} />
-                Create programme
-              </Button>
-            )}
-          </div>
+          {!isReview ? (
+            <Button className="shrink-0" disabled={mutation.isPending} onClick={() => moveStep(1)}>
+              Next
+              <ChevronRight size={14} />
+            </Button>
+          ) : (
+            <Button className="shrink-0" disabled={mutation.isPending || !canCreate} loading={mutation.isPending} onClick={() => mutation.mutate()}>
+              <Check size={16} />
+              Create programme
+            </Button>
+          )}
         </div>
       </div>
     </Card>
@@ -402,7 +400,7 @@ function BuilderStepNavigation({
 }) {
   const currentIndex = steps.findIndex((item) => item.id === currentStep)
   return (
-    <div className="mt-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar md:mt-4">
+    <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1 no-scrollbar md:mt-4 md:gap-2">
       {steps.map((item, index) => (
         <BuilderStepTab
           key={item.id}
@@ -436,7 +434,7 @@ function BuilderStepTab({
   return (
     <button
       type="button"
-      className="flex min-h-9 shrink-0 items-center gap-2 rounded-lg border px-2.5 transition-colors md:flex-1 md:min-w-0"
+      className="flex min-h-9 shrink-0 items-center gap-2 rounded-full border px-3 transition-colors md:min-w-0 md:flex-1"
       style={{
         backgroundColor: active ? 'var(--vf-action-soft)' : 'var(--mantine-color-default)',
         borderColor: active ? 'var(--vf-action-border)' : 'var(--mantine-color-default-border)',
@@ -507,6 +505,7 @@ function CustomMethodologyStep({
         />
         <TextInput
           label="Goal"
+          placeholder="e.g. Add 10kg to squat"
           value={draft.goal ?? ''}
           onChange={(event) => onDraftChange({ goal: event.target.value })}
         />
@@ -528,59 +527,97 @@ function CustomMethodologyStep({
 
       <GuidanceList issues={issues} />
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {(Object.keys(customProgramMethodologies) as CustomProgramMethodology[]).map((methodology) => {
-          const option = customProgramMethodologies[methodology]
-          const selected = draft.methodology === methodology
-          return (
-            <button
-              key={methodology}
-              className="min-h-[8rem] rounded-lg border p-4 text-left transition"
-              style={{
-                borderColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default-border)',
-                backgroundColor: selected ? 'var(--vf-action-soft)' : 'var(--vf-surface-2)',
-              }}
-              onClick={() => onMethodologyChange(methodology)}
-            >
-              <span className="flex items-start justify-between gap-3">
-                <span className="min-w-0">
-                  <Text component="span" display="block" size="sm" fw={800}>{option.label}</Text>
-                  <Text component="span" display="block" mt={4} size="xs" tone="dimmed">
-                    {option.description}
+      <div>
+        <SectionLabel className="mb-4">How should Sheetless regulate you?</SectionLabel>
+        <div className="grid gap-3 md:grid-cols-2">
+          {(Object.keys(customProgramMethodologies) as CustomProgramMethodology[]).map((methodology) => {
+            const option = customProgramMethodologies[methodology]
+            const selected = draft.methodology === methodology
+            return (
+              <button
+                key={methodology}
+                type="button"
+                className="rounded-xl border p-4 text-left transition"
+                style={{
+                  borderColor: selected ? 'var(--vf-action-border)' : 'var(--mantine-color-default-border)',
+                  backgroundColor: selected ? 'var(--vf-action-soft)' : 'var(--mantine-color-default)',
+                  boxShadow: selected ? '0 0 0 1px var(--vf-action-border)' : undefined,
+                }}
+                onClick={() => onMethodologyChange(methodology)}
+              >
+                <span className="flex items-start justify-between gap-2">
+                  <Text component="span" display="block" size="md" fw={800}>
+                    {option.label}
                   </Text>
-                  <span
-                    className="mt-3 block rounded-md border px-2.5 py-2"
-                    style={{
-                      borderColor: 'var(--mantine-color-default-border)',
-                      backgroundColor: 'var(--mantine-color-default)',
-                    }}
-                  >
-                    <Caption fw={600}>{option.regulationSummary}</Caption>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    <Tooltip label={option.tooltip} multiline w={260}>
+                      <span
+                        className="inline-flex h-6 w-6 items-center justify-center"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <Info size={15} color="var(--mantine-color-dimmed)" />
+                      </span>
+                    </Tooltip>
+                    {selected ? (
+                      <span
+                        className="flex h-6 w-6 items-center justify-center rounded-full"
+                        style={{ backgroundColor: 'var(--vf-action-text)', color: 'var(--mantine-color-white)' }}
+                      >
+                        <Check size={13} strokeWidth={3} />
+                      </span>
+                    ) : (
+                      <Badge color={methodology === 'none' ? 'neutral' : 'action'} variant="light">
+                        {option.complexity}
+                      </Badge>
+                    )}
                   </span>
                 </span>
-                <span className="flex shrink-0 flex-col items-center gap-2">
-                  {selected ? (
-                    <span
-                      className="flex h-6 w-6 items-center justify-center rounded-full"
-                      style={{ backgroundColor: 'var(--vf-action-text)', color: 'var(--mantine-color-white)' }}
-                    >
-                      <Check size={13} strokeWidth={3} />
-                    </span>
-                  ) : null}
-                  <Tooltip label={option.tooltip} multiline w={260}>
-                    <span
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <Info size={15} />
-                    </span>
-                  </Tooltip>
+                <Text component="span" display="block" mt={6} size="xs" tone="dimmed">
+                  {option.description}
+                </Text>
+                <span
+                  className="mt-3 flex items-start gap-2 rounded-lg px-3 py-2.5"
+                  style={{
+                    backgroundColor: selected ? 'var(--mantine-color-default)' : 'var(--vf-surface-2)',
+                    border: '1px solid var(--mantine-color-default-border)',
+                  }}
+                >
+                  <Gauge size={14} color="var(--vf-action-text)" className="mt-0.5 shrink-0" />
+                  <Caption component="span" fw={600}>
+                    {option.regulationSummary}
+                  </Caption>
                 </span>
-              </span>
-            </button>
-          )
-        })}
+              </button>
+            )
+          })}
+        </div>
       </div>
+    </div>
+  )
+}
+
+function ProgrammingCheckBanner({ issues }: { issues: GuidanceIssue[] }) {
+  // `issues` are already filtered to the programming-relevant checks (duplicate_main,
+  // weekly_balance, session_count) and may be day-scoped, so surface them all here.
+  const ordered = [...issues].sort(
+    (left, right) => GUIDANCE_SEVERITY_ORDER[left.severity] - GUIDANCE_SEVERITY_ORDER[right.severity],
+  )
+  return (
+    <div className="grid gap-2">
+      <SectionLabel>Programming check</SectionLabel>
+      {ordered.length ? (
+        <GuidanceList issues={ordered} />
+      ) : (
+        <div
+          className="flex items-center gap-2.5 rounded-xl border p-3"
+          style={{ borderColor: 'var(--vf-success-border)', backgroundColor: 'var(--vf-success-soft)', color: 'var(--vf-success-text)' }}
+        >
+          <CircleCheck size={16} className="shrink-0" />
+          <Text size="sm" fw={600} c="inherit">
+            Looks balanced — one main lift per day.
+          </Text>
+        </div>
+      )}
     </div>
   )
 }
@@ -601,13 +638,12 @@ function CustomMovementsStep({
         <SectionLabel>Regulated structure</SectionLabel>
         <Caption mt={4}>{customProgramMethodologies[draft.methodology].regulationSummary}</Caption>
       </Panel>
-      <GuidanceList issues={issuesForScope(issues, 'global')} />
+      <ProgrammingCheckBanner issues={issues} />
       {draft.sessions.map((session, index) => (
         <Panel key={index} surface="inset" p="sm">
           <Text mb="sm" size="sm" fw={800}>{customBuilderDayTitle(index, session.mainMovementId)}</Text>
-          <GuidanceList issues={issuesForScope(issues, index)} className="mb-3" />
-          <div className="grid gap-3 md:grid-cols-[minmax(12rem,20rem)_minmax(12rem,1fr)] md:items-end">
-            <div className="min-w-0">
+          <div className="grid gap-3 md:grid-cols-2 md:items-start">
+            <div className="grid gap-3">
               <BuilderSelect
                 label="Main lift"
                 value={session.mainMovementId}
@@ -620,9 +656,7 @@ function CustomMovementsStep({
                 }}
                 options={mainMovementOptions.map((movement) => ({ value: movement.id, label: movement.name }))}
               />
-            </div>
-            {supportsVariation ? (
-              <div className="min-w-0 md:max-w-[20rem]">
+              {supportsVariation ? (
                 <BuilderSelect
                   label="Variation"
                   value={session.variationMovementId ?? null}
@@ -631,13 +665,13 @@ function CustomMovementsStep({
                   clearable
                   placeholder="None"
                 />
-              </div>
-            ) : (
-              <Panel surface="panel" className="min-w-0" p="sm">
-                <SectionLabel>Main prescription</SectionLabel>
-                <Text mt={4} size="sm" fw={800}>{mainWorkSummary(draft.methodology, session)}</Text>
-              </Panel>
-            )}
+              ) : null}
+            </div>
+            <Panel surface="panel" className="min-w-0" p="sm">
+              <SectionLabel>Main prescription</SectionLabel>
+              <Text mt={4} size="sm" fw={800}>{mainWorkSummary(draft.methodology, session)}</Text>
+              <Caption mt={4}>{customProgramMethodologies[draft.methodology].progressionLabel}</Caption>
+            </Panel>
           </div>
         </Panel>
       ))}
@@ -667,10 +701,15 @@ function CustomLoggerExercisesStep({
   return (
     <div className="grid gap-3">
       <Panel surface="inset" p="sm">
-        <SectionLabel>Logger-only exercises</SectionLabel>
-        <Caption mt={4}>
-          Add the exercises you want to repeat each day. Loads stay user-selected while logging and no progression rules are created.
-        </Caption>
+        <div className="flex items-start gap-2.5">
+          <PencilLine size={16} color="var(--mantine-color-dimmed)" className="mt-0.5 shrink-0" />
+          <div>
+            <SectionLabel>Logger-only exercises</SectionLabel>
+            <Caption mt={4}>
+              Add the exercises you want to repeat each day. Loads stay user-selected while logging and no progression rules are created.
+            </Caption>
+          </div>
+        </div>
       </Panel>
 
       {draft.sessions.map((session, sessionIndex) => (
@@ -756,6 +795,11 @@ function CustomLoggerExercisesStep({
                 }
               />
             ))}
+            {!session.loggerExercises.length ? (
+              <Panel surface="panel" p="sm">
+                <Text size="sm" tone="dimmed">No exercises yet — add the first one.</Text>
+              </Panel>
+            ) : null}
           </div>
         </Panel>
       ))}
@@ -859,7 +903,7 @@ function CustomAccessoriesStep({
             ))}
             {!session.accessories.length ? (
               <Panel surface="panel" p="sm">
-                <Text size="sm" tone="dimmed">No accessories planned.</Text>
+                <Text size="sm" tone="dimmed">No accessories yet — add some, or keep the day to just the main lift.</Text>
               </Panel>
             ) : null}
           </div>
@@ -880,7 +924,7 @@ function CustomReviewStep({
   profile: UserProfile | null
 }) {
   const methodology = customProgramMethodologies[draft.methodology]
-  const preview = useMemo(() => buildProgressionPreview(draft, profile), [draft, profile])
+  const previews = useMemo(() => buildProgressionPreviews(draft, profile), [draft, profile])
   const orderedIssues = [...issues].sort(
     (left, right) => GUIDANCE_SEVERITY_ORDER[left.severity] - GUIDANCE_SEVERITY_ORDER[right.severity],
   )
@@ -889,13 +933,34 @@ function CustomReviewStep({
   return (
     <div className="grid gap-4">
       <GuidanceList issues={orderedIssues} />
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <ReviewMetric label="Method" value={methodology.shortLabel} />
         <ReviewMetric label="Schedule" value={`${draft.daysPerWeek} days/wk`} />
         <ReviewMetric label="Sessions" value={draft.sessions.length} />
         <ReviewMetric label={draft.methodology === 'none' ? 'Exercises' : 'Accessories'} value={draft.methodology === 'none' ? loggerExerciseCount : accessoryCount} />
       </div>
-      {preview ? <ProgressionPreviewPanel preview={preview} /> : null}
+      {previews.length ? (
+        <div className="grid gap-2">
+          <span className="inline-flex items-center gap-1">
+            <SectionLabel>Progression preview</SectionLabel>
+            <ProgramInfoHint label="About this preview">
+              Example loads per main lift so you can picture the plan. They assume average progress — your real numbers depend on what you log.
+            </ProgramInfoHint>
+          </span>
+          <div className="grid gap-3">
+            {previews.map((preview) => (
+              <ProgressionPreviewPanel key={preview.movementId} preview={preview} />
+            ))}
+          </div>
+        </div>
+      ) : draft.methodology === 'none' ? (
+        <div className="flex items-start gap-2.5 rounded-xl border p-3" style={{ borderColor: 'var(--mantine-color-default-border)', backgroundColor: 'var(--vf-surface-2)' }}>
+          <PencilLine size={16} color="var(--mantine-color-dimmed)" className="mt-0.5 shrink-0" />
+          <Text size="sm" tone="dimmed">
+            <Text component="span" fw={800} tone="default">No auto-regulation.</Text> This is a pure logger — every set uses a load you pick while training.
+          </Text>
+        </div>
+      ) : null}
       <Panel surface="inset" p="sm">
         <Text size="sm" fw={800}>{draft.name}</Text>
         {draft.goal ? <Caption mt={4}>{draft.goal}</Caption> : null}
@@ -943,33 +1008,35 @@ function ReviewMetric({ label, value }: { label: string; value: ReactNode }) {
 
 function ProgressionPreviewPanel({ preview }: { preview: ProgressionPreview }) {
   return (
-    <Panel surface="inset" p="sm">
+    <div
+      className="rounded-xl border p-4"
+      style={{ borderColor: 'var(--vf-success-border)', backgroundColor: 'var(--vf-success-soft)' }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1">
-          <SectionLabel>Progression preview</SectionLabel>
-          <ProgramInfoHint label="About this preview">
-            Example loads for one main lift so you can picture the plan. It assumes average progress — your real numbers depend on what you log.
-          </ProgramInfoHint>
-        </span>
+        <Text fw={800} tone="success">{preview.movementName}</Text>
         <Badge color={preview.isEstimated ? 'neutral' : 'success'}>
           {preview.isEstimated ? 'Example numbers' : 'From your 1RM'}
         </Badge>
       </div>
-      <Caption mt={4}>
-        {preview.movementName} · {preview.anchorLabel} {preview.anchorValue} {preview.units}
+      <Caption mt={4} tone="success">
+        {preview.anchorLabel} {preview.anchorValue} {preview.units}
         {preview.isEstimated ? ' (example — set yours when you start)' : ''}
       </Caption>
       <div className="mt-3 grid gap-1">
         {preview.rows.map((row, index) => (
-          <div key={index} className="grid grid-cols-[minmax(6rem,auto)_1fr_auto] items-center gap-2">
-            <Caption fw={700}>{row.label}</Caption>
-            <Caption>{row.scheme}</Caption>
-            <Text size="sm" fw={800}>{row.load} {preview.units}</Text>
+          <div
+            key={index}
+            className="grid grid-cols-[minmax(6rem,auto)_1fr_auto] items-center gap-2 border-t py-1.5 first:border-t-0 first:pt-0"
+            style={{ borderColor: 'var(--vf-success-border)' }}
+          >
+            <Caption fw={800} tone="success">{row.label}</Caption>
+            <Caption tone="success" style={{ opacity: 0.85 }}>{row.scheme}</Caption>
+            <Text size="sm" fw={800} tone="success">{row.load} {preview.units}</Text>
           </div>
         ))}
       </div>
-      <Text mt={3} size="xs" tone="dimmed">{preview.note}</Text>
-    </Panel>
+      <Caption mt={3} tone="success" style={{ opacity: 0.85 }}>{preview.note}</Caption>
+    </div>
   )
 }
 
@@ -1053,6 +1120,9 @@ function BuilderSelect({
       clearable={clearable}
       searchable
       placeholder={placeholder}
+      // Portal the dropdown over the modal and anchor it to the viewport so the on-screen
+      // keyboard / modal scroll can't make it (and the modal) jump on mobile.
+      comboboxProps={{ withinPortal: true, position: 'bottom-start', middlewares: { flip: true, shift: false } }}
       onChange={(nextValue) => {
         if (nextValue === null && !clearable) return
         onChange(nextValue)
