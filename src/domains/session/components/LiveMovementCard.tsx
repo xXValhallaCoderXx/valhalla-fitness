@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
-import { Button } from '@mantine/core'
+import { ActionIcon, Button, Tooltip } from '@mantine/core'
 import {
   Calculator,
   ChevronDown,
   History,
+  Info,
   Plus,
   Repeat2,
 } from 'lucide-react'
@@ -15,7 +16,6 @@ import { cn } from '~/shared/lib/cn'
 import { addExerciseSetFn } from '~/domains/session/server/session-functions'
 import type { MovementSlot, WorkoutSession } from '~/shared/types'
 import {
-  MetricBlock,
   MovementNumberBadge,
   RolePill,
   ToolButton,
@@ -24,8 +24,8 @@ import { LiveSetRow } from './LiveSetRow'
 import { MovementHistoryModal } from './MovementHistoryModal'
 import { MovementSwapModal } from './MovementSwapModal'
 import {
+  formatPreviousShort,
   formatSetTarget,
-  getProgressionHint,
   getTopSet,
   isMovementComplete,
   SET_GRID_CLASS,
@@ -52,6 +52,7 @@ export function LiveMovementCard({
   )
   const [historyOpen, setHistoryOpen] = useState(false)
   const [swapOpen, setSwapOpen] = useState(false)
+  const [showRirHelp, setShowRirHelp] = useState(false)
   const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<Record<number, number | undefined>>({})
   const addSetMutation = useMutation({
     mutationKey: ['addExerciseSet', session.sessionId, movement.id],
@@ -88,7 +89,14 @@ export function LiveMovementCard({
   }
 
   if (!isActive) {
-    return <CollapsedMovementCard movement={movement} movementNumber={movementNumber} onSelect={onSelect} />
+    return (
+      <CollapsedMovementCard
+        movement={movement}
+        movementNumber={movementNumber}
+        units={session.units}
+        onSelect={onSelect}
+      />
+    )
   }
 
   return (
@@ -102,7 +110,7 @@ export function LiveMovementCard({
       }}
     >
       <div className="border-b px-4 pb-3 pt-4 md:border-0 md:p-0" style={{ borderColor: 'var(--mantine-color-default-border)' }}>
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-2 md:justify-start md:gap-4">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-2 md:gap-4">
           <div className="min-w-0">
             <div className="mb-0.5 flex flex-wrap items-center gap-2">
               <Text component="h2" size="md" fw={900} truncate>
@@ -132,42 +140,55 @@ export function LiveMovementCard({
           </div>
         </div>
 
-        <Panel surface="inset" className="md:mb-3" px="sm" py="xs">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-x-8">
-            <MetricBlock label="Top set today" value={topSet ? formatSetTarget(topSet, session.units) : 'No top set'} />
-            <div
-              className="hidden h-7 w-px md:block"
-              style={{ backgroundColor: 'var(--mantine-color-default-border)' }}
-              aria-hidden="true"
-            />
-            <MetricBlock
-              label="Last comparable"
-              value={movement.previous?.label ?? 'No previous comparable'}
-            />
-          </div>
-          <Caption
-            component="div"
-            className="mt-2 border-t pt-2"
-            lh={1.5}
-            style={{ borderColor: 'var(--mantine-color-default-border)' }}
-          >
-            <Text component="span" fw={700}>Progression hint:</Text>{' '}
-            {getProgressionHint(movement, topSet)}
-          </Caption>
-        </Panel>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 md:mb-1">
+          {movement.previous ? (
+            <span className="inline-flex items-center gap-1">
+              <Caption component="span">Last time</Caption>
+              <Text component="span" size="xs" fw={700}>
+                {formatPreviousShort(movement.previous, session.units)}
+              </Text>
+              <InfoHint label="Last session details">{movement.previous.label}</InfoHint>
+            </span>
+          ) : (
+            <Caption component="span">No previous session yet</Caption>
+          )}
+          {topSet ? (
+            <Caption component="span">
+              · key set{' '}
+              <Text component="span" size="xs" fw={700}>
+                {formatSetTarget(topSet, session.units)}
+              </Text>
+            </Caption>
+          ) : null}
+        </div>
       </div>
 
-      <div className={cn(SET_GRID_CLASS, 'justify-stretch px-4 pb-1 pt-2.5 text-center sm:justify-center md:justify-stretch md:gap-2 md:px-1 md:pt-0')}>
-        <SectionLabel component="span" size="0.5625rem">#</SectionLabel>
-        <SectionLabel component="span" size="0.5625rem">{session.units}</SectionLabel>
-        <SectionLabel component="span" size="0.5625rem">Reps</SectionLabel>
-        <SectionLabel component="span" size="0.5625rem" className="hidden md:block">Target</SectionLabel>
-        <SectionLabel component="span" size="0.5625rem">RIR</SectionLabel>
+      <div className={cn(SET_GRID_CLASS, 'items-center gap-1.5 px-7 pb-1 pt-2.5 md:gap-2 md:px-2 md:pt-0')}>
+        <SectionLabel component="span" size="0.5625rem" ta="center">#</SectionLabel>
+        <SectionLabel component="span" size="0.5625rem">Target</SectionLabel>
+        <SectionLabel component="span" size="0.5625rem" ta="center">{session.units}</SectionLabel>
+        <SectionLabel component="span" size="0.5625rem" ta="center">Reps</SectionLabel>
+        <button
+          type="button"
+          className="flex items-center justify-center gap-0.5"
+          onClick={() => setShowRirHelp((open) => !open)}
+          aria-expanded={showRirHelp}
+          aria-label="What is RIR?"
+          title="What is RIR?"
+        >
+          <SectionLabel component="span" size="0.5625rem" c="var(--vf-action-text)">RIR</SectionLabel>
+          <Info size={11} color="var(--vf-action-text)" />
+        </button>
         <span />
       </div>
-      <Caption component="p" className="px-4 pb-1.5 md:px-1" size="0.625rem" lh={1.2}>
-        <Text component="span" fw={700}>RIR</Text> = how many more reps you could have done. Log it after each set.
-      </Caption>
+      {showRirHelp ? (
+        <Panel surface="inset" className="mx-4 mb-2 mt-1 md:mx-0" px="sm" py="xs">
+          <Caption component="p" lh={1.5}>
+            <Text component="span" fw={700}>RIR = Reps In Reserve.</Text> After a set, how many more good reps
+            could you have done? Logging it honestly is how Sheetless decides when to add weight.
+          </Caption>
+        </Panel>
+      ) : null}
 
       <div className="space-y-2 px-4 pb-3 md:space-y-1.5 md:px-0 md:pb-0">
         {movement.sets.map((set) => (
@@ -212,10 +233,12 @@ export function LiveMovementCard({
 function CollapsedMovementCard({
   movement,
   movementNumber,
+  units,
   onSelect,
 }: {
   movement: MovementSlot
   movementNumber: number
+  units: string
   onSelect: () => void
 }) {
   const complete = isMovementComplete(movement)
@@ -247,7 +270,9 @@ function CollapsedMovementCard({
         </div>
         <Caption component="p" className="pl-7" size="xs">
           {totalSets} sets · {movement.targetSummary}
-          {movement.previous?.label ? <span className="hidden sm:inline"> · {movement.previous.label}</span> : null}
+          {movement.previous ? (
+            <span className="hidden sm:inline"> · last {formatPreviousShort(movement.previous, units)}</span>
+          ) : null}
         </Caption>
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -257,5 +282,24 @@ function CollapsedMovementCard({
         <ChevronDown className="-rotate-90" style={{ color: 'var(--mantine-color-dimmed)' }} size={14} />
       </div>
     </button>
+  )
+}
+
+/** Small ⓘ that reveals the full "last time" detail. Tap-friendly on mobile (touch event). */
+function InfoHint({ label, children }: { label: string; children: string }) {
+  return (
+    <Tooltip
+      label={children}
+      multiline
+      withArrow
+      withinPortal
+      position="top"
+      w={260}
+      events={{ hover: true, focus: true, touch: true }}
+    >
+      <ActionIcon aria-label={label} size="sm" radius="xl" variant="subtle" color="neutral">
+        <Info size={13} />
+      </ActionIcon>
+    </Tooltip>
   )
 }
