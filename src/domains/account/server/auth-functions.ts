@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
-import { defaultMagicLinkSentMessage } from '~/shared/lib/auth-config'
+import { type AuthPolicy, authDisabledResultMessage, getAuthPolicy } from '~/shared/lib/auth-config'
+import { isEmailAllowed, normalizeEmail, resolveMagicLinkDecision } from './allowlist'
 
 export type AuthUser = {
   id: string
@@ -11,6 +12,7 @@ export type BrowserMagicLinkRequest = {
   emailRedirectTo: string
   supabaseAnonKey: string
   supabaseUrl: string
+  shouldCreateUser: boolean
 }
 
 export type MagicLinkResult =
@@ -34,6 +36,8 @@ type BuildBrowserMagicLinkRequestOptions = {
   origin: string
   supabaseAnonKey: string
   supabaseUrl: string
+  shouldCreateUser: boolean
+  message: string
 }
 
 async function hasSupabaseEnv() {
@@ -60,18 +64,31 @@ function buildBrowserMagicLinkRequest({
   origin,
   supabaseAnonKey,
   supabaseUrl,
+  shouldCreateUser,
+  message,
 }: BuildBrowserMagicLinkRequestOptions): MagicLinkResult {
   return {
     ok: true,
-    message: defaultMagicLinkSentMessage,
+    message,
     browserRequest: {
       email,
       emailRedirectTo: `${origin}/auth/callback`,
       supabaseAnonKey,
       supabaseUrl,
+      shouldCreateUser,
     },
   }
 }
+
+function resolveServerAuthPolicy(): AuthPolicy {
+  return getAuthPolicy({
+    passwordEnabled: process.env.AUTH_PASSWORD_ENABLED,
+    allowlistEnabled: process.env.AUTH_ALLOWLIST_ENABLED,
+    nodeEnv: process.env.NODE_ENV,
+  })
+}
+
+const AUTH_DISABLED_RESULT = { ok: false, message: authDisabledResultMessage } as const
 
 export const fetchUserFn = createServerFn({ method: 'GET' }).handler(async () => {
   if (!(await hasSupabaseEnv())) return null
@@ -90,9 +107,14 @@ export const fetchUserFn = createServerFn({ method: 'GET' }).handler(async () =>
   } satisfies AuthUser
 })
 
+export const getAuthPolicyFn = createServerFn({ method: 'GET' }).handler(async (): Promise<AuthPolicy> => {
+  return resolveServerAuthPolicy()
+})
+
 export const signInWithPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string; password: string }) => data)
   .handler(async ({ data }) => {
+    if (!resolveServerAuthPolicy().passwordSignInEnabled) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
@@ -104,6 +126,7 @@ export const signInWithPasswordFn = createServerFn({ method: 'POST' })
 export const signUpWithPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string; password: string }) => data)
   .handler(async ({ data }) => {
+    if (!resolveServerAuthPolicy().passwordSignUpEnabled) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
     const { data: signUpData, error } = await supabase.auth.signUp({
       email: data.email,
@@ -121,15 +144,38 @@ export const signUpWithPasswordFn = createServerFn({ method: 'POST' })
 export const sendMagicLinkFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string }) => data)
   .handler(async ({ data }): Promise<MagicLinkResult> => {
+    const policy = resolveServerAuthPolicy()
     const origin = process.env.APP_ORIGIN ?? 'http://localhost:3000'
     const config = await getSupabasePublicConfig()
     if (!config) return { ok: false, message: 'Supabase is not configured for magic links.' } as const
-    return buildBrowserMagicLinkRequest({ email: data.email, origin, ...config })
+
+    const email = normalizeEmail(data.email)
+
+    let isAllowed = true
+    if (policy.magicLinkRequiresAllowlist) {
+      const supabase = await getSupabaseServerClient()
+      isAllowed = await isEmailAllowed(supabase, email)
+    }
+
+    const decision = resolveMagicLinkDecision(policy, isAllowed)
+    if (!decision.sendLink) {
+      // Neutral success, no browserRequest -> the browser never calls signInWithOtp.
+      return { ok: true, message: decision.message }
+    }
+
+    return buildBrowserMagicLinkRequest({
+      email,
+      origin,
+      shouldCreateUser: policy.magicLinkShouldCreateUser,
+      message: decision.message,
+      ...config,
+    })
   })
 
 export const resetPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string }) => data)
   .handler(async ({ data }) => {
+    if (!resolveServerAuthPolicy().passwordResetEnabled) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
     const origin = process.env.APP_ORIGIN ?? 'http://localhost:3000'
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {

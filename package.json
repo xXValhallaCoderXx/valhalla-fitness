@@ -21,6 +21,7 @@
     "demo:refresh": "node scripts/demo-data.mjs refresh",
     "demo:verify": "node scripts/demo-data.mjs verify",
     "demo:list": "node scripts/demo-data.mjs list",
+    "provision:allowed": "node scripts/provision-allowed-users.mjs",
     "typecheck": "tsc --noEmit",
     "pwa:verify": "node scripts/verify-pwa.mjs",
     "test": "vitest run",
