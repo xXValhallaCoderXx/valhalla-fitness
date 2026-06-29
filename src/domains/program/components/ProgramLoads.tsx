@@ -47,7 +47,7 @@ export function CurrentLoadsCard({
           </Group>
           <Caption mt={4}>The training maxes and working loads your planned weights are based on.</Caption>
         </div>
-        <Badge>{program.units}</Badge>
+        <Badge style={{ flexShrink: 0 }}>{program.units}</Badge>
       </Group>
       <SimpleGrid cols={2} spacing="xs" mt="sm">
         {overview.stateValues.map((state) => (

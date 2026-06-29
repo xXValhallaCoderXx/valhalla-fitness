@@ -1,11 +1,13 @@
-import { Badge, Button } from '@mantine/core'
+import { Button } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton, Caption, Text } from '~/components'
+import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
 import { buildProgramTimeline } from '~/domains/program/lib/program-timeline'
+import { buildProgramPhaseMap } from '~/domains/program/lib/program-phase-map'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
-import { CurrentLoadsCard, CustomizationCard, ProgramLoadChips } from './ProgramLoads'
+import { ProgramCommandBar } from './ProgramCommandBar'
+import { CurrentLoadsCard } from './ProgramLoads'
 import { NextWorkoutHero } from './ProgramNextWorkout'
 import { ProgramMobileSection } from './ProgramMobileSection'
 import { RecentProgramSessions } from './ProgramRecentSessions'
@@ -64,26 +66,11 @@ function AuthedProgram() {
   }
 
   const timeline = buildProgramTimeline(program, program.templateDefinition)
+  const phaseMap = buildProgramPhaseMap(timeline)
 
   return (
     <Page>
-      <PageHeader
-        title={program.title}
-        eyebrow="Your Plan"
-        actions={
-          <div className="flex flex-wrap justify-end gap-2">
-            {program.customizationStatus === 'customized' ? <Badge color="warning">Customized</Badge> : null}
-            <Badge color="action">Week {overview.position?.weekNumber ?? timeline.currentWeekIndex + 1} of {timeline.totalWeeks}</Badge>
-          </div>
-        }
-      >
-        <Text component="span" className="block line-clamp-2 sm:line-clamp-none">
-          {overview.position?.weekSummary ?? timeline.description}
-        </Text>
-        <Caption component="span" className="mt-1 block" fw={600}>
-          Current position: {overview.position?.phaseLabel ?? 'Current phase'} · session {overview.position?.sessionNumber ?? timeline.currentSessionInWeek + 1} of {timeline.daysPerWeek}
-        </Caption>
-      </PageHeader>
+      <ProgramCommandBar overview={overview} program={program} phaseMap={phaseMap} />
 
       <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
 
@@ -91,15 +78,7 @@ function AuthedProgram() {
 
       <ProgramSummaryGrid overview={overview} timeline={timeline} />
 
-      <ProgramLoadChips overview={overview} program={program} />
-
-      {program.customizationStatus === 'customized' ? (
-        <div className="hidden lg:block">
-          <CustomizationCard program={program} />
-        </div>
-      ) : null}
-
-      <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem]">
         <ProgramTimeline key={timeline.currentWeekIndex} timeline={timeline} status={program.status} currentSessionIndex={program.currentWeekIndex} />
 
         <div className="space-y-4">
@@ -118,11 +97,6 @@ function AuthedProgram() {
         <ProgramMobileSection title="Recent sessions" badge={overview.recentSessions.length}>
           <RecentProgramSessions overview={overview} />
         </ProgramMobileSection>
-        {program.customizationStatus === 'customized' ? (
-          <ProgramMobileSection title="Customization" badge="Custom">
-            <CustomizationCard program={program} />
-          </ProgramMobileSection>
-        ) : null}
       </div>
 
       <PendingProgressionReviewModal

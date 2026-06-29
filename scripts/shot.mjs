@@ -35,7 +35,10 @@ const launchOptions = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
 const browser = await chromium.launch({ ...launchOptions, headless: !headed, slowMo: headed ? 200 : 0 })
 const context = await browser.newContext({
   baseURL,
-  viewport: { width: 1280, height: 900 },
+  viewport: {
+    width: Number(process.env.SHOT_WIDTH ?? 1280),
+    height: Number(process.env.SHOT_HEIGHT ?? 900),
+  },
   ...(existsSync(storage) ? { storageState: storage } : {}),
 })
 const page = await context.newPage()
@@ -44,7 +47,7 @@ async function loginAndSave() {
   console.log(`Logging in as ${email}...`)
   await page.goto('/auth', { waitUntil: 'load' }).catch(() => {})
   const emailInput = page.getByPlaceholder('name@example.com')
-  const passwordInput = page.getByPlaceholder('Password')
+  const passwordInput = page.locator('input[type="password"]')
   const submit = page.getByRole('button', { name: /^log in$/i })
   // Re-fill until React hydrates and enables the submit button.
   for (let attempt = 0; attempt < 40; attempt += 1) {

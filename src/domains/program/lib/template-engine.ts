@@ -199,6 +199,10 @@ export type TimelineWeek = {
   index: number
   subtitle: string
   summary: string
+  phaseKey: string
+  phaseLabel: string
+  waveLabel?: string
+  hardness: TemplateDefinition['weeks'][number]['hardness']
   sessions: TimelineSession[]
 }
 
@@ -401,6 +405,10 @@ export function buildProgramTimelineFromDefinition(
       index: weekIndex,
       subtitle: week.waveLabel ? `${week.phaseLabel} · ${week.waveLabel}, ${week.label.toLowerCase()}` : week.phaseLabel,
       summary: week.summary,
+      phaseKey: week.phaseKey,
+      phaseLabel: week.phaseLabel,
+      waveLabel: week.waveLabel,
+      hardness: week.hardness,
       sessions: definition.sessions.map((session, sessionIndex): TimelineSession => {
         const roleCounts = countSlotRoles(session.slots)
         const roleIndexes = new Map<MovementRole, number>()
