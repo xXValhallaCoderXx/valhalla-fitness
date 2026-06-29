@@ -1,6 +1,6 @@
 import { Button } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useRouter } from '@tanstack/react-router'
+import { useRouter } from '@tanstack/react-router'
 import { CalendarDays, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
@@ -92,9 +92,6 @@ export function ProgramsShowcase() {
             <Button onClick={openFinder} onMouseEnter={arm} onFocus={arm}>
               <Sparkles size={16} />
               Find my plan
-            </Button>
-            <Button component={Link} to="/auth" variant="default">
-              Browse all plans
             </Button>
           </div>
         </div>

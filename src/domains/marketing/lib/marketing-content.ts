@@ -7,19 +7,11 @@ export const heroCopy = {
   highlights: ['Transparent progression', 'Your training history stays with you', 'Real strength plans'],
 }
 
-export const philosophyCopy = {
+export const comparisonCopy = {
   eyebrow: 'Why Sheetless',
   heading: "The old way worked. The upkeep didn't.",
-  body1:
-    'Notebooks made training honest. Spreadsheets made progression visible. But after months of sets, formulas, tabs, and copied weeks, the system gets harder to maintain than the training itself.',
-  body2: 'Sheetless keeps the useful data and removes the admin.',
-}
-
-export const comparisonCopy = {
-  eyebrow: 'The problem over time',
-  heading: 'The longer you train, the more the data matters.',
   subhead:
-    'A few weeks of training is easy to track anywhere. Months of progression are different. Working weights, rep PRs, missed targets, deloads, accessories, and estimated maxes all become useful context for the next block. Sheetless keeps that history readable instead of burying it in old notebooks, broken formulas, and duplicate spreadsheet tabs.',
+    'Notebooks made training honest and spreadsheets made progression visible — and the longer you train, the more that history matters: working weights, rep PRs, missed targets, deloads, and estimated maxes. But after months of formulas, tabs, and copied weeks, the upkeep gets harder than the training itself. Sheetless keeps the useful data and removes the admin.',
   beforeLabel: 'Before · your spreadsheet',
   beforeFootnote: 'Which week am I on? Did the formula break again?',
   bridge: 'Sheetless keeps the history',
@@ -33,7 +25,7 @@ export const focusDemoCopy = {
   heading: 'Built for between sets.',
   subhead:
     'No scrolling through tabs. No editing cells. Focus Mode keeps the next set obvious: weight, reps, effort, done.',
-  hint: 'Live demo — tap the sets and RIR',
+  hint: 'Live demo — log a set and watch it advance',
 }
 
 export const focusDemoBullets = [

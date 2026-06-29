@@ -14,17 +14,22 @@ export function MarketingHero() {
       <div className="relative mx-auto grid max-w-[1180px] items-center gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(24rem,1.05fr)] lg:gap-12">
         <div className="min-w-0">
           <div
-            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5"
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 md:gap-2 md:px-3 md:py-1.5"
             style={{
               border: '1px solid var(--vf-action-border)',
               backgroundColor: 'var(--vf-action-soft)',
             }}
           >
             <span
-              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              className="h-1 w-1 shrink-0 rounded-full md:h-1.5 md:w-1.5"
               style={{ backgroundColor: 'var(--vf-action-text)' }}
             />
-            <Caption fw={800} tt="uppercase" tone="action" style={{ letterSpacing: '0.08em' }}>
+            <Caption
+              fw={800}
+              tt="uppercase"
+              tone="action"
+              style={{ letterSpacing: '0.08em', fontSize: 'clamp(0.5625rem, 1.7vw, 0.6875rem)' }}
+            >
               {heroCopy.eyebrow}
             </Caption>
           </div>

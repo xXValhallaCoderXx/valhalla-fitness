@@ -1,47 +1,60 @@
-export type FocusDemoSet = { done: boolean; rir: number | null }
+import type { MovementSlot, SetLog } from '~/shared/types'
 
-/** Initial set state for the Focus Mode demo (set 1 pre-logged, like the design). */
-export const initialFocusDemoSets: FocusDemoSet[] = [
-  { done: true, rir: 1 },
-  { done: false, rir: null },
-  { done: false, rir: null },
-  { done: false, rir: null },
-  { done: false, rir: null },
-]
+/**
+ * Self-contained mock data for the marketing "Built for between sets" demo. The demo renders the
+ * REAL Focus components (FocusStepper / FocusRirRow / FocusSetProgressBar / FocusExerciseHeader)
+ * against this mock movement, so it mirrors the live logger without any session or network.
+ */
+export const FOCUS_DEMO_SET_TOTAL = 5
+export const FOCUS_DEMO_TARGET_LOAD = 87.5
+export const FOCUS_DEMO_TARGET_REPS = 5
+export const FOCUS_DEMO_ROUNDING = 2.5
 
-/** RIR chips offered per set. The last is rendered as "3+". */
-export const focusDemoRirOptions = [0, 1, 2, 3] as const
-
-/** Toggle a set complete/incomplete. Completing with no RIR defaults it to 1. */
-export function toggleFocusDemoSet(sets: FocusDemoSet[], index: number): FocusDemoSet[] {
-  return sets.map((set, i) => {
-    if (i !== index) return set
-    const done = !set.done
-    return { done, rir: done && set.rir == null ? 1 : set.rir }
-  })
+/** A mock Squat movement with set 1 pre-logged (like the real first-set-done state). */
+export function createFocusDemoMovement(): MovementSlot {
+  return {
+    id: 'demo-squat',
+    movementId: 'squat',
+    movementName: 'Squat',
+    role: 'main',
+    orderIndex: 0,
+    targetSummary: '5×5 @ current working load',
+    sets: Array.from(
+      { length: FOCUS_DEMO_SET_TOTAL },
+      (_, index): SetLog => ({
+        id: `demo-set-${index + 1}`,
+        setIndex: index + 1,
+        targetLoad: FOCUS_DEMO_TARGET_LOAD,
+        targetReps: FOCUS_DEMO_TARGET_REPS,
+        completed: index === 0,
+        actualLoad: index === 0 ? FOCUS_DEMO_TARGET_LOAD : undefined,
+        actualReps: index === 0 ? FOCUS_DEMO_TARGET_REPS : undefined,
+        actualRir: index === 0 ? 1 : undefined,
+      }),
+    ),
+  }
 }
 
-/** Pick an RIR for a set, which also marks it complete. */
-export function pickFocusDemoRir(sets: FocusDemoSet[], index: number, value: number): FocusDemoSet[] {
-  return sets.map((set, i) => (i === index ? { done: true, rir: value } : set))
+export type FocusDemoDraft = { load: number; reps: number; rir?: number }
+
+/** Seed the draft inputs for a set from its logged/target values. */
+export function focusDemoDraftFor(movement: MovementSlot, setIndex: number): FocusDemoDraft {
+  const set = movement.sets.find((item) => item.setIndex === setIndex)
+  return {
+    load: set?.actualLoad ?? set?.targetLoad ?? FOCUS_DEMO_TARGET_LOAD,
+    reps: set?.actualReps ?? set?.targetReps ?? FOCUS_DEMO_TARGET_REPS,
+    rir: set?.actualRir ?? undefined,
+  }
 }
 
-/** Index of the first not-yet-done set (the "active" row), or -1 when all are done. */
-export function firstActiveFocusDemoIndex(sets: FocusDemoSet[]): number {
-  return sets.findIndex((set) => !set.done)
-}
-
-export type FocusDemoSummary = {
-  doneCount: number
-  total: number
-  donePct: number
-  doneLabel: string
-}
-
-/** Progress summary for the demo's progress bar and label. */
-export function summarizeFocusDemo(sets: FocusDemoSet[]): FocusDemoSummary {
-  const total = sets.length
-  const doneCount = sets.filter((set) => set.done).length
-  const donePct = total === 0 ? 0 : (doneCount / total) * 100
-  return { doneCount, total, donePct, doneLabel: `${doneCount} of ${total} sets` }
+/** Immutably mark a set logged with the draft values. */
+export function logFocusDemoSet(movement: MovementSlot, setIndex: number, draft: FocusDemoDraft): MovementSlot {
+  return {
+    ...movement,
+    sets: movement.sets.map((set) =>
+      set.setIndex === setIndex
+        ? { ...set, completed: true, actualLoad: draft.load, actualReps: draft.reps, actualRir: draft.rir }
+        : set,
+    ),
+  }
 }
