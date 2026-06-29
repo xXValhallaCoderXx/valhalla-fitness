@@ -778,7 +778,7 @@ function OneRepMaxCalculatorModal({
       title="Calculate estimated 1RM"
       size="md"
       classNames={{
-        inner: '!items-end sm:!items-center',
+        inner: '!items-end !p-0 sm:!items-center sm:!p-4',
         content: '!mb-0 !rounded-b-none sm:!rounded-lg',
         body: '!max-h-[calc(92dvh-3.25rem)] !overflow-y-auto',
       }}

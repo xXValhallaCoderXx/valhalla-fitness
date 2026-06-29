@@ -1,15 +1,16 @@
-import { Badge, Button } from '@mantine/core'
+import { Badge, Button, Card, Group } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, Dumbbell, Layers3, ListChecks, Play, RotateCw } from 'lucide-react'
-import { Caption, Heading, Panel, SectionLabel, StatCard, Text } from '~/components'
-import type { ProgramOverview } from '~/shared/types'
+import { Play, RotateCw } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Caption, Heading, Panel, SectionLabel, StatValue, Text } from '~/components'
+import type { MovementRole, ProgramOverview } from '~/shared/types'
 import type { ProgramTimelineModel } from '~/domains/program/lib/program-timeline'
 import { formatFullDate } from '~/shared/lib/dates'
 
 /**
- * Dominant "what's next" hero for the Program page — leads the page so it
- * answers "where am I, and what's next?" at a glance. Mirrors the Today
- * "Ready" card but frames the session as the next step in the plan.
+ * "Next up" — one short, wide band: session identity + main lift on the left,
+ * accessories as tight rows in the middle, and the Open-session CTA with
+ * composition pills on the right. Answers "what's next?" without scrolling.
  */
 export function NextWorkoutHero({
   overview,
@@ -25,7 +26,9 @@ export function NextWorkoutHero({
     return (
       <Panel className="mb-4" p="md">
         <SectionLabel>Next up in your plan</SectionLabel>
-        <Heading order={2} size="h3" mt="xs">No session queued</Heading>
+        <Heading order={2} size="h3" mt="xs">
+          No session queued
+        </Heading>
         <Text mt={4} size="sm" tone="dimmed">
           Finish or complete your current session to queue the next one.
         </Text>
@@ -36,67 +39,131 @@ export function NextWorkoutHero({
   const inProgress = nextSession.status === 'in_progress'
   const main = nextSession.movements.find((movement) => movement.role === 'main')
   const accessories = nextSession.movements.filter((movement) => movement.role !== 'main')
-  const weekLine = position
-    ? `Week ${position.weekNumber} of ${position.totalWeeks} · ${position.phaseLabel}`
-    : timeline.description
+  const dateLine = [
+    position ? `Week ${position.weekNumber}` : null,
+    position?.phaseLabel ?? timeline.weeks[timeline.currentWeekIndex]?.phaseLabel,
+    formatFullDate(nextSession.scheduledDate),
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
-    <Panel className="mb-4 vf-card-hover" p="md" style={{ borderColor: 'var(--vf-action-border)' }}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <Card p="md" className="mb-4 vf-card-hover" style={{ borderColor: 'var(--vf-action-border)' }}>
+      <div className="grid gap-5 lg:grid-cols-[18.75rem_1fr_auto] lg:items-center">
         <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Badge color="action" variant="filled">Next up in your plan</Badge>
-            <Badge color={inProgress ? 'warning' : 'action'}>{inProgress ? 'In progress' : 'Ready'}</Badge>
-          </div>
-          <Heading order={2} size="h3" lh={1.15}>{nextSession.title}</Heading>
-          <Text mt={4} size="sm" tone="dimmed" lineClamp={2}>
-            {nextSession.movementSummary} · {formatFullDate(nextSession.scheduledDate)}
-          </Text>
-          <Caption mt="xs" fw={700}>{weekLine}</Caption>
-        </div>
-        <Link to={nextSession.href} className="w-full sm:w-auto">
-          <Button className="w-full sm:w-auto">
-            {inProgress ? <RotateCw size={16} /> : <Play size={16} />}
-            {inProgress ? 'Resume session' : 'Open session'}
-          </Button>
-        </Link>
-      </div>
+          <Group gap="xs">
+            <Badge color="action" variant="filled">
+              Next session
+            </Badge>
+            <Group gap={5} wrap="nowrap">
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  backgroundColor: inProgress ? 'var(--vf-warning-text)' : 'var(--vf-success-text)',
+                }}
+              />
+              <Text size="xs" fw={700} tone={inProgress ? 'warning' : 'success'}>
+                {inProgress ? 'In progress' : 'Ready'}
+              </Text>
+            </Group>
+          </Group>
+          <Heading order={2} size="h3" mt="xs" lh={1.15}>
+            {nextSession.title}
+          </Heading>
+          <Caption mt={4}>{dateLine}</Caption>
 
-      {main ? (
-        <Panel surface="inset" p="sm" className="mt-4" style={{ borderColor: 'var(--vf-action-border)', backgroundColor: 'var(--vf-action-soft)' }}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <Badge color="action" leftSection={<Dumbbell size={12} />}>Main lift</Badge>
-              <Heading mt="xs" order={3} size="h4" lh={1.15} className="truncate">{main.movementName}</Heading>
-              <Text size="sm" tone="dimmed">{main.targetSummary}</Text>
-            </div>
-            <ArrowRight color="var(--mantine-color-dimmed)" size={18} />
-          </div>
-        </Panel>
-      ) : null}
-
-      {accessories.length ? (
-        <div className="mt-3">
-          <SectionLabel className="mb-1.5">Accessories</SectionLabel>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {accessories.map((movement, index) => (
-              <Panel key={`${movement.movementName}-${index}`} surface="inset" p="sm" className="flex items-center justify-between gap-3">
+          {main ? (
+            <Panel
+              surface="inset"
+              p="sm"
+              mt="sm"
+              style={{ borderColor: 'var(--vf-action-border)', backgroundColor: 'var(--vf-action-soft)' }}
+            >
+              <Group justify="space-between" gap="sm" wrap="nowrap" align="flex-end">
                 <div className="min-w-0">
-                  <Text fw={700} truncate>{movement.movementName}</Text>
-                  <Caption>{movement.targetSummary}</Caption>
+                  <SectionLabel tone="action">Main lift</SectionLabel>
+                  <Heading order={3} size="h4" mt={2} lh={1.1} className="truncate">
+                    {main.movementName}
+                  </Heading>
                 </div>
-                <Badge>{movement.role}</Badge>
-              </Panel>
-            ))}
+                <Text size="sm" fw={700} tone="action" style={{ whiteSpace: 'nowrap' }}>
+                  {main.targetSummary}
+                </Text>
+              </Group>
+            </Panel>
+          ) : null}
+        </div>
+
+        <div className="min-w-0">
+          <SectionLabel className="mb-2">Then accessories</SectionLabel>
+          {accessories.length ? (
+            <div className="space-y-2">
+              {accessories.map((movement, index) => {
+                const tag = accessoryTag(movement.role)
+                return (
+                  <Panel key={`${movement.movementName}-${index}`} surface="inset" p="xs">
+                    <Group gap="sm" wrap="nowrap">
+                      <Badge color={tag.color} variant="light" size="xs" style={{ flexShrink: 0 }}>
+                        {tag.label}
+                      </Badge>
+                      <Text size="sm" fw={700} truncate className="min-w-0 flex-1">
+                        {movement.movementName}
+                      </Text>
+                      <Caption style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{movement.targetSummary}</Caption>
+                    </Group>
+                  </Panel>
+                )
+              })}
+            </div>
+          ) : (
+            <Caption>No accessories queued for this session.</Caption>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2.5 lg:w-48">
+          <Link to={nextSession.href} className="w-full">
+            <Button fullWidth>
+              {inProgress ? <RotateCw size={16} /> : <Play size={16} />}
+              {inProgress ? 'Resume session' : 'Open session'}
+            </Button>
+          </Link>
+          <div className="hidden grid-cols-3 gap-1.5 lg:grid">
+            <CompositionPill value={nextSession.mainCount} label="Main" />
+            <CompositionPill value={nextSession.variationCount} label="Var." />
+            <CompositionPill value={nextSession.accessoryCount} label="Acc." />
           </div>
         </div>
-      ) : null}
-
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <StatCard icon={<Dumbbell size={14} />} label="Main" value={nextSession.mainCount} />
-        <StatCard icon={<Layers3 size={14} />} label="Variations" value={nextSession.variationCount} />
-        <StatCard icon={<ListChecks size={14} />} label="Accessories" value={nextSession.accessoryCount} />
       </div>
-    </Panel>
+    </Card>
   )
+}
+
+function CompositionPill({ value, label }: { value: ReactNode; label: string }) {
+  return (
+    <div
+      style={{
+        textAlign: 'center',
+        backgroundColor: 'var(--vf-surface-2)',
+        border: '1px solid var(--mantine-color-default-border)',
+        borderRadius: 'var(--mantine-radius-sm)',
+        padding: '7px 0',
+      }}
+    >
+      <StatValue size="sm" ta="center">
+        {value}
+      </StatValue>
+      <SectionLabel ta="center" mt={1}>
+        {label}
+      </SectionLabel>
+    </div>
+  )
+}
+
+function accessoryTag(role: MovementRole): { label: string; color: string } {
+  if (role === 'variation') return { label: 'Variation', color: 'action' }
+  if (role === 'accessory') return { label: 'Accessory', color: 'warning' }
+  if (role === 'warmup') return { label: 'Warm-up', color: 'neutral' }
+  return { label: role.charAt(0).toUpperCase() + role.slice(1), color: 'neutral' }
 }
