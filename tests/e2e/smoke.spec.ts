@@ -8,7 +8,10 @@ test.describe('logged out', () => {
     await page.goto('/auth')
     await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
     await expect(page.getByText('Sign in to your Sheetless account.')).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Email' })).toBeVisible()
+    await expect(page.locator('input[type="password"]')).toBeVisible()
     await expect(page.getByRole('button', { name: /log in/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /create an account/i })).toBeVisible()
   })
 })
 
