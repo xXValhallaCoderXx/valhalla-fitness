@@ -138,7 +138,7 @@ export function TemplateCatalogue({
       </Panel>
 
       <div
-        className="sticky top-16 z-30 -mx-4 mb-5 space-y-3 px-4 py-3 md:-mx-8 md:px-8 md:mb-6 lg:-mx-10 lg:px-10"
+        className="sticky top-0 z-30 -mx-3 mb-5 space-y-3 px-3 py-3 md:-mx-8 md:px-8 md:mb-6 lg:-mx-10 lg:px-10"
         style={{ backgroundColor: 'var(--mantine-color-body)' }}
       >
         <div className="max-w-4xl">
@@ -220,12 +220,17 @@ export function TemplateCatalogue({
         opened={showBuilder}
         onClose={() => setShowBuilder(false)}
         withCloseButton={false}
-        centered
         size="64rem"
         padding={0}
+        // Keep the native scrollbar (don't hide it / pad the body) so opening or closing the modal
+        // doesn't reflow the centered page behind it — fixes the few-pixel horizontal layout shift.
+        removeScrollProps={{ removeScrollBar: false }}
         classNames={{
-          inner: 'p-0 sm:p-4',
-          content: 'h-[100dvh] max-h-[100dvh] w-full rounded-none sm:h-auto sm:max-h-[92dvh] sm:rounded-lg',
+          // Bottom sheet on mobile (matches the app's other modals): pinned to the bottom, rounded
+          // top, flush bottom. Centered card on desktop. items-end (not stretch) keeps the sheet
+          // anchored to the bottom so a keyboard overlay can't re-center it.
+          inner: '!items-end !p-0 sm:!items-center sm:!p-4',
+          content: '!mb-0 max-h-[92dvh] w-full rounded-t-2xl rounded-b-none sm:max-h-[92dvh] sm:rounded-lg',
           body: 'h-full',
         }}
         styles={{

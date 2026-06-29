@@ -19,6 +19,7 @@ export default defineConfig({
     react(),
     VitePWA({
       outDir: '.output/public',
+      manifestFilename: 'manifest.json',
       injectRegister: null,
       registerType: 'prompt',
       includeAssets: ['pwa/apple-touch-icon.png'],
@@ -56,6 +57,7 @@ export default defineConfig({
       workbox: {
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
+        navigateFallback: undefined,
         navigateFallbackDenylist: [/^\/_server/, /^\/api/, /^\/auth\/callback/],
       },
     }),

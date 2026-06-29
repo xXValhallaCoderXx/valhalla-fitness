@@ -27,7 +27,9 @@ export function getRouter() {
     defaultPendingMinMs: 150,
     defaultErrorComponent: AppError,
     defaultNotFoundComponent: NotFound,
-    scrollRestoration: true,
+    // The authed app uses an internal scroll container (see AppShell), so document-level scroll
+    // restoration doesn't apply; the scroll area resets to the top per route via its `key`.
+    scrollRestoration: false,
   })
 
   setupRouterSsrQueryIntegration({ router, queryClient })
