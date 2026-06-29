@@ -1,7 +1,6 @@
 import { Alert, Box, Button, Card, Divider, PasswordInput, SegmentedControl, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
 import { ArrowRight, CheckCircle2, Dumbbell, Lock, Mail } from 'lucide-react'
 import { useState } from 'react'
 import { BrandLockup, Caption, Heading, Panel, SectionLabel, Text } from '~/components'
@@ -13,7 +12,7 @@ import {
   signUpWithPasswordFn,
 } from '~/domains/account/server/auth-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import { authDisabledCopy, isAuthDisabled } from '~/shared/lib/auth-config'
+import { getAuthPolicy } from '~/shared/lib/auth-config'
 
 type AuthMethod = 'password' | 'magic'
 type AuthMode = 'login' | 'signup'
@@ -31,7 +30,8 @@ const sidePanelReceipt = [
 ]
 
 export function AuthPage() {
-  const authDisabled = isAuthDisabled()
+  const authPolicy = getAuthPolicy()
+  const betaMagicLinkOnly = authPolicy.magicLinkRequiresBetaAccess
   const completeAuthRedirect = useCompleteAuthRedirect()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -76,9 +76,12 @@ export function AuthPage() {
       setMessage(null)
     },
     onSuccess: (result) => {
-      const text = result.ok ? 'Magic link sent. Check your email.' : result.message
-      setMessage({ tone: result.ok ? 'success' : 'danger', text })
-      if (result.ok) notifications.show({ color: 'success', title: 'Magic link sent', message: text })
+      const text = result.message
+      const tone = result.ok ? (betaMagicLinkOnly ? 'neutral' : 'success') : 'danger'
+      setMessage({ tone, text })
+      if (result.ok && !betaMagicLinkOnly) {
+        notifications.show({ color: 'success', title: 'Magic link sent', message: text })
+      }
     },
     onError: (error) => {
       setMessage({ tone: 'danger', text: getApiErrorMessage(error, 'Unable to send magic link') })
@@ -100,14 +103,16 @@ export function AuthPage() {
     },
   })
 
-  const isSignup = mode === 'signup'
-  const isMagic = authMethod === 'magic'
-  const showReset = !isMagic && !isSignup
+  const isSignup = !betaMagicLinkOnly && mode === 'signup'
+  const isMagic = betaMagicLinkOnly || authMethod === 'magic'
+  const showReset = authPolicy.passwordResetEnabled && !isMagic && !isSignup
 
-  const titleCopy = isSignup ? 'Create your account' : 'Welcome back'
-  const subtitleCopy = isSignup
-    ? 'Start training with Sheetless — it’s free.'
-    : 'Sign in to your Sheetless account.'
+  const titleCopy = betaMagicLinkOnly ? 'Beta access' : isSignup ? 'Create your account' : 'Welcome back'
+  const subtitleCopy = betaMagicLinkOnly
+    ? 'Enter your email to request a private beta magic link.'
+    : isSignup
+      ? 'Start training with Sheetless — it’s free.'
+      : 'Sign in to your Sheetless account.'
   const switchPrompt = isSignup ? 'Already have an account?' : 'New to Sheetless?'
   const switchAction = isSignup ? 'Sign in instead' : 'Create an account'
 
@@ -244,108 +249,104 @@ export function AuthPage() {
                 <Dumbbell color="var(--vf-action-text)" size={22} />
               </div>
 
-              {authDisabled ? (
-                <AuthDisabledNotice />
-              ) : (
-                <>
-                  <Heading order={1} size="1.5rem" mt="md" lh={1.1}>
-                    {titleCopy}
-                  </Heading>
-                  <Text component="p" size="sm" tone="dimmed" fw={600} mt={6}>
-                    {subtitleCopy}
-                  </Text>
+              <Heading order={1} size="1.5rem" mt="md" lh={1.1}>
+                {titleCopy}
+              </Heading>
+              <Text component="p" size="sm" tone="dimmed" fw={600} mt={6}>
+                {subtitleCopy}
+              </Text>
 
-                  <form
-                    className="mt-6 space-y-4"
-                    onSubmit={(event) => {
-                      event.preventDefault()
-                      if (isMagic) {
-                        magicMutation.mutate()
-                      } else {
-                        passwordMutation.mutate()
-                      }
+              <form
+                className="mt-6 space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  if (isMagic) {
+                    magicMutation.mutate()
+                  } else {
+                    passwordMutation.mutate()
+                  }
+                }}
+              >
+                {!betaMagicLinkOnly ? (
+                  <SegmentedControl
+                    fullWidth
+                    value={authMethod}
+                    data={authMethodOptions}
+                    onChange={(value) => {
+                      setAuthMethod(value as AuthMethod)
+                      setMessage(null)
+                    }}
+                  />
+                ) : null}
+
+                <label className="grid gap-1.5">
+                  <SectionLabel>Email</SectionLabel>
+                  <TextInput
+                    type="email"
+                    aria-label="Email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="name@example.com"
+                    required
+                  />
+                </label>
+
+                {!isMagic && authPolicy.passwordSignInEnabled ? (
+                  <div className="grid gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <SectionLabel>Password</SectionLabel>
+                      {showReset ? (
+                        <Button
+                          type="button"
+                          variant="subtle"
+                          size="compact-xs"
+                          onClick={handleForgot}
+                          disabled={resetMutation.isPending}
+                        >
+                          {resetMutation.isPending ? 'Sending…' : 'Forgot?'}
+                        </Button>
+                      ) : null}
+                    </div>
+                    <PasswordInput
+                      aria-label="Password"
+                      autoComplete={isSignup ? 'new-password' : 'current-password'}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="••••••••"
+                      required
+                    />
+                  </div>
+                ) : null}
+
+                {isMagic && !betaMagicLinkOnly ? (
+                  <div
+                    className="flex items-start gap-2.5 rounded-[var(--mantine-radius-md)] p-3"
+                    style={{
+                      backgroundColor: 'var(--vf-action-soft)',
+                      border: '1px solid var(--vf-action-border)',
                     }}
                   >
-                    <SegmentedControl
-                      fullWidth
-                      value={authMethod}
-                      data={authMethodOptions}
-                      onChange={(value) => {
-                        setAuthMethod(value as AuthMethod)
-                        setMessage(null)
-                      }}
-                    />
+                    <Mail color="var(--vf-action-text)" size={16} className="mt-0.5 shrink-0" />
+                    <Text component="p" size="sm" tone="dimmed" fw={600}>
+                      We’ll email you a one-tap sign-in link — no password needed.
+                    </Text>
+                  </div>
+                ) : null}
 
-                    <label className="grid gap-1.5">
-                      <SectionLabel>Email</SectionLabel>
-                      <TextInput
-                        type="email"
-                        aria-label="Email"
-                        autoComplete="email"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        placeholder="name@example.com"
-                        required
-                      />
-                    </label>
+                <Button
+                  type="submit"
+                  fullWidth
+                  size="md"
+                  disabled={isMagic ? !email || magicMutation.isPending : !email || !password || passwordMutation.isPending}
+                >
+                  {submitLabel}
+                  <ArrowRight color="currentColor" size={17} />
+                </Button>
+              </form>
 
-                    {!isMagic ? (
-                      <div className="grid gap-1.5">
-                        <div className="flex items-center justify-between">
-                          <SectionLabel>Password</SectionLabel>
-                          {showReset ? (
-                            <Button
-                              type="button"
-                              variant="subtle"
-                              size="compact-xs"
-                              onClick={handleForgot}
-                              disabled={resetMutation.isPending}
-                            >
-                              {resetMutation.isPending ? 'Sending…' : 'Forgot?'}
-                            </Button>
-                          ) : null}
-                        </div>
-                        <PasswordInput
-                          aria-label="Password"
-                          autoComplete={isSignup ? 'new-password' : 'current-password'}
-                          value={password}
-                          onChange={(event) => setPassword(event.target.value)}
-                          placeholder="••••••••"
-                          required
-                        />
-                      </div>
-                    ) : null}
-
-                    {isMagic ? (
-                      <div
-                        className="flex items-start gap-2.5 rounded-[var(--mantine-radius-md)] p-3"
-                        style={{
-                          backgroundColor: 'var(--vf-action-soft)',
-                          border: '1px solid var(--vf-action-border)',
-                        }}
-                      >
-                        <Mail color="var(--vf-action-text)" size={16} className="mt-0.5 shrink-0" />
-                        <Text component="p" size="sm" tone="dimmed" fw={600}>
-                          We’ll email you a one-tap sign-in link — no password needed.
-                        </Text>
-                      </div>
-                    ) : null}
-
-                    <Button
-                      type="submit"
-                      fullWidth
-                      size="md"
-                      disabled={
-                        isMagic
-                          ? !email || magicMutation.isPending
-                          : !email || !password || passwordMutation.isPending
-                      }
-                    >
-                      {submitLabel}
-                      <ArrowRight color="currentColor" size={17} />
-                    </Button>
-                  </form>
-
+              {!betaMagicLinkOnly && authPolicy.passwordSignUpEnabled ? (
+                <>
                   <Divider my="lg" label={switchPrompt} labelPosition="center" />
 
                   <Button
@@ -359,49 +360,28 @@ export function AuthPage() {
                   >
                     {switchAction}
                   </Button>
-
-                  {message ? (
-                    <Alert
-                      mt="md"
-                      color={message.tone === 'neutral' ? 'neutral' : message.tone}
-                      role={message.tone === 'danger' ? 'alert' : 'status'}
-                    >
-                      {message.text}
-                    </Alert>
-                  ) : null}
                 </>
-              )}
+              ) : null}
+
+              {message ? (
+                <Alert
+                  mt="md"
+                  color={message.tone === 'neutral' ? 'neutral' : message.tone}
+                  role={message.tone === 'danger' ? 'alert' : 'status'}
+                >
+                  {message.text}
+                </Alert>
+              ) : null}
             </div>
           </Card>
 
           <div className="mt-4 flex justify-center">
             <Caption component="p" ta="center" fw={600} maw="20rem">
-              {authDisabled
-                ? 'Synced workouts require a Sheetless account.'
-                : 'By continuing you agree to the Terms and acknowledge the Privacy Policy.'}
+              By continuing you agree to the Terms and acknowledge the Privacy Policy.
             </Caption>
           </div>
         </div>
       </Box>
     </Box>
-  )
-}
-
-function AuthDisabledNotice() {
-  return (
-    <>
-      <Heading order={1} size="1.5rem" mt="md" lh={1.1}>
-        {authDisabledCopy.title}
-      </Heading>
-      <Text component="p" size="sm" tone="dimmed" fw={600} mt={6}>
-        {authDisabledCopy.subtitle}
-      </Text>
-      <Text component="p" size="sm" tone="dimmed" fw={600} mt="sm">
-        {authDisabledCopy.body}
-      </Text>
-      <Button component={Link} to="/" fullWidth size="md" variant="default" mt="lg">
-        Back to home
-      </Button>
-    </>
   )
 }

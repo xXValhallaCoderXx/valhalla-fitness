@@ -1,5 +1,10 @@
 import { createServerFn } from '@tanstack/react-start'
-import { isAuthDisabled } from '~/shared/lib/auth-config'
+import {
+  authDisabledResultMessage,
+  betaMagicLinkMessage,
+  defaultMagicLinkSentMessage,
+  getAuthPolicy,
+} from '~/shared/lib/auth-config'
 
 export type AuthUser = {
   id: string
@@ -8,7 +13,7 @@ export type AuthUser = {
 
 const AUTH_DISABLED_RESULT = {
   ok: false,
-  message: 'Sign-in is disabled on this deployment.',
+  message: authDisabledResultMessage,
 } as const
 
 async function hasSupabaseEnv() {
@@ -41,7 +46,7 @@ export const fetchUserFn = createServerFn({ method: 'GET' }).handler(async () =>
 export const signInWithPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string; password: string }) => data)
   .handler(async ({ data }) => {
-    if (isAuthDisabled()) return AUTH_DISABLED_RESULT
+    if (!getAuthPolicy().passwordSignInEnabled) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
@@ -53,7 +58,7 @@ export const signInWithPasswordFn = createServerFn({ method: 'POST' })
 export const signUpWithPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string; password: string }) => data)
   .handler(async ({ data }) => {
-    if (isAuthDisabled()) return AUTH_DISABLED_RESULT
+    if (!getAuthPolicy().passwordSignUpEnabled) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
     const { data: signUpData, error } = await supabase.auth.signUp({
       email: data.email,
@@ -71,22 +76,37 @@ export const signUpWithPasswordFn = createServerFn({ method: 'POST' })
 export const sendMagicLinkFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string }) => data)
   .handler(async ({ data }) => {
-    if (isAuthDisabled()) return AUTH_DISABLED_RESULT
-    const supabase = await getSupabaseServerClient()
+    const authPolicy = getAuthPolicy()
+    if (!authPolicy.magicLinkEnabled) return AUTH_DISABLED_RESULT
     const origin = process.env.APP_ORIGIN ?? 'http://localhost:3000'
+
+    if (authPolicy.magicLinkRequiresBetaAccess) {
+      const { getBetaMagicLinkAccess, sendBetaMagicLink } = await import('./beta-access')
+      const access = getBetaMagicLinkAccess(data.email)
+      if (!access.shouldSendMagicLink) {
+        return { ok: true, message: betaMagicLinkMessage } as const
+      }
+
+      const supabase = await getSupabaseServerClient()
+      return sendBetaMagicLink({ auth: supabase.auth, email: data.email, origin })
+    }
+
+    const supabase = await getSupabaseServerClient()
     const { error } = await supabase.auth.signInWithOtp({
       email: data.email,
       options: {
         emailRedirectTo: `${origin}/auth/callback`,
       },
     })
-    return error ? ({ ok: false, message: error.message } as const) : ({ ok: true } as const)
+    return error
+      ? ({ ok: false, message: error.message } as const)
+      : ({ ok: true, message: defaultMagicLinkSentMessage } as const)
   })
 
 export const resetPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string }) => data)
   .handler(async ({ data }) => {
-    if (isAuthDisabled()) return AUTH_DISABLED_RESULT
+    if (!getAuthPolicy().passwordResetEnabled) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
     const origin = process.env.APP_ORIGIN ?? 'http://localhost:3000'
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
