@@ -6,13 +6,13 @@ import { useState } from 'react'
 import { BrandLockup, Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import { useCompleteAuthRedirect } from '~/domains/account/lib/useCompleteAuthRedirect'
 import {
+  type MagicLinkResult,
   resetPasswordFn,
   sendMagicLinkFn,
   signInWithPasswordFn,
   signUpWithPasswordFn,
 } from '~/domains/account/server/auth-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import { getAuthPolicy } from '~/shared/lib/auth-config'
 
 type AuthMethod = 'password' | 'magic'
 type AuthMode = 'login' | 'signup'
@@ -29,9 +29,25 @@ const sidePanelReceipt = [
   'So Sheetless added 2.5 kg today.',
 ]
 
+async function sendBrowserMagicLink(result: Extract<MagicLinkResult, { browserRequest: object }>) {
+  const { createBrowserClient } = await import('@supabase/ssr')
+  const { browserRequest } = result
+  const supabase = createBrowserClient(browserRequest.supabaseUrl, browserRequest.supabaseAnonKey)
+  const { error } = await supabase.auth.signInWithOtp({
+    email: browserRequest.email,
+    options: {
+      emailRedirectTo: browserRequest.emailRedirectTo,
+    },
+  })
+
+  if (error) {
+    return { ok: false, message: error.message } as const
+  }
+
+  return { ok: true, message: result.message } as const
+}
+
 export function AuthPage() {
-  const authPolicy = getAuthPolicy()
-  const betaMagicLinkOnly = authPolicy.magicLinkRequiresBetaAccess
   const completeAuthRedirect = useCompleteAuthRedirect()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -75,11 +91,12 @@ export function AuthPage() {
     onMutate: () => {
       setMessage(null)
     },
-    onSuccess: (result) => {
-      const text = result.message
-      const tone = result.ok ? (betaMagicLinkOnly ? 'neutral' : 'success') : 'danger'
+    onSuccess: async (result) => {
+      const browserResult = result.ok && result.browserRequest ? await sendBrowserMagicLink(result) : result
+      const text = browserResult.message
+      const tone = browserResult.ok ? 'success' : 'danger'
       setMessage({ tone, text })
-      if (result.ok && !betaMagicLinkOnly) {
+      if (browserResult.ok) {
         notifications.show({ color: 'success', title: 'Magic link sent', message: text })
       }
     },
@@ -103,16 +120,14 @@ export function AuthPage() {
     },
   })
 
-  const isSignup = !betaMagicLinkOnly && mode === 'signup'
-  const isMagic = betaMagicLinkOnly || authMethod === 'magic'
-  const showReset = authPolicy.passwordResetEnabled && !isMagic && !isSignup
+  const isSignup = mode === 'signup'
+  const isMagic = authMethod === 'magic'
+  const showReset = !isMagic && !isSignup
 
-  const titleCopy = betaMagicLinkOnly ? 'Beta access' : isSignup ? 'Create your account' : 'Welcome back'
-  const subtitleCopy = betaMagicLinkOnly
-    ? 'Enter your email to request a private beta magic link.'
-    : isSignup
-      ? 'Start training with Sheetless — it’s free.'
-      : 'Sign in to your Sheetless account.'
+  const titleCopy = isSignup ? 'Create your account' : 'Welcome back'
+  const subtitleCopy = isSignup
+    ? 'Start training with Sheetless — it’s free.'
+    : 'Sign in to your Sheetless account.'
   const switchPrompt = isSignup ? 'Already have an account?' : 'New to Sheetless?'
   const switchAction = isSignup ? 'Sign in instead' : 'Create an account'
 
@@ -267,17 +282,15 @@ export function AuthPage() {
                   }
                 }}
               >
-                {!betaMagicLinkOnly ? (
-                  <SegmentedControl
-                    fullWidth
-                    value={authMethod}
-                    data={authMethodOptions}
-                    onChange={(value) => {
-                      setAuthMethod(value as AuthMethod)
-                      setMessage(null)
-                    }}
-                  />
-                ) : null}
+                <SegmentedControl
+                  fullWidth
+                  value={authMethod}
+                  data={authMethodOptions}
+                  onChange={(value) => {
+                    setAuthMethod(value as AuthMethod)
+                    setMessage(null)
+                  }}
+                />
 
                 <label className="grid gap-1.5">
                   <SectionLabel>Email</SectionLabel>
@@ -292,7 +305,7 @@ export function AuthPage() {
                   />
                 </label>
 
-                {!isMagic && authPolicy.passwordSignInEnabled ? (
+                {!isMagic ? (
                   <div className="grid gap-1.5">
                     <div className="flex items-center justify-between">
                       <SectionLabel>Password</SectionLabel>
@@ -319,7 +332,7 @@ export function AuthPage() {
                   </div>
                 ) : null}
 
-                {isMagic && !betaMagicLinkOnly ? (
+                {isMagic ? (
                   <div
                     className="flex items-start gap-2.5 rounded-[var(--mantine-radius-md)] p-3"
                     style={{
@@ -345,23 +358,19 @@ export function AuthPage() {
                 </Button>
               </form>
 
-              {!betaMagicLinkOnly && authPolicy.passwordSignUpEnabled ? (
-                <>
-                  <Divider my="lg" label={switchPrompt} labelPosition="center" />
+              <Divider my="lg" label={switchPrompt} labelPosition="center" />
 
-                  <Button
-                    type="button"
-                    fullWidth
-                    variant="default"
-                    onClick={() => {
-                      setMode(isSignup ? 'login' : 'signup')
-                      setMessage(null)
-                    }}
-                  >
-                    {switchAction}
-                  </Button>
-                </>
-              ) : null}
+              <Button
+                type="button"
+                fullWidth
+                variant="default"
+                onClick={() => {
+                  setMode(isSignup ? 'login' : 'signup')
+                  setMessage(null)
+                }}
+              >
+                {switchAction}
+              </Button>
 
               {message ? (
                 <Alert
