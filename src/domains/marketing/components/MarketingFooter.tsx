@@ -18,7 +18,7 @@ export function MarketingFooter() {
               <BrandLockup size="md" />
             </a>
             <Text component="p" tone="dimmed" size="sm" fw={600} mt="sm">
-              Beginner-friendly strength training with transparent progression — no black box, no spreadsheet maintenance.
+              Beginner-friendly strength training with transparent progression — without the spreadsheet maintenance.
             </Text>
           </div>
 

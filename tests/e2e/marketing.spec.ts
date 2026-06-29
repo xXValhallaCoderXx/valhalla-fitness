@@ -11,11 +11,12 @@ test.describe('logged out marketing', () => {
       page.getByRole('heading', { name: 'Keep the logic. Lose the spreadsheet.' }),
     ).toBeVisible()
     await expect(
-      page.getByRole('heading', { name: 'Not an AI coach. A training system that shows its work.' }),
+      page.getByRole('heading', { name: "The old way worked. The upkeep didn't." }),
     ).toBeVisible()
     await expect(
-      page.getByRole('heading', { name: 'Every workout ends with a reason.' }),
+      page.getByRole('heading', { name: 'Pick a plan. Log the session. Get the next call.' }),
     ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Real plans. Clear rules.' })).toBeVisible()
 
     await expect(async () => {
       await page.goto('/')

@@ -17,9 +17,8 @@ export function ProgramsShowcase() {
             Real plans. Clear rules.
           </Heading>
           <Text component="p" tone="dimmed" fw={600} mt="sm">
-            Nine built-in programs, grouped by where you are now. Every plan has visible progression logic,
-            plain-language prescriptions, and receipts that explain what changed — start simple, move into
-            weekly structure, or run advanced waves without rebuilding the plan yourself.
+            Start with a simple progression model or move into percentage waves, volume-intensity blocks, and
+            powerbuilding structure. Every plan keeps the rules visible.
           </Text>
         </div>
 
@@ -80,7 +79,7 @@ export function ProgramsShowcase() {
               <ArrowRight color="var(--vf-action-text)" size={19} />
             </div>
             <Text component="p" fw={700} mt="sm">
-              Browse all nine
+              Browse all plans
             </Text>
             <Caption fw={600} mt={2}>
               Or take the Find My Plan quiz

@@ -1,6 +1,7 @@
-import { Activity, BarChart3, ClipboardList, Crosshair, Gauge, TrendingUp, type LucideIcon } from 'lucide-react'
-import { Heading, Panel, SectionLabel, Text } from '~/components'
+import { BarChart3, ClipboardList, Crosshair, History, Receipt, TrendingUp, type LucideIcon } from 'lucide-react'
+import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import {
+  featuresFootnotes,
   marketingFeatures,
   type MarketingFeatureId,
 } from '~/domains/marketing/lib/marketing-content'
@@ -8,10 +9,10 @@ import {
 const featureIcons: Record<MarketingFeatureId, LucideIcon> = {
   adaptive: TrendingUp,
   focus: Crosshair,
+  previous: History,
+  receipts: Receipt,
+  history: BarChart3,
   plan: ClipboardList,
-  metrics: Gauge,
-  fatigue: Activity,
-  records: BarChart3,
 }
 
 export function FeaturesGrid() {
@@ -24,7 +25,7 @@ export function FeaturesGrid() {
             Training decisions you can read at a glance.
           </Heading>
           <Text component="p" tone="dimmed" fw={600} mt="sm">
-            Keep the useful parts of a serious program without needing to understand every formula on day one.
+            Keep the useful parts of serious programming without needing to manage every formula yourself.
           </Text>
         </div>
 
@@ -51,6 +52,14 @@ export function FeaturesGrid() {
               </Panel>
             )
           })}
+        </div>
+
+        <div className="mt-6 grid gap-2">
+          {featuresFootnotes.map((line) => (
+            <Caption key={line} component="p" fw={600}>
+              {line}
+            </Caption>
+          ))}
         </div>
       </div>
     </section>
