@@ -1,6 +1,5 @@
 import { Anchor, Box, Button } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
-import { ArrowRight } from 'lucide-react'
 import { BrandLockup } from '~/components'
 import { marketingNavLinks } from '~/domains/marketing/lib/marketing-content'
 import { MarketingThemeToggle } from './MarketingThemeToggle'
@@ -37,12 +36,8 @@ export function MarketingNav() {
             ))}
           </div>
           <MarketingThemeToggle />
-          <Button component={Link} to="/auth" variant="default" size="sm" className="hidden sm:inline-flex">
+          <Button component={Link} to="/auth" variant="default" size="sm">
             Sign in
-          </Button>
-          <Button component={Link} to="/auth" size="sm">
-            Get started
-            <ArrowRight color="currentColor" size={15} />
           </Button>
         </nav>
       </div>

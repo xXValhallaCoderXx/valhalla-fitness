@@ -56,6 +56,36 @@ test.describe('logged out marketing', () => {
     }).toPass({ timeout: 15000 })
   })
 
+  test('the Focus Mode demo reveals the progression call when every set is logged', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.getByText('Set 2 of 5')).toBeVisible()
+
+    // Log sets 2, 3, 4 → land on the final set (retry past the SSR hydration race).
+    for (const next of [3, 4, 5]) {
+      await expect(async () => {
+        await page.getByRole('button', { name: 'Log set' }).click()
+        await expect(page.getByText(`Set ${next} of 5`)).toBeVisible({ timeout: 1000 })
+      }).toPass({ timeout: 15000 })
+    }
+
+    // Two reps in reserve on the final set → Sheetless adds weight.
+    await page.getByRole('button', { name: '2 — two more reps' }).click()
+    await page.getByRole('button', { name: 'Log set' }).click()
+
+    const sheet = page.getByRole('dialog', { name: 'Progression result' })
+    await expect(sheet).toBeVisible()
+    await expect(sheet.getByText('Add weight')).toBeVisible()
+    await expect(sheet.getByText('87.5 → 92.5 kg')).toBeVisible()
+
+    // Every set is logged, so none is left as the faint "current" segment (all bars lit).
+    await expect(page.locator('[aria-label="Set progress"] [aria-current="true"]')).toHaveCount(0)
+
+    // "Run the demo again" resets to a fresh session.
+    await page.getByRole('button', { name: 'Run the demo again' }).click()
+    await expect(sheet).toBeHidden()
+    await expect(page.getByText('Set 2 of 5')).toBeVisible()
+  })
+
   test('the Find My Plan quiz opens and recommends a plan (no login)', async ({ page }) => {
     await page.goto('/')
 

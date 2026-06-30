@@ -3,6 +3,7 @@ import { firstActionableSetIndex, nextIncompleteSetIndex } from '../../session/c
 import {
   createFocusDemoMovement,
   focusDemoDraftFor,
+  focusDemoProgression,
   logFocusDemoSet,
   FOCUS_DEMO_SET_TOTAL,
   FOCUS_DEMO_TARGET_LOAD,
@@ -52,5 +53,42 @@ describe('logFocusDemoSet', () => {
 
     // immutable — the original movement is untouched
     expect(movement.sets.find((set) => set.setIndex === 2)!.completed).toBe(false)
+  })
+})
+
+describe('focusDemoProgression', () => {
+  const base = FOCUS_DEMO_TARGET_LOAD
+
+  it('adds 5 kg when the final set had reps in reserve (RIR 2)', () => {
+    const result = focusDemoProgression(base, 2)
+    expect(result.outcome).toBe('increase')
+    expect(result.nextLoad).toBe(base + 5)
+    expect(result.deltaKg).toBe(5)
+  })
+
+  it('treats the 3+ bucket as a progression too', () => {
+    expect(focusDemoProgression(base, 3).outcome).toBe('increase')
+  })
+
+  it('holds the load on RIR 1 (no change, encouraging)', () => {
+    const result = focusDemoProgression(base, 1)
+    expect(result.outcome).toBe('hold')
+    expect(result.nextLoad).toBe(base)
+    expect(result.deltaKg).toBe(0)
+  })
+
+  it('eases the load back on a max-effort RIR 0 set', () => {
+    const result = focusDemoProgression(base, 0)
+    expect(result.outcome).toBe('decrease')
+    expect(result.nextLoad).toBe(base - 5)
+    expect(result.deltaKg).toBe(-5)
+  })
+
+  it('holds when effort was skipped (undefined RIR)', () => {
+    expect(focusDemoProgression(base, undefined).outcome).toBe('hold')
+  })
+
+  it('never drops below zero', () => {
+    expect(focusDemoProgression(3, 0).nextLoad).toBe(0)
   })
 })
