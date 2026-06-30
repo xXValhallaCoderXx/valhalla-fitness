@@ -11,7 +11,7 @@ import { todayQueryOptions } from '~/domains/session/queries'
 import { startSessionFn } from '~/domains/session/server/session-functions'
 import type { HistoryDashboard, PlannedSession, ProgramOverview, Unit, WorkoutSession } from '~/shared/types'
 import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatCard, Text } from '~/components'
-import { PendingProgressionReviewModal, PendingReviewAlert, PendingReviewGate, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
+import { PendingProgressionReviewModal, PendingReviewAlert, PendingReviewGate } from '~/domains/program/components/PendingReview'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { useOnboardingActive } from '~/domains/onboarding/useOnboardingActive'
 import { SessionProgress, SyncPill } from './Session'
@@ -50,15 +50,6 @@ function AuthedToday() {
   const [reviewOpen, setReviewOpen] = useState(false)
   const [resolvedDecisionIds, setResolvedDecisionIds] = useState<Set<string>>(() => new Set())
   const pendingDecisions = (todayQuery.data?.pendingDecisions ?? []).filter((decision) => !resolvedDecisionIds.has(decision.id))
-  const decisionMutation = useResolveProgressionDecision({
-    onResolved: (decisionId) => {
-      setResolvedDecisionIds((current) => new Set(current).add(decisionId))
-      const remainingDecisions = (todayQuery.data?.pendingDecisions ?? []).filter(
-        (decision) => decision.id !== decisionId && !resolvedDecisionIds.has(decision.id),
-      )
-      if (!remainingDecisions.length) setReviewOpen(false)
-    },
-  })
   const startMutation = useMutation({
     mutationFn: () => startSessionFn({ data: { clientMutationId: crypto.randomUUID() } }),
     onSuccess: async (session) => {
@@ -160,9 +151,8 @@ function AuthedToday() {
         <PendingProgressionReviewModal
           opened={reviewOpen}
           decisions={pendingDecisions}
-          isSaving={decisionMutation.isPending}
           onClose={() => setReviewOpen(false)}
-          onResolve={(decisionId, action) => decisionMutation.mutate({ decisionId, action })}
+          onResolved={(decisionId) => setResolvedDecisionIds((current) => new Set(current).add(decisionId))}
         />
       </Page>
     )
@@ -293,9 +283,8 @@ function AuthedToday() {
       <PendingProgressionReviewModal
         opened={reviewOpen}
         decisions={pendingDecisions}
-        isSaving={decisionMutation.isPending}
         onClose={() => setReviewOpen(false)}
-        onResolve={(decisionId, action) => decisionMutation.mutate({ decisionId, action })}
+        onResolved={(decisionId) => setResolvedDecisionIds((current) => new Set(current).add(decisionId))}
       />
     </Page>
   )

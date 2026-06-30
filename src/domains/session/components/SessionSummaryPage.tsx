@@ -199,9 +199,9 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
       <PendingProgressionReviewModal
         opened={reviewOpen}
         decisions={pendingDecisions}
-        isSaving={decisionMutation.isPending}
+        contextLabel={session.title}
         onClose={() => setReviewOpen(false)}
-        onResolve={(decisionId, action) => decisionMutation.mutate({ decisionId, action })}
+        onResolved={(decisionId, action) => setDecided((current) => new Map(current).set(decisionId, action === 'accepted' ? 'applied' : 'kept'))}
       />
     </Page>
   )
