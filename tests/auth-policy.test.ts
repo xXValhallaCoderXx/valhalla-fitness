@@ -22,7 +22,7 @@ describe('getAuthPolicy', () => {
     expect(policy.magicLinkShouldCreateUser).toBe(false)
   })
 
-  it('lets an explicit flag re-enable password in production (staging)', () => {
+  it('lets an explicit flag re-enable password in production', () => {
     const policy = getAuthPolicy({ nodeEnv: 'production', passwordEnabled: 'true' })
     expect(policy.passwordSignInEnabled).toBe(true)
     // Allowlist still defaults on in production.

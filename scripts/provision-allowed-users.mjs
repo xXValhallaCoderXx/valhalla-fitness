@@ -34,7 +34,7 @@ const serviceRoleKey =
 if (!serviceRoleKey) {
   console.error('Missing SUPABASE_SERVICE_ROLE_KEY.')
   console.error(
-    'Set it for the target project (prod/staging), or for local run `pnpm exec supabase status -o env` and copy SERVICE_ROLE_KEY into .env.',
+    'Set it for the production project, or for local run `pnpm exec supabase status -o env` and copy SERVICE_ROLE_KEY into .env.',
   )
   process.exit(1)
 }

@@ -2,6 +2,8 @@
 
 This app follows the TanStack Start Railway guidance: use the Nitro Vite plugin, push the repo to GitHub, and let Railway's Nixpacks detection deploy the app from the normal package scripts.
 
+Railway auto-deploys the **`main`** branch (configured in the service dashboard under Settings → Source — there is no deploy config in this repo). All development happens locally; merge to `main` to ship a release.
+
 ## Package scripts
 
 Railway should detect these automatically:
@@ -78,7 +80,8 @@ NIXPACKS_NODE_VERSION=22
 Production runs **magic-link sign-in only** behind an email allowlist:
 
 - `AUTH_PASSWORD_ENABLED=false` disables password sign-in/up/reset (kept on locally for the demo
-  user and e2e; staging can re-enable it with `AUTH_PASSWORD_ENABLED=true`).
+  user and e2e). The password-reset feature stays in the codebase — it is simply inactive in
+  production under this flag, and can be re-enabled later by setting `AUTH_PASSWORD_ENABLED=true`.
 - `AUTH_ALLOWLIST_ENABLED=true` gates magic links to emails in the `allowed_emails` table.
 - In the Supabase dashboard, turn **off** "Allow new users to sign up". This is the real boundary:
   the magic-link OTP call happens in the browser with the public anon key, so disabling signup +
