@@ -11,7 +11,7 @@ import { todayQueryOptions } from '~/domains/session/queries'
 import { startSessionFn } from '~/domains/session/server/session-functions'
 import type { HistoryDashboard, PlannedSession, ProgramOverview, Unit, WorkoutSession } from '~/shared/types'
 import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatCard, Text } from '~/components'
-import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
+import { PendingProgressionReviewModal, PendingReviewAlert, PendingReviewGate, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { useOnboardingActive } from '~/domains/onboarding/useOnboardingActive'
 import { SessionProgress, SyncPill } from './Session'
@@ -232,10 +232,21 @@ function AuthedToday() {
                 {data.plannedSession.movements.length} movements · {data.plannedSession.estimatedMinutes} min
               </Text>
             </div>
-            <Button className="w-full sm:w-auto" disabled={startMutation.isPending} onClick={() => startMutation.mutate()}>
-              <Play size={16} />
-              {startMutation.isPending ? 'Starting...' : startLabel}
-            </Button>
+            <PendingReviewGate
+              pendingCount={pendingDecisions.length}
+              onReview={() => setReviewOpen(true)}
+              className="flex w-full sm:w-auto"
+            >
+              <Button
+                className="w-full sm:w-auto"
+                disabled={startMutation.isPending || pendingDecisions.length > 0}
+                style={pendingDecisions.length > 0 ? { pointerEvents: 'none' } : undefined}
+                onClick={pendingDecisions.length > 0 ? undefined : () => startMutation.mutate()}
+              >
+                <Play size={16} />
+                {startMutation.isPending ? 'Starting...' : startLabel}
+              </Button>
+            </PendingReviewGate>
           </div>
 
           {main ? (

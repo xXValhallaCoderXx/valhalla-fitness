@@ -6,6 +6,7 @@ import { Caption, Heading, Panel, SectionLabel, StatValue, Text } from '~/compon
 import type { MovementRole, ProgramOverview } from '~/shared/types'
 import type { ProgramTimelineModel } from '~/domains/program/lib/program-timeline'
 import { formatFullDate } from '~/shared/lib/dates'
+import { PendingReviewGate } from './PendingReview'
 
 /**
  * "Next up" — one short, wide band: session identity + main lift on the left,
@@ -15,9 +16,13 @@ import { formatFullDate } from '~/shared/lib/dates'
 export function NextWorkoutHero({
   overview,
   timeline,
+  pendingCount = 0,
+  onReview,
 }: {
   overview: ProgramOverview
   timeline: ProgramTimelineModel
+  pendingCount?: number
+  onReview?: () => void
 }) {
   const nextSession = overview.nextSession
   const position = overview.position
@@ -37,6 +42,8 @@ export function NextWorkoutHero({
   }
 
   const inProgress = nextSession.status === 'in_progress'
+  // Gate the "Open session" CTA (which routes to Today to start) while progression review is pending.
+  const startGated = !inProgress && nextSession.href === '/today' && pendingCount > 0 && Boolean(onReview)
   const main = nextSession.movements.find((movement) => movement.role === 'main')
   const accessories = nextSession.movements.filter((movement) => movement.role !== 'main')
   const dateLine = [
@@ -123,12 +130,21 @@ export function NextWorkoutHero({
         </div>
 
         <div className="flex flex-col gap-2.5 lg:w-48">
-          <Link to={nextSession.href} className="w-full">
-            <Button fullWidth>
-              {inProgress ? <RotateCw size={16} /> : <Play size={16} />}
-              {inProgress ? 'Resume session' : 'Open session'}
-            </Button>
-          </Link>
+          {startGated ? (
+            <PendingReviewGate pendingCount={pendingCount} onReview={onReview!} className="flex w-full">
+              <Button fullWidth disabled style={{ pointerEvents: 'none' }}>
+                <Play size={16} />
+                Open session
+              </Button>
+            </PendingReviewGate>
+          ) : (
+            <Link to={nextSession.href} className="w-full">
+              <Button fullWidth>
+                {inProgress ? <RotateCw size={16} /> : <Play size={16} />}
+                {inProgress ? 'Resume session' : 'Open session'}
+              </Button>
+            </Link>
+          )}
           <div className="hidden grid-cols-3 gap-1.5 lg:grid">
             <CompositionPill value={nextSession.mainCount} label="Main" />
             <CompositionPill value={nextSession.variationCount} label="Var." />

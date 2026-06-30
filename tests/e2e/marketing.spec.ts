@@ -81,7 +81,7 @@ test.describe('logged out marketing', () => {
     await expect(page.locator('[aria-label="Set progress"] [aria-current="true"]')).toHaveCount(0)
 
     // "Run the demo again" resets to a fresh session.
-    await page.getByRole('button', { name: 'Run the demo again' }).click()
+    await sheet.getByRole('button', { name: 'Run the demo again' }).click()
     await expect(sheet).toBeHidden()
     await expect(page.getByText('Set 2 of 5')).toBeVisible()
   })

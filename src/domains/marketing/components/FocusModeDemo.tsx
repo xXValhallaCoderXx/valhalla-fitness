@@ -184,7 +184,7 @@ export function FocusModeDemo() {
             {(styles) => (
               <button
                 type="button"
-                aria-label="Dismiss and run the demo again"
+                aria-label="Dismiss"
                 onClick={resetDemo}
                 className="absolute inset-0 z-10 cursor-pointer"
                 style={{ ...styles, backgroundColor: 'color-mix(in srgb, var(--mantine-color-body) 55%, transparent)' }}

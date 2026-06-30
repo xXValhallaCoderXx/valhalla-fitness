@@ -1,5 +1,5 @@
 import { Badge, Button } from '@mantine/core'
-import { Plus, RotateCcw, Trash2, Lock } from 'lucide-react'
+import { ArrowLeftRight, ArrowUp, Plus, RotateCcw, Trash2, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { Caption, EmptyState, Panel, SectionLabel, Text } from '~/components'
 import { getMovementName } from '~/domains/movement/lib/movements'
@@ -9,6 +9,7 @@ import {
   type AccessoryAdditionDraft,
   type WeekPreviewOption,
 } from '~/domains/program/lib/template-start-utils'
+import type { TemplatePhase, TemplateStructureMode } from '~/domains/program/lib/template-start-phases'
 import type {
   ProgramSetupOptions,
   ProgramSetupPreviewMovement,
@@ -22,6 +23,10 @@ export function TemplateStartPreview({
   activeWeek,
   activeWeekOption,
   weekOptions,
+  mode,
+  phases,
+  activePhaseKey,
+  changedSlots,
   units,
   setupOptions,
   movementOverrides,
@@ -34,6 +39,10 @@ export function TemplateStartPreview({
   activeWeek: ProgramSetupOptions['previewWeeks'][number] | undefined
   activeWeekOption: WeekPreviewOption | undefined
   weekOptions: WeekPreviewOption[]
+  mode: TemplateStructureMode
+  phases: TemplatePhase[]
+  activePhaseKey: string
+  changedSlots: Set<string>
   units: Unit
   setupOptions: ProgramSetupOptions
   movementOverrides: ProgramStartMovementOverrideInput[]
@@ -47,18 +56,35 @@ export function TemplateStartPreview({
     return <EmptyState title="No preview available">This programme does not have a setup preview yet.</EmptyState>
   }
 
+  const activePhase = phases.find((phase) => phase.phaseKey === activePhaseKey)
+  const planTitle = mode === 'phased' && activePhase ? activePhase.phaseLabel : weekOptionHeading(activeWeekOption)
+
   return (
     <section>
       <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <SectionLabel>Week plan</SectionLabel>
-          <Text mt={4} size="lg" fw={800}>{weekOptionHeading(activeWeekOption)}</Text>
+          <Text mt={4} size="lg" fw={800}>{planTitle}</Text>
           <Text mt={4} size="sm" tone="dimmed" className="max-w-3xl">{activeWeek.summary}</Text>
-          {activeWeekOption?.detail ? (
+          {mode !== 'phased' && activeWeekOption?.detail ? (
             <Caption mt={4} fw={600}>{activeWeekOption.detail}</Caption>
           ) : null}
         </div>
-        {weekOptions.length > 1 ? (
+        {mode === 'phased' && phases.length > 1 ? (
+          <div className="flex max-w-full gap-2 overflow-x-auto pb-1 no-scrollbar sm:pb-0">
+            {phases.map((phase) => (
+              <Button
+                key={phase.phaseKey}
+                size="xs"
+                variant={phase.phaseKey === activePhaseKey ? 'filled' : 'default'}
+                className="shrink-0"
+                onClick={() => onWeekChange(phase.firstWeekIndex)}
+              >
+                {phase.phaseLabel.replace(/\s+phase$/i, '')}
+              </Button>
+            ))}
+          </div>
+        ) : mode === 'cycle' && weekOptions.length > 1 ? (
           <div className="flex max-w-full gap-2 overflow-x-auto pb-1 no-scrollbar sm:pb-0">
             {weekOptions.map((option) => (
               <Button
@@ -84,6 +110,7 @@ export function TemplateStartPreview({
             setupOptions={setupOptions}
             movementOverrides={movementOverrides}
             accessoryAdditions={accessoryAdditions}
+            changedSlots={changedSlots}
             onMovementOverrideChange={onMovementOverrideChange}
             onAddAccessory={onAddAccessory}
             onRemoveAccessory={onRemoveAccessory}
@@ -100,6 +127,7 @@ function ProgramDayCard({
   setupOptions,
   movementOverrides,
   accessoryAdditions,
+  changedSlots,
   onMovementOverrideChange,
   onAddAccessory,
   onRemoveAccessory,
@@ -109,6 +137,7 @@ function ProgramDayCard({
   setupOptions: ProgramSetupOptions
   movementOverrides: ProgramStartMovementOverrideInput[]
   accessoryAdditions: AccessoryAdditionDraft[]
+  changedSlots: Set<string>
   onMovementOverrideChange: (movement: ProgramSetupPreviewMovement, replacementMovementId: string) => void
   onAddAccessory: (addition: ProgramStartAccessoryAdditionInput) => void
   onRemoveAccessory: (clientId: string) => void
@@ -140,6 +169,7 @@ function ProgramDayCard({
             movement={movement}
             movementOverrides={movementOverrides}
             editable
+            phaseChanged={changedSlots.has(movement.slotId)}
             onMovementOverrideChange={onMovementOverrideChange}
           />
         ))}
@@ -188,11 +218,13 @@ function MovementPreviewRow({
   movement,
   movementOverrides,
   editable = false,
+  phaseChanged = false,
   onMovementOverrideChange,
 }: {
   movement: ProgramSetupPreviewMovement
   movementOverrides: ProgramStartMovementOverrideInput[]
   editable?: boolean
+  phaseChanged?: boolean
   onMovementOverrideChange: (movement: ProgramSetupPreviewMovement, replacementMovementId: string) => void
 }) {
   const override = movementOverrides.find(
@@ -204,40 +236,64 @@ function MovementPreviewRow({
     : getMovementName(selectedMovementId)
   const canSwap = isSetupConfigurableRole(movement.role) && movement.replacementOptions.length > 0
   const changed = Boolean(override)
+  const [swapOpen, setSwapOpen] = useState(false)
 
   return (
     <Panel
       surface="inset"
       px="xs"
       py={8}
-      className={`grid gap-2 ${
-        editable && canSwap ? 'md:grid-cols-[minmax(0,1fr)_minmax(10rem,16rem)_auto] md:items-center' : 'sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center'
-      }`}
       style={{
         borderColor: changed ? 'var(--vf-action-border)' : 'var(--mantine-color-default-border)',
         backgroundColor: changed ? 'var(--vf-action-soft)' : 'var(--vf-surface-2)',
       }}
     >
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge color={movement.role === 'main' ? 'neutral' : movement.role === 'variation' ? 'action' : 'success'} size="xs">
-            {movement.roleLabel}
-          </Badge>
-          {changed ? <Badge color="warning" size="xs">Changed</Badge> : null}
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge color={movement.role === 'main' ? 'neutral' : movement.role === 'variation' ? 'action' : 'success'} size="xs">
+              {movement.roleLabel}
+            </Badge>
+            {phaseChanged ? (
+              <Badge color="action" size="xs" leftSection={<ArrowUp size={10} />}>Updated</Badge>
+            ) : null}
+            {changed ? <Badge color="warning" size="xs">Changed</Badge> : null}
+          </div>
+          <Text mt={2} size="sm" fw={800} truncate>{selectedMovementName}</Text>
+          {changed ? (
+            <Caption size="0.625rem" truncate>Default: {movement.defaultMovementName}</Caption>
+          ) : null}
+          <Caption size="0.6875rem" truncate>{movement.targetSummary}</Caption>
         </div>
-        <Text mt={2} size="sm" fw={800} truncate>{selectedMovementName}</Text>
-        {changed ? (
-          <Caption size="0.625rem" truncate>
-            Default: {movement.defaultMovementName}
-          </Caption>
-        ) : null}
-        <Caption size="0.6875rem" truncate>{movement.targetSummary}</Caption>
+
+        {editable && canSwap ? (
+          <button
+            type="button"
+            onClick={() => setSwapOpen((current) => !current)}
+            aria-label={`Swap ${selectedMovementName}`}
+            aria-expanded={swapOpen}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition active:scale-95"
+            style={{
+              borderColor: swapOpen || changed ? 'var(--vf-action-border)' : 'var(--mantine-color-default-border)',
+              backgroundColor: swapOpen || changed ? 'var(--vf-action-soft)' : 'var(--mantine-color-default)',
+            }}
+          >
+            <ArrowLeftRight size={16} color="var(--vf-action-text)" />
+          </button>
+        ) : canSwap ? (
+          <Caption fw={700}>Customizable</Caption>
+        ) : (
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Lock size={13} />
+            <Caption fw={700}>Locked</Caption>
+          </div>
+        )}
       </div>
 
-      {editable && canSwap ? (
-        <>
+      {editable && canSwap && swapOpen ? (
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
           <select
-            className="min-h-9 rounded-md border px-2.5"
+            className="min-h-9 flex-1 rounded-md border px-2.5"
             style={{
               borderColor: 'var(--mantine-color-default-border)',
               backgroundColor: 'var(--mantine-color-default)',
@@ -245,7 +301,7 @@ function MovementPreviewRow({
               fontWeight: 600,
             }}
             value={selectedMovementId}
-            aria-label={`Swap ${movement.defaultMovementName}`}
+            aria-label={`Choose a replacement for ${movement.defaultMovementName}`}
             onChange={(event) => onMovementOverrideChange(movement, event.target.value)}
           >
             <option value={movement.defaultMovementId}>Default: {movement.defaultMovementName}</option>
@@ -255,24 +311,19 @@ function MovementPreviewRow({
               </option>
             ))}
           </select>
-          <Button
-            variant="default"
-            size="xs"
-            disabled={!changed}
-            onClick={() => onMovementOverrideChange(movement, movement.defaultMovementId)}
-          >
-            <RotateCcw size={14} />
-            Reset
-          </Button>
-        </>
-      ) : canSwap ? (
-        <Caption fw={700}>Customizable</Caption>
-      ) : (
-        <div className="flex items-center gap-1.5 sm:justify-end">
-          <Lock size={13} />
-          <Caption fw={700}>Locked</Caption>
+          {changed ? (
+            <Button
+              variant="default"
+              size="xs"
+              className="shrink-0"
+              onClick={() => onMovementOverrideChange(movement, movement.defaultMovementId)}
+            >
+              <RotateCcw size={14} />
+              Reset
+            </Button>
+          ) : null}
         </div>
-      )}
+      ) : null}
     </Panel>
   )
 }

@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Modal } from '@mantine/core'
+import { Badge, Button, Card, Modal, Popover } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Check, Clock3, X } from 'lucide-react'
@@ -42,6 +42,47 @@ export function useResolveProgressionDecision({
       })
     },
   })
+}
+
+/**
+ * Wraps a session-start button so that, while progression decisions are pending, the button is shown
+ * disabled and a tap/click reveals a Popover (mobile-safe — not a hover Tooltip) explaining why, with a
+ * "Review changes" link that opens the review modal. The caller renders the child button disabled with
+ * `pointerEvents: 'none'` so the wrapping span receives the tap. With no pending items, renders the child as-is.
+ */
+export function PendingReviewGate({
+  pendingCount,
+  onReview,
+  className,
+  children,
+}: {
+  pendingCount: number
+  onReview: () => void
+  className?: string
+  children: ReactNode
+}) {
+  if (pendingCount <= 0) return <>{children}</>
+
+  return (
+    <Popover withArrow withinPortal position="top" radius="md" shadow="md" offset={6} width={224}>
+      <Popover.Target>
+        <span className={className}>{children}</span>
+      </Popover.Target>
+      <Popover.Dropdown p="xs">
+        <div className="flex items-start gap-2">
+          <AlertTriangle size={15} color="var(--vf-warning-text)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <div className="min-w-0">
+            <Caption component="p" lh={1.35}>
+              {pendingCount} pending change{pendingCount === 1 ? '' : 's'} to review before your next session.
+            </Caption>
+            <Button variant="subtle" color="action" size="compact-xs" mt={6} onClick={onReview}>
+              Review changes
+            </Button>
+          </div>
+        </div>
+      </Popover.Dropdown>
+    </Popover>
+  )
 }
 
 export function PendingReviewAlert({

@@ -272,6 +272,9 @@ export type ProgramSetupPreviewWeek = {
   subtitle: string
   summary: string
   hardness: 'Light' | 'Medium' | 'Hard' | 'Deload'
+  /** Representative main-lift working intensity as a 0–1 fraction; undefined when the template is
+   *  not percent-of-state (working-load / RPE / user-selected) so the intensity ramp degrades. */
+  intensityPercent?: number
   sessions: ProgramSetupPreviewSession[]
 }
 

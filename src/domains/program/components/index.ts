@@ -9,5 +9,6 @@ export { TemplateStartPage } from './TemplateStartPage'
 export {
   PendingProgressionReviewModal,
   PendingReviewAlert,
+  PendingReviewGate,
   useResolveProgressionDecision,
 } from './PendingReview'

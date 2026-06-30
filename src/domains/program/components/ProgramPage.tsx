@@ -74,7 +74,12 @@ function AuthedProgram() {
 
       <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
 
-      <NextWorkoutHero overview={overview} timeline={timeline} />
+      <NextWorkoutHero
+        overview={overview}
+        timeline={timeline}
+        pendingCount={pendingDecisions.length}
+        onReview={() => setReviewOpen(true)}
+      />
 
       <ProgramSummaryGrid overview={overview} timeline={timeline} />
 

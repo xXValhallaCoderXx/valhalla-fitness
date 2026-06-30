@@ -12,7 +12,6 @@ import {
   profileLoadDefault,
 } from '~/domains/program/lib/program-loads'
 import {
-  defaultsSummary,
   formatNumber,
   formatStateType,
   hasUsableStateValue,
@@ -118,6 +117,32 @@ function StrengthEstimatesLink({ children = 'Settings > Strength Estimates' }: {
   )
 }
 
+export function QuickFactsCard({
+  className,
+  facts,
+}: {
+  className?: string
+  facts: { label: string; value: ReactNode }[]
+}) {
+  return (
+    <Card className={className} p="md">
+      <SectionLabel>Quick facts</SectionLabel>
+      <div className="mt-2">
+        {facts.map((fact, index) => (
+          <div
+            key={fact.label}
+            className="flex items-center justify-between gap-3 py-2.5"
+            style={index > 0 ? { borderTop: '1px solid var(--mantine-color-default-border)' } : undefined}
+          >
+            <Caption>{fact.label}</Caption>
+            <Text size="sm" fw={800} ta="right">{fact.value}</Text>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
 export function StartSummaryPanel({
   className,
   units,
@@ -127,7 +152,6 @@ export function StartSummaryPanel({
   hasTrainingMaxState,
   hasWorkingLoadState,
   customizationCount,
-  hasActiveProgram,
   startError,
   isPending,
   onStart,
@@ -141,17 +165,30 @@ export function StartSummaryPanel({
   hasTrainingMaxState: boolean
   hasWorkingLoadState: boolean
   customizationCount: number
-  hasActiveProgram: boolean
   startError: string | null
   isPending: boolean
   onStart: () => void
   onViewDefaults: () => void
 }) {
+  const valuesLabel =
+    visibleState.length > 0 && missingRequiredState.length === 0 ? 'Modify starting values' : 'Set up values'
   return (
     <Card className={`space-y-4 ${className ?? ''}`} p="md">
       <div>
         <SectionLabel>Starting values</SectionLabel>
-        <Text mt={4} size="sm" fw={800}>{defaultsSummary(units, rounding, visibleState)}</Text>
+        <Text mt={4} size="sm" fw={800}>{units} · round {rounding}</Text>
+        {visibleState.length ? (
+          <Badge
+            mt={8}
+            variant="light"
+            color={missingRequiredState.length ? 'warning' : 'success'}
+            leftSection={<Check size={12} />}
+          >
+            {missingRequiredState.length
+              ? `${missingRequiredState.length} value${missingRequiredState.length === 1 ? '' : 's'} to set`
+              : `${visibleState.length} value${visibleState.length === 1 ? '' : 's'} ready`}
+          </Badge>
+        ) : null}
         <Caption mt={4}>
           {hasWorkingLoadState
             ? 'Working loads are suggested from your saved e1RMs for this programme.'
@@ -163,7 +200,7 @@ export function StartSummaryPanel({
           className="mt-3"
           disabled={missingRequiredState.length > 0}
           fullWidth
-          label="Set up values"
+          label={valuesLabel}
           onClick={onViewDefaults}
         />
       </div>
@@ -174,21 +211,6 @@ export function StartSummaryPanel({
           {customizationCount ? `${customizationCount} selected` : 'Using defaults'}
         </Text>
       </Panel>
-
-      {hasActiveProgram ? (
-        <Text
-          size="xs"
-          style={{
-            border: '1px solid var(--vf-warning-border)',
-            backgroundColor: 'var(--vf-warning-soft)',
-            color: 'var(--vf-warning-text)',
-            borderRadius: 'var(--mantine-radius-md)',
-            padding: 'var(--mantine-spacing-sm)',
-          }}
-        >
-          Starting will ask before replacing your active programme.
-        </Text>
-      ) : null}
 
       {missingRequiredState.length ? (
         <MissingStrengthEstimatesNotice

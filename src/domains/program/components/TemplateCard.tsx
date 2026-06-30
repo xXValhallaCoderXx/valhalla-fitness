@@ -1,5 +1,5 @@
 import { Badge, Button, Card } from '@mantine/core'
-import { Check, Lock } from 'lucide-react'
+import { Check, Eye, Lock } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import type { ProgramTemplateSummary } from '~/shared/types'
@@ -75,8 +75,8 @@ export function TemplateCard({
         </Button>
       ) : template.available ? (
         <Button className="w-full" onClick={onStart}>
-          <Check size={16} />
-          Start Program
+          <Eye size={16} />
+          View programme
         </Button>
       ) : (
         <Button variant="default" disabled>
