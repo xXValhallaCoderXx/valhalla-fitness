@@ -11,7 +11,7 @@ import { todayQueryOptions } from '~/domains/session/queries'
 import { startSessionFn } from '~/domains/session/server/session-functions'
 import type { HistoryDashboard, PlannedSession, ProgramOverview, Unit, WorkoutSession } from '~/shared/types'
 import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatCard, Text } from '~/components'
-import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
+import { PendingProgressionReviewModal, PendingReviewAlert, PendingReviewGate } from '~/domains/program/components/PendingReview'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { useOnboardingActive } from '~/domains/onboarding/useOnboardingActive'
 import { SessionProgress, SyncPill } from './Session'
@@ -50,15 +50,6 @@ function AuthedToday() {
   const [reviewOpen, setReviewOpen] = useState(false)
   const [resolvedDecisionIds, setResolvedDecisionIds] = useState<Set<string>>(() => new Set())
   const pendingDecisions = (todayQuery.data?.pendingDecisions ?? []).filter((decision) => !resolvedDecisionIds.has(decision.id))
-  const decisionMutation = useResolveProgressionDecision({
-    onResolved: (decisionId) => {
-      setResolvedDecisionIds((current) => new Set(current).add(decisionId))
-      const remainingDecisions = (todayQuery.data?.pendingDecisions ?? []).filter(
-        (decision) => decision.id !== decisionId && !resolvedDecisionIds.has(decision.id),
-      )
-      if (!remainingDecisions.length) setReviewOpen(false)
-    },
-  })
   const startMutation = useMutation({
     mutationFn: () => startSessionFn({ data: { clientMutationId: crypto.randomUUID() } }),
     onSuccess: async (session) => {
@@ -160,9 +151,8 @@ function AuthedToday() {
         <PendingProgressionReviewModal
           opened={reviewOpen}
           decisions={pendingDecisions}
-          isSaving={decisionMutation.isPending}
           onClose={() => setReviewOpen(false)}
-          onResolve={(decisionId, action) => decisionMutation.mutate({ decisionId, action })}
+          onResolved={(decisionId) => setResolvedDecisionIds((current) => new Set(current).add(decisionId))}
         />
       </Page>
     )
@@ -232,17 +222,28 @@ function AuthedToday() {
                 {data.plannedSession.movements.length} movements · {data.plannedSession.estimatedMinutes} min
               </Text>
             </div>
-            <Button className="w-full sm:w-auto" disabled={startMutation.isPending} onClick={() => startMutation.mutate()}>
-              <Play size={16} />
-              {startMutation.isPending ? 'Starting...' : startLabel}
-            </Button>
+            <PendingReviewGate
+              pendingCount={pendingDecisions.length}
+              onReview={() => setReviewOpen(true)}
+              className="flex w-full sm:w-auto"
+            >
+              <Button
+                className="w-full sm:w-auto"
+                disabled={startMutation.isPending || pendingDecisions.length > 0}
+                style={pendingDecisions.length > 0 ? { pointerEvents: 'none' } : undefined}
+                onClick={pendingDecisions.length > 0 ? undefined : () => startMutation.mutate()}
+              >
+                <Play size={16} />
+                {startMutation.isPending ? 'Starting...' : startLabel}
+              </Button>
+            </PendingReviewGate>
           </div>
 
           {main ? (
             <Panel surface="inset" p="sm" style={{ borderColor: 'var(--vf-action-border)', backgroundColor: 'var(--vf-action-soft)' }}>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <Badge color="action"><Dumbbell size={12} /> Main lift</Badge>
+                  <Badge color="action" leftSection={<Dumbbell size={12} />}>Main lift</Badge>
                   <Heading mt="xs" order={3} size="h4" lh={1.15} className="truncate">{main.movementName}</Heading>
                   <Text size="sm" tone="dimmed">{main.targetSummary}</Text>
                 </div>
@@ -282,9 +283,8 @@ function AuthedToday() {
       <PendingProgressionReviewModal
         opened={reviewOpen}
         decisions={pendingDecisions}
-        isSaving={decisionMutation.isPending}
         onClose={() => setReviewOpen(false)}
-        onResolve={(decisionId, action) => decisionMutation.mutate({ decisionId, action })}
+        onResolved={(decisionId) => setResolvedDecisionIds((current) => new Set(current).add(decisionId))}
       />
     </Page>
   )

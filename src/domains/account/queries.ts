@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
-import { fetchUserFn } from '~/domains/account/server/auth-functions'
+import { fetchUserFn, getAuthPolicyFn } from '~/domains/account/server/auth-functions'
 import { getMeFn } from '~/domains/account/server/profile-functions'
 import { queryStaleTimes } from '~/shared/lib/query-stale-times'
 
@@ -17,4 +17,13 @@ export const meQueryOptions = () =>
     queryFn: () => getMeFn(),
     staleTime: queryStaleTimes.profile,
     gcTime: 30 * 60_000,
+  })
+
+export const authPolicyQueryOptions = () =>
+  queryOptions({
+    queryKey: ['auth', 'policy'],
+    queryFn: () => getAuthPolicyFn(),
+    // Environment-level constant for the deployment; fetch once and keep.
+    staleTime: Infinity,
+    gcTime: Infinity,
   })

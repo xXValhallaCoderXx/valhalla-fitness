@@ -402,7 +402,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
                           {isSet ? 'Set' : 'Unset'}
                         </Badge>
                       </div>
-                      <span className="relative block">
+                      <span className="relative block pt-1">
                         <TextInput
                           classNames={{ input: 'pr-24 text-right' }}
                           type="number"

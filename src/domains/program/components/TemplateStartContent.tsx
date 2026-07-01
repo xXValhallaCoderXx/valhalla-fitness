@@ -3,7 +3,7 @@ import { notifications } from '@mantine/notifications'
 import { useMutation } from '@tanstack/react-query'
 import { Link, useRouter } from '@tanstack/react-router'
 import { ArrowLeft, Check, Info } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Caption, ConfirmDialog, Page, PageHeader, Text } from '~/components'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import {
@@ -33,21 +33,30 @@ import type {
   TodayPayload,
   UserProfile,
 } from '~/shared/types'
+import {
+  changedSlotIds,
+  deriveTemplatePhases,
+  templateStructureMode,
+} from '~/domains/program/lib/template-start-phases'
 import { StartInfoMetric } from './TemplateStartMetric'
+import { ProgrammeBlocksCard } from './TemplateStartBlocks'
 import { ProgrammeInfoModal } from './TemplateStartInfoModal'
 import { TemplateStartPreview } from './TemplateStartPreview'
-import { DefaultsModal, SetupValuesButton, StartSummaryPanel } from './TemplateStartValues'
+import { DefaultsModal, QuickFactsCard, SetupValuesButton, StartSummaryPanel } from './TemplateStartValues'
 
 export function TemplateStartContent({
   template,
   me,
   today,
   setupOptions,
+  scheduleSelector,
 }: {
   template: ProgramTemplateSummary
   me: UserProfile
   today: TodayPayload
   setupOptions: ProgramSetupOptions
+  /** Optional programme-family variant selector rendered under the header (see TemplateStartPage). */
+  scheduleSelector?: ReactNode
 }) {
   const router = useRouter()
   const [activeWeekIndex, setActiveWeekIndex] = useState(0)
@@ -65,8 +74,28 @@ export function TemplateStartContent({
   const activeSessionId = today.activeSession?.sessionId
   const weekOptions = useMemo(() => compactWeekPreviewOptions(setupOptions.previewWeeks), [setupOptions.previewWeeks])
   const activeWeekOption = weekOptions.find((option) => option.week.index === activeWeekIndex) ?? weekOptions[0]
-  const activeWeek = activeWeekOption?.week ?? setupOptions.previewWeeks[0]
+  // Resolve the active week directly by index (not via the compacted layout groups) so phase tabs
+  // can jump to any phase even when its movements match the previous phase.
+  const activeWeek =
+    setupOptions.previewWeeks.find((week) => week.index === activeWeekIndex) ?? setupOptions.previewWeeks[0]
   const customizationCount = movementOverrides.length + accessoryAdditions.length
+
+  const phases = useMemo(() => deriveTemplatePhases(setupOptions.previewWeeks), [setupOptions.previewWeeks])
+  const mode = useMemo(() => templateStructureMode(setupOptions.previewWeeks), [setupOptions.previewWeeks])
+  const activePhaseKey = activeWeek?.phaseKey ?? phases[0]?.phaseKey ?? ''
+  const changedSlots = useMemo(() => {
+    if (mode !== 'phased') return new Set<string>()
+    const index = phases.findIndex((phase) => phase.phaseKey === activePhaseKey)
+    if (index <= 0) return new Set<string>()
+    return changedSlotIds(phases[index - 1]!, phases[index]!)
+  }, [mode, phases, activePhaseKey])
+  const quickFacts = [
+    { label: 'Schedule', value: `${template.daysPerWeek} days/wk` },
+    { label: 'Progression', value: template.progressionLabel },
+    { label: 'Complexity', value: template.complexity },
+    { label: 'Cycle', value: `${setupOptions.previewWeeks.length} weeks` },
+    ...(phases.length > 1 ? [{ label: 'Phases', value: String(phases.length) }] : []),
+  ]
 
   const visibleState = useMemo(
     () =>
@@ -258,9 +287,19 @@ export function TemplateStartContent({
         {template.description}
       </PageHeader>
 
+      {scheduleSelector}
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
         <div className="min-w-0 space-y-4">
-          <div className="grid gap-2 sm:grid-cols-3">
+          <ProgrammeBlocksCard
+            mode={mode}
+            phases={phases}
+            activePhaseKey={activePhaseKey}
+            weeks={setupOptions.previewWeeks}
+            onSelectPhase={setActiveWeekIndex}
+          />
+
+          <div className="grid gap-2 sm:grid-cols-3 lg:hidden">
             <StartInfoMetric label="Schedule" value={`${template.daysPerWeek} days/wk`} />
             <StartInfoMetric label="Progression" value={template.progressionLabel} />
             <StartInfoMetric label="Complexity" value={template.complexity} />
@@ -270,6 +309,10 @@ export function TemplateStartContent({
             activeWeek={activeWeek}
             activeWeekOption={activeWeekOption}
             weekOptions={weekOptions}
+            mode={mode}
+            phases={phases}
+            activePhaseKey={activePhaseKey}
+            changedSlots={changedSlots}
             units={me.units}
             setupOptions={setupOptions}
             movementOverrides={movementOverrides}
@@ -281,21 +324,22 @@ export function TemplateStartContent({
           />
         </div>
 
-        <StartSummaryPanel
-          className="hidden lg:sticky lg:top-0 lg:block"
-          units={me.units}
-          rounding={me.rounding}
-          visibleState={visibleState}
-          missingRequiredState={missingRequiredState}
-          hasTrainingMaxState={hasTrainingMaxState}
-          hasWorkingLoadState={hasWorkingLoadState}
-          customizationCount={customizationCount}
-          hasActiveProgram={Boolean(today.activeProgram)}
-          startError={startError}
-          isPending={startMutation.isPending}
-          onStart={requestStartProgram}
-          onViewDefaults={() => setShowDefaultsModal(true)}
-        />
+        <div className="hidden lg:sticky lg:top-0 lg:flex lg:flex-col lg:gap-4">
+          <QuickFactsCard facts={quickFacts} />
+          <StartSummaryPanel
+            units={me.units}
+            rounding={me.rounding}
+            visibleState={visibleState}
+            missingRequiredState={missingRequiredState}
+            hasTrainingMaxState={hasTrainingMaxState}
+            hasWorkingLoadState={hasWorkingLoadState}
+            customizationCount={customizationCount}
+            startError={startError}
+            isPending={startMutation.isPending}
+            onStart={requestStartProgram}
+            onViewDefaults={() => setShowDefaultsModal(true)}
+          />
+        </div>
       </div>
 
       <div
@@ -331,7 +375,7 @@ export function TemplateStartContent({
             <div className="flex shrink-0 gap-2">
               <SetupValuesButton
                 disabled={missingRequiredState.length > 0}
-                label="Values"
+                label={missingRequiredState.length === 0 && visibleState.length > 0 ? 'Modify values' : 'Values'}
                 onClick={() => setShowDefaultsModal(true)}
               />
               <Button disabled={startMutation.isPending || missingRequiredState.length > 0} onClick={requestStartProgram}>
@@ -363,6 +407,7 @@ export function TemplateStartContent({
         opened={showProgrammeInfo}
         template={template}
         setupOptions={setupOptions}
+        phases={phases}
         weekOptions={weekOptions}
         onClose={() => setShowProgrammeInfo(false)}
       />

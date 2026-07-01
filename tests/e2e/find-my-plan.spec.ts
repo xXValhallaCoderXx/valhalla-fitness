@@ -17,15 +17,18 @@ test('find my plan recommends a plan and adapts to the answers', async ({ page }
   await dialog.getByRole('button', { name: '2–3 days' }).click()
   await dialog.getByRole('button', { name: 'Keep it simple' }).click()
   await expect(dialog.getByText('We recommend')).toBeVisible()
-  await expect(dialog.getByText('Beginner 5x5 Linear')).toBeVisible()
+  // The finder leads with the programme *family*; the concrete pick shows as its recommended schedule.
+  await expect(dialog.getByRole('heading', { name: 'Beginner Linear Strength' })).toBeVisible()
+  await expect(dialog.getByText(/Recommended schedule: 3-day/)).toBeVisible()
   await expect(dialog.getByText('Other good fits')).toBeVisible()
 
-  // Re-answer from scratch — very experienced / 4+ days / muscle → the advanced plan.
+  // Re-answer from scratch — very experienced / 4 days / muscle → the Bromley wave family.
   await dialog.getByRole('button', { name: 'Start over' }).click()
   await dialog.getByRole('button', { name: 'Very experienced' }).click()
-  await dialog.getByRole('button', { name: '4+ days' }).click()
+  await dialog.getByRole('button', { name: '4 days' }).click()
   await dialog.getByRole('button', { name: 'Muscle + strength' }).click()
-  await expect(dialog.getByText('Old School Wave Powerbuilding')).toBeVisible()
+  await expect(dialog.getByRole('heading', { name: 'Classic Volume Strength' })).toBeVisible()
+  await expect(dialog.getByText(/Recommended schedule: 4-day Old School Wave/)).toBeVisible()
 
   // Starting the recommended plan routes into its setup flow.
   await dialog.getByRole('button', { name: 'Start this plan' }).click()
@@ -42,14 +45,19 @@ test('find my plan recommends a new gap-filling plan and starts it from the DB s
 
   const dialog = page.getByRole('dialog')
 
-  // Beginner + 4+ days + keep it simple — the new four-day upper/lower split fills the gap.
+  // Beginner + 4 days + keep it simple — the new four-day upper/lower split fills the gap.
   await dialog.getByRole('button', { name: 'New to lifting' }).click()
-  await dialog.getByRole('button', { name: '4+ days' }).click()
+  await dialog.getByRole('button', { name: '4 days' }).click()
   await dialog.getByRole('button', { name: 'Keep it simple' }).click()
-  await expect(dialog.getByText('Beginner Upper/Lower')).toBeVisible()
+  // The finder leads with the family name; the concrete 4-day pick shows as the recommended schedule.
+  await expect(dialog.getByRole('heading', { name: 'Beginner Linear Strength' })).toBeVisible()
+  await expect(dialog.getByText(/Recommended schedule: 4-day Upper\/Lower/)).toBeVisible()
 
   // Start it — proves the DB-seeded template + version load the setup screen end-to-end.
   await dialog.getByRole('button', { name: 'Start this plan' }).click()
   await expect(page).toHaveURL(/\/templates\/beginner_upper_lower_lp\/start/)
-  await expect(page.getByRole('button', { name: 'Start programme' })).toBeVisible({ timeout: 10000 })
+  // The start CTA label is responsive: "Start programme" on desktop (sidebar), a compact "Start"
+  // in the mobile sticky footer (the desktop button is not rendered at the mobile breakpoint).
+  const startCta = (page.viewportSize()?.width ?? 1280) < 1024 ? 'Start' : 'Start programme'
+  await expect(page.getByRole('button', { name: startCta, exact: true })).toBeVisible({ timeout: 10000 })
 })

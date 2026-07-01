@@ -656,6 +656,9 @@ export const defaultMovementReplacementRules: MovementReplacementRule[] = [
   accessoryRule('overhead_triceps_extension', 'skullcrusher', 'Triceps accessory'),
   accessoryRule('hanging_leg_raise', 'cable_crunch', 'Core accessory'),
   accessoryRule('hanging_leg_raise', 'ab_wheel_rollout', 'Core accessory'),
+  // Accessory sources introduced by the 5-day programme pack (close-grip bench on the bro-split arms day).
+  accessoryRule('close_grip_bench_press', 'jm_press', 'Triceps press accessory'),
+  accessoryRule('close_grip_bench_press', 'skullcrusher', 'Triceps press accessory'),
   variationRule('front_squat', 'pause_squat', 'Programmed squat variation'),
   variationRule('front_squat', 'safety_bar_squat', 'Programmed squat variation'),
   variationRule('pause_squat', 'front_squat', 'Programmed squat variation'),

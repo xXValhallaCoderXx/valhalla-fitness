@@ -58,3 +58,66 @@ export function logFocusDemoSet(movement: MovementSlot, setIndex: number, draft:
     ),
   }
 }
+
+/** Load step the demo nudges by when it progresses or eases back (kg). */
+export const FOCUS_DEMO_LOAD_STEP = 5
+
+export type FocusDemoOutcome = 'increase' | 'hold' | 'decrease'
+
+export type FocusDemoProgression = {
+  outcome: FocusDemoOutcome
+  previousLoad: number
+  nextLoad: number
+  deltaKg: number
+  /** Short uppercase verb shown above the call. */
+  eyebrow: string
+  /** The call itself (carries the loads). */
+  title: string
+  /** Plain-language "why". */
+  body: string
+}
+
+/**
+ * The demo's progression call, driven by the reps-in-reserve logged on the final set:
+ *  - RIR >= 2  → reps to spare, add a step (+5 kg) next session
+ *  - RIR === 1 → dialed in, hold the load (no change — encouraging)
+ *  - RIR === 0 → max-effort grinder with nothing left, ease the load back a step
+ * A skipped effort (null/undefined RIR) holds the load. Mirrors the spirit of the real
+ * `progression.ts` rules (grinder → hold, reps in reserve → progress) in a simplified form.
+ */
+export function focusDemoProgression(currentLoad: number, finalRir: number | null | undefined): FocusDemoProgression {
+  if (finalRir != null && finalRir >= 2) {
+    const nextLoad = currentLoad + FOCUS_DEMO_LOAD_STEP
+    const repsLeft = finalRir >= 3 ? '3+' : String(finalRir)
+    return {
+      outcome: 'increase',
+      previousLoad: currentLoad,
+      nextLoad,
+      deltaKg: FOCUS_DEMO_LOAD_STEP,
+      eyebrow: 'Add weight',
+      title: `${currentLoad} → ${nextLoad} kg`,
+      body: `You finished all five sets with ${repsLeft} reps in reserve — strength to spare. That clears the progression rule, so Sheetless moves your squat from ${currentLoad} kg to ${nextLoad} kg next session.`,
+    }
+  }
+  if (finalRir === 0) {
+    const nextLoad = Math.max(0, currentLoad - FOCUS_DEMO_LOAD_STEP)
+    return {
+      outcome: 'decrease',
+      previousLoad: currentLoad,
+      nextLoad,
+      deltaKg: nextLoad - currentLoad,
+      eyebrow: 'Ease back',
+      title: `${currentLoad} → ${nextLoad} kg`,
+      body: `That last set was everything you had — zero reps left. Sheetless eases the load to ${nextLoad} kg next session so your form stays sharp, then you build back up stronger.`,
+    }
+  }
+  return {
+    outcome: 'hold',
+    previousLoad: currentLoad,
+    nextLoad: currentLoad,
+    deltaKg: 0,
+    eyebrow: 'Hold & repeat',
+    title: `Stay at ${currentLoad} kg`,
+    body: `Nice work — you owned all five sets at ${currentLoad} kg with about a rep left. No change this session: repeat it to lock in the groove, and your next jump is right around the corner.`,
+  }
+}

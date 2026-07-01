@@ -1,18 +1,52 @@
-import { Badge, Button, Card } from '@mantine/core'
-import { Check, Lock } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { ActionIcon, Badge, Button, Card, Popover } from '@mantine/core'
+import { Check, Eye, Info, Layers, Lock } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import type { ProgramTemplateSummary } from '~/shared/types'
+import {
+  complexityRangeLabel,
+  familyByTemplateId,
+  lowestComplexity,
+  scheduleRangeLabel,
+  type ProgramTemplateFamily,
+} from '~/domains/program/lib/template-families'
 
+/**
+ * A card renders either a single template or a programme *family* (collapsed variants). In family
+ * mode the header/schedule show the family's day-count range and a "Choose your schedule" hint; the
+ * CTA opens the family's default variant, where the schedule can still be switched.
+ */
 export function TemplateCard({
   template,
+  family,
+  members,
   isActive = false,
   onStart,
 }: {
   template: ProgramTemplateSummary
+  family?: ProgramTemplateFamily
+  members?: ProgramTemplateSummary[]
   isActive?: boolean
   onStart: () => void
 }) {
+  const familyMembers = members ?? []
+  const isFamily = Boolean(family) && familyMembers.length > 1
+  const title = isFamily ? family!.name : template.name
+  const description = isFamily ? family!.tagline ?? family!.description : template.description
+  // Derive the level from the actual members so a family that spans levels reads honestly
+  // (e.g. "Intermediate–Advanced"); the accent colour tracks the most approachable member.
+  const complexity = isFamily ? complexityRangeLabel(familyMembers) : template.complexity
+  const complexityAccent = isFamily ? lowestComplexity(familyMembers) : template.complexity
+  const scheduleLabel = isFamily ? scheduleRangeLabel(familyMembers) : `${template.daysPerWeek}/wk`
+  const scheduleCaption = isFamily ? scheduleRangeLabel(familyMembers) : `${template.daysPerWeek} days/wk`
+  const tags = isFamily
+    ? [...new Set(familyMembers.flatMap((member) => member.tags))]
+    : template.tags
+  const [methodOpen, setMethodOpen] = useState(false)
+  // Methodology copy comes from the family (every built-in belongs to one); custom plans, which have
+  // no family, fall back to their own description.
+  const resolvedFamily = family ?? familyByTemplateId.get(template.id)
+  const methodology = resolvedFamily?.methodology ?? template.description
   return (
     <Card
       className="group flex h-full min-h-[12rem] flex-col gap-3 overflow-hidden vf-card-hover"
@@ -27,7 +61,7 @@ export function TemplateCard({
         style={{
           height: 3,
           margin: '-0.625rem -0.625rem 0',
-          backgroundColor: complexityColor(template.complexity),
+          backgroundColor: complexityColor(complexityAccent),
         }}
       />
 
@@ -35,30 +69,67 @@ export function TemplateCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Badge color={template.origin === 'user_created' ? 'accent' : 'neutral'}>{template.sourceLabel}</Badge>
-            <Caption fw={600}>{template.daysPerWeek} days/wk</Caption>
+            <Caption fw={600}>{scheduleCaption}</Caption>
           </div>
-          {isActive ? <Badge color="action" variant="filled">Active</Badge> : null}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {isActive ? <Badge color="action" variant="filled">Active</Badge> : null}
+            <Popover
+              opened={methodOpen}
+              onChange={setMethodOpen}
+              width={288}
+              position="bottom-end"
+              withArrow
+              shadow="md"
+              radius="md"
+            >
+              <Popover.Target>
+                <ActionIcon
+                  variant="subtle"
+                  size="sm"
+                  aria-label={`How ${title} works`}
+                  onClick={() => setMethodOpen((open) => !open)}
+                >
+                  <Info size={16} color="var(--mantine-color-dimmed)" />
+                </ActionIcon>
+              </Popover.Target>
+              <Popover.Dropdown>
+                <Text fw={800} size="sm">{title}</Text>
+                <Text mt={4} size="sm" tone="dimmed" lh={1.5}>
+                  {methodology}
+                </Text>
+              </Popover.Dropdown>
+            </Popover>
+          </div>
         </div>
 
         <div>
           <Heading order={2} size="h3" lh={1.15}>
-            {template.name}
+            {title}
           </Heading>
           <Text mt="xs" size="sm" tone="dimmed" lineClamp={2}>
-            {template.description}
+            {description}
           </Text>
         </div>
 
         <Panel surface="inset" p="xs">
           <div className="grid grid-cols-3 gap-2">
-            <TemplateMetric label="Schedule" value={`${template.daysPerWeek}/wk`} />
-            <TemplateMetric label="Level" value={template.complexity} valueColor={complexityColor(template.complexity)} />
-            <TemplateMetric label="Progression" value={template.progressionLabel} />
+            <TemplateMetric label="Schedule" value={scheduleLabel} />
+            <TemplateMetric label="Level" value={complexity} valueColor={complexityColor(complexityAccent)} />
+            <TemplateMetric label="Progression" value={isFamily ? `${familyMembers.length} variants` : template.progressionLabel} />
           </div>
         </Panel>
 
+        {isFamily ? (
+          <div className="flex items-center gap-1.5">
+            <Layers size={13} color="var(--vf-action-text)" />
+            <Caption fw={700} tone="action">
+              Choose your schedule · {familyMembers.length} options
+            </Caption>
+          </div>
+        ) : null}
+
         <div className="mt-auto hidden flex-wrap gap-1 sm:flex">
-          {template.tags.slice(0, 3).map((tag) => (
+          {tags.slice(0, 3).map((tag) => (
             <Panel key={tag} surface="inset" px={6} py={1}>
               <Caption size="0.625rem" fw={700}>
                 {tag}
@@ -75,8 +146,8 @@ export function TemplateCard({
         </Button>
       ) : template.available ? (
         <Button className="w-full" onClick={onStart}>
-          <Check size={16} />
-          Start Program
+          <Eye size={16} />
+          View programme
         </Button>
       ) : (
         <Button variant="default" disabled>

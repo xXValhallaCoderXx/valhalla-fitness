@@ -45,6 +45,32 @@ function previewRoleLabel(role: MovementRole, roleCount: number, roleIndex: numb
   return roleCount > 1 ? `${title} ${roleIndex}` : title
 }
 
+/** The prescriptionId of the first `main` slot — its per-week loading represents the week's intensity. */
+function representativeMainPrescriptionId(definition: TemplateDefinition): string | undefined {
+  for (const session of definition.sessions) {
+    const mainSlot = session.slots.find((slot) => slot.role === 'main')
+    if (mainSlot) return mainSlot.prescriptionId
+  }
+  return undefined
+}
+
+/** Top percent-of-state working intensity in a prescription, as a 0–1 fraction (undefined if none). */
+function prescriptionTopIntensity(
+  prescription: TemplateDefinition['weeks'][number]['prescriptions'][string] | undefined,
+): number | undefined {
+  if (!prescription) return undefined
+  let top: number | undefined
+  for (const set of prescription.sets) {
+    const load = set.targetLoad
+    if (load?.kind !== 'percent_of_state') continue
+    const raw = load.percentMax ?? load.percent
+    // DSL percents are fractions (0.70); tolerate a whole-number (70) just in case.
+    const fraction = raw > 1.5 ? raw / 100 : raw
+    if (top === undefined || fraction > top) top = fraction
+  }
+  return top
+}
+
 export function buildProgramStartPreview({
   templateId,
   definition,
@@ -56,6 +82,7 @@ export function buildProgramStartPreview({
   catalog: Record<string, Movement>
   rules: MovementReplacementRule[]
 }): ProgramSetupPreviewWeek[] {
+  const mainPrescriptionId = representativeMainPrescriptionId(definition)
   return definition.weeks.map((week, weekIndex) => ({
     index: weekIndex,
     label: week.label,
@@ -64,6 +91,9 @@ export function buildProgramStartPreview({
     subtitle: week.waveLabel ? `${week.phaseLabel} - ${week.waveLabel}` : week.phaseLabel,
     summary: week.summary,
     hardness: week.hardness,
+    intensityPercent: mainPrescriptionId
+      ? prescriptionTopIntensity(week.prescriptions[mainPrescriptionId])
+      : undefined,
     sessions: definition.sessions.map((session, sessionIndex) => {
       const roleCounts = countSlotRoles(session.slots)
       const roleIndexes = new Map<MovementRole, number>()

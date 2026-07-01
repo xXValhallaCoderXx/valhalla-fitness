@@ -13,7 +13,7 @@ import { ProgramMobileSection } from './ProgramMobileSection'
 import { RecentProgramSessions } from './ProgramRecentSessions'
 import { ProgramSummaryGrid } from './ProgramSummaryGrid'
 import { ProgramTimeline } from './ProgramTimeline'
-import { PendingProgressionReviewModal, PendingReviewAlert, useResolveProgressionDecision } from './PendingReview'
+import { PendingProgressionReviewModal, PendingReviewAlert } from './PendingReview'
 
 export function ProgramPage({ user }: { user: unknown }) {
   if (!user) {
@@ -31,15 +31,6 @@ function AuthedProgram() {
   const [reviewOpen, setReviewOpen] = useState(false)
   const [resolvedDecisionIds, setResolvedDecisionIds] = useState<Set<string>>(() => new Set())
   const pendingDecisions = (overviewQuery.data?.pendingDecisions ?? []).filter((decision) => !resolvedDecisionIds.has(decision.id))
-  const decisionMutation = useResolveProgressionDecision({
-    onResolved: (decisionId) => {
-      setResolvedDecisionIds((current) => new Set(current).add(decisionId))
-      const remainingDecisions = (overviewQuery.data?.pendingDecisions ?? []).filter(
-        (decision) => decision.id !== decisionId && !resolvedDecisionIds.has(decision.id),
-      )
-      if (!remainingDecisions.length) setReviewOpen(false)
-    },
-  })
 
   if (overviewQuery.isPending) return <PageSkeleton />
   if (overviewQuery.isError) return <PageLoadError error={overviewQuery.error} onRetry={() => void overviewQuery.refetch()} />
@@ -74,7 +65,12 @@ function AuthedProgram() {
 
       <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
 
-      <NextWorkoutHero overview={overview} timeline={timeline} />
+      <NextWorkoutHero
+        overview={overview}
+        timeline={timeline}
+        pendingCount={pendingDecisions.length}
+        onReview={() => setReviewOpen(true)}
+      />
 
       <ProgramSummaryGrid overview={overview} timeline={timeline} />
 
@@ -102,9 +98,8 @@ function AuthedProgram() {
       <PendingProgressionReviewModal
         opened={reviewOpen}
         decisions={pendingDecisions}
-        isSaving={decisionMutation.isPending}
         onClose={() => setReviewOpen(false)}
-        onResolve={(decisionId, action) => decisionMutation.mutate({ decisionId, action })}
+        onResolved={(decisionId) => setResolvedDecisionIds((current) => new Set(current).add(decisionId))}
       />
     </Page>
   )

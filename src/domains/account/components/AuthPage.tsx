@@ -1,10 +1,11 @@
 import { Alert, Box, Button, Card, Divider, PasswordInput, SegmentedControl, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { ArrowRight, CheckCircle2, Dumbbell, Lock, Mail } from 'lucide-react'
 import { useState } from 'react'
 import { BrandLockup, Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import { useCompleteAuthRedirect } from '~/domains/account/lib/useCompleteAuthRedirect'
+import { authPolicyQueryOptions } from '~/domains/account/queries'
 import {
   type MagicLinkResult,
   resetPasswordFn,
@@ -37,6 +38,7 @@ async function sendBrowserMagicLink(result: Extract<MagicLinkResult, { browserRe
     email: browserRequest.email,
     options: {
       emailRedirectTo: browserRequest.emailRedirectTo,
+      shouldCreateUser: browserRequest.shouldCreateUser,
     },
   })
 
@@ -49,6 +51,7 @@ async function sendBrowserMagicLink(result: Extract<MagicLinkResult, { browserRe
 
 export function AuthPage() {
   const completeAuthRedirect = useCompleteAuthRedirect()
+  const { data: policy } = useQuery(authPolicyQueryOptions())
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [authMethod, setAuthMethod] = useState<AuthMethod>('password')
@@ -94,11 +97,20 @@ export function AuthPage() {
     onSuccess: async (result) => {
       const browserResult = result.ok && result.browserRequest ? await sendBrowserMagicLink(result) : result
       const text = browserResult.message
-      const tone = browserResult.ok ? 'success' : 'danger'
-      setMessage({ tone, text })
-      if (browserResult.ok) {
-        notifications.show({ color: 'success', title: 'Magic link sent', message: text })
+      if (!browserResult.ok) {
+        setMessage({ tone: 'danger', text })
+        return
       }
+      // With the allowlist active the confirmation is neutral and identical whether or
+      // not the email is provisioned, so the form never reveals the access list.
+      const neutral = policy?.magicLinkRequiresAllowlist ?? false
+      const tone: AuthMessage['tone'] = neutral ? 'neutral' : 'success'
+      setMessage({ tone, text })
+      notifications.show({
+        color: tone,
+        title: neutral ? 'Check your email' : 'Magic link sent',
+        message: text,
+      })
     },
     onError: (error) => {
       setMessage({ tone: 'danger', text: getApiErrorMessage(error, 'Unable to send magic link') })
@@ -120,14 +132,18 @@ export function AuthPage() {
     },
   })
 
-  const isSignup = mode === 'signup'
-  const isMagic = authMethod === 'magic'
-  const showReset = !isMagic && !isSignup
+  const passwordEnabled = policy?.passwordSignInEnabled ?? false
+  const isSignup = passwordEnabled && mode === 'signup'
+  const isMagic = !passwordEnabled || authMethod === 'magic'
+  const showMethodToggle = passwordEnabled
+  const showReset = (policy?.passwordResetEnabled ?? false) && !isMagic && !isSignup
 
-  const titleCopy = isSignup ? 'Create your account' : 'Welcome back'
-  const subtitleCopy = isSignup
-    ? 'Start training with Sheetless — it’s free.'
-    : 'Sign in to your Sheetless account.'
+  const titleCopy = !passwordEnabled ? 'Sign in to Sheetless' : isSignup ? 'Create your account' : 'Welcome back'
+  const subtitleCopy = !passwordEnabled
+    ? 'We’ll email you a one-tap sign-in link — no password needed.'
+    : isSignup
+      ? 'Start training with Sheetless — it’s free.'
+      : 'Sign in to your Sheetless account.'
   const switchPrompt = isSignup ? 'Already have an account?' : 'New to Sheetless?'
   const switchAction = isSignup ? 'Sign in instead' : 'Create an account'
 
@@ -282,15 +298,17 @@ export function AuthPage() {
                   }
                 }}
               >
-                <SegmentedControl
-                  fullWidth
-                  value={authMethod}
-                  data={authMethodOptions}
-                  onChange={(value) => {
-                    setAuthMethod(value as AuthMethod)
-                    setMessage(null)
-                  }}
-                />
+                {showMethodToggle ? (
+                  <SegmentedControl
+                    fullWidth
+                    value={authMethod}
+                    data={authMethodOptions}
+                    onChange={(value) => {
+                      setAuthMethod(value as AuthMethod)
+                      setMessage(null)
+                    }}
+                  />
+                ) : null}
 
                 <label className="grid gap-1.5">
                   <SectionLabel>Email</SectionLabel>
@@ -358,19 +376,23 @@ export function AuthPage() {
                 </Button>
               </form>
 
-              <Divider my="lg" label={switchPrompt} labelPosition="center" />
+              {showMethodToggle ? (
+                <>
+                  <Divider my="lg" label={switchPrompt} labelPosition="center" />
 
-              <Button
-                type="button"
-                fullWidth
-                variant="default"
-                onClick={() => {
-                  setMode(isSignup ? 'login' : 'signup')
-                  setMessage(null)
-                }}
-              >
-                {switchAction}
-              </Button>
+                  <Button
+                    type="button"
+                    fullWidth
+                    variant="default"
+                    onClick={() => {
+                      setMode(isSignup ? 'login' : 'signup')
+                      setMessage(null)
+                    }}
+                  >
+                    {switchAction}
+                  </Button>
+                </>
+              ) : null}
 
               {message ? (
                 <Alert

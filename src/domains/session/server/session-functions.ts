@@ -406,6 +406,9 @@ export const startSessionFn = createServerFn({ method: 'POST' })
     const today = await getTodayInternal()
     if (!today.activeProgram || !today.plannedSession) throw new Error('No planned session')
     if (today.activeSession) return today.activeSession
+    if (today.pendingDecisions.length > 0) {
+      throw new Error('Resolve your pending progression changes before starting the next session.')
+    }
     const { supabase, user } = await requireUser()
     const { data: session, error } = await supabase
       .from('workout_sessions')

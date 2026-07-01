@@ -1,4 +1,5 @@
 import { programStateKey, type TemplateDefinition, type TemplateSetDefinition } from '~/domains/program/lib/template-engine'
+import { fiveDayDefinitions } from '~/domains/program/lib/template-definitions-5day'
 
 const mainLiftIds = ['squat', 'bench_press', 'deadlift', 'overhead_press'] as const
 const alternating5x5MovementIds = ['squat', 'bench_press', 'overhead_press', 'deadlift', 'barbell_row'] as const
@@ -800,6 +801,7 @@ function volumeIntensityWeeks(): TemplateDefinition['weeks'] {
 }
 
 export const fallbackTemplateDefinitions: Record<string, TemplateDefinition> = {
+  ...fiveDayDefinitions,
   'generic_alternating_5x5_lp': {
     schemaVersion: '2026.06.dsl',
     id: 'generic_alternating_5x5_lp',

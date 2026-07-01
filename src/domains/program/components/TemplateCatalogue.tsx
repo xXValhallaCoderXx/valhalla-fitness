@@ -3,16 +3,25 @@ import { notifications } from '@mantine/notifications'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import { Eye, Layers3, Plus, RotateCcw, Search, Sparkles, Wrench, type LucideIcon } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { track } from '~/shared/lib/analytics'
 import { Caption, EmptyState, Heading, Page, PageHeader, Panel, SectionLabel, Text } from '~/components'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
 import type { ProgramOverview, ProgramTemplateSummary, TodayPayload } from '~/shared/types'
+import { buildCatalogueItems, type CatalogueItem } from '~/domains/program/lib/template-families'
+import { GOAL_OPTIONS } from '~/domains/program/lib/recommend-plan'
 import { CustomProgramBuilder } from './CustomProgramBuilder'
 import { FindMyPlanModal } from './FindMyPlanModal'
 import { complexityColor, TemplateCard, TemplateGrid } from './TemplateCard'
 
-const templateFilters = ['All', 'Custom', 'Linear', '5x5', 'Training max', 'Wave', 'Volume', 'Peak', 'High volume', 'Powerbuilding', 'Hypertrophy']
+// Two friendly filter axes replace the old methodology chips: pick a level and/or a goal.
+const LEVEL_FILTERS = ['All', 'Beginner', 'Intermediate', 'Advanced'] as const
+const GOAL_FILTERS: { value: string; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'simple', label: 'Simple' },
+  { value: 'strength', label: 'Strength' },
+  { value: 'muscle', label: 'Muscle' },
+]
 
 // Surface the most approachable plans first.
 const COMPLEXITY_ORDER: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 }
@@ -26,7 +35,8 @@ export function TemplateCatalogue({
 }) {
   const router = useRouter()
   const builderTitleId = useId()
-  const [filter, setFilter] = useState('All')
+  const [levelFilter, setLevelFilter] = useState<string>('All')
+  const [goalFilter, setGoalFilter] = useState<string>('all')
   const [query, setQuery] = useState('')
   const [showBuilder, setShowBuilder] = useState(false)
   const [showFinder, setShowFinder] = useState(false)
@@ -50,28 +60,61 @@ export function TemplateCatalogue({
     void router.navigate({ to: '/templates', search: {}, replace: true })
   }, [findParam, router])
 
-  const filtered = useMemo(() => {
-    return templates.filter((template) => {
-      const matchesFilter =
-        filter === 'All' ||
-        template.tags.some((tag) => tag.toLowerCase() === filter.toLowerCase()) ||
-        template.sourceLabel.toLowerCase().includes(filter.toLowerCase())
-      const haystack = `${template.name} ${template.description} ${template.sourceLabel}`.toLowerCase()
-      return matchesFilter && haystack.includes(query.toLowerCase())
-    })
-  }, [filter, query, templates])
   const activeTemplate = activeTemplateId ? templates.find((template) => template.id === activeTemplateId) ?? null : null
   const availableTemplates = activeTemplateId
-    ? filtered.filter((template) => template.id !== activeTemplateId)
-    : filtered
-  const builtInTemplates = availableTemplates
+    ? templates.filter((template) => template.id !== activeTemplateId)
+    : templates
+  const builtInAvailable = availableTemplates
     .filter((template) => template.origin !== 'user_created')
     .sort((left, right) => (COMPLEXITY_ORDER[left.complexity] ?? 1) - (COMPLEXITY_ORDER[right.complexity] ?? 1))
-  const customTemplates = availableTemplates.filter((template) => template.origin === 'user_created')
+  const customAvailable = availableTemplates.filter((template) => template.origin === 'user_created')
 
-  const selectTemplate = (template: ProgramTemplateSummary) => {
-    void router.navigate({ to: '/templates/$templateId/start', params: { templateId: template.id } })
+  // Group into family cards first, THEN filter — so a family stays whole and shows when ANY of its
+  // variants fits the chosen level/goal, instead of fragmenting into partial cards.
+  const goalTags = useMemo(
+    () => GOAL_OPTIONS.find((goal) => goal.value === goalFilter)?.tags.map((tag) => tag.toLowerCase()) ?? [],
+    [goalFilter],
+  )
+  const matchesItem = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const memberMatches = (member: ProgramTemplateSummary) => {
+      const levelOk = levelFilter === 'All' || member.complexity === levelFilter
+      const goalOk = goalFilter === 'all' || member.tags.some((tag) => goalTags.includes(tag.toLowerCase()))
+      return levelOk && goalOk
+    }
+    return (item: CatalogueItem) => {
+      const members = item.kind === 'family' ? item.members : [item.template]
+      const familyText = item.kind === 'family' ? `${item.family.name} ${item.family.tagline ?? ''}` : ''
+      const haystack =
+        `${familyText} ${members.map((m) => `${m.name} ${m.description} ${m.tags.join(' ')}`).join(' ')}`.toLowerCase()
+      return members.some(memberMatches) && haystack.includes(q)
+    }
+  }, [levelFilter, goalFilter, goalTags, query])
+
+  const builtInItems = buildCatalogueItems(builtInAvailable).filter(matchesItem)
+  const customItems = buildCatalogueItems(customAvailable).filter(matchesItem)
+  // Header badge counts the whole library (collapsed cards), independent of the active filters.
+  const catalogueCount = buildCatalogueItems(templates).length
+
+  const selectTemplateId = (templateId: string) => {
+    void router.navigate({ to: '/templates/$templateId/start', params: { templateId } })
   }
+  const selectTemplate = (template: ProgramTemplateSummary) => selectTemplateId(template.id)
+
+  const renderItem = (item: CatalogueItem) =>
+    item.kind === 'family' ? (
+      <TemplateCard
+        key={item.family.id}
+        template={item.members[0]}
+        family={item.family}
+        members={item.members}
+        // Open the variant the card represents (its first present member), not the static default —
+        // which could be filtered out or the active programme, and so not among the shown members.
+        onStart={() => selectTemplateId(item.members[0].id)}
+      />
+    ) : (
+      <TemplateCard key={item.template.id} template={item.template} onStart={() => selectTemplate(item.template)} />
+    )
 
   const handleCustomTemplateCreated = async (template: ProgramTemplateSummary) => {
     notifications.show({ color: 'success', title: 'Programme created', message: `${template.name} is ready to start.` })
@@ -87,7 +130,7 @@ export function TemplateCatalogue({
         title="Choose a plan"
         actions={
           <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-wrap sm:justify-end">
-            <Badge color="neutral" variant="light">{templates.length} plans available</Badge>
+            <Badge color="neutral" variant="light">{catalogueCount} plans available</Badge>
             <Button
               className="h-8 min-h-8 px-3 sm:hidden"
               hiddenFrom="sm"
@@ -149,19 +192,35 @@ export function TemplateCatalogue({
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar sm:flex-wrap sm:overflow-visible sm:pb-0">
-          {templateFilters.map((item) => (
-            <Button
-              key={item}
-              size="xs"
-              radius="xl"
-              variant={filter === item ? 'filled' : 'default'}
-              className="shrink-0"
-              onClick={() => setFilter(item)}
-            >
-              {item}
-            </Button>
-          ))}
+        <div className="space-y-2">
+          <FilterRow label="Level">
+            {LEVEL_FILTERS.map((level) => (
+              <Button
+                key={level}
+                size="xs"
+                radius="xl"
+                variant={levelFilter === level ? 'filled' : 'default'}
+                className="shrink-0"
+                onClick={() => setLevelFilter(level)}
+              >
+                {level}
+              </Button>
+            ))}
+          </FilterRow>
+          <FilterRow label="Goal">
+            {GOAL_FILTERS.map((goal) => (
+              <Button
+                key={goal.value}
+                size="xs"
+                radius="xl"
+                variant={goalFilter === goal.value ? 'filled' : 'default'}
+                className="shrink-0"
+                onClick={() => setGoalFilter(goal.value)}
+              >
+                {goal.label}
+              </Button>
+            ))}
+          </FilterRow>
         </div>
       </div>
 
@@ -173,45 +232,33 @@ export function TemplateCatalogue({
       </Panel>
 
       <div className="space-y-6">
-        {builtInTemplates.length ? (
+        {builtInItems.length ? (
           <section>
             <TemplateSectionHeader
               icon={Layers3}
               label="Sheetless library"
-              count={builtInTemplates.length}
+              count={builtInItems.length}
               helper="Original presets and progression tools."
             />
-            <TemplateGrid>
-              {builtInTemplates.map((template) => (
-                <TemplateCard key={template.id} template={template} onStart={() => selectTemplate(template)} />
-              ))}
-            </TemplateGrid>
+            <TemplateGrid>{builtInItems.map(renderItem)}</TemplateGrid>
           </section>
         ) : null}
 
-        {customTemplates.length || filter === 'Custom' ? (
+        {customItems.length ? (
           <section>
             <TemplateSectionHeader
               icon={Wrench}
               label="Custom"
-              count={customTemplates.length}
+              count={customItems.length}
               helper="Templates you build for your own training."
             />
-            {customTemplates.length ? (
-              <TemplateGrid>
-                {customTemplates.map((template) => (
-                  <TemplateCard key={template.id} template={template} onStart={() => selectTemplate(template)} />
-                ))}
-              </TemplateGrid>
-            ) : (
-              <EmptyState title="No matching custom programs">Adjust the search or create a programme.</EmptyState>
-            )}
+            <TemplateGrid>{customItems.map(renderItem)}</TemplateGrid>
           </section>
         ) : null}
 
-        {!availableTemplates.length && filter !== 'Custom' ? (
+        {!builtInItems.length && !customItems.length ? (
           <EmptyState title={activeTemplate ? 'No other matching programs' : 'No matching programs'}>
-            Adjust the search or filter to see more templates.
+            Adjust the search, level, or goal to see more templates.
           </EmptyState>
         ) : null}
       </div>
@@ -262,6 +309,19 @@ export function TemplateCatalogue({
         }}
       />
     </Page>
+  )
+}
+
+function FilterRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-12 shrink-0">
+        <SectionLabel size="0.625rem">{label}</SectionLabel>
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar sm:flex-wrap sm:overflow-visible sm:pb-0">
+        {children}
+      </div>
+    </div>
   )
 }
 
