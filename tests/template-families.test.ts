@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { templateCatalog } from '../src/domains/program/lib/templates'
 import {
   buildCatalogueItems,
+  complexityRangeLabel,
   familyByTemplateId,
   familyMembersForTemplate,
   scheduleRangeLabel,
@@ -73,15 +74,32 @@ describe('buildCatalogueItems', () => {
 describe('familyMembersForTemplate', () => {
   it('returns ordered members for a family member', () => {
     const members = familyMembersForTemplate('power_hypertrophy_ul', templateCatalog)
+    expect(members.map((member) => member.id)).toEqual(['power_hypertrophy_ul', 'power_hypertrophy_ppl_5day'])
+  })
+
+  it('groups the three Bromley base-to-peak plans as one family', () => {
+    const members = familyMembersForTemplate('bromley-volume-intensity', templateCatalog)
     expect(members.map((member) => member.id)).toEqual([
-      'power_hypertrophy_ul',
-      'power_hypertrophy_ppl_5day',
+      'bromley-volume-intensity',
+      'bromley-70s-powerlifter',
       'bromley-bullmastiff',
     ])
   })
 
   it('returns an empty list for a template with no family', () => {
     expect(familyMembersForTemplate('not-a-real-template', templateCatalog)).toEqual([])
+  })
+})
+
+describe('complexityRangeLabel', () => {
+  it('shows a single level when members share a complexity', () => {
+    const members = familyMembersForTemplate('power_hypertrophy_ul', templateCatalog)
+    expect(complexityRangeLabel(members)).toBe('Intermediate')
+  })
+
+  it('spans levels when members differ (Bromley family mixes Intermediate + Advanced)', () => {
+    const members = familyMembersForTemplate('bromley-volume-intensity', templateCatalog)
+    expect(complexityRangeLabel(members)).toBe('Intermediate–Advanced')
   })
 })
 

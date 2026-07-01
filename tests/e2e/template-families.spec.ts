@@ -8,7 +8,7 @@ import { expect, test } from '@playwright/test'
 test('catalogue collapses same-family variants into a single card', async ({ page }) => {
   await page.goto('/templates')
 
-  // The Powerbuilding family (U/L, PPL, Old School Wave) renders as one card with a schedule hint…
+  // The Powerbuilding family (U/L + PPL) renders as one card with a schedule hint…
   await expect(page.getByRole('heading', { name: 'Powerbuilding' })).toBeVisible()
   await expect(page.getByText(/Choose your schedule/i).first()).toBeVisible()
 

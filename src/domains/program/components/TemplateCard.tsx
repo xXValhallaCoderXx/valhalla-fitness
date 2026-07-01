@@ -3,7 +3,12 @@ import { Check, Eye, Layers, Lock } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import type { ProgramTemplateSummary } from '~/shared/types'
-import { scheduleRangeLabel, type ProgramTemplateFamily } from '~/domains/program/lib/template-families'
+import {
+  complexityRangeLabel,
+  lowestComplexity,
+  scheduleRangeLabel,
+  type ProgramTemplateFamily,
+} from '~/domains/program/lib/template-families'
 
 /**
  * A card renders either a single template or a programme *family* (collapsed variants). In family
@@ -27,7 +32,10 @@ export function TemplateCard({
   const isFamily = Boolean(family) && familyMembers.length > 1
   const title = isFamily ? family!.name : template.name
   const description = isFamily ? family!.tagline ?? family!.description : template.description
-  const complexity = isFamily ? family!.complexity : template.complexity
+  // Derive the level from the actual members so a family that spans levels reads honestly
+  // (e.g. "Intermediate–Advanced"); the accent colour tracks the most approachable member.
+  const complexity = isFamily ? complexityRangeLabel(familyMembers) : template.complexity
+  const complexityAccent = isFamily ? lowestComplexity(familyMembers) : template.complexity
   const scheduleLabel = isFamily ? scheduleRangeLabel(familyMembers) : `${template.daysPerWeek}/wk`
   const scheduleCaption = isFamily ? scheduleRangeLabel(familyMembers) : `${template.daysPerWeek} days/wk`
   const tags = isFamily
@@ -47,7 +55,7 @@ export function TemplateCard({
         style={{
           height: 3,
           margin: '-0.625rem -0.625rem 0',
-          backgroundColor: complexityColor(complexity),
+          backgroundColor: complexityColor(complexityAccent),
         }}
       />
 
@@ -72,7 +80,7 @@ export function TemplateCard({
         <Panel surface="inset" p="xs">
           <div className="grid grid-cols-3 gap-2">
             <TemplateMetric label="Schedule" value={scheduleLabel} />
-            <TemplateMetric label="Level" value={complexity} valueColor={complexityColor(complexity)} />
+            <TemplateMetric label="Level" value={complexity} valueColor={complexityColor(complexityAccent)} />
             <TemplateMetric label="Progression" value={isFamily ? `${familyMembers.length} variants` : template.progressionLabel} />
           </div>
         </Panel>

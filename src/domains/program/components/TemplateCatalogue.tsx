@@ -196,7 +196,10 @@ export function TemplateCatalogue({
                     template={item.members[0]}
                     family={item.family}
                     members={item.members}
-                    onStart={() => selectTemplateId(item.family.defaultTemplateId)}
+                    // Open the variant the card actually represents (its first present member). Using
+                    // the static defaultTemplateId would mis-target when that variant is filtered out
+                    // or is the active programme, so it isn't among the shown members.
+                    onStart={() => selectTemplateId(item.members[0].id)}
                   />
                 ) : (
                   <TemplateCard key={item.template.id} template={item.template} onStart={() => selectTemplate(item.template)} />

@@ -20,9 +20,9 @@ describe('recommendFamilies', () => {
     expect(result?.template.id).toBe('healthy-531-fsl')
   })
 
-  it('recommends the powerbuilding family (old-school wave) for an advanced muscle-and-strength goal', () => {
+  it('recommends the Bromley wave (old-school wave) for an advanced muscle-and-strength goal', () => {
     const result = top({ experience: 'Advanced', days: 4, goal: 'muscle' })
-    expect(result?.family.id).toBe('powerbuilding')
+    expect(result?.family.id).toBe('classic_volume_strength')
     expect(result?.template.id).toBe('bromley-bullmastiff')
   })
 

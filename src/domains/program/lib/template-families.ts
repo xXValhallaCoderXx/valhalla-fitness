@@ -135,13 +135,6 @@ export const templateFamilies: ProgramTemplateFamily[] = [
         variantDescription: 'Power upper/lower days followed by hypertrophy push, pull, and legs sessions.',
         variantSortOrder: 20,
       },
-      {
-        id: 'bromley-bullmastiff',
-        variantLabel: '4-day Old School Wave',
-        variantShortLabel: '4 days · Wave',
-        variantDescription: 'An 18-week upper/lower wave with base and peak phases and plus-set regulation.',
-        variantSortOrder: 30,
-      },
     ],
   },
   {
@@ -192,9 +185,16 @@ export const templateFamilies: ProgramTemplateFamily[] = [
       {
         id: 'bromley-70s-powerlifter',
         variantLabel: '4-day Classic Volume Strength',
-        variantShortLabel: '4 days',
+        variantShortLabel: '4 days · Volume',
         variantDescription: 'An 18-week upper/lower plan with volumizing waves, intensifying waves, and variations.',
         variantSortOrder: 20,
+      },
+      {
+        id: 'bromley-bullmastiff',
+        variantLabel: '4-day Old School Wave',
+        variantShortLabel: '4 days · Wave',
+        variantDescription: 'An 18-week upper/lower wave with base and peak phases and plus-set regulation.',
+        variantSortOrder: 30,
       },
     ],
   },
@@ -327,4 +327,25 @@ export function scheduleRangeLabel(members: ProgramTemplateSummary[]): string {
   const min = Math.min(...days)
   const max = Math.max(...days)
   return min === max ? `${min} days/wk` : `${min}–${max} days/wk`
+}
+
+const COMPLEXITY_BY_RANK = ['Beginner', 'Intermediate', 'Advanced'] as const
+const COMPLEXITY_RANK: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 }
+
+/**
+ * The family's complexity as shown on the card — derived from its actual members, not a fixed family
+ * value, so a family that spans levels reads honestly (e.g. `Intermediate–Advanced`) instead of
+ * hiding harder variants behind a single label.
+ */
+export function complexityRangeLabel(members: ProgramTemplateSummary[]): string {
+  const ranks = members.map((member) => COMPLEXITY_RANK[member.complexity] ?? 1)
+  const min = Math.min(...ranks)
+  const max = Math.max(...ranks)
+  return min === max ? COMPLEXITY_BY_RANK[min] : `${COMPLEXITY_BY_RANK[min]}–${COMPLEXITY_BY_RANK[max]}`
+}
+
+/** The most approachable member's complexity — used for the card accent color of a family. */
+export function lowestComplexity(members: ProgramTemplateSummary[]): string {
+  const min = Math.min(...members.map((member) => COMPLEXITY_RANK[member.complexity] ?? 1))
+  return COMPLEXITY_BY_RANK[min] ?? 'Intermediate'
 }
