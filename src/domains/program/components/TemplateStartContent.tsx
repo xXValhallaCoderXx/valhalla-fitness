@@ -3,7 +3,7 @@ import { notifications } from '@mantine/notifications'
 import { useMutation } from '@tanstack/react-query'
 import { Link, useRouter } from '@tanstack/react-router'
 import { ArrowLeft, Check, Info } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Caption, ConfirmDialog, Page, PageHeader, Text } from '~/components'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import {
@@ -49,11 +49,14 @@ export function TemplateStartContent({
   me,
   today,
   setupOptions,
+  scheduleSelector,
 }: {
   template: ProgramTemplateSummary
   me: UserProfile
   today: TodayPayload
   setupOptions: ProgramSetupOptions
+  /** Optional programme-family variant selector rendered under the header (see TemplateStartPage). */
+  scheduleSelector?: ReactNode
 }) {
   const router = useRouter()
   const [activeWeekIndex, setActiveWeekIndex] = useState(0)
@@ -283,6 +286,8 @@ export function TemplateStartContent({
       >
         {template.description}
       </PageHeader>
+
+      {scheduleSelector}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
         <div className="min-w-0 space-y-4">

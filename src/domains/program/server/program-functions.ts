@@ -16,6 +16,7 @@ import type {
   Unit,
 } from '~/shared/types'
 import { defaultStateValues, getFallbackTemplateDefinition, templateCatalog } from '~/domains/program/lib/templates'
+import { applyFamilyMeta } from '~/domains/program/lib/template-families'
 import {
   parseTemplateDefinition,
   validateRequiredState,
@@ -99,7 +100,7 @@ function normalizeTemplateOrigin(row: any, source: ProgramTemplateSummary['sourc
 function mapTemplateRow(row: any, available = true, definition?: TemplateDefinition | null): ProgramTemplateSummary {
   const source = normalizeTemplateSource(row)
   const origin = normalizeTemplateOrigin(row, source)
-  return {
+  return applyFamilyMeta({
     id: row.id,
     name: row.name,
     source,
@@ -112,7 +113,7 @@ function mapTemplateRow(row: any, available = true, definition?: TemplateDefinit
     tags: row.tags ?? [],
     requiredState: definition?.requiredState ?? [],
     available,
-  }
+  })
 }
 
 function templateVersionIdFromRows(rows: any[]) {

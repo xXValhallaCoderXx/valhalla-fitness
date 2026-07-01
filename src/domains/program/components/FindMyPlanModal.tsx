@@ -21,12 +21,13 @@ import { cn } from '~/shared/lib/cn'
 import type { ProgramTemplateSummary } from '~/shared/types'
 import {
   FIND_MY_PLAN_QUESTIONS,
-  recommendPlans,
+  recommendFamilies,
   TAG_GLOSSARY,
   type ExperienceLevel,
   type FindMyPlanAnswers,
   type PlanGoal,
 } from '~/domains/program/lib/recommend-plan'
+import { templateFamilies } from '~/domains/program/lib/template-families'
 
 type WizardAnswers = Partial<Record<'experience' | 'days' | 'goal', string | number>>
 
@@ -106,7 +107,7 @@ export function FindMyPlanModal({
             goal: answers.goal as PlanGoal,
           }
         : null
-    return complete ? recommendPlans(templates, complete, 3) : []
+    return complete ? recommendFamilies(templates, templateFamilies, complete, 3) : []
   }, [phase, answers, templates])
   const activeIndex = Math.min(selected, Math.max(0, recs.length - 1))
   const activeRec = recs[activeIndex]
@@ -309,8 +310,11 @@ export function FindMyPlanModal({
                     {isReco ? 'We recommend' : 'Also a good fit'}
                   </Badge>
                   <Heading order={2} size="1.5rem" lh={1.15} mt="sm">
-                    {activeRec.template.name}
+                    {activeRec.family.name}
                   </Heading>
+                  <Text component="p" size="sm" fw={700} mt={4}>
+                    Recommended schedule: {activeRec.template.variantLabel ?? activeRec.template.name}
+                  </Text>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Badge color={levelTone(activeRec.template.complexity)} variant="light">
                       {activeRec.template.complexity}
@@ -433,10 +437,10 @@ export function FindMyPlanModal({
                             />
                             <span className="min-w-0 flex-1">
                               <Text component="span" size="sm" fw={700} className="block" truncate>
-                                {rec.template.name}
+                                {rec.family.name}
                               </Text>
                               <Caption component="span" className="block">
-                                {rec.template.complexity} · {rec.template.daysPerWeek} days/week · {rec.template.progressionLabel}
+                                {rec.template.complexity} · {rec.template.variantShortLabel ?? `${rec.template.daysPerWeek} days`} · {rec.template.progressionLabel}
                               </Caption>
                             </span>
                             <ChevronRight size={16} color="var(--mantine-color-dimmed)" className="shrink-0" />
