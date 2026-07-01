@@ -1,10 +1,11 @@
-import { Badge, Button, Card } from '@mantine/core'
-import { Check, Eye, Layers, Lock } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { ActionIcon, Badge, Button, Card, Popover } from '@mantine/core'
+import { Check, Eye, Info, Layers, Lock } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import type { ProgramTemplateSummary } from '~/shared/types'
 import {
   complexityRangeLabel,
+  familyByTemplateId,
   lowestComplexity,
   scheduleRangeLabel,
   type ProgramTemplateFamily,
@@ -41,6 +42,11 @@ export function TemplateCard({
   const tags = isFamily
     ? [...new Set(familyMembers.flatMap((member) => member.tags))]
     : template.tags
+  const [methodOpen, setMethodOpen] = useState(false)
+  // Methodology copy comes from the family (every built-in belongs to one); custom plans, which have
+  // no family, fall back to their own description.
+  const resolvedFamily = family ?? familyByTemplateId.get(template.id)
+  const methodology = resolvedFamily?.methodology ?? template.description
   return (
     <Card
       className="group flex h-full min-h-[12rem] flex-col gap-3 overflow-hidden vf-card-hover"
@@ -65,7 +71,35 @@ export function TemplateCard({
             <Badge color={template.origin === 'user_created' ? 'accent' : 'neutral'}>{template.sourceLabel}</Badge>
             <Caption fw={600}>{scheduleCaption}</Caption>
           </div>
-          {isActive ? <Badge color="action" variant="filled">Active</Badge> : null}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {isActive ? <Badge color="action" variant="filled">Active</Badge> : null}
+            <Popover
+              opened={methodOpen}
+              onChange={setMethodOpen}
+              width={288}
+              position="bottom-end"
+              withArrow
+              shadow="md"
+              radius="md"
+            >
+              <Popover.Target>
+                <ActionIcon
+                  variant="subtle"
+                  size="sm"
+                  aria-label={`How ${title} works`}
+                  onClick={() => setMethodOpen((open) => !open)}
+                >
+                  <Info size={16} color="var(--mantine-color-dimmed)" />
+                </ActionIcon>
+              </Popover.Target>
+              <Popover.Dropdown>
+                <Text fw={800} size="sm">{title}</Text>
+                <Text mt={4} size="sm" tone="dimmed" lh={1.5}>
+                  {methodology}
+                </Text>
+              </Popover.Dropdown>
+            </Popover>
+          </div>
         </div>
 
         <div>

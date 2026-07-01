@@ -34,3 +34,26 @@ test('start page switches schedule variant and swaps the programme structure', a
   await expect(page.getByRole('heading', { name: 'Power + Hypertrophy PPL' })).toBeVisible()
   await expect(page.getByText('5 days/wk').first()).toBeVisible()
 })
+
+test("a card's info button explains the methodology", async ({ page }) => {
+  await page.goto('/templates')
+
+  // Tap the Powerbuilding card's info icon → a plain-English methodology popover (retry past the
+  // SSR hydration race where an early click no-ops).
+  await expect(async () => {
+    await page.getByRole('button', { name: 'How Powerbuilding works' }).click()
+    await expect(page.getByText(/pairs heavy, low-rep work/i)).toBeVisible({ timeout: 1000 })
+  }).toPass({ timeout: 15000 })
+})
+
+test('level + goal filters narrow the catalogue', async ({ page }) => {
+  await page.goto('/templates')
+  await expect(page.getByRole('heading', { name: 'Powerbuilding' })).toBeVisible()
+
+  // Filtering to Beginner drops the all-Intermediate Powerbuilding family; the beginner family stays.
+  await expect(async () => {
+    await page.getByRole('button', { name: 'Beginner', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Powerbuilding' })).toHaveCount(0, { timeout: 1000 })
+  }).toPass({ timeout: 15000 })
+  await expect(page.getByRole('heading', { name: 'Beginner Linear Strength' })).toBeVisible()
+})

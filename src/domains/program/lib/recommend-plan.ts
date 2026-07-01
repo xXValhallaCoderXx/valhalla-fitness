@@ -175,6 +175,7 @@ function syntheticFamily(template: ProgramTemplateSummary): ProgramTemplateFamil
     id: template.familyId ?? template.id,
     name: template.name,
     description: template.description,
+    methodology: template.description,
     complexity: template.complexity,
     tags: template.tags,
     defaultTemplateId: template.id,

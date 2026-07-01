@@ -29,6 +29,12 @@ describe('templateFamilies config', () => {
     }
   })
 
+  it('gives every family a methodology explanation for the card popover', () => {
+    for (const family of templateFamilies) {
+      expect(family.methodology.length, `${family.id} has methodology copy`).toBeGreaterThan(20)
+    }
+  })
+
   it('covers every built-in template exactly once', () => {
     const builtIns = templateCatalog.filter((template) => template.origin !== 'user_created')
     for (const template of builtIns) {

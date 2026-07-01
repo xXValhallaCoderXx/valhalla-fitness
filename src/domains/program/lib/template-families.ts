@@ -31,6 +31,8 @@ export type ProgramTemplateFamily = {
   name: string
   tagline?: string
   description: string
+  /** Plain-English explanation of the training approach, shown in the card's info popover. */
+  methodology: string
   complexity: string
   tags: string[]
   /** The variant that loads when the family card is opened / the wizard falls back to. */
@@ -50,6 +52,8 @@ export const templateFamilies: ProgramTemplateFamily[] = [
       'Build strength and muscle with repeatable weekly training and add-weight-when-you-complete-your-reps progression.',
     complexity: 'Beginner',
     tags: ['beginner', 'linear', 'strength', 'hypertrophy'],
+    methodology:
+      'Linear progression is the simplest way to get stronger fast: add a little weight every session, as long as you complete all your reps. These plans keep that same idea and just scale it to how many days a week you can train.',
     defaultTemplateId: 'generic_alternating_5x5_lp',
     sortOrder: 10,
     members: [
@@ -91,6 +95,8 @@ export const templateFamilies: ProgramTemplateFamily[] = [
       'Three-day intermediate strength work — ramping 5×5 loads or a volume-to-intensity wave chasing new top sets.',
     complexity: 'Intermediate',
     tags: ['strength', '5x5', 'intensity', 'volume'],
+    methodology:
+      'When adding weight every single session stops working, you move to weekly waves — building up across the week and adding weight from one week to the next instead of one session to the next. A natural next step after your first linear run.',
     defaultTemplateId: 'ramping_5x5_3day',
     sortOrder: 20,
     members: [
@@ -118,6 +124,8 @@ export const templateFamilies: ProgramTemplateFamily[] = [
       'Powerbuilding splits that pair heavy power work with higher-rep hypertrophy volume for size and strength together.',
     complexity: 'Intermediate',
     tags: ['powerbuilding', 'hypertrophy', 'volume', 'wave'],
+    methodology:
+      'Powerbuilding pairs heavy, low-rep work for strength with higher-rep work for muscle size, so you build both at once. The variants split that across upper/lower or push-pull-legs days depending on your week.',
     defaultTemplateId: 'power_hypertrophy_ul',
     sortOrder: 30,
     members: [
@@ -145,6 +153,8 @@ export const templateFamilies: ProgramTemplateFamily[] = [
       'Training-max percentage waves with back-off work and structured accessories, at four or five days a week.',
     complexity: 'Intermediate',
     tags: ['training max', 'wave', 'strength', 'hypertrophy'],
+    methodology:
+      "Weights are based on a conservative 'training max' (about 90% of your best), so they stay manageable while loads wave up over a few weeks and then reset a little heavier. A proven, sustainable way to keep adding strength.",
     defaultTemplateId: 'healthy-531-fsl',
     sortOrder: 40,
     members: [
@@ -172,6 +182,8 @@ export const templateFamilies: ProgramTemplateFamily[] = [
       'Whole-body and upper/lower plans that alternate volumizing and intensifying waves toward heavy top sets.',
     complexity: 'Intermediate',
     tags: ['volume', 'strength', 'intensity', 'peak'],
+    methodology:
+      'A base-to-peak approach: start with higher-volume waves to build a foundation, then shift to heavier waves to sharpen strength toward a peak. Longer, structured builds for more experienced lifters.',
     defaultTemplateId: 'bromley-volume-intensity',
     sortOrder: 50,
     members: [
@@ -206,6 +218,8 @@ export const templateFamilies: ProgramTemplateFamily[] = [
       'A classic bodypart split with one regulated main lift per major day and double-progressed accessories.',
     complexity: 'Beginner',
     tags: ['bodybuilding', 'hypertrophy', 'bro split', 'linear'],
+    methodology:
+      'A classic bodypart split — train one major muscle group per day with a main lift plus higher-rep accessories. A simple, focused way to build size.',
     defaultTemplateId: 'classic_bodypart_split_5day_lp',
     sortOrder: 60,
     members: [
