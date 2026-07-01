@@ -100,10 +100,12 @@ test.describe('logged out marketing', () => {
     await dialog.getByRole('button', { name: '2–3 days' }).click()
     await dialog.getByRole('button', { name: 'Keep it simple' }).click()
     await expect(dialog.getByText('We recommend')).toBeVisible()
-    await expect(dialog.getByText('Beginner 5x5 Linear')).toBeVisible()
+    // The finder leads with the programme family; the concrete pick shows as its recommended schedule.
+    await expect(dialog.getByRole('heading', { name: 'Beginner Linear Strength' })).toBeVisible()
+    await expect(dialog.getByText(/Recommended schedule: 3-day/)).toBeVisible()
 
-    // Starting a plan requires an account, so it funnels to /auth.
-    await dialog.getByRole('button', { name: 'Start this plan' }).click()
+    // Viewing a plan requires an account, so it funnels to /auth.
+    await dialog.getByRole('button', { name: 'View plan' }).click()
     await expect(page).toHaveURL(/\/auth/, { timeout: 5000 })
   })
 })

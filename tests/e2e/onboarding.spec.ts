@@ -3,6 +3,9 @@ import { login } from './support/auth'
 
 // A genuinely-new demo account (active onboarding, all steps empty) seeded by `pnpm demo:seed`.
 const DEMO_NEW = { email: 'demo.new@sheetless.local', password: 'DemoPass123!' }
+// Onboarding account with every strength estimate already set (not used by other specs, so the
+// estimate nudges below don't pollute shared state).
+const DEMO_ESTIMATES = { email: 'demo.estimates@sheetless.local', password: 'DemoPass123!' }
 
 // Uses the shared authenticated session; `?onboarding=force` shows the onboarding
 // UI regardless of the account's saved flag (so it's deterministic to test).
@@ -95,4 +98,24 @@ test('"Skip for now" hides the checklist and records a snooze', async ({ page })
 
   const snoozeUntil = await page.evaluate(() => window.localStorage.getItem('sheetless.onboardingSnoozeUntil'))
   expect(Number(snoozeUntil)).toBeGreaterThan(Date.now())
+})
+
+test('saving estimates after the "Set estimates" deep-link redirects to Today', async ({ page }) => {
+  await login(page, DEMO_ESTIMATES)
+  await page.goto('/settings?focus=estimates')
+
+  // Dismiss the estimates coach-marks so we can drive the form.
+  await expect(page.locator('.driver-popover')).toBeVisible({ timeout: 8000 })
+  await page.locator('.driver-popover-close-btn').click()
+  await expect(page.locator('.driver-popover')).toHaveCount(0)
+
+  // Nudge an estimate to enable Save, then save. Arrived via ?focus=estimates while onboarding with
+  // every main-lift estimate set → redirected back to Today.
+  const first = page.locator('[data-tour="settings-estimates"] input[type="number"]').first()
+  await expect(async () => {
+    await first.fill('111')
+    await expect(first).toHaveValue('111', { timeout: 1000 })
+  }).toPass({ timeout: 15000 })
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  await expect(page).toHaveURL(/\/today/, { timeout: 10000 })
 })
