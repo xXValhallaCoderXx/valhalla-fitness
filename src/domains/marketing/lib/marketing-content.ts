@@ -3,7 +3,7 @@ export const heroCopy = {
   headline: 'Keep the logic.',
   headlineAccent: 'Lose the spreadsheet.',
   subhead:
-    'Pick a plan, log your reps and effort, and let Sheetless handle the progression math.',
+    'Pick a plan, log your reps and effort, and let Sheetless handle the rest.',
   highlights: ['Transparent progression', 'Your training history stays with you', 'Real strength plans'],
 }
 
@@ -11,12 +11,12 @@ export const comparisonCopy = {
   eyebrow: 'Why Sheetless',
   heading: "The old way worked. The upkeep didn't.",
   subhead:
-    'Notebooks made training honest and spreadsheets made progression visible — and the longer you train, the more that history matters: working weights, rep PRs, missed targets, deloads, and estimated maxes. But after months of formulas, tabs, and copied weeks, the upkeep gets harder than the training itself. Sheetless keeps the useful data and removes the admin.',
+    'Notebooks made training simple, spreadsheets made progression visible, and the longer you train, the more that history matters: working weights, rep PRs, missed targets. But after months the upkeep gets harder than the training itself. Sheetless keeps removes the admin.',
   beforeLabel: 'Before · your spreadsheet',
   beforeFootnote: 'Which week am I on? Did the formula break again?',
   bridge: 'Sheetless keeps the history',
   afterLabel: 'After · Sheetless',
-  afterFootnote: 'Readable history — one decision you can act on.',
+  afterFootnote: 'Readable history.',
   closing: 'Keep the data. Lose the maintenance.',
 }
 
@@ -24,7 +24,7 @@ export const focusDemoCopy = {
   eyebrow: 'Focus Mode',
   heading: 'Built for between sets.',
   subhead:
-    'No scrolling through tabs. No editing cells. Focus Mode keeps the next set obvious: weight, reps, effort, done.',
+    'No scrolling through tabs. No editing cells.',
   hint: 'Live demo — log a set and watch it advance',
 }
 
@@ -92,15 +92,14 @@ export const marketingFeatures: MarketingFeature[] = [
 
 /** Two supporting lines under the features grid (absorb the removed "no mystery coach" and "plain language" sections). */
 export const featuresFootnotes = [
-  'No mystery coach — Sheetless follows the rules in your plan and shows the reason when something changes.',
-  'Plain language comes first; RIR, e1RM, training maxes, and progression rules stay attached for lifters who want the detail.',
+  'No mystery coach, Sheetless follows the rules in your plan and shows the reason when something changes.',
 ]
 
 export const howItWorksCopy = {
   eyebrow: 'How it works',
-  heading: 'Pick a plan. Log the session. Get the next call.',
+  heading: 'Pick a plan. Log the session. Work.',
   subhead:
-    'Sheetless compares the plan to what you actually did, then shows the next progression decision with the reason attached.',
+    'Sheetless compares the plan to what you actually did, then shows the next progression decision.',
 }
 
 export const howItWorksSteps = [

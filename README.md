@@ -84,6 +84,8 @@ See `.env.example` for full comments. Main variables:
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `APP_ORIGIN`
+- `AUTH_ALLOWLIST_ENABLED` / `AUTH_PASSWORD_ENABLED` — auth policy. Production is Magic Link + Google
+  sign-in (password off); see `release-checklist.md`
 - `SUPABASE_SERVICE_ROLE_KEY` (server-side scripts only)
 - `SUPABASE_DB_URL` (migration scripts only)
 
@@ -153,9 +155,8 @@ Deployment guidance lives in `RAILWAY.md`. Key points:
 
 ## Reference docs
 
-- `final-app-spec.md` — canonical product scope and training model details
-- `mvp-final.md` — current MVP implementation direction and constraints
-- `mvp-plan.md` — original release-plan context
-- `design-spec.md` — UI/interaction design notes
-- `RAILWAY.md` — deployment details
+- `main-app-spec.md` — canonical product scope, training model, and implementation spec
+- `release-checklist.md` — production go-live checklist (sign-ups, Supabase, Resend, Railway)
+- `RAILWAY.md` — deployment details + required env vars
 - `AGENTS.md` — repository structure and coding conventions
+- `CLAUDE.md` — agent/contributor guide (commands, validation, conventions)

@@ -14,7 +14,7 @@ test.describe('logged out marketing', () => {
       page.getByRole('heading', { name: "The old way worked. The upkeep didn't." }),
     ).toBeVisible()
     await expect(
-      page.getByRole('heading', { name: 'Pick a plan. Log the session. Get the next call.' }),
+      page.getByRole('heading', { name: 'Pick a plan. Log the session. Work.' }),
     ).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Real plans. Clear rules.' })).toBeVisible()
 

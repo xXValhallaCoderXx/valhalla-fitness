@@ -111,6 +111,40 @@ export const getAuthPolicyFn = createServerFn({ method: 'GET' }).handler(async (
   return resolveServerAuthPolicy()
 })
 
+export type BrowserOAuthRequest = {
+  provider: 'google'
+  supabaseUrl: string
+  supabaseAnonKey: string
+  redirectTo: string
+}
+
+export type OAuthStartResult =
+  | { ok: true; browserRequest: BrowserOAuthRequest }
+  | { ok: false; message: string }
+
+/**
+ * Start a Google OAuth sign-in. Mirrors {@link sendMagicLinkFn}: the server returns the public config
+ * + redirect target and the browser replays it through an anon client's `signInWithOAuth`, so the
+ * PKCE verifier is set by the same browser client that `/auth/callback` later exchanges. Whether
+ * Google actually works is decided by Supabase (config.toml locally, the dashboard provider in prod).
+ */
+export const startGoogleSignInFn = createServerFn({ method: 'POST' }).handler(
+  async (): Promise<OAuthStartResult> => {
+    const config = await getSupabasePublicConfig()
+    if (!config) return { ok: false, message: 'Supabase is not configured for Google sign-in.' }
+    const origin = process.env.APP_ORIGIN ?? 'http://localhost:3000'
+    return {
+      ok: true,
+      browserRequest: {
+        provider: 'google',
+        supabaseUrl: config.supabaseUrl,
+        supabaseAnonKey: config.supabaseAnonKey,
+        redirectTo: `${origin}/auth/callback`,
+      },
+    }
+  },
+)
+
 export const signInWithPasswordFn = createServerFn({ method: 'POST' })
   .validator((data: { email: string; password: string }) => data)
   .handler(async ({ data }) => {
