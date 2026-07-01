@@ -1,6 +1,6 @@
 const title = 'Sheetless | Keep the logic. Lose the spreadsheet.'
 const description =
-  'Structured strength training without spreadsheet upkeep: pick a plan, log your reps and effort, and let Sheetless handle the progression math — with the rule attached to every change.'
+  'Structured strength training without spreadsheet upkeep: pick a plan, log your reps and effort, and let Sheetless handle the rest— with the rule attached to every change.'
 
 export function marketingHead() {
   return {

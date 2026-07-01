@@ -53,12 +53,19 @@ Set these in the Railway service variables:
 ```sh
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
-APP_ORIGIN=https://your-railway-domain.up.railway.app
+APP_ORIGIN=https://sheetless.fitness
 SUPABASE_DB_URL=postgresql://...
 NODE_ENV=production
-AUTH_PASSWORD_ENABLED=false
-AUTH_ALLOWLIST_ENABLED=true
+AUTH_ALLOWLIST_ENABLED=false
 ```
+
+> User-facing auth is **Magic Link + Google** (no email/password). `AUTH_ALLOWLIST_ENABLED=false`
+> opens Magic Link to new users (`shouldCreateUser=true`). The "Continue with Google" button is
+> always shown by the app; whether it actually works is decided by the **Supabase Google provider**
+> (dashboard in prod — see below). Email/password stays in the code but is **off in production** by
+> default (`NODE_ENV=production`), so leave `AUTH_PASSWORD_ENABLED` unset — it's used only for local
+> dev + e2e. To re-gate Magic Link to an allowlist later, set `AUTH_ALLOWLIST_ENABLED=true` and turn
+> off Supabase signup (the `allowed_emails` tooling is still in place).
 
 Do **not** set `SUPABASE_SERVICE_ROLE_KEY` on the web service — it is only used by offline
 admin scripts (demo seeding, allowlist provisioning).
@@ -73,43 +80,49 @@ The app is pinned to Node 22 with `engines.node` and `.node-version`. This keeps
 NIXPACKS_NODE_VERSION=22
 ```
 
-`APP_ORIGIN` must match the public Railway URL because password reset and magic-link auth callbacks use it to generate `/auth/callback` redirect URLs.
+`APP_ORIGIN` must match the public Railway URL because the Magic Link and Google auth callbacks use it to generate `/auth/callback` redirect URLs.
 
-## Invite-only access (magic-link allowlist)
+## Sign-ups & auth (Magic Link + Google)
 
-Production runs **magic-link sign-in only** behind an email allowlist:
+User-facing sign-in is **Magic Link** (email one-tap) and **Google** (OAuth). Email/password is off in
+production (local-dev + e2e only). Three things must line up:
 
-- `AUTH_PASSWORD_ENABLED=false` disables password sign-in/up/reset (kept on locally for the demo
-  user and e2e). The password-reset feature stays in the codebase — it is simply inactive in
-  production under this flag, and can be re-enabled later by setting `AUTH_PASSWORD_ENABLED=true`.
-- `AUTH_ALLOWLIST_ENABLED=true` gates magic links to emails in the `allowed_emails` table.
-- In the Supabase dashboard, turn **off** "Allow new users to sign up". This is the real boundary:
-  the magic-link OTP call happens in the browser with the public anon key, so disabling signup +
-  pre-provisioning users (below) is what actually stops non-allowlisted emails from getting in.
+- **Railway flag:** `AUTH_ALLOWLIST_ENABLED=false` (open Magic Link — creates new users, no allowlist).
+  The "Continue with Google" button is always shown by the app; whether it works is decided by the
+  Supabase Google provider below.
+- **Supabase dashboard → Authentication:**
+  - **Providers → Email:** "Allow new users to sign up" **ON** (Magic Link creates accounts). This is
+    the real boundary — the browser OTP call uses the public anon key, so if the dashboard blocks
+    signup the flag alone won't open it.
+  - **Providers → Google:** **enable** it and paste the OAuth **client ID + secret** from Google Cloud
+    (below).
+  - **SMTP:** a working custom SMTP sender is required — Magic Link sends mail; without it, sign-ins
+    silently fail. (See `release-checklist.md` → Resend.)
+- **Google Cloud Console:** create an OAuth **Web** client. Authorized JavaScript origin
+  `https://sheetless.fitness`; Authorized redirect URI
+  `https://<project-ref>.supabase.co/auth/v1/callback` (Supabase's own OAuth callback — NOT the app's
+  `/auth/callback`).
 
-To grant access, add the email to the allowlist and provision its Supabase user. Run this offline
-with the target project's service-role key (never on the web service):
+To re-gate Magic Link to an allowlist later, set `AUTH_ALLOWLIST_ENABLED=true`, turn off Supabase
+"Allow new users to sign up", and add testers offline (service-role key — never on the web service):
 
 ```sh
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm provision:allowed add someone@example.com "note"
-# or, after editing the allowed_emails table directly, provision everyone still missing a user:
-SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm provision:allowed
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm provision:allowed list
 ```
-
-`pnpm provision:allowed list` shows the allowlist and who is provisioned.
 
 ## Supabase auth URLs
 
-In Supabase Auth URL configuration, add the Railway app URL:
+In Supabase → Authentication → URL Configuration, set the **Site URL** to the app origin:
 
 ```txt
-https://your-railway-domain.up.railway.app/auth/callback
+https://sheetless.fitness
 ```
 
-Also set the site URL to the Railway app origin:
+and add the callback to **Redirect URLs**:
 
 ```txt
-https://your-railway-domain.up.railway.app
+https://sheetless.fitness/auth/callback
 ```
 
 ## Local production check

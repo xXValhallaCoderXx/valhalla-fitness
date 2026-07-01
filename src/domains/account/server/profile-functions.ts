@@ -17,9 +17,18 @@ export async function ensureProfile() {
   const email = user.email ?? null
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
   if (profile) return profile
+  // OAuth providers (Google) put a name in user metadata — capture it so the profile has a display
+  // name from the start. Magic-link users have none, so this stays null.
+  const metadata = user.user_metadata ?? {}
+  const displayName =
+    typeof metadata.full_name === 'string'
+      ? metadata.full_name
+      : typeof metadata.name === 'string'
+        ? metadata.name
+        : null
   const { data, error } = await supabase
     .from('profiles')
-    .insert({ id: user.id, email, units: 'kg', rounding: 2.5, theme_preference: 'system' })
+    .insert({ id: user.id, email, display_name: displayName, units: 'kg', rounding: 2.5, theme_preference: 'system' })
     .select('*')
     .single()
   if (error) throw new Error(error.message)
