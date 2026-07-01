@@ -3,7 +3,7 @@ import { Badge, Button, Modal, NativeSelect, SegmentedControl, TextInput } from 
 import { notifications } from '@mantine/notifications'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import { ArrowRight, Calculator, Check, Cloud, Compass, Download, Dumbbell, Gauge, Layers, LogOut, Monitor, Moon, RefreshCw, SlidersHorizontal, Sun, User, X, type LucideIcon } from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { track } from '~/shared/lib/analytics'
 import { prefersReducedMotion } from '~/shared/lib/reduced-motion'
@@ -11,6 +11,7 @@ import { getMovementName } from '~/domains/movement/lib/movements'
 import { e1rm, mround } from '~/domains/program/lib/progression'
 import { authUserQueryOptions, meQueryOptions } from '~/domains/account/queries'
 import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
+import { hasAllStrengthEstimates } from '~/domains/onboarding/onboarding-progress'
 import { signOutFn } from '~/domains/account/server/auth-functions'
 import { updateSettingsFn } from '~/domains/account/server/profile-functions'
 import { todayQueryOptions } from '~/domains/session/queries'
@@ -123,6 +124,14 @@ function SettingsForm({ me }: { me: UserProfile }) {
     return () => window.clearTimeout(timer)
   }, [focusParam, router, startEstimatesTour])
 
+  // Latch "arrived via the onboarding Set-estimates button" before the `focus` param self-clears
+  // above, so the save handler can redirect to Today. Per-mount, so a later organic /settings visit
+  // starts fresh (false) and is never redirected.
+  const arrivedFromEstimatesRef = useRef(false)
+  useEffect(() => {
+    if (focusParam === 'estimates') arrivedFromEstimatesRef.current = true
+  }, [focusParam])
+
   const [units, setUnits] = useState<Unit>(me?.units ?? 'kg')
   const [rounding, setRounding] = useState(me?.rounding ?? 2.5)
   const [equipmentProfile, setEquipmentProfile] = useState<string[]>(me?.equipmentProfile ?? [])
@@ -173,6 +182,12 @@ function SettingsForm({ me }: { me: UserProfile }) {
         setProgramStateDefaults(next.programStateDefaults)
       }
       notifications.show({ color: 'success', title: 'Settings saved', message: 'Your preferences were updated.' })
+      // During onboarding, a user who arrived via the "Set estimates" button returns to Today once
+      // every main-lift estimate is set. Organic visitors (ref false), finished users, and partial
+      // saves stay put.
+      if (arrivedFromEstimatesRef.current && next && !next.onboardingCompleted && hasAllStrengthEstimates(next.programStateDefaults)) {
+        void router.navigate({ to: '/today' })
+      }
     },
     onError: (error) => {
       notifications.show({
@@ -825,7 +840,7 @@ function OneRepMaxCalculatorModal({
             />
           </div>
 
-          <Panel p="sm">
+          <Panel p="sm" mt="sm">
             <SectionLabel>Estimated 1RM</SectionLabel>
             <Text mt={2} size="lg" fw={900}>
               {hasLoadDefault(calculatedValue) ? `${formatLoadDefault(calculatedValue)} ${units}` : 'Unset'}

@@ -177,7 +177,7 @@ export function FindMyPlanModal({
       }}
     >
       {phase === 'questions' ? (
-        <div className="flex h-full flex-col overflow-hidden sm:max-h-[88dvh] md:h-[600px] md:max-h-none md:flex-row">
+        <div className="flex h-full flex-col overflow-hidden sm:max-h-[88dvh] md:h-[680px] md:max-h-none md:flex-row">
           {/* LEFT — question */}
           <div
             className="flex min-h-0 flex-1 flex-col p-5 md:w-[360px] md:flex-none md:border-r"
@@ -274,7 +274,7 @@ export function FindMyPlanModal({
           </div>
         </div>
       ) : (
-        <div className="flex h-full flex-col overflow-hidden sm:max-h-[88dvh] md:h-[600px] md:max-h-none">
+        <div className="flex h-full flex-col overflow-hidden sm:max-h-[88dvh] md:h-[680px] md:max-h-none">
           <div className="border-b px-5 py-4 md:px-7" style={{ borderColor: 'var(--mantine-color-default-border)' }}>
             <ModalHeader onClose={onClose} />
           </div>
@@ -409,7 +409,7 @@ export function FindMyPlanModal({
                   <div className="mt-5 flex flex-wrap gap-2.5">
                     <Button className="flex-1" onClick={start}>
                       <Check size={16} />
-                      Start this plan
+                      View plan
                     </Button>
                     {showBrowseAll ? (
                       <Button variant="default" onClick={onClose}>

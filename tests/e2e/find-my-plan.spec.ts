@@ -31,7 +31,7 @@ test('find my plan recommends a plan and adapts to the answers', async ({ page }
   await expect(dialog.getByText(/Recommended schedule: 4-day Old School Wave/)).toBeVisible()
 
   // Starting the recommended plan routes into its setup flow.
-  await dialog.getByRole('button', { name: 'Start this plan' }).click()
+  await dialog.getByRole('button', { name: 'View plan' }).click()
   await expect(page).toHaveURL(/\/templates\/.+\/start/)
 })
 
@@ -54,7 +54,7 @@ test('find my plan recommends a new gap-filling plan and starts it from the DB s
   await expect(dialog.getByText(/Recommended schedule: 4-day Upper\/Lower/)).toBeVisible()
 
   // Start it — proves the DB-seeded template + version load the setup screen end-to-end.
-  await dialog.getByRole('button', { name: 'Start this plan' }).click()
+  await dialog.getByRole('button', { name: 'View plan' }).click()
   await expect(page).toHaveURL(/\/templates\/beginner_upper_lower_lp\/start/)
   // The start CTA label is responsive: "Start programme" on desktop (sidebar), a compact "Start"
   // in the mobile sticky footer (the desktop button is not rendered at the mobile breakpoint).
