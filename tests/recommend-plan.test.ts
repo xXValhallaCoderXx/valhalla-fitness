@@ -44,6 +44,23 @@ describe('recommendPlan', () => {
     expect(result?.template.daysPerWeek).toBe(3)
   })
 
+  it('recommends the five-day training-max wave for an intermediate at five days chasing strength', () => {
+    const result = recommendPlan(templateCatalog, { experience: 'Intermediate', days: 5, goal: 'strength' })
+    expect(result?.template.id).toBe('training_max_wave_pump_5day')
+    expect(result?.template.daysPerWeek).toBe(5)
+  })
+
+  it('recommends the five-day powerbuilding PPL for an intermediate at five days chasing muscle', () => {
+    const result = recommendPlan(templateCatalog, { experience: 'Intermediate', days: 5, goal: 'muscle' })
+    expect(result?.template.id).toBe('power_hypertrophy_ppl_5day')
+  })
+
+  it('recommends a beginner five-day split for a new lifter who wants five days', () => {
+    const result = recommendPlan(templateCatalog, { experience: 'Beginner', days: 5, goal: 'simple' })
+    expect(result?.template.id).toBe('beginner_ppl_upper_lower_5day_lp')
+    expect(result?.template.daysPerWeek).toBe(5)
+  })
+
   it('returns null when nothing is available', () => {
     const unavailable = templateCatalog.map((template) => ({ ...template, available: false }))
     expect(recommendPlan(unavailable, { experience: 'Beginner', days: 3, goal: 'simple' })).toBeNull()

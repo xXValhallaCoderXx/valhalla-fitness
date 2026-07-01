@@ -20,10 +20,10 @@ test('find my plan recommends a plan and adapts to the answers', async ({ page }
   await expect(dialog.getByText('Beginner 5x5 Linear')).toBeVisible()
   await expect(dialog.getByText('Other good fits')).toBeVisible()
 
-  // Re-answer from scratch — very experienced / 4+ days / muscle → the advanced plan.
+  // Re-answer from scratch — very experienced / 4 days / muscle → the advanced plan.
   await dialog.getByRole('button', { name: 'Start over' }).click()
   await dialog.getByRole('button', { name: 'Very experienced' }).click()
-  await dialog.getByRole('button', { name: '4+ days' }).click()
+  await dialog.getByRole('button', { name: '4 days' }).click()
   await dialog.getByRole('button', { name: 'Muscle + strength' }).click()
   await expect(dialog.getByText('Old School Wave Powerbuilding')).toBeVisible()
 
@@ -42,14 +42,19 @@ test('find my plan recommends a new gap-filling plan and starts it from the DB s
 
   const dialog = page.getByRole('dialog')
 
-  // Beginner + 4+ days + keep it simple — the new four-day upper/lower split fills the gap.
+  // Beginner + 4 days + keep it simple — the new four-day upper/lower split fills the gap.
   await dialog.getByRole('button', { name: 'New to lifting' }).click()
-  await dialog.getByRole('button', { name: '4+ days' }).click()
+  await dialog.getByRole('button', { name: '4 days' }).click()
   await dialog.getByRole('button', { name: 'Keep it simple' }).click()
-  await expect(dialog.getByText('Beginner Upper/Lower')).toBeVisible()
+  // Match the recommended-plan heading exactly — the new "Beginner Upper/Lower + Arms"
+  // plan now also appears under "Other good fits" and would make a loose text match ambiguous.
+  await expect(dialog.getByRole('heading', { name: 'Beginner Upper/Lower', exact: true })).toBeVisible()
 
   // Start it — proves the DB-seeded template + version load the setup screen end-to-end.
   await dialog.getByRole('button', { name: 'Start this plan' }).click()
   await expect(page).toHaveURL(/\/templates\/beginner_upper_lower_lp\/start/)
-  await expect(page.getByRole('button', { name: 'Start programme' })).toBeVisible({ timeout: 10000 })
+  // The start CTA label is responsive: "Start programme" on desktop (sidebar), a compact "Start"
+  // in the mobile sticky footer (the desktop button is not rendered at the mobile breakpoint).
+  const startCta = (page.viewportSize()?.width ?? 1280) < 1024 ? 'Start' : 'Start programme'
+  await expect(page.getByRole('button', { name: startCta, exact: true })).toBeVisible({ timeout: 10000 })
 })

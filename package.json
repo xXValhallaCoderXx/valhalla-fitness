@@ -26,6 +26,7 @@
     "pwa:verify": "node scripts/verify-pwa.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "export:templates": "vitest run --config scripts/export-templates.config.ts",
     "lint": "eslint .",
     "playwright": "playwright test",
     "e2e": "playwright test",

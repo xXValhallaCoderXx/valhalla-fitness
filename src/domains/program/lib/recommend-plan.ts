@@ -5,7 +5,7 @@ export type PlanGoal = 'simple' | 'strength' | 'muscle'
 
 export type FindMyPlanAnswers = {
   experience: ExperienceLevel
-  /** Training days per week the user can commit to (3 or 4). */
+  /** Training days per week the user can commit to (3, 4, or 5). */
   days: number
   goal: PlanGoal
 }
@@ -23,7 +23,8 @@ export const EXPERIENCE_OPTIONS: { value: ExperienceLevel; label: string }[] = [
 
 export const DAYS_OPTIONS: { value: number; label: string }[] = [
   { value: 3, label: '2–3 days' },
-  { value: 4, label: '4+ days' },
+  { value: 4, label: '4 days' },
+  { value: 5, label: '5+ days' },
 ]
 
 export const GOAL_OPTIONS: { value: PlanGoal; label: string; phrase: string; tags: string[] }[] = [
@@ -61,7 +62,8 @@ export const FIND_MY_PLAN_QUESTIONS: FindMyPlanQuestion[] = [
     helper: 'Be honest about your week — consistency beats ambition.',
     options: [
       { value: 3, label: '2–3 days', sub: 'A shorter week' },
-      { value: 4, label: '4+ days', sub: 'More frequency' },
+      { value: 4, label: '4 days', sub: 'More frequency' },
+      { value: 5, label: '5+ days', sub: 'Higher frequency' },
     ],
   },
   {
@@ -91,6 +93,11 @@ export const TAG_GLOSSARY: Record<string, string> = {
   powerbuilding: 'Powerbuilding — heavy strength work plus muscle-building volume.',
   peak: 'Peak — a phase that sharpens strength toward a heavy top set.',
   intensity: 'Intensity — how heavy the weight is relative to your max.',
+  ppl: 'Push/Pull/Legs — rotate pushing, pulling, and leg days across the week.',
+  arms: 'Arms — extra direct biceps and triceps volume.',
+  '5-day': 'Five-day — a higher-frequency week with five training days.',
+  bodybuilding: 'Bodybuilding — training organised around individual muscle groups for size.',
+  'bro split': 'Bro split — one major muscle group per day across the week.',
 }
 
 const EXPERIENCE_RANK: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 }

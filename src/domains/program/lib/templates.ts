@@ -16,6 +16,7 @@ import {
   getFallbackTemplateDefinition,
   listFallbackTemplateDefinitions,
 } from '~/domains/program/lib/template-definitions'
+import { fiveDayCatalog } from '~/domains/program/lib/template-definitions-5day'
 
 export const templateCatalog: ProgramTemplateSummary[] = [
   {
@@ -151,6 +152,7 @@ export const templateCatalog: ProgramTemplateSummary[] = [
     requiredState: requiredTrainingMaxState(),
     available: true,
   },
+  ...fiveDayCatalog,
 ]
 
 export function defaultStateValues(
