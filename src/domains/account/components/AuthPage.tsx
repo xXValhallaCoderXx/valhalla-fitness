@@ -32,6 +32,14 @@ const sidePanelReceipt = [
   'So Sheetless added 2.5 kg today.',
 ]
 
+// PKCE writes the code-verifier as a host-scoped cookie in *this* browser, so the callback must
+// return to the exact host the user is on. Derive it from window.location.origin rather than the
+// server's APP_ORIGIN, which can point at a different host (e.g. the raw Railway domain vs. the
+// canonical www domain) and would drop the verifier cookie -> "pkce code verifier not found".
+function browserAuthCallbackUrl() {
+  return `${window.location.origin}/auth/callback`
+}
+
 async function sendBrowserMagicLink(result: Extract<MagicLinkResult, { browserRequest: object }>) {
   const { createBrowserClient } = await import('@supabase/ssr')
   const { browserRequest } = result
@@ -39,7 +47,7 @@ async function sendBrowserMagicLink(result: Extract<MagicLinkResult, { browserRe
   const { error } = await supabase.auth.signInWithOtp({
     email: browserRequest.email,
     options: {
-      emailRedirectTo: browserRequest.emailRedirectTo,
+      emailRedirectTo: browserAuthCallbackUrl(),
       shouldCreateUser: browserRequest.shouldCreateUser,
     },
   })
@@ -57,7 +65,7 @@ async function startBrowserGoogleSignIn(result: Extract<OAuthStartResult, { ok: 
   const supabase = createBrowserClient(browserRequest.supabaseUrl, browserRequest.supabaseAnonKey)
   const { error } = await supabase.auth.signInWithOAuth({
     provider: browserRequest.provider,
-    options: { redirectTo: browserRequest.redirectTo },
+    options: { redirectTo: browserAuthCallbackUrl() },
   })
   // On success supabase-js redirects the browser to Google; only errors return here.
   return error ? ({ ok: false, message: error.message } as const) : ({ ok: true } as const)

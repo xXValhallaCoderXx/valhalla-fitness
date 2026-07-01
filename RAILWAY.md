@@ -53,7 +53,7 @@ Set these in the Railway service variables:
 ```sh
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
-APP_ORIGIN=https://sheetless.fitness
+APP_ORIGIN=https://www.sheetless.fitness
 SUPABASE_DB_URL=postgresql://...
 NODE_ENV=production
 AUTH_ALLOWLIST_ENABLED=false
@@ -80,7 +80,12 @@ The app is pinned to Node 22 with `engines.node` and `.node-version`. This keeps
 NIXPACKS_NODE_VERSION=22
 ```
 
-`APP_ORIGIN` must match the public Railway URL because the Magic Link and Google auth callbacks use it to generate `/auth/callback` redirect URLs.
+`APP_ORIGIN` must be the **canonical public host** users actually browse (`https://www.sheetless.fitness`),
+because the Magic Link and Google auth callbacks use it to generate `/auth/callback` redirect URLs.
+The PKCE code-verifier is a host-scoped cookie: if the callback lands on a different host than the
+one the user started on (e.g. the raw `*.up.railway.app` domain, or apex vs. `www`), the verifier
+cookie is missing and sign-in fails with "pkce code verifier not found". Point apex `sheetless.fitness`
+and the raw Railway domain at a 301 → `www` so users can only initiate on the allowlisted host.
 
 ## Sign-ups & auth (Magic Link + Google)
 
@@ -99,7 +104,7 @@ production (local-dev + e2e only). Three things must line up:
   - **SMTP:** a working custom SMTP sender is required — Magic Link sends mail; without it, sign-ins
     silently fail. (See `release-checklist.md` → Resend.)
 - **Google Cloud Console:** create an OAuth **Web** client. Authorized JavaScript origin
-  `https://sheetless.fitness`; Authorized redirect URI
+  `https://www.sheetless.fitness`; Authorized redirect URI
   `https://<project-ref>.supabase.co/auth/v1/callback` (Supabase's own OAuth callback — NOT the app's
   `/auth/callback`).
 
@@ -116,13 +121,15 @@ SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm provision:allowed list
 In Supabase → Authentication → URL Configuration, set the **Site URL** to the app origin:
 
 ```txt
-https://sheetless.fitness
+https://www.sheetless.fitness
 ```
 
-and add the callback to **Redirect URLs**:
+and add the callback to **Redirect URLs** (Supabase falls back to Site URL for any redirect target
+not listed here, so the app host must be present):
 
 ```txt
-https://sheetless.fitness/auth/callback
+https://www.sheetless.fitness/auth/callback
+http://localhost:3000/auth/callback
 ```
 
 ## Local production check
