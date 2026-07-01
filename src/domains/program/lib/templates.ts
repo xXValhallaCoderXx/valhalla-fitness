@@ -17,8 +17,9 @@ import {
   listFallbackTemplateDefinitions,
 } from '~/domains/program/lib/template-definitions'
 import { fiveDayCatalog } from '~/domains/program/lib/template-definitions-5day'
+import { applyFamilyMeta } from '~/domains/program/lib/template-families'
 
-export const templateCatalog: ProgramTemplateSummary[] = [
+const rawTemplateCatalog: ProgramTemplateSummary[] = [
   {
     id: 'generic_alternating_5x5_lp',
     name: 'Beginner 5x5 Linear',
@@ -154,6 +155,9 @@ export const templateCatalog: ProgramTemplateSummary[] = [
   },
   ...fiveDayCatalog,
 ]
+
+/** Fallback catalogue (no-Supabase path), enriched with programme-family/variant metadata. */
+export const templateCatalog: ProgramTemplateSummary[] = rawTemplateCatalog.map(applyFamilyMeta)
 
 export function defaultStateValues(
   unit: Unit = 'kg',

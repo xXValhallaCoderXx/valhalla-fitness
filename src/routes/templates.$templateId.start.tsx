@@ -6,13 +6,18 @@ import { todayQueryOptions } from '~/domains/session/queries'
 import { loadRouteQueries, loadRouteQuery } from '~/shared/lib/route-loading'
 
 export const Route = createFileRoute('/templates/$templateId/start')({
-  loader: async ({ context, params }) => {
+  validateSearch: (search: Record<string, unknown>): { variant?: string } => ({
+    variant: typeof search.variant === 'string' ? search.variant : undefined,
+  }),
+  loaderDeps: ({ search: { variant } }) => ({ variant }),
+  loader: async ({ context, params, deps }) => {
     await loadRouteQuery(context.queryClient, templatesQueryOptions())
     if ((context as any).user) {
       await loadRouteQueries(context.queryClient, [
         meQueryOptions(),
         todayQueryOptions(),
-        programSetupOptionsQueryOptions(params.templateId),
+        // Preload the variant the page will actually render (falls back to the route template id).
+        programSetupOptionsQueryOptions(deps.variant ?? params.templateId),
       ])
     }
   },
@@ -21,6 +26,7 @@ export const Route = createFileRoute('/templates/$templateId/start')({
 
 function TemplateStartRoute() {
   const { templateId } = Route.useParams()
+  const { variant } = Route.useSearch()
   const user = (Route.useRouteContext() as any).user
-  return <TemplateStartPage templateId={templateId} user={user} />
+  return <TemplateStartPage templateId={templateId} variant={variant} user={user} />
 }

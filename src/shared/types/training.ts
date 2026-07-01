@@ -56,6 +56,15 @@ export type ProgramTemplateSummary = {
   tags: string[]
   requiredState: ProgramStateRequirement[]
   available: boolean
+  /**
+   * Presentational programme-family grouping. Sourced from `template-families.ts` and merged onto
+   * summaries in both the fallback catalogue and the DB path; absent for custom/user templates.
+   */
+  familyId?: string
+  variantLabel?: string
+  variantShortLabel?: string
+  variantDescription?: string
+  variantSortOrder?: number
 }
 
 export type ProgramStateType = 'training_max' | 'one_rep_max' | 'working_load' | 'five_rep_max' | 'manual'

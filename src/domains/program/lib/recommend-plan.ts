@@ -1,4 +1,5 @@
 import type { ProgramTemplateSummary } from '~/shared/types'
+import type { ProgramTemplateFamily } from '~/domains/program/lib/template-families'
 
 export type ExperienceLevel = 'Beginner' | 'Intermediate' | 'Advanced'
 export type PlanGoal = 'simple' | 'strength' | 'muscle'
@@ -159,4 +160,90 @@ export function recommendPlan(
   answers: FindMyPlanAnswers,
 ): PlanRecommendation | null {
   return recommendPlans(templates, answers, 1)[0] ?? null
+}
+
+export type FamilyRecommendation = {
+  family: ProgramTemplateFamily
+  /** The recommended concrete variant within the family — the id a started programme keys on. */
+  template: ProgramTemplateSummary
+  reason: string
+}
+
+/** Present ungrouped/custom templates as a family of one so callers always get a family to display. */
+function syntheticFamily(template: ProgramTemplateSummary): ProgramTemplateFamily {
+  return {
+    id: template.familyId ?? template.id,
+    name: template.name,
+    description: template.description,
+    complexity: template.complexity,
+    tags: template.tags,
+    defaultTemplateId: template.id,
+    sortOrder: Number.MAX_SAFE_INTEGER,
+    members: [
+      {
+        id: template.id,
+        variantLabel: template.name,
+        variantShortLabel: `${template.daysPerWeek} days`,
+        variantDescription: template.description,
+        variantSortOrder: 0,
+      },
+    ],
+  }
+}
+
+/**
+ * Family-aware recommendation: rank programme families by the best-fitting variant inside each, and
+ * return that variant as the concrete pick. Reuses {@link scoreTemplate} and the same tie-break chain
+ * as {@link recommendPlans}, so the recommended variant id matches the flat recommender's top pick.
+ * Pure + deterministic — the `families` list is passed in so it can be unit-tested and run live.
+ */
+export function recommendFamilies(
+  templates: ProgramTemplateSummary[],
+  families: ProgramTemplateFamily[],
+  answers: FindMyPlanAnswers,
+  limit = 3,
+): FamilyRecommendation[] {
+  const candidates = templates.filter((template) => template.available)
+  if (!candidates.length) return []
+
+  const goal = GOAL_OPTIONS.find((option) => option.value === answers.goal) ?? GOAL_OPTIONS[0]
+  const familyOf = new Map<string, ProgramTemplateFamily>()
+  for (const family of families) {
+    for (const member of family.members) familyOf.set(member.id, family)
+  }
+
+  // Bucket candidates by family (ungrouped templates get their own singleton bucket).
+  const buckets = new Map<string, { family: ProgramTemplateFamily | null; members: ProgramTemplateSummary[] }>()
+  for (const template of candidates) {
+    const family = familyOf.get(template.id) ?? null
+    const key = family?.id ?? `__single__${template.id}`
+    const bucket = buckets.get(key) ?? { family, members: [] }
+    bucket.members.push(template)
+    buckets.set(key, bucket)
+  }
+
+  const byBestVariant = (left: ProgramTemplateSummary, right: ProgramTemplateSummary) =>
+    scoreTemplate(right, answers, goal.tags) - scoreTemplate(left, answers, goal.tags) ||
+    rank(left.complexity) - rank(right.complexity) ||
+    Math.abs(left.daysPerWeek - answers.days) - Math.abs(right.daysPerWeek - answers.days) ||
+    left.id.localeCompare(right.id)
+
+  return [...buckets.values()]
+    .map((bucket) => {
+      const best = [...bucket.members].sort(byBestVariant)[0]
+      return { bucket, best, score: scoreTemplate(best, answers, goal.tags) }
+    })
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        rank(left.best.complexity) - rank(right.best.complexity) ||
+        Math.abs(left.best.daysPerWeek - answers.days) - Math.abs(right.best.daysPerWeek - answers.days) ||
+        left.best.id.localeCompare(right.best.id),
+    )
+    .slice(0, Math.max(0, limit))
+    .map(({ bucket, best }) => ({
+      family: bucket.family ?? syntheticFamily(best),
+      template: best,
+      reason: buildReason(best, goal.phrase),
+    }))
 }

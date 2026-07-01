@@ -8,6 +8,7 @@ import { track } from '~/shared/lib/analytics'
 import { Caption, EmptyState, Heading, Page, PageHeader, Panel, SectionLabel, Text } from '~/components'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
 import type { ProgramOverview, ProgramTemplateSummary, TodayPayload } from '~/shared/types'
+import { buildCatalogueItems } from '~/domains/program/lib/template-families'
 import { CustomProgramBuilder } from './CustomProgramBuilder'
 import { FindMyPlanModal } from './FindMyPlanModal'
 import { complexityColor, TemplateCard, TemplateGrid } from './TemplateCard'
@@ -68,10 +69,16 @@ export function TemplateCatalogue({
     .filter((template) => template.origin !== 'user_created')
     .sort((left, right) => (COMPLEXITY_ORDER[left.complexity] ?? 1) - (COMPLEXITY_ORDER[right.complexity] ?? 1))
   const customTemplates = availableTemplates.filter((template) => template.origin === 'user_created')
+  // Collapse same-family variants into one card each (see template-families.ts). A family with only
+  // one surviving member (e.g. its active variant filtered out) renders as a single card.
+  const builtInItems = buildCatalogueItems(builtInTemplates)
+  // Header badge counts what the user actually sees — collapsed cards, not raw templates.
+  const catalogueCount = buildCatalogueItems(templates).length
 
-  const selectTemplate = (template: ProgramTemplateSummary) => {
-    void router.navigate({ to: '/templates/$templateId/start', params: { templateId: template.id } })
+  const selectTemplateId = (templateId: string) => {
+    void router.navigate({ to: '/templates/$templateId/start', params: { templateId } })
   }
+  const selectTemplate = (template: ProgramTemplateSummary) => selectTemplateId(template.id)
 
   const handleCustomTemplateCreated = async (template: ProgramTemplateSummary) => {
     notifications.show({ color: 'success', title: 'Programme created', message: `${template.name} is ready to start.` })
@@ -87,7 +94,7 @@ export function TemplateCatalogue({
         title="Choose a plan"
         actions={
           <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-wrap sm:justify-end">
-            <Badge color="neutral" variant="light">{templates.length} plans available</Badge>
+            <Badge color="neutral" variant="light">{catalogueCount} plans available</Badge>
             <Button
               className="h-8 min-h-8 px-3 sm:hidden"
               hiddenFrom="sm"
@@ -173,18 +180,28 @@ export function TemplateCatalogue({
       </Panel>
 
       <div className="space-y-6">
-        {builtInTemplates.length ? (
+        {builtInItems.length ? (
           <section>
             <TemplateSectionHeader
               icon={Layers3}
               label="Sheetless library"
-              count={builtInTemplates.length}
+              count={builtInItems.length}
               helper="Original presets and progression tools."
             />
             <TemplateGrid>
-              {builtInTemplates.map((template) => (
-                <TemplateCard key={template.id} template={template} onStart={() => selectTemplate(template)} />
-              ))}
+              {builtInItems.map((item) =>
+                item.kind === 'family' ? (
+                  <TemplateCard
+                    key={item.family.id}
+                    template={item.members[0]}
+                    family={item.family}
+                    members={item.members}
+                    onStart={() => selectTemplateId(item.family.defaultTemplateId)}
+                  />
+                ) : (
+                  <TemplateCard key={item.template.id} template={item.template} onStart={() => selectTemplate(item.template)} />
+                ),
+              )}
             </TemplateGrid>
           </section>
         ) : null}
