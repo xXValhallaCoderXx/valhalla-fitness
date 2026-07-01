@@ -1,21 +1,25 @@
 # Production release checklist
 
-Magic-link-only auth + invite-only allowlist on a **single hosted environment**.
-Started 2026-06-30. Earlier two-environment design (now superseded by this single-env plan):
-`~/.claude/plans/i-want-to-start-peaceful-russell.md`. Deploy steps: `RAILWAY.md`.
+**Magic Link + "Sign in with Google"** sign-up (no email/password for users) on a **single hosted
+environment**. Deploy steps: `RAILWAY.md`.
+
+> Auth model (2026-07): user-facing sign-in is **Magic Link** (email one-tap) and **Google** (OAuth).
+> Email/password stays in the code but is **off in production** (local dev + e2e only). The invite-only
+> allowlist code + `allowed_emails` table are kept but dormant — flip the flags at the bottom to re-gate.
 
 ## Resume here
-1. **Ship the current code to `main`**: merge `develop` → `main`. The magic-link + allowlist work is
-   already committed on `develop`, and Railway deploys from `main`.
-2. Work top-to-bottom through **Ops** — each section needs your Supabase / Resend / Railway dashboards.
-3. Verify the full magic-link round-trip on the live environment before sharing access.
+1. **Ship the current code to `main`**: merge `develop` → `main`. Railway auto-deploys `main`.
+2. Work top-to-bottom through **Ops** — each section needs your Google Cloud / Supabase / Resend / Railway dashboards.
+3. Run the full **Pre-launch verification** on the live URL before sharing it.
 
 ## Decisions (locked)
-- **Email sender:** Resend, plugged in as Supabase custom SMTP.
-- **Whitelist:** Invite-only — disable open signup in Supabase + pre-provision allowed users; magic link uses `shouldCreateUser:false`. App-layer check is UX-only (the anon key reaches the browser, so it isn't the real boundary).
-- **Topology:** **one** environment — the existing hosted stack **is** production (one Railway service, one Supabase project). Local Supabase covers dev + migrations. No staging.
+- **Sign-in methods:** Magic Link + Google OAuth. Open + self-serve (new users create accounts).
+- **No email/password** for users (kept in code, off in prod, used by the local demo user + e2e).
+- **Email sender:** Resend, plugged into Supabase as custom SMTP — Magic Link needs working email.
+- **Topology:** **one** environment — the existing hosted stack **is** production (one Railway
+  service, one Supabase project). Local Supabase covers dev + migrations. No staging.
 - **Deploy:** Railway auto-deploys `main`; all dev is local; merge to `main` to release.
-- **Auth in prod:** magic-link only (`AUTH_PASSWORD_ENABLED=false`). Password sign-in + reset stay in the code (active locally), off in prod.
+- **Invite-only** remains available as a fallback (see the bottom of this file).
 
 ## Environment topology
 | | Local/dev | Production |
@@ -24,74 +28,104 @@ Started 2026-06-30. Earlier two-environment design (now superseded by this singl
 | Supabase | local CLI stack | existing hosted project |
 | Deploy branch | — | `main` |
 | `NODE_ENV` | development | production |
-| `AUTH_PASSWORD_ENABLED` | unset → on | `false` |
-| `AUTH_ALLOWLIST_ENABLED` | unset → off | `true` |
-| Open signup (dashboard) | on | **off** |
+| `AUTH_ALLOWLIST_ENABLED` | unset → off | **`false`** (open Magic Link) |
+| `AUTH_PASSWORD_ENABLED` | unset → on (local only) | unset → off |
+| "Allow new users to sign up" (dashboard) | on | **on** |
+| Google provider (dashboard) | off | **on** (client id + secret) |
 | Email | Inbucket | Resend SMTP |
 
----
-
-## Code — DONE & validated ✅ (committed on `develop`)
-- [x] `src/shared/lib/auth-config.ts` — pure `getAuthPolicy(env)` + `parseBooleanFlag` + messages
-- [x] `src/domains/account/server/allowlist.ts` *(new)* — `normalizeEmail`, `resolveMagicLinkDecision`, `isEmailAllowed`
-- [x] `auth-functions.ts` — `getAuthPolicyFn`, password-flow guards, allowlist gate + `shouldCreateUser`
-- [x] `queries.ts` + `routes/auth.tsx` — policy prefetched in loader (no UI flash)
-- [x] `AuthPage.tsx` — policy-driven UI (hides password in magic-only mode), neutral anti-enumeration message
-- [x] `supabase/migrations/202606300001_add_allowed_emails.sql` *(new)* — table + `is_email_allowed` RPC, RLS-locked, `service_role` grant
-- [x] `scripts/provision-allowed-users.mjs` *(new)* — `pnpm provision:allowed`
-- [x] `.env.example`, `RAILWAY.md` — flags + invite-only deploy notes
-- [x] `.github/workflows/ci.yml` *(new)* — typecheck + lint on `main`
-- [x] `tests/auth-policy.test.ts`, `tests/auth-allowlist.test.ts` *(new)*
-- [x] Validated: `typecheck` + `lint` clean; **225 unit tests** pass; migration applies on local; RPC/RLS/grants verified via REST; both auth screens screenshotted; e2e smoke + login pass
+## What's already built (no code change needed to open sign-ups)
+The auth posture is **env-flag driven** (`src/shared/lib/auth-config.ts` → `getAuthPolicy`): Magic
+Link, the dormant allowlist, and the local-only password path are all in the codebase. The "Continue
+with Google" button is always shown; whether Google works is decided by the Supabase provider, and
+`/auth/callback` already exchanges the OAuth `?code=`. Google users' names are captured to
+`profiles.display_name`. Typecheck/lint clean; unit suite (incl. `auth-policy.test.ts`) green.
 
 ---
 
-## Ops — TODO (needs dashboards)
+## Ops — go-live steps (need dashboards)
 
-### B. Production Supabase project (the existing hosted project)
-- [ ] Use the **existing hosted Supabase project** as production — do **not** create a new one
-- [ ] Capture: project URL, anon key, service-role key, **Transaction pooler** DB URI (IPv4, port 6543)
-- [ ] Migrate: `SUPABASE_DB_URL=<pooler> pnpm db:migrate:dry-run` then `pnpm db:migrate`
-- [ ] Auth → turn **OFF** "Allow new users to sign up" (the invite-only hard boundary)
-- [ ] Auth → URL config: Site URL `https://sheetless.fitness`, redirect `https://sheetless.fitness/auth/callback`
-- [ ] Seed allowlist + provision: add your email to `allowed_emails`, then
-      `SUPABASE_URL=<prod> SUPABASE_SERVICE_ROLE_KEY=<prod> pnpm provision:allowed` — verify a login
+### Google Cloud Console (for "Sign in with Google")
+- [ ] Configure the **OAuth consent screen** (external; app name, support email, logo, scopes:
+      email + profile).
+- [ ] Create an **OAuth client → Web application**:
+  - Authorized JavaScript origin: `https://sheetless.fitness`
+  - Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback` (Supabase's OAuth
+    callback — **not** the app's `/auth/callback`).
+- [ ] Copy the **client ID + client secret** for the Supabase step below.
 
-### C. Resend email
-- [ ] Create Resend account; verify the **sheetless.fitness** domain (add SPF/DKIM/DMARC DNS records)
-- [ ] Create an API key
-- [ ] In the Supabase project → Auth → SMTP: host `smtp.resend.com`, port `465`, user `resend`, password = API key, sender e.g. `login@sheetless.fitness`, name `Sheetless`
-- [ ] Send a real magic link end-to-end; confirm delivery + lands on `/auth/callback`
+### Supabase (the existing hosted project = production)
+- [ ] Use the **existing hosted project** as production — do **not** create a new one.
+- [ ] Capture: project URL, anon key, service-role key, **Transaction pooler** DB URI (IPv4, port 6543).
+- [ ] Migrate the prod DB: `SUPABASE_DB_URL=<pooler> pnpm db:migrate:dry-run`, then `pnpm db:migrate`.
+- [ ] Auth → Providers → **Email**: "Allow new users to sign up" **ON**.
+- [ ] Auth → Providers → **Google**: enable + paste the client ID + secret from Google Cloud.
+- [ ] Auth → URL Configuration: Site URL `https://sheetless.fitness`; add redirect
+      `https://sheetless.fitness/auth/callback`.
+- [ ] Auth → Rate limits: review the email + sign-up limits (open sign-up widens the abuse surface).
+- [ ] Confirm **no demo/seed users** in prod (demo accounts are local-only — never run `pnpm demo:seed`
+      against production).
 
-### D. Railway + domain
-- [ ] Set the service's **deploy branch to `main`** (Settings → Source) — was `develop`
-- [ ] Domain `sheetless.fitness`; env `APP_ORIGIN=https://sheetless.fitness`, Supabase URL/anon, `AUTH_PASSWORD_ENABLED=false`, `AUTH_ALLOWLIST_ENABLED=true`, `NODE_ENV=production`
-- [ ] **Do NOT** set `SUPABASE_SERVICE_ROLE_KEY` on the web service
-- [ ] DNS: point `sheetless.fitness` at the Railway service (Railway provides TLS — also satisfies PWA HTTPS)
-- [ ] Migrations run as a pre-deploy step, never inside `pnpm start` (see `RAILWAY.md`)
+### Resend email (required — Magic Link sends mail)
+- [ ] Create a Resend account; verify the **sheetless.fitness** domain (add SPF/DKIM/DMARC DNS records).
+- [ ] Create an API key.
+- [ ] Supabase → Auth → **SMTP**: host `smtp.resend.com`, port `465`, user `resend`, password = API
+      key, sender e.g. `login@sheetless.fitness`, name `Sheetless`.
+- [ ] Send a real Magic Link end-to-end; confirm it **lands in the inbox, not spam** (test Gmail + Outlook).
 
-### E. Pre-launch verification
-- [ ] `APP_ORIGIN` set to `https://sheetless.fitness` (drives magic-link `emailRedirectTo`)
-- [ ] CI is green on `main` — typecheck + lint (`.github/workflows/ci.yml`)
-- [ ] `pnpm pwa:verify` passes on the prod build
-- [ ] Bypass check: a direct browser `signInWithOtp` for a non-allowlisted email yields **no email** (signup off + `shouldCreateUser:false` + no existing user)
-- [ ] Confirm no service-role/demo keys on the prod web service
+### Railway + domain
+- [ ] Set the service's **deploy branch to `main`** (Settings → Source).
+- [ ] Env: `APP_ORIGIN=https://sheetless.fitness`, `SUPABASE_URL`/`SUPABASE_ANON_KEY`,
+      `AUTH_ALLOWLIST_ENABLED=false`, `NODE_ENV=production`. Leave `AUTH_PASSWORD_ENABLED` unset.
+- [ ] **Do NOT** set `SUPABASE_SERVICE_ROLE_KEY` on the web service.
+- [ ] Migrations run as a **pre-deploy step**, never inside `pnpm start` (see `RAILWAY.md`).
+- [ ] DNS: point `sheetless.fitness` at the Railway service (Railway provides TLS — also satisfies PWA HTTPS).
 
 ---
 
-## How to grant someone access (reference)
+## Pre-launch verification (on the live URL)
+**Auth (the core of this release):**
+- [ ] **"Continue with Google"** with a fresh Google account → Google consent → returns to
+      `/auth/callback?code=…` → lands signed-in on `/today`; `profiles.display_name` is set from Google.
+- [ ] **Magic Link** with a brand-new email → link arrives → clicking creates the account and lands
+      signed-in on `/today`.
+- [ ] No password UI is shown (prod is Magic Link + Google only).
+
+**Smooth-release basics:**
+- [ ] CI green on `main` — typecheck + lint (`.github/workflows/ci.yml`).
+- [ ] `pnpm pwa:verify` passes on the prod build; app installs + loads over HTTPS.
+- [ ] Confirm **no service-role/demo keys** on the prod web service.
+- [ ] End-to-end smoke as a brand-new user: sign in → onboarding (set estimates, pick a plan) → start
+      a programme → log a set → progression review. Nothing 500s.
+- [ ] Magic-Link emails not landing in spam (from the Resend step).
+
+## Post-launch / operate
+- [ ] **Feedback channel** ready (no in-product form yet) — e.g. a mailto/link in the UI or an external
+      form — since collecting feedback is the point of this launch.
+- [ ] **Abuse watch:** open sign-up invites junk/bot accounts — watch Supabase Auth users + email send
+      volume the first days; keep the invite-only fallback ready.
+- [ ] **Backups:** confirm the hosted Supabase project's backup/retention for your plan.
+- [ ] **Error visibility:** know where to read Railway logs + Supabase logs; consider a lightweight
+      error tracker before wider sharing.
+- [ ] **Basic privacy note:** you're now collecting real user emails/accounts — a short privacy/terms
+      line is worth adding.
+
+---
+
+## Fallback: re-gate Magic Link to invite-only
+Set `AUTH_ALLOWLIST_ENABLED=true` in Railway, turn "Allow new users to sign up" **off** in Supabase,
+then add testers (offline, service-role key — never on the web service):
 ```sh
-# add to allowlist + provision the Supabase user in one go
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm provision:allowed add someone@example.com "note"
-# or provision everyone already in the allowed_emails table
-SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm provision:allowed
-# show the allowlist + who is provisioned
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm provision:allowed list
 ```
 
 ## Notes / gotchas
-- **Magic link is browser-initiated PKCE** — the anon key reaches the browser, so app-layer email checks are advisory. Invite-only (signup off + provisioned users + `shouldCreateUser:false`) is the real gate.
-- **New public tables aren't auto-granted to `service_role`** in this project — the migration grants it explicitly, else the provisioning script hits "permission denied."
-- **Password reset stays in the codebase** but is inactive in prod (`AUTH_PASSWORD_ENABLED=false`). It runs locally where password auth is on; re-enable in prod later by flipping the flag.
-- Local stays fully open (`enable_signup=true`, password on) so the demo user + e2e keep working.
-- Not yet done (deferred, out of scope for now): contact form / waitlist capture; branded Supabase email templates.
+- **Dashboard toggles are the real boundary.** Magic-Link OTP + Google OAuth start in the browser with
+  the public anon key, so the app flags only take effect if Supabase's signup + Google provider are
+  also configured. Flags and dashboard must agree.
+- **Email must work before launch.** Magic Link is the only email path now; a broken SMTP means new
+  users can't sign in. Verify Resend end-to-end first.
+- **Google redirect URI is Supabase's, not the app's** — `https://<project-ref>.supabase.co/auth/v1/callback`.
+- Local stays fully open (password on, `enable_signup=true`) so the demo user + e2e keep working;
+  `supabase/config.toml` is local-only and does not affect prod.

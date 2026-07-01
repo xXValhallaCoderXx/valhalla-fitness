@@ -22,7 +22,7 @@ export function FeaturesGrid() {
         <div className="max-w-2xl">
           <SectionLabel>What Sheetless handles</SectionLabel>
           <Heading order={2} size="2rem" lh={1.1} mt="xs">
-            Training decisions you can read at a glance.
+            Training insights you can read at a glance.
           </Heading>
           <Text component="p" tone="dimmed" fw={600} mt="sm">
             Keep the useful parts of serious programming without needing to manage every formula yourself.

@@ -27,3 +27,12 @@ enable_signup = true
 enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
+
+# Local Google OAuth for dev. The CLI resolves env() from the SHELL, not from .env — so export
+# SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID/_SECRET before `supabase start`, e.g.:
+#   set -a; . ./.env; set +a; supabase stop && supabase start
+# Local callback (add to the Google client's redirect URIs): http://127.0.0.1:54321/auth/v1/callback
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"

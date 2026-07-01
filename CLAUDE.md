@@ -1,7 +1,8 @@
 # Sheetless — agent guide
 
 Beginner-friendly strength-training app (TanStack Start + React + Mantine, Supabase backend).
-Roadmap and history of the language/UX work live in `release-cleanup.md`.
+The canonical product/implementation spec lives in `main-app-spec.md`; go-live steps in
+`release-checklist.md` + `RAILWAY.md`.
 
 ## Commands
 
