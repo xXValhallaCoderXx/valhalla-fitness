@@ -2,7 +2,7 @@ import { Box, Button } from '@mantine/core'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { CalendarDays, History, Layers3, ListChecks, Settings } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { BrandMark, Text } from '~/components/atoms'
+import { BrandLockup, Text } from '~/components/atoms'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { cn } from '~/shared/lib/cn'
 
@@ -39,11 +39,8 @@ export function AppShell({ children }: { user: AuthUser | null; children: ReactN
         }}
       >
         <div className="mx-auto grid h-12 max-w-[1180px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 md:px-5">
-          <Link to="/today" className="flex min-w-0 items-center gap-2 justify-self-start">
-            <BrandMark size="sm" />
-            <Text component="span" size="sm" fw={900} truncate>
-              Sheetless
-            </Text>
+          <Link to="/today" className="flex min-w-0 items-center justify-self-start">
+            <BrandLockup size="sm" />
           </Link>
           <Box
             component="nav"

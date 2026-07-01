@@ -7,9 +7,14 @@ export function BrandLockup({ size = 'sm' }: { size?: BrandLockupSize }) {
   return (
     <div className="flex items-center gap-2">
       <BrandMark size={size} />
-      <Text component="span" size="sm" fw={900} truncate>
-        Sheetless
-      </Text>
+      <span className="flex items-baseline gap-1">
+        <Text component="span" size="sm" fw={900} truncate>
+          Sheetless
+        </Text>
+        <Text component="span" size="xs" fw={700} tone="dimmed">
+          (beta)
+        </Text>
+      </span>
     </div>
   )
 }

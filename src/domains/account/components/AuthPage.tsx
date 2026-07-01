@@ -1,7 +1,8 @@
-import { Alert, Box, Button, Card, Divider, PasswordInput, SegmentedControl, TextInput } from '@mantine/core'
+import { Alert, Box, Button, Card, Divider, PasswordInput, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { ArrowRight, CheckCircle2, Dumbbell, Lock, Mail } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { ArrowRight, CheckCircle2, Mail } from 'lucide-react'
 import { useState } from 'react'
 import { BrandLockup, Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import { useCompleteAuthRedirect } from '~/domains/account/lib/useCompleteAuthRedirect'
@@ -17,14 +18,8 @@ import {
 } from '~/domains/account/server/auth-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 
-type AuthMethod = 'password' | 'magic'
 type AuthMode = 'login' | 'signup'
 type AuthMessage = { tone: 'success' | 'danger' | 'neutral'; text: string }
-
-const authMethodOptions = [
-  { value: 'password', label: 'Password' },
-  { value: 'magic', label: 'Magic link' },
-]
 
 const sidePanelChips = ['Est. 1RM 108 kg', 'Fatigue Fresh']
 const sidePanelReceipt = [
@@ -96,7 +91,6 @@ export function AuthPage() {
   const { data: policy } = useQuery(authPolicyQueryOptions())
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [authMethod, setAuthMethod] = useState<AuthMethod>('password')
   const [mode, setMode] = useState<AuthMode>('login')
   const [message, setMessage] = useState<AuthMessage | null>(null)
 
@@ -195,9 +189,9 @@ export function AuthPage() {
 
   const passwordEnabled = policy?.passwordSignInEnabled ?? false
   const isSignup = passwordEnabled && mode === 'signup'
-  const isMagic = !passwordEnabled || authMethod === 'magic'
-  const showMethodToggle = passwordEnabled
-  const showReset = (policy?.passwordResetEnabled ?? false) && !isMagic && !isSignup
+  const showReset = (policy?.passwordResetEnabled ?? false) && !isSignup
+  // Magic link is offered as a secondary option only from the login form (mirrors the design).
+  const showMagicSecondary = passwordEnabled && !isSignup
 
   const titleCopy = !passwordEnabled ? 'Sign in to Sheetless' : isSignup ? 'Create your account' : 'Welcome back'
   const subtitleCopy = !passwordEnabled
@@ -208,7 +202,9 @@ export function AuthPage() {
   const switchPrompt = isSignup ? 'Already have an account?' : 'New to Sheetless?'
   const switchAction = isSignup ? 'Sign in instead' : 'Create an account'
 
-  const submitLabel = isMagic
+  // Password is the primary path when enabled (local/dev); in production the form collapses to
+  // magic-link only, so the primary submit sends the link.
+  const submitLabel = !passwordEnabled
     ? magicMutation.isPending
       ? 'Sending link...'
       : 'Send magic link'
@@ -246,7 +242,9 @@ export function AuthPage() {
         <div className="vf-dot-grid absolute inset-0" aria-hidden />
 
         <div className="relative">
-          <BrandLockup size="md" />
+          <Link to="/" aria-label="Sheetless home" className="inline-flex w-fit">
+            <BrandLockup size="md" />
+          </Link>
         </div>
 
         <div className="relative max-w-md py-8">
@@ -314,8 +312,7 @@ export function AuthPage() {
         </div>
 
         <div className="relative flex items-center gap-2">
-          <Lock color="var(--mantine-color-dimmed)" size={15} />
-          <Caption fw={600}>Supabase account required for synced workouts.</Caption>
+
         </div>
       </Box>
 
@@ -327,21 +324,13 @@ export function AuthPage() {
               className="flex items-center justify-between px-5 py-3 md:hidden"
               style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
             >
-              <BrandLockup />
+              <Link to="/" aria-label="Sheetless home" className="inline-flex w-fit">
+                <BrandLockup />
+              </Link>
             </Box>
 
             <div className="p-6 md:p-8">
-              <div
-                className="flex h-11 w-11 items-center justify-center rounded-xl"
-                style={{
-                  backgroundColor: 'var(--vf-action-soft)',
-                  border: '1px solid var(--vf-action-border)',
-                }}
-              >
-                <Dumbbell color="var(--vf-action-text)" size={22} />
-              </div>
-
-              <Heading order={1} size="1.5rem" mt="md" lh={1.1}>
+              <Heading order={1} size="1.5rem" lh={1.1}>
                 {titleCopy}
               </Heading>
               <Text component="p" size="sm" tone="dimmed" fw={600} mt={6}>
@@ -366,25 +355,13 @@ export function AuthPage() {
                 className="space-y-4"
                 onSubmit={(event) => {
                   event.preventDefault()
-                  if (isMagic) {
-                    magicMutation.mutate()
-                  } else {
+                  if (passwordEnabled) {
                     passwordMutation.mutate()
+                  } else {
+                    magicMutation.mutate()
                   }
                 }}
               >
-                {showMethodToggle ? (
-                  <SegmentedControl
-                    fullWidth
-                    value={authMethod}
-                    data={authMethodOptions}
-                    onChange={(value) => {
-                      setAuthMethod(value as AuthMethod)
-                      setMessage(null)
-                    }}
-                  />
-                ) : null}
-
                 <label className="grid gap-1.5">
                   <SectionLabel>Email</SectionLabel>
                   <TextInput
@@ -398,7 +375,7 @@ export function AuthPage() {
                   />
                 </label>
 
-                {!isMagic ? (
+                {passwordEnabled ? (
                   <div className="grid gap-1.5">
                     <div className="flex items-center justify-between">
                       <SectionLabel>Password</SectionLabel>
@@ -425,33 +402,42 @@ export function AuthPage() {
                   </div>
                 ) : null}
 
-                {isMagic ? (
-                  <div
-                    className="flex items-start gap-2.5 rounded-[var(--mantine-radius-md)] p-3"
-                    style={{
-                      backgroundColor: 'var(--vf-action-soft)',
-                      border: '1px solid var(--vf-action-border)',
-                    }}
-                  >
-                    <Mail color="var(--vf-action-text)" size={16} className="mt-0.5 shrink-0" />
-                    <Text component="p" size="sm" tone="dimmed" fw={600}>
-                      We’ll email you a one-tap sign-in link — no password needed.
-                    </Text>
-                  </div>
-                ) : null}
-
                 <Button
                   type="submit"
                   fullWidth
                   size="md"
-                  disabled={isMagic ? !email || magicMutation.isPending : !email || !password || passwordMutation.isPending}
+                  disabled={
+                    passwordEnabled
+                      ? !email || !password || passwordMutation.isPending
+                      : !email || magicMutation.isPending
+                  }
                 >
                   {submitLabel}
                   <ArrowRight color="currentColor" size={17} />
                 </Button>
               </form>
 
-              {showMethodToggle ? (
+              {/* Passwordless alternative — same form, no toggle: send a one-time sign-in link. */}
+              {showMagicSecondary ? (
+                <div className="mt-4 grid gap-2">
+                  <Button
+                    type="button"
+                    fullWidth
+                    size="md"
+                    variant="default"
+                    leftSection={<Mail color="var(--vf-action-text)" size={17} />}
+                    onClick={() => magicMutation.mutate()}
+                    disabled={!email || magicMutation.isPending}
+                  >
+                    {magicMutation.isPending ? 'Sending link…' : 'Email me a one-time link'}
+                  </Button>
+                  <Caption component="p" ta="center" fw={600}>
+                    Skip the password — we’ll send a secure link to sign in.
+                  </Caption>
+                </div>
+              ) : null}
+
+              {passwordEnabled ? (
                 <>
                   <Divider my="lg" label={switchPrompt} labelPosition="center" />
 
