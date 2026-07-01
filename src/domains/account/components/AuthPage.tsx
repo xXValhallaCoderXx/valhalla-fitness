@@ -2,14 +2,14 @@ import { Alert, Box, Button, Card, Divider, PasswordInput, TextInput } from '@ma
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, CheckCircle2, Mail } from 'lucide-react'
-import { useState } from 'react'
-import { BrandLockup, Caption, Heading, Panel, SectionLabel, Text } from '~/components'
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Lock, Mail } from 'lucide-react'
+import { type ReactNode, useState } from 'react'
+import { BrandLockup, BrandMark, Caption, Heading, Panel, SectionLabel, Text, toneColor } from '~/components'
+import { sendBrowserMagicLink, startBrowserGoogleSignIn } from '~/domains/account/lib/oauth-browser'
+import { isValidEmail, scorePasswordStrength } from '~/domains/account/lib/password-strength'
 import { useCompleteAuthRedirect } from '~/domains/account/lib/useCompleteAuthRedirect'
 import { authPolicyQueryOptions } from '~/domains/account/queries'
 import {
-  type MagicLinkResult,
-  type OAuthStartResult,
   resetPasswordFn,
   sendMagicLinkFn,
   signInWithPasswordFn,
@@ -20,6 +20,10 @@ import { getApiErrorMessage } from '~/shared/lib/api-error'
 
 type AuthMode = 'login' | 'signup'
 type AuthMessage = { tone: 'success' | 'danger' | 'neutral'; text: string }
+type SentKind = 'magic' | 'reset' | 'signup'
+/** When an email is dispatched we swap the form for a confirmation view. `message` carries the
+ * server's neutral copy for the allowlist case, where we must not assert that a link was sent. */
+type SentState = { kind: SentKind; email: string; message?: string }
 
 const sidePanelChips = ['Est. 1RM 108 kg', 'Fatigue Fresh']
 const sidePanelReceipt = [
@@ -27,43 +31,19 @@ const sidePanelReceipt = [
   'So Sheetless added 2.5 kg today.',
 ]
 
-// PKCE writes the code-verifier as a host-scoped cookie in *this* browser, so the callback must
-// return to the exact host the user is on. Derive it from window.location.origin rather than the
-// server's APP_ORIGIN, which can point at a different host (e.g. the raw Railway domain vs. the
-// canonical www domain) and would drop the verifier cookie -> "pkce code verifier not found".
-function browserAuthCallbackUrl() {
-  return `${window.location.origin}/auth/callback`
-}
-
-async function sendBrowserMagicLink(result: Extract<MagicLinkResult, { browserRequest: object }>) {
-  const { createBrowserClient } = await import('@supabase/ssr')
-  const { browserRequest } = result
-  const supabase = createBrowserClient(browserRequest.supabaseUrl, browserRequest.supabaseAnonKey)
-  const { error } = await supabase.auth.signInWithOtp({
-    email: browserRequest.email,
-    options: {
-      emailRedirectTo: browserAuthCallbackUrl(),
-      shouldCreateUser: browserRequest.shouldCreateUser,
-    },
-  })
-
-  if (error) {
-    return { ok: false, message: error.message } as const
-  }
-
-  return { ok: true, message: result.message } as const
-}
-
-async function startBrowserGoogleSignIn(result: Extract<OAuthStartResult, { ok: true }>) {
-  const { createBrowserClient } = await import('@supabase/ssr')
-  const { browserRequest } = result
-  const supabase = createBrowserClient(browserRequest.supabaseUrl, browserRequest.supabaseAnonKey)
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: browserRequest.provider,
-    options: { redirectTo: browserAuthCallbackUrl() },
-  })
-  // On success supabase-js redirects the browser to Google; only errors return here.
-  return error ? ({ ok: false, message: error.message } as const) : ({ ok: true } as const)
+const sentCopy: Record<SentKind, { title: string; body: (email: ReactNode) => ReactNode }> = {
+  magic: {
+    title: 'Check your inbox',
+    body: (email) => <>We sent a one-time sign-in link to {email}. Tap it and you’re in — no password needed.</>,
+  },
+  reset: {
+    title: 'Reset link sent',
+    body: (email) => <>We sent a password-reset link to {email}. Follow it to choose a new password.</>,
+  },
+  signup: {
+    title: 'Confirm your email',
+    body: (email) => <>We sent a confirmation link to {email}. Confirm it to finish setting up your account.</>,
+  },
 }
 
 function GoogleGIcon() {
@@ -86,6 +66,94 @@ function GoogleGIcon() {
   )
 }
 
+/** Sign-up only: a themed bar + label derived from the pure `scorePasswordStrength` scorer. */
+function PasswordStrengthMeter({ password }: { password: string }) {
+  const strength = scorePasswordStrength(password)
+  const color = toneColor(strength.tone)
+  return (
+    <div className="mt-2 flex items-center gap-3">
+      <div
+        className="h-1.5 flex-1 overflow-hidden rounded-full"
+        style={{ backgroundColor: 'var(--mantine-color-default-border)' }}
+      >
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${strength.widthPct}%`, backgroundColor: color, transition: 'width 160ms ease' }}
+        />
+      </div>
+      <Text component="span" size="xs" fw={700} ta="right" tone={strength.tone} style={{ width: '4.5rem' }}>
+        {strength.label}
+      </Text>
+    </div>
+  )
+}
+
+/** Post-send confirmation shown in place of the form for magic-link / reset / sign-up emails. */
+function AuthSentPanel({
+  sent,
+  resending,
+  errorText,
+  onResend,
+  onBack,
+}: {
+  sent: SentState
+  resending: boolean
+  errorText: string | null
+  onResend: () => void
+  onBack: () => void
+}) {
+  const copy = sentCopy[sent.kind]
+  return (
+    <div className="mt-6">
+      <span
+        className="inline-flex h-14 w-14 items-center justify-center rounded-full"
+        style={{ backgroundColor: 'var(--vf-success-soft)' }}
+      >
+        <Mail color="var(--vf-success-text)" size={28} />
+      </span>
+      <Heading order={1} size="1.5rem" lh={1.15} mt="md">
+        {copy.title}
+      </Heading>
+      <Text component="p" size="sm" tone="dimmed" fw={600} mt={8} lh={1.55}>
+        {sent.message ?? (
+          <>
+            {copy.body(
+              <Text component="span" inherit fw={700} tone="default">
+                {sent.email}
+              </Text>,
+            )}
+          </>
+        )}
+      </Text>
+
+      <Caption component="p" mt="md">
+        Didn’t get it? Check your spam folder, or resend below.
+      </Caption>
+
+      {errorText ? (
+        <Alert mt="md" color="danger" role="alert" icon={<AlertTriangle size={16} />}>
+          {errorText}
+        </Alert>
+      ) : null}
+
+      <Button className="mt-5" type="button" fullWidth size="md" variant="subtle" onClick={onResend} loading={resending}>
+        Resend email
+      </Button>
+      <Button
+        className="mt-2"
+        type="button"
+        fullWidth
+        size="md"
+        variant="default"
+        leftSection={<ArrowLeft color="currentColor" size={17} />}
+        onClick={onBack}
+      >
+        Back to sign in
+      </Button>
+    </div>
+  )
+}
+
 export function AuthPage() {
   const completeAuthRedirect = useCompleteAuthRedirect()
   const { data: policy } = useQuery(authPolicyQueryOptions())
@@ -93,6 +161,7 @@ export function AuthPage() {
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState<AuthMode>('login')
   const [message, setMessage] = useState<AuthMessage | null>(null)
+  const [sent, setSent] = useState<SentState | null>(null)
 
   const passwordMutation = useMutation({
     mutationFn: () =>
@@ -108,9 +177,12 @@ export function AuthPage() {
         return
       }
       if (mode === 'signup' && 'needsEmailConfirmation' in result && result.needsEmailConfirmation) {
-        const text = 'Account created. Check your email to confirm your account.'
-        setMessage({ tone: 'success', text })
-        notifications.show({ color: 'success', title: 'Account created', message: text })
+        notifications.show({
+          color: 'success',
+          title: 'Account created',
+          message: 'Check your email to confirm your account.',
+        })
+        setSent({ kind: 'signup', email })
         return
       }
       notifications.show({
@@ -132,21 +204,19 @@ export function AuthPage() {
     },
     onSuccess: async (result) => {
       const browserResult = result.ok && result.browserRequest ? await sendBrowserMagicLink(result) : result
-      const text = browserResult.message
       if (!browserResult.ok) {
-        setMessage({ tone: 'danger', text })
+        setMessage({ tone: 'danger', text: browserResult.message })
         return
       }
-      // With the allowlist active the confirmation is neutral and identical whether or
-      // not the email is provisioned, so the form never reveals the access list.
+      // With the allowlist active the confirmation must be identical whether or not the email is
+      // provisioned, so we surface the server's neutral copy verbatim and never assert a delivery.
       const neutral = policy?.magicLinkRequiresAllowlist ?? false
-      const tone: AuthMessage['tone'] = neutral ? 'neutral' : 'success'
-      setMessage({ tone, text })
       notifications.show({
-        color: tone,
+        color: neutral ? 'neutral' : 'success',
         title: neutral ? 'Check your email' : 'Magic link sent',
-        message: text,
+        message: browserResult.message,
       })
+      setSent({ kind: 'magic', email, message: neutral ? browserResult.message : undefined })
     },
     onError: (error) => {
       setMessage({ tone: 'danger', text: getApiErrorMessage(error, 'Unable to send magic link') })
@@ -159,9 +229,12 @@ export function AuthPage() {
       setMessage(null)
     },
     onSuccess: (result) => {
-      const text = result.ok ? 'Password reset email sent.' : result.message
-      setMessage({ tone: result.ok ? 'success' : 'danger', text })
-      if (result.ok) notifications.show({ color: 'success', title: 'Password reset sent', message: text })
+      if (!result.ok) {
+        setMessage({ tone: 'danger', text: result.message })
+        return
+      }
+      notifications.show({ color: 'success', title: 'Password reset sent', message: 'Password reset email sent.' })
+      setSent({ kind: 'reset', email })
     },
     onError: (error) => {
       setMessage({ tone: 'danger', text: getApiErrorMessage(error, 'Unable to send password reset') })
@@ -192,6 +265,7 @@ export function AuthPage() {
   const showReset = (policy?.passwordResetEnabled ?? false) && !isSignup
   // Magic link is offered as a secondary option only from the login form (mirrors the design).
   const showMagicSecondary = passwordEnabled && !isSignup
+  const emailValid = isValidEmail(email)
 
   const titleCopy = !passwordEnabled ? 'Sign in to Sheetless' : isSignup ? 'Create your account' : 'Welcome back'
   const subtitleCopy = !passwordEnabled
@@ -203,25 +277,37 @@ export function AuthPage() {
   const switchAction = isSignup ? 'Sign in instead' : 'Create an account'
 
   // Password is the primary path when enabled (local/dev); in production the form collapses to
-  // magic-link only, so the primary submit sends the link.
-  const submitLabel = !passwordEnabled
-    ? magicMutation.isPending
-      ? 'Sending link...'
-      : 'Send magic link'
-    : passwordMutation.isPending
-      ? isSignup
-        ? 'Creating account...'
-        : 'Logging in...'
-      : isSignup
-        ? 'Create account'
-        : 'Log in'
+  // magic-link only, so the primary submit sends the link. Labels stay stable — the Button's
+  // `loading` prop supplies the spinner.
+  const submitLabel = !passwordEnabled ? 'Send magic link' : isSignup ? 'Create account' : 'Log in'
+  const submitPending = passwordEnabled ? passwordMutation.isPending : magicMutation.isPending
 
   const handleForgot = () => {
-    if (!email) {
+    if (!emailValid) {
       setMessage({ tone: 'neutral', text: 'Enter your email above, then tap reset.' })
       return
     }
     resetMutation.mutate()
+  }
+
+  const resendPendingByKind: Record<SentKind, boolean> = {
+    magic: magicMutation.isPending,
+    reset: resetMutation.isPending,
+    signup: passwordMutation.isPending,
+  }
+
+  const handleResend = () => {
+    if (!sent) return
+    if (sent.kind === 'magic') magicMutation.mutate()
+    else if (sent.kind === 'reset') resetMutation.mutate()
+    else passwordMutation.mutate()
+  }
+
+  const handleBackToSignIn = () => {
+    setSent(null)
+    setMessage(null)
+    setMode('login')
+    setPassword('')
   }
 
   return (
@@ -319,151 +405,166 @@ export function AuthPage() {
       {/* Right auth panel */}
       <Box component="section" className="flex min-h-screen items-center justify-center px-4 py-8 md:px-8">
         <div className="w-full max-w-[26rem]">
-          <Card className="overflow-hidden p-0" shadow="xl" radius="lg">
-            <Box
-              className="flex items-center justify-between px-5 py-3 md:hidden"
-              style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
-            >
-              <Link to="/" aria-label="Sheetless home" className="inline-flex w-fit">
-                <BrandLockup />
-              </Link>
-            </Box>
-
+          <Card className="overflow-hidden" shadow="xl" radius="lg" p={0}>
             <div className="p-6 md:p-8">
-              <Heading order={1} size="1.5rem" lh={1.1}>
-                {titleCopy}
-              </Heading>
-              <Text component="p" size="sm" tone="dimmed" fw={600} mt={6}>
-                {subtitleCopy}
-              </Text>
+              <Link to="/" aria-label="Sheetless home" className="inline-flex w-fit">
+                <BrandMark size="lg" />
+              </Link>
 
-              <Button
-                className="mt-6"
-                type="button"
-                fullWidth
-                size="md"
-                variant="default"
-                leftSection={<GoogleGIcon />}
-                onClick={() => googleMutation.mutate()}
-                disabled={googleMutation.isPending}
-              >
-                {googleMutation.isPending ? 'Redirecting…' : 'Continue with Google'}
-              </Button>
-              <Divider my="md" label="or" labelPosition="center" />
+              {sent ? (
+                <AuthSentPanel
+                  sent={sent}
+                  resending={resendPendingByKind[sent.kind]}
+                  errorText={message?.tone === 'danger' ? message.text : null}
+                  onResend={handleResend}
+                  onBack={handleBackToSignIn}
+                />
+              ) : (
+                <>
+                  <Heading order={1} size="1.5rem" lh={1.1} mt="lg">
+                    {titleCopy}
+                  </Heading>
+                  <Text component="p" size="sm" tone="dimmed" fw={600} mt={6}>
+                    {subtitleCopy}
+                  </Text>
 
-              <form
-                className="space-y-4"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  if (passwordEnabled) {
-                    passwordMutation.mutate()
-                  } else {
-                    magicMutation.mutate()
-                  }
-                }}
-              >
-                <label className="grid gap-1.5">
-                  <SectionLabel>Email</SectionLabel>
-                  <TextInput
-                    type="email"
-                    aria-label="Email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="name@example.com"
-                    required
-                  />
-                </label>
+                    {message ? (
+                      <Alert
+                        mt="md"
+                        color={message.tone === 'neutral' ? 'neutral' : message.tone}
+                        role={message.tone === 'danger' ? 'alert' : 'status'}
+                        icon={message.tone === 'danger' ? <AlertTriangle size={16} /> : undefined}
+                      >
+                        {message.text}
+                      </Alert>
+                    ) : null}
 
-                {passwordEnabled ? (
-                  <div className="grid gap-1.5">
-                    <div className="flex items-center justify-between">
-                      <SectionLabel>Password</SectionLabel>
-                      {showReset ? (
+                    <Button
+                      className="mt-6"
+                      type="button"
+                      fullWidth
+                      size="md"
+                      variant="default"
+                      leftSection={<GoogleGIcon />}
+                      onClick={() => googleMutation.mutate()}
+                      loading={googleMutation.isPending}
+                      disabled={googleMutation.isPending}
+                    >
+                      Continue with Google
+                    </Button>
+                    <Divider my="md" label="or" labelPosition="center" />
+
+                    <form
+                      className="space-y-4"
+                      onSubmit={(event) => {
+                        event.preventDefault()
+                        if (passwordEnabled) {
+                          passwordMutation.mutate()
+                        } else {
+                          magicMutation.mutate()
+                        }
+                      }}
+                    >
+                      <label className="grid gap-1.5">
+                        <SectionLabel>Email</SectionLabel>
+                        <TextInput
+                          type="email"
+                          aria-label="Email"
+                          autoComplete="email"
+                          value={email}
+                          onChange={(event) => setEmail(event.target.value)}
+                          placeholder="name@example.com"
+                          required
+                          rightSection={emailValid ? <Check color="var(--vf-success-text)" size={18} /> : undefined}
+                          rightSectionPointerEvents="none"
+                        />
+                      </label>
+
+                      {passwordEnabled ? (
+                        <div className="grid gap-1.5">
+                          <div className="flex items-center justify-between">
+                            <SectionLabel>Password</SectionLabel>
+                            {showReset ? (
+                              <Button
+                                type="button"
+                                variant="subtle"
+                                size="compact-xs"
+                                onClick={handleForgot}
+                                disabled={resetMutation.isPending}
+                              >
+                                {resetMutation.isPending ? 'Sending…' : 'Forgot?'}
+                              </Button>
+                            ) : null}
+                          </div>
+                          <PasswordInput
+                            aria-label="Password"
+                            autoComplete={isSignup ? 'new-password' : 'current-password'}
+                            value={password}
+                            onChange={(event) => setPassword(event.target.value)}
+                            placeholder={isSignup ? 'At least 6 characters' : '••••••••'}
+                            required
+                          />
+                          {isSignup ? <PasswordStrengthMeter password={password} /> : null}
+                        </div>
+                      ) : null}
+
+                      <Button
+                        type="submit"
+                        fullWidth
+                        size="md"
+                        loading={submitPending}
+                        disabled={
+                          passwordEnabled
+                            ? !emailValid || !password || passwordMutation.isPending
+                            : !emailValid || magicMutation.isPending
+                        }
+                      >
+                        {submitLabel}
+                        <ArrowRight color="currentColor" size={17} />
+                      </Button>
+                    </form>
+
+                    {/* Passwordless alternative — same form, no toggle: send a one-time sign-in link. */}
+                    {showMagicSecondary ? (
+                      <div className="mt-4 grid gap-2">
                         <Button
                           type="button"
-                          variant="subtle"
-                          size="compact-xs"
-                          onClick={handleForgot}
-                          disabled={resetMutation.isPending}
+                          fullWidth
+                          size="md"
+                          variant="default"
+                          leftSection={<Mail color="var(--vf-action-text)" size={17} />}
+                          onClick={() => magicMutation.mutate()}
+                          loading={magicMutation.isPending}
+                          disabled={!emailValid || magicMutation.isPending}
                         >
-                          {resetMutation.isPending ? 'Sending…' : 'Forgot?'}
+                          Email me a one-time link
                         </Button>
-                      ) : null}
-                    </div>
-                    <PasswordInput
-                      aria-label="Password"
-                      autoComplete={isSignup ? 'new-password' : 'current-password'}
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      placeholder="••••••••"
-                      required
-                    />
-                  </div>
-                ) : null}
+                        <Caption component="p" ta="center" fw={600}>
+                          Skip the password — we’ll send a secure link to sign in.
+                        </Caption>
+                      </div>
+                    ) : null}
 
-                <Button
-                  type="submit"
-                  fullWidth
-                  size="md"
-                  disabled={
-                    passwordEnabled
-                      ? !email || !password || passwordMutation.isPending
-                      : !email || magicMutation.isPending
-                  }
-                >
-                  {submitLabel}
-                  <ArrowRight color="currentColor" size={17} />
-                </Button>
-              </form>
+                    {passwordEnabled ? (
+                      <>
+                        <Divider my="lg" label={switchPrompt} labelPosition="center" />
 
-              {/* Passwordless alternative — same form, no toggle: send a one-time sign-in link. */}
-              {showMagicSecondary ? (
-                <div className="mt-4 grid gap-2">
-                  <Button
-                    type="button"
-                    fullWidth
-                    size="md"
-                    variant="default"
-                    leftSection={<Mail color="var(--vf-action-text)" size={17} />}
-                    onClick={() => magicMutation.mutate()}
-                    disabled={!email || magicMutation.isPending}
-                  >
-                    {magicMutation.isPending ? 'Sending link…' : 'Email me a one-time link'}
-                  </Button>
-                  <Caption component="p" ta="center" fw={600}>
-                    Skip the password — we’ll send a secure link to sign in.
-                  </Caption>
-                </div>
-              ) : null}
-
-              {passwordEnabled ? (
-                <>
-                  <Divider my="lg" label={switchPrompt} labelPosition="center" />
-
-                  <Button
-                    type="button"
-                    fullWidth
-                    variant="default"
-                    onClick={() => {
-                      setMode(isSignup ? 'login' : 'signup')
-                      setMessage(null)
-                    }}
-                  >
-                    {switchAction}
-                  </Button>
+                        <Button
+                          type="button"
+                          fullWidth
+                          variant="default"
+                          onClick={() => {
+                            setMode(isSignup ? 'login' : 'signup')
+                            setMessage(null)
+                            setPassword('')
+                          }}
+                        >
+                          {switchAction}
+                        </Button>
+                      </>
+                    ) : null}
                 </>
-              ) : null}
-
-              {message ? (
-                <Alert
-                  mt="md"
-                  color={message.tone === 'neutral' ? 'neutral' : message.tone}
-                  role={message.tone === 'danger' ? 'alert' : 'status'}
-                >
-                  {message.text}
-                </Alert>
-              ) : null}
+              )}
             </div>
           </Card>
 
