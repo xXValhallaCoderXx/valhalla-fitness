@@ -1,4 +1,4 @@
-import { Badge, Button, Modal } from '@mantine/core'
+import { Badge, Button, Modal, Popover } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import {
   Check,
@@ -78,7 +78,6 @@ export function FindMyPlanModal({
   const [answers, setAnswers] = useState<WizardAnswers>({})
   const [phase, setPhase] = useState<'questions' | 'result'>('questions')
   const [selected, setSelected] = useState(0)
-  const [openGloss, setOpenGloss] = useState<string | null>(null)
   const [weekOpen, setWeekOpen] = useState(false)
 
   // Fresh wizard each time it opens (the component stays mounted between opens).
@@ -89,7 +88,6 @@ export function FindMyPlanModal({
     setAnswers({})
     setPhase('questions')
     setSelected(0)
-    setOpenGloss(null)
     setWeekOpen(false)
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [opened])
@@ -111,6 +109,7 @@ export function FindMyPlanModal({
   }, [phase, answers, templates])
   const activeIndex = Math.min(selected, Math.max(0, recs.length - 1))
   const activeRec = recs[activeIndex]
+  const glossedTags = activeRec ? activeRec.template.tags.filter((tag) => TAG_GLOSSARY[tag]) : []
   const isReco = activeIndex === 0
   const goodFits = recs.map((rec, index) => ({ rec, index })).filter((entry) => entry.index !== activeIndex).slice(0, 2)
 
@@ -124,7 +123,6 @@ export function FindMyPlanModal({
   const choose = (value: string | number) => {
     const key = question.key
     setAnswers((current) => ({ ...current, [key]: value }))
-    setOpenGloss(null)
     if (step >= totalSteps - 1) {
       setPhase('result')
       setSelected(0)
@@ -133,25 +131,21 @@ export function FindMyPlanModal({
     }
   }
   const back = () => {
-    setOpenGloss(null)
     setStep((current) => Math.max(0, current - 1))
   }
   const editAnswer = (index: number) => {
     setPhase('questions')
     setStep(index)
-    setOpenGloss(null)
   }
   const reset = () => {
     setStep(0)
     setAnswers({})
     setPhase('questions')
     setSelected(0)
-    setOpenGloss(null)
     setWeekOpen(false)
   }
   const selectPlan = (index: number) => {
     setSelected(index)
-    setOpenGloss(null)
     setWeekOpen(false)
   }
   const start = () => {
@@ -327,35 +321,40 @@ export function FindMyPlanModal({
                     {activeRec.reason}
                   </Text>
 
-                  {/* tags (tap to explain) */}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {activeRec.template.tags.map((tag) => {
-                      const gloss = TAG_GLOSSARY[tag]
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          disabled={!gloss}
-                          onClick={() => setOpenGloss((current) => (current === tag ? null : tag))}
-                          className="vf-chip"
-                          data-active={openGloss === tag ? 'true' : undefined}
-                          style={gloss ? undefined : { cursor: 'default' }}
-                        >
-                          <Caption component="span" fw={700} c="inherit">
-                            {tagLabel(tag)}
-                          </Caption>
-                          {gloss ? <Info size={11} /> : null}
-                        </button>
-                      )
-                    })}
+                  {/* tags + a single glossary popover (tap-friendly — not per-pill toggles) */}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {activeRec.template.tags.map((tag) => (
+                      <span key={tag} className="vf-chip">
+                        <Caption component="span" fw={700} c="inherit">
+                          {tagLabel(tag)}
+                        </Caption>
+                      </span>
+                    ))}
+                    {glossedTags.length ? (
+                      <Popover withArrow withinPortal shadow="md" radius="md" width={320} position="bottom-start">
+                        <Popover.Target>
+                          <button type="button" className="vf-chip">
+                            <Info size={11} />
+                            <Caption component="span" fw={700} c="inherit">
+                              What do these mean?
+                            </Caption>
+                          </button>
+                        </Popover.Target>
+                        <Popover.Dropdown>
+                          <div className="grid gap-2.5">
+                            {glossedTags.map((tag) => (
+                              <div key={tag}>
+                                <Text size="sm" fw={800}>
+                                  {tagLabel(tag)}
+                                </Text>
+                                <Caption lh={1.5}>{TAG_GLOSSARY[tag]}</Caption>
+                              </div>
+                            ))}
+                          </div>
+                        </Popover.Dropdown>
+                      </Popover>
+                    ) : null}
                   </div>
-                  {openGloss && TAG_GLOSSARY[openGloss] ? (
-                    <Panel surface="inset" className="mt-2.5" px="sm" py="xs">
-                      <Caption component="p" lh={1.5}>
-                        {TAG_GLOSSARY[openGloss]}
-                      </Caption>
-                    </Panel>
-                  ) : null}
 
                   {/* typical week */}
                   <div className="mt-5 flex items-center justify-between">

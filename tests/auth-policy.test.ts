@@ -27,14 +27,30 @@ describe('getAuthPolicy', () => {
     expect(policy.passwordSignInEnabled).toBe(true)
     // Allowlist still defaults on in production.
     expect(policy.magicLinkRequiresAllowlist).toBe(true)
+    // Open password signup implies passwordless signup for allowed emails too.
+    expect(policy.magicLinkShouldCreateUser).toBe(true)
   })
 
   it('lets an explicit flag enable the allowlist outside production', () => {
     const policy = getAuthPolicy({ nodeEnv: 'development', allowlistEnabled: '1' })
     expect(policy.magicLinkRequiresAllowlist).toBe(true)
-    expect(policy.magicLinkShouldCreateUser).toBe(false)
-    // Password still defaults on outside production.
+    // Password (and with it signup) still defaults on outside production, so magic links
+    // may create accounts for allowed emails.
+    expect(policy.magicLinkShouldCreateUser).toBe(true)
     expect(policy.passwordSignInEnabled).toBe(true)
+  })
+
+  it('is invite-only when password is off and the allowlist is on', () => {
+    const policy = getAuthPolicy({ nodeEnv: 'development', passwordEnabled: 'false', allowlistEnabled: '1' })
+    expect(policy.magicLinkRequiresAllowlist).toBe(true)
+    expect(policy.magicLinkShouldCreateUser).toBe(false)
+  })
+
+  it('allows open magic-link signup when the allowlist is explicitly off in production', () => {
+    const policy = getAuthPolicy({ nodeEnv: 'production', allowlistEnabled: 'false' })
+    expect(policy.passwordSignInEnabled).toBe(false)
+    expect(policy.magicLinkRequiresAllowlist).toBe(false)
+    expect(policy.magicLinkShouldCreateUser).toBe(true)
   })
 
   it('honours an explicit AUTH_PASSWORD_ENABLED=false in dev', () => {

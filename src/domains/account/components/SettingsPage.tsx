@@ -308,7 +308,12 @@ function SettingsForm({ me }: { me: UserProfile }) {
         <Panel
           className="sticky top-0 z-30 mb-4"
           p="sm"
-          style={{ borderColor: 'var(--vf-warning-border)', backgroundColor: 'var(--vf-warning-soft)' }}
+          style={{
+            borderColor: 'var(--vf-warning-border)',
+            // The warning tint is translucent; layer it over the Panel's opaque surface so
+            // scrolled content can't bleed through this sticky banner.
+            backgroundImage: 'linear-gradient(var(--vf-warning-soft), var(--vf-warning-soft))',
+          }}
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>

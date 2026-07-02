@@ -49,8 +49,9 @@ export function getAuthPolicy(env: AuthPolicyEnv = {}): AuthPolicy {
     passwordResetEnabled: passwordEnabled,
     magicLinkEnabled: true,
     magicLinkRequiresAllowlist: allowlistEnabled,
-    // When the allowlist gates sign-in, only pre-provisioned users may exist,
-    // so the browser OTP call must not create new users.
-    magicLinkShouldCreateUser: !allowlistEnabled,
+    // A deployment with open password signup lets magic links create accounts too (the signup
+    // form offers a passwordless option). Otherwise creation is allowed only when no allowlist
+    // gates sign-in — invite-only deployments must pre-provision accounts.
+    magicLinkShouldCreateUser: passwordEnabled || !allowlistEnabled,
   }
 }

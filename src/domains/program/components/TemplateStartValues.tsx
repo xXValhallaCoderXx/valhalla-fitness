@@ -21,6 +21,47 @@ import {
 import type { ProgramStateDefaults, ProgramStateInput, Unit } from '~/shared/types'
 import { StartInfoMetric } from './TemplateStartMetric'
 
+/**
+ * Tap-friendly explanation for controls that stay disabled until strength estimates exist.
+ * Disabled buttons swallow pointer events, so the child must set `pointerEvents: 'none'`
+ * and the wrapping span becomes the Popover target that receives the tap.
+ */
+export function MissingEstimatesPopover({
+  active,
+  fullWidth = false,
+  className,
+  children,
+}: {
+  active: boolean
+  fullWidth?: boolean
+  className?: string
+  children: ReactNode
+}) {
+  if (!active) return <>{children}</>
+
+  return (
+    <Popover withArrow withinPortal position="top" width={280} shadow="md">
+      <Popover.Target>
+        <span className={`${fullWidth ? 'block w-full' : 'inline-flex'} ${className ?? ''}`.trim()}>
+          {children}
+        </span>
+      </Popover.Target>
+      <Popover.Dropdown>
+        <div className="space-y-3">
+          <Caption>
+            Set your estimated 1RMs in <StrengthEstimatesLink /> first. Sheetless uses them to suggest this
+            programme&apos;s starting values.
+          </Caption>
+          <Button component="a" href="/settings#programme-loads" size="xs" className="w-full">
+            <Settings size={14} />
+            Open Strength Estimates
+          </Button>
+        </div>
+      </Popover.Dropdown>
+    </Popover>
+  )
+}
+
 export function SetupValuesButton({
   className,
   disabled,
@@ -51,25 +92,9 @@ export function SetupValuesButton({
   if (!disabled) return button
 
   return (
-    <Popover withArrow withinPortal position="top" width={280} shadow="md">
-      <Popover.Target>
-        <span className={`${fullWidth ? 'block w-full' : 'inline-flex'} ${className ?? ''}`.trim()}>
-          {button}
-        </span>
-      </Popover.Target>
-      <Popover.Dropdown>
-        <div className="space-y-3">
-          <Caption>
-            Set your estimated 1RMs in <StrengthEstimatesLink /> first. Sheetless uses them to suggest this
-            programme&apos;s starting values.
-          </Caption>
-          <Button component="a" href="/settings#programme-loads" size="xs" className="w-full">
-            <Settings size={14} />
-            Open Strength Estimates
-          </Button>
-        </div>
-      </Popover.Dropdown>
-    </Popover>
+    <MissingEstimatesPopover active fullWidth={fullWidth} className={className}>
+      {button}
+    </MissingEstimatesPopover>
   )
 }
 
@@ -233,10 +258,17 @@ export function StartSummaryPanel({
         </Text>
       ) : null}
 
-      <Button className="w-full" disabled={isPending || missingRequiredState.length > 0} onClick={onStart}>
-        <Check size={16} />
-        Start programme
-      </Button>
+      <MissingEstimatesPopover active={missingRequiredState.length > 0} fullWidth>
+        <Button
+          className="w-full"
+          disabled={isPending || missingRequiredState.length > 0}
+          style={missingRequiredState.length > 0 ? { pointerEvents: 'none' } : undefined}
+          onClick={missingRequiredState.length > 0 ? undefined : onStart}
+        >
+          <Check size={16} />
+          Start programme
+        </Button>
+      </MissingEstimatesPopover>
     </Card>
   )
 }

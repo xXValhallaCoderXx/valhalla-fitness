@@ -134,7 +134,7 @@ src/
 
 ## Onboarding
 
-- Today-page onboarding uses the server flag `profiles.onboarding_completed`.
+- Today-page onboarding shows while the server flag `profiles.onboarding_completed` is false and the account has zero completed sessions; "Don't show again" confirms via a dialog before setting the flag.
 - Live-session onboarding is separate and uses `profiles.live_onboarding_dismissed`, so dismissing the workout card persists across devices.
 - The live workout walkthrough is opt-in from the live session card. Settings can still replay it by navigating to an active session with `?tour=live`.
 

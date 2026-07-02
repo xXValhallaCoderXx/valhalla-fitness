@@ -60,12 +60,3 @@ export function buildOnboardingProgress(input: OnboardingProgressInput): {
   ]
   return { steps, allDone: steps.every((step) => step.done) }
 }
-
-const SNOOZE_DAYS = 7
-/** How long "Skip for now" hides the getting-started checklist before it resurfaces. */
-export const ONBOARDING_SNOOZE_MS = SNOOZE_DAYS * 24 * 60 * 60 * 1000
-
-/** True when a snooze timestamp is set and still in the future. */
-export function isOnboardingSnoozed(snoozeUntil: number | null, now: number): boolean {
-  return typeof snoozeUntil === 'number' && Number.isFinite(snoozeUntil) && snoozeUntil > now
-}
