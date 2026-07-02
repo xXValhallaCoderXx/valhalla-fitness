@@ -42,7 +42,7 @@ import { StartInfoMetric } from './TemplateStartMetric'
 import { ProgrammeBlocksCard } from './TemplateStartBlocks'
 import { ProgrammeInfoModal } from './TemplateStartInfoModal'
 import { TemplateStartPreview } from './TemplateStartPreview'
-import { DefaultsModal, QuickFactsCard, SetupValuesButton, StartSummaryPanel } from './TemplateStartValues'
+import { DefaultsModal, MissingEstimatesPopover, QuickFactsCard, SetupValuesButton, StartSummaryPanel } from './TemplateStartValues'
 
 export function TemplateStartContent({
   template,
@@ -378,10 +378,16 @@ export function TemplateStartContent({
                 label={missingRequiredState.length === 0 && visibleState.length > 0 ? 'Modify values' : 'Values'}
                 onClick={() => setShowDefaultsModal(true)}
               />
-              <Button disabled={startMutation.isPending || missingRequiredState.length > 0} onClick={requestStartProgram}>
-                <Check size={16} />
-                Start
-              </Button>
+              <MissingEstimatesPopover active={missingRequiredState.length > 0}>
+                <Button
+                  disabled={startMutation.isPending || missingRequiredState.length > 0}
+                  style={missingRequiredState.length > 0 ? { pointerEvents: 'none' } : undefined}
+                  onClick={missingRequiredState.length > 0 ? undefined : requestStartProgram}
+                >
+                  <Check size={16} />
+                  Start
+                </Button>
+              </MissingEstimatesPopover>
             </div>
           </div>
         </div>

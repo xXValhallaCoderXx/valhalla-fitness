@@ -37,7 +37,7 @@ export function TodayPage({ user }: { user: unknown }) {
 
 function AuthedToday() {
   const router = useRouter()
-  const { active: onboardingActive } = useOnboardingActive()
+  const { active: onboardingActive, pending: onboardingPending } = useOnboardingActive()
   const todayQuery = useQuery(todayQueryOptions())
   const overviewQuery = useQuery({
     ...programOverviewQueryOptions(),
@@ -75,7 +75,7 @@ function AuthedToday() {
     return (
       <Page>
         <OnboardingPanel />
-        {!onboardingActive ? (
+        {!onboardingActive && !onboardingPending ? (
           <EmptyState
             centered
             title="No active program"

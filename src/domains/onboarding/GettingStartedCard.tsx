@@ -28,14 +28,12 @@ export function GettingStartedCard({
   steps,
   allDone,
   onStartTour,
-  onSnooze,
   onDismiss,
   isDismissing,
 }: {
   steps: OnboardingStep[]
   allDone: boolean
   onStartTour: () => void
-  onSnooze: () => void
   onDismiss: () => void
   isDismissing: boolean
 }) {
@@ -80,12 +78,7 @@ export function GettingStartedCard({
         ))}
       </div>
 
-      <div className="mt-3 flex justify-end gap-2">
-        {!allDone ? (
-          <Button variant="subtle" size="xs" color="neutral" onClick={onSnooze}>
-            Skip for now
-          </Button>
-        ) : null}
+      <div className="mt-3 flex justify-end">
         <Button variant="subtle" size="xs" color="neutral" onClick={onDismiss} disabled={isDismissing}>
           {allDone ? 'Done' : "Don't show again"}
         </Button>

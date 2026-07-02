@@ -2,7 +2,7 @@ import { Alert, Box, Button, Card, Divider, PasswordInput, TextInput } from '@ma
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Lock, Mail } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Mail } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { BrandLockup, BrandMark, Caption, Heading, Panel, SectionLabel, Text, toneColor } from '~/components'
 import { sendBrowserMagicLink, startBrowserGoogleSignIn } from '~/domains/account/lib/oauth-browser'
@@ -34,7 +34,7 @@ const sidePanelReceipt = [
 const sentCopy: Record<SentKind, { title: string; body: (email: ReactNode) => ReactNode }> = {
   magic: {
     title: 'Check your inbox',
-    body: (email) => <>We sent a one-time sign-in link to {email}. Tap it and you’re in — no password needed.</>,
+    body: (email) => <>We sent a one-time sign-in link to {email}.</>,
   },
   reset: {
     title: 'Reset link sent',
@@ -161,6 +161,7 @@ export function AuthPage() {
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState<AuthMode>('login')
   const [message, setMessage] = useState<AuthMessage | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
   const [sent, setSent] = useState<SentState | null>(null)
 
   const passwordMutation = useMutation({
@@ -177,19 +178,13 @@ export function AuthPage() {
         return
       }
       if (mode === 'signup' && 'needsEmailConfirmation' in result && result.needsEmailConfirmation) {
-        notifications.show({
-          color: 'success',
-          title: 'Account created',
-          message: 'Check your email to confirm your account.',
-        })
+        // The AuthSentPanel already tells the user to confirm their email — no toast on top.
         setSent({ kind: 'signup', email })
         return
       }
-      notifications.show({
-        color: 'success',
-        title: mode === 'login' ? 'Logged in' : 'Account created',
-        message: mode === 'login' ? 'Welcome back.' : 'Your account is ready.',
-      })
+      if (mode === 'login') {
+        notifications.show({ color: 'success', title: 'Logged in', message: 'Welcome back.' })
+      }
       await completeAuthRedirect()
     },
     onError: (error) => {
@@ -263,8 +258,8 @@ export function AuthPage() {
   const passwordEnabled = policy?.passwordSignInEnabled ?? false
   const isSignup = passwordEnabled && mode === 'signup'
   const showReset = (policy?.passwordResetEnabled ?? false) && !isSignup
-  // Magic link is offered as a secondary option only from the login form (mirrors the design).
-  const showMagicSecondary = passwordEnabled && !isSignup
+  // Magic link is offered as a passwordless secondary option on both the login and signup forms.
+  const showMagicSecondary = passwordEnabled
   const emailValid = isValidEmail(email)
 
   const titleCopy = !passwordEnabled ? 'Sign in to Sheetless' : isSignup ? 'Create your account' : 'Welcome back'
@@ -284,7 +279,7 @@ export function AuthPage() {
 
   const handleForgot = () => {
     if (!emailValid) {
-      setMessage({ tone: 'neutral', text: 'Enter your email above, then tap reset.' })
+      setEmailError(email.trim() ? 'Enter a valid email address.' : 'Email is required.')
       return
     }
     resetMutation.mutate()
@@ -306,6 +301,7 @@ export function AuthPage() {
   const handleBackToSignIn = () => {
     setSent(null)
     setMessage(null)
+    setEmailError(null)
     setMode('login')
     setPassword('')
   }
@@ -472,9 +468,13 @@ export function AuthPage() {
                           aria-label="Email"
                           autoComplete="email"
                           value={email}
-                          onChange={(event) => setEmail(event.target.value)}
+                          onChange={(event) => {
+                            setEmail(event.target.value)
+                            setEmailError(null)
+                          }}
                           placeholder="name@example.com"
                           required
+                          error={emailError}
                           rightSection={emailValid ? <Check color="var(--vf-success-text)" size={18} /> : undefined}
                           rightSectionPointerEvents="none"
                         />
@@ -526,23 +526,19 @@ export function AuthPage() {
 
                     {/* Passwordless alternative — same form, no toggle: send a one-time sign-in link. */}
                     {showMagicSecondary ? (
-                      <div className="mt-4 grid gap-2">
-                        <Button
-                          type="button"
-                          fullWidth
-                          size="md"
-                          variant="default"
-                          leftSection={<Mail color="var(--vf-action-text)" size={17} />}
-                          onClick={() => magicMutation.mutate()}
-                          loading={magicMutation.isPending}
-                          disabled={!emailValid || magicMutation.isPending}
-                        >
-                          Email me a one-time link
-                        </Button>
-                        <Caption component="p" ta="center" fw={600}>
-                          Skip the password — we’ll send a secure link to sign in.
-                        </Caption>
-                      </div>
+                      <Button
+                        className="mt-4"
+                        type="button"
+                        fullWidth
+                        size="md"
+                        variant="default"
+                        leftSection={<Mail color="var(--vf-action-text)" size={17} />}
+                        onClick={() => magicMutation.mutate()}
+                        loading={magicMutation.isPending}
+                        disabled={!emailValid || magicMutation.isPending}
+                      >
+                        Email me a one-time link
+                      </Button>
                     ) : null}
 
                     {passwordEnabled ? (
@@ -556,6 +552,7 @@ export function AuthPage() {
                           onClick={() => {
                             setMode(isSignup ? 'login' : 'signup')
                             setMessage(null)
+                            setEmailError(null)
                             setPassword('')
                           }}
                         >

@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  ONBOARDING_SNOOZE_MS,
-  buildOnboardingProgress,
-  hasAllStrengthEstimates,
-  isOnboardingSnoozed,
-} from '../src/domains/onboarding/onboarding-progress'
+import { buildOnboardingProgress, hasAllStrengthEstimates } from '../src/domains/onboarding/onboarding-progress'
 
 const ALL_FIVE_ESTIMATES = {
   squat_one_rep_max: 140,
@@ -59,30 +54,5 @@ describe('hasAllStrengthEstimates', () => {
   it('ignores non-positive values and non-1RM keys', () => {
     expect(hasAllStrengthEstimates({ ...ALL_FIVE_ESTIMATES, squat_one_rep_max: 0 })).toBe(false)
     expect(hasAllStrengthEstimates({ squat_training_max: 120 })).toBe(false)
-  })
-})
-
-describe('isOnboardingSnoozed', () => {
-  const now = 1_700_000_000_000
-
-  it('is false when no snooze is set', () => {
-    expect(isOnboardingSnoozed(null, now)).toBe(false)
-  })
-
-  it('is true while the snooze is in the future', () => {
-    expect(isOnboardingSnoozed(now + 1000, now)).toBe(true)
-  })
-
-  it('is false once the snooze has elapsed', () => {
-    expect(isOnboardingSnoozed(now - 1000, now)).toBe(false)
-  })
-
-  it('ignores non-finite / zero timestamps', () => {
-    expect(isOnboardingSnoozed(Number.NaN, now)).toBe(false)
-    expect(isOnboardingSnoozed(0, now)).toBe(false)
-  })
-
-  it('snoozes for seven days', () => {
-    expect(ONBOARDING_SNOOZE_MS).toBe(7 * 24 * 60 * 60 * 1000)
   })
 })

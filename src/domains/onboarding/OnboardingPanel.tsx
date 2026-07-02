@@ -1,17 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
+import { ConfirmDialog } from '~/components'
 import { meQueryOptions } from '~/domains/account/queries'
 import { completeOnboardingFn } from '~/domains/account/server/profile-functions'
 import { historyDashboardQueryOptions } from '~/domains/history/queries'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { track } from '~/shared/lib/analytics'
 import type { UserProfile } from '~/shared/types'
-import { ONBOARDING_SNOOZE_MS, buildOnboardingProgress } from './onboarding-progress'
+import { buildOnboardingProgress } from './onboarding-progress'
 import { GettingStartedCard } from './GettingStartedCard'
-import { ONBOARDING_SNOOZE_KEY, useOnboardingActive } from './useOnboardingActive'
+import { useOnboardingActive } from './useOnboardingActive'
 import { useOnboardingTour } from './useOnboardingTour'
 
-const AUTORUN_KEY = 'sheetless.onboardingTourAutorun'
+/** User-scoped so a new account on a shared machine still gets its own auto-run. */
+const autorunKey = (userId: string) => `sheetless.onboardingTourAutorun.${userId}`
 
 /**
  * First-run onboarding for the Today page: a getting-started checklist plus the
@@ -22,7 +24,7 @@ export function OnboardingPanel() {
   const queryClient = useQueryClient()
   const me = useQuery(meQueryOptions()).data
   const { active, forced } = useOnboardingActive()
-  const [snoozedLocally, setSnoozedLocally] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const todayQuery = useQuery({ ...todayQueryOptions(), enabled: active })
   const historyQuery = useQuery({ ...historyDashboardQueryOptions(), enabled: active })
@@ -30,22 +32,27 @@ export function OnboardingPanel() {
 
   const completeMutation = useMutation({
     mutationFn: () => completeOnboardingFn(),
-    onSuccess: (profile) => queryClient.setQueryData<UserProfile | null>(['me'], profile ?? null),
+    onSuccess: (profile) => {
+      queryClient.setQueryData<UserProfile | null>(['me'], profile ?? null)
+      // Under ?onboarding=force the panel stays mounted, so close the dialog explicitly.
+      setConfirmOpen(false)
+    },
   })
 
-  // Auto-run the tour once per device for genuine new users (not when forced, so
+  // Auto-run the tour once per user+device for genuine new users (not when forced, so
   // tests/replay drive it explicitly).
   const autoRan = useRef(false)
+  const userId = me?.id
   useEffect(() => {
-    if (!active || forced || autoRan.current || typeof window === 'undefined') return
-    if (window.localStorage.getItem(AUTORUN_KEY)) return
+    if (!active || forced || !userId || autoRan.current || typeof window === 'undefined') return
+    if (window.localStorage.getItem(autorunKey(userId))) return
     autoRan.current = true
-    window.localStorage.setItem(AUTORUN_KEY, '1')
+    window.localStorage.setItem(autorunKey(userId), '1')
     const timer = window.setTimeout(() => start(), 600)
     return () => window.clearTimeout(timer)
-  }, [active, forced, start])
+  }, [active, forced, userId, start])
 
-  if (!active || snoozedLocally) return null
+  if (!active) return null
 
   const progress = buildOnboardingProgress({
     hasActiveProgram: Boolean(todayQuery.data?.activeProgram),
@@ -53,30 +60,42 @@ export function OnboardingPanel() {
     completedSessions: historyQuery.data?.overview.completedSessions ?? 0,
   })
 
-  // "Skip for now": hide on this device for a week without touching the server flag.
-  const handleSnooze = () => {
-    if (typeof window !== 'undefined') {
-      const until = Date.now() + ONBOARDING_SNOOZE_MS
-      window.localStorage.setItem(ONBOARDING_SNOOZE_KEY, String(until))
-      track('onboarding_snooze', { until })
+  // "Don't show again" asks for confirmation; "Done" (every step complete) dismisses directly.
+  const handleDismiss = () => {
+    if (progress.allDone) {
+      track('onboarding_dismiss', { allDone: true })
+      completeMutation.mutate()
+      return
     }
-    setSnoozedLocally(true)
+    setConfirmOpen(true)
   }
 
-  // "Don't show again" / "Done": complete onboarding permanently (syncs across devices).
-  const handleDismiss = () => {
-    track('onboarding_dismiss', { allDone: progress.allDone })
+  const handleConfirmExit = () => {
+    track('onboarding_dismiss', { allDone: false })
     completeMutation.mutate()
   }
 
   return (
-    <GettingStartedCard
-      steps={progress.steps}
-      allDone={progress.allDone}
-      onStartTour={start}
-      onSnooze={handleSnooze}
-      onDismiss={handleDismiss}
-      isDismissing={completeMutation.isPending}
-    />
+    <>
+      <GettingStartedCard
+        steps={progress.steps}
+        allDone={progress.allDone}
+        onStartTour={start}
+        onDismiss={handleDismiss}
+        isDismissing={completeMutation.isPending}
+      />
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Exit onboarding?"
+        confirmLabel="Exit onboarding"
+        tone="warning"
+        isPending={completeMutation.isPending}
+        onConfirm={handleConfirmExit}
+        onCancel={() => setConfirmOpen(false)}
+      >
+        Are you sure you want to exit onboarding? If it’s your first time around, we recommend
+        completing these steps.
+      </ConfirmDialog>
+    </>
   )
 }

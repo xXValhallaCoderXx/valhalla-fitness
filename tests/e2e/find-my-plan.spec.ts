@@ -22,6 +22,14 @@ test('find my plan recommends a plan and adapts to the answers', async ({ page }
   await expect(dialog.getByText(/Recommended schedule: 3-day/)).toBeVisible()
   await expect(dialog.getByText('Other good fits')).toBeVisible()
 
+  // One popover explains every tag chip (replaces the old per-pill toggles). It renders in a
+  // portal, so assert at page level. Close it by toggling the trigger — Escape would bubble
+  // to the Modal and close the whole wizard.
+  await dialog.getByRole('button', { name: 'What do these mean?' }).click()
+  await expect(page.getByText(/Linear progression — add a little weight/)).toBeVisible()
+  await dialog.getByRole('button', { name: 'What do these mean?' }).click()
+  await expect(page.getByText(/Linear progression — add a little weight/)).toHaveCount(0)
+
   // Re-answer from scratch — very experienced / 4 days / muscle → the Bromley wave family.
   await dialog.getByRole('button', { name: 'Start over' }).click()
   await dialog.getByRole('button', { name: 'Very experienced' }).click()

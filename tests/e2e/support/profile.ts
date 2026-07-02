@@ -2,13 +2,13 @@ import { createClient } from '@supabase/supabase-js'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { DEMO_USER } from './auth'
+import { DEMO_USER, type Credentials } from './auth'
 
 /**
- * Toggle the demo user's `live_onboarding_dismissed` flag so onboarding card/tour
- * tests are deterministic. Shared by the live (Overview) and focus walkthrough specs.
+ * Sign in a throwaway Supabase client as a demo account (never signed out — that would
+ * revoke the session the browser under test is using) and resolve its auth user id.
  */
-export async function setLiveOnboardingDismissed(value: boolean) {
+async function signInClient(credentials: Credentials) {
   const { supabaseUrl, anonKey } = getSupabaseTestEnv()
   const client = createClient(supabaseUrl, anonKey, {
     auth: {
@@ -16,18 +16,43 @@ export async function setLiveOnboardingDismissed(value: boolean) {
       persistSession: false,
     },
   })
-  const { error: authError } = await client.auth.signInWithPassword(DEMO_USER)
-  if (authError) throw new Error(`Unable to sign in demo user for onboarding setup: ${authError.message}`)
+  const { error: authError } = await client.auth.signInWithPassword(credentials)
+  if (authError) throw new Error(`Unable to sign in ${credentials.email} for profile setup: ${authError.message}`)
 
   const { data, error: userError } = await client.auth.getUser()
-  if (userError) throw new Error(`Unable to read demo user for onboarding setup: ${userError.message}`)
-  if (!data.user) throw new Error('Unable to read demo user for onboarding setup: no user returned')
+  if (userError) throw new Error(`Unable to read ${credentials.email} for profile setup: ${userError.message}`)
+  if (!data.user) throw new Error(`Unable to read ${credentials.email} for profile setup: no user returned`)
 
-  const { error } = await client
-    .from('profiles')
-    .update({ live_onboarding_dismissed: value })
-    .eq('id', data.user.id)
-  if (error) throw new Error(`Unable to reset live onboarding flag: ${error.message}`)
+  return { client, userId: data.user.id }
+}
+
+/** Resolve a demo account's auth user id (for user-scoped localStorage keys). */
+export async function getUserId(credentials: Credentials): Promise<string> {
+  const { userId } = await signInClient(credentials)
+  return userId
+}
+
+async function updateProfile(credentials: Credentials, patch: Record<string, unknown>): Promise<string> {
+  const { client, userId } = await signInClient(credentials)
+  const { error } = await client.from('profiles').update(patch).eq('id', userId)
+  if (error) throw new Error(`Unable to update profile flags for ${credentials.email}: ${error.message}`)
+  return userId
+}
+
+/**
+ * Toggle an account's Today-page onboarding flag so checklist tests are deterministic.
+ * Returns the account's user id (handy for the user-scoped tour-autorun key).
+ */
+export function setOnboardingCompleted(credentials: Credentials, value: boolean): Promise<string> {
+  return updateProfile(credentials, { onboarding_completed: value })
+}
+
+/**
+ * Toggle the demo user's `live_onboarding_dismissed` flag so onboarding card/tour
+ * tests are deterministic. Shared by the live (Overview) and focus walkthrough specs.
+ */
+export async function setLiveOnboardingDismissed(value: boolean) {
+  await updateProfile(DEMO_USER, { live_onboarding_dismissed: value })
 }
 
 function getSupabaseTestEnv() {

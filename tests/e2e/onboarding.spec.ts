@@ -1,11 +1,23 @@
 import { expect, test } from '@playwright/test'
 import { login } from './support/auth'
+import { getUserId, setOnboardingCompleted } from './support/profile'
 
 // A genuinely-new demo account (active onboarding, all steps empty) seeded by `pnpm demo:seed`.
 const DEMO_NEW = { email: 'demo.new@sheetless.local', password: 'DemoPass123!' }
 // Onboarding account with every strength estimate already set (not used by other specs, so the
 // estimate nudges below don't pollute shared state).
 const DEMO_ESTIMATES = { email: 'demo.estimates@sheetless.local', password: 'DemoPass123!' }
+// Plan + estimates done but no completed workout — dedicated to the dismiss test below so the
+// server-flag mutation can't pollute the other onboarding accounts.
+const DEMO_STARTED = { email: 'demo.started@sheetless.local', password: 'DemoPass123!' }
+
+/** Pre-seed the user-scoped tour-autorun key so the auto tour doesn't cover the checklist. */
+async function suppressAutoTour(page: import('@playwright/test').Page, userId: string) {
+  await page.addInitScript(
+    (id) => window.localStorage.setItem(`sheetless.onboardingTourAutorun.${id}`, '1'),
+    userId,
+  )
+}
 
 // Uses the shared authenticated session; `?onboarding=force` shows the onboarding
 // UI regardless of the account's saved flag (so it's deterministic to test).
@@ -66,7 +78,7 @@ test('"Set estimates" deep-links to estimates and runs the coach-marks', async (
 })
 
 test('clicking "Set estimates" from the checklist (client nav) runs the coach-marks', async ({ page }) => {
-  await page.addInitScript(() => window.localStorage.setItem('sheetless.onboardingTourAutorun', '1'))
+  await suppressAutoTour(page, await getUserId(DEMO_NEW))
   await login(page, DEMO_NEW)
   await page.goto('/today')
 
@@ -81,23 +93,43 @@ test('clicking "Set estimates" from the checklist (client nav) runs the coach-ma
   await expect(page.locator('.driver-popover-title')).toContainText('Enter your estimates')
 })
 
-test('"Skip for now" hides the checklist and records a snooze', async ({ page }) => {
-  // Suppress the auto-running tour so the checklist itself is interactable.
-  await page.addInitScript(() => window.localStorage.setItem('sheetless.onboardingTourAutorun', '1'))
-  await login(page, DEMO_NEW)
+test('"Don\'t show again" confirms before exiting onboarding, then persists', async ({ page }) => {
+  // Mutates the account's server flag, so run on a single project — the desktop and mobile
+  // projects would otherwise race each other through the same account.
+  test.skip((page.viewportSize()?.width ?? 0) < 768, 'server-flag mutation: desktop project only')
+
+  const userId = await setOnboardingCompleted(DEMO_STARTED, false)
+  await suppressAutoTour(page, userId)
+  await login(page, DEMO_STARTED)
   await page.goto('/today')
 
   const card = page.locator('[data-tour="getting-started"]')
   await expect(card).toBeVisible()
-  await expect(card.getByRole('button', { name: 'Choose a plan' })).toBeVisible()
 
+  const dialog = page.getByRole('dialog', { name: 'Exit onboarding?' })
+
+  // Cancelling the confirmation keeps the checklist.
   await expect(async () => {
-    await card.getByRole('button', { name: 'Skip for now' }).click()
-    await expect(card).toBeHidden({ timeout: 1000 })
+    await card.getByRole('button', { name: "Don't show again" }).click()
+    await expect(dialog).toBeVisible({ timeout: 1000 })
   }).toPass({ timeout: 15000 })
+  await expect(dialog.getByText('we recommend completing these steps')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(card).toBeVisible()
 
-  const snoozeUntil = await page.evaluate(() => window.localStorage.getItem('sheetless.onboardingSnoozeUntil'))
-  expect(Number(snoozeUntil)).toBeGreaterThan(Date.now())
+  // Confirming completes onboarding server-side and the checklist stays gone after reload.
+  await card.getByRole('button', { name: "Don't show again" }).click()
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Exit onboarding' }).click()
+  await expect(card).toBeHidden({ timeout: 10000 })
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible({ timeout: 10000 })
+  await expect(card).toHaveCount(0)
+
+  // Restore the seeded state for other runs.
+  await setOnboardingCompleted(DEMO_STARTED, false)
 })
 
 test('saving estimates after the "Set estimates" deep-link redirects to Today', async ({ page }) => {

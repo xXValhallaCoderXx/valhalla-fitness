@@ -193,7 +193,8 @@ const DEMO_USERS = [
     onboardingCompleted: false,
   },
   {
-    // Fully set up but onboarding not dismissed → all steps done, "You're all set" state.
+    // Fully set up but onboarding not dismissed → all steps done. Completed sessions now imply
+    // onboarding, so the "You're all set" card only appears via /today?onboarding=force.
     email: `demo.ready@${DEMO_EMAIL_DOMAIN}`,
     displayName: 'Jamie Ready',
     title: 'Jamie - Beginner 5x5',

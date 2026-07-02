@@ -201,12 +201,12 @@ function ProgrammeWeeklyStrip({ weeks }: { weeks: ProgramSetupPreviewWeek[] }) {
           {week.sessions.map((session) => (
             <div
               key={session.id}
-              className="rounded-xl border p-3"
+              className="min-w-0 rounded-xl border p-3"
               style={{ borderColor: 'var(--mantine-color-default-border)', backgroundColor: 'var(--vf-surface-2)' }}
             >
               <SectionLabel size="0.5625rem">{session.label}</SectionLabel>
               <Text mt={2} size="sm" fw={800} truncate>{session.title}</Text>
-              <Caption truncate>{session.movementSummary}</Caption>
+              <Caption lineClamp={2}>{session.movementSummary}</Caption>
             </div>
           ))}
         </div>

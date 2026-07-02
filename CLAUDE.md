@@ -55,7 +55,10 @@ See `tests/e2e/support/auth.ts` (`login()`) and `find-my-plan.spec.ts` for examp
 
 ## Onboarding state
 
-- Today-page onboarding uses the server flag `profiles.onboarding_completed`.
+- Today-page onboarding shows while the server flag `profiles.onboarding_completed` is false
+  AND the account has zero completed sessions (training history implies onboarding is done).
+  "Don't show again" confirms via a dialog before setting the flag; the guided tour auto-runs
+  once per user per device (`sheetless.onboardingTourAutorun.<userId>`).
 - Live-session onboarding uses the separate server flag `profiles.live_onboarding_dismissed`.
 - The live walkthrough no longer auto-runs from localStorage. It is started from the optional
   `LiveSessionOnboarding` card or replayed with `/sessions/$sessionId?tour=live` from Settings.
