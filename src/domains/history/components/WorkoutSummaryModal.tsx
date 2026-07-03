@@ -86,6 +86,8 @@ export function WorkoutSummaryModal({
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['history'] }),
         queryClient.invalidateQueries({ queryKey: ['favoriteWorkouts'] }),
+        // Favourite state spans the workout's lineage — other cached instances change too.
+        queryClient.invalidateQueries({ queryKey: ['session'] }),
       ])
       notifications.show({
         color: 'success',

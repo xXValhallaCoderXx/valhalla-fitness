@@ -693,7 +693,23 @@ async function insertWorkoutSession(client, userId, programInstanceId, plannedSe
  * favourites section all have demo data.
  */
 async function insertAdHocSession(client, userId, demo) {
-  const scheduledDate = daysAgo(2)
+  const rootId = await insertAdHocSessionInstance(client, userId, demo, {
+    daysBack: 4,
+    isFavorite: true,
+    suffix: '1',
+  })
+  // A repeat of the favourite: linked via source_session_id, so it shares the star in
+  // the Sessions tab while the Plans page still shows a single favourite card.
+  await insertAdHocSessionInstance(client, userId, demo, {
+    daysBack: 1,
+    isFavorite: false,
+    sourceSessionId: rootId,
+    suffix: '2',
+  })
+}
+
+async function insertAdHocSessionInstance(client, userId, demo, { daysBack, isFavorite, sourceSessionId = null, suffix }) {
+  const scheduledDate = daysAgo(daysBack)
   const startedAt = timestampForDate(scheduledDate, 12)
   const completedAt = timestampForDate(scheduledDate, 12.75)
   const movements = [
@@ -771,14 +787,15 @@ async function insertAdHocSession(client, userId, demo) {
       user_id: userId,
       program_instance_id: null,
       planned_session_id: null,
+      source_session_id: sourceSessionId,
       status: 'completed',
       scheduled_date: scheduledDate,
       started_at: startedAt,
       completed_at: completedAt,
       prescription_snapshot: snapshot,
       notes: 'Demo ad-hoc workout: quick extra pressing volume.',
-      client_mutation_id: `demo-${demo.email}-adhoc-1`,
-      is_favorite: true,
+      client_mutation_id: `demo-${demo.email}-adhoc-${suffix}`,
+      is_favorite: isFavorite,
     })
     .select('*')
     .single()
@@ -796,7 +813,7 @@ async function insertAdHocSession(client, userId, demo) {
         role: movement.role,
         order_index: movement.orderIndex,
         target_summary: movement.targetSummary,
-        client_mutation_id: `demo-${demo.email}-adhoc-1-${movement.slotId}`,
+        client_mutation_id: `demo-${demo.email}-adhoc-${suffix}-${movement.slotId}`,
       })
       .select('*')
       .single()
@@ -824,6 +841,8 @@ async function insertAdHocSession(client, userId, demo) {
     )
     if (setError) throw new Error(`Unable to seed ad-hoc sets for ${movement.movementName}: ${setError.message}`)
   }
+
+  return session.id
 }
 
 async function insertProgressionDecisions(client, userId, programInstanceId, demo) {

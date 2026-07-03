@@ -240,8 +240,9 @@ Implemented:
 - "Last time" comparables and load/rep seeding computed per movement against all history.
 - Finish path that marks the session complete without creating progression decisions or advancing programme weeks.
 - Insights → Sessions: "Ad hoc" badge and filter chip, plus session title search.
-- Repeat from the workout summary modal: starts a fresh ad-hoc session seeded with the same exercises (as performed), set counts from what was completed, and freshly computed comparables.
+- Repeat from the workout summary modal: starts a fresh ad-hoc session seeded with the same exercises (as performed), set counts from what was completed, and freshly computed comparables. Repeats record their workout lineage root in `source_session_id` (flattened at insert, so chains of repeats share one root).
 - Favourites: a completed ad-hoc session can be favourited (naming it is required); favourites are listed in a Plans-page section and can be started from there.
+- Favourite state is shared across a workout's lineage: repeats of a favourited workout display as favourited (Sessions tab star, summary modal state), favouriting/unfavouriting from any instance moves/clears the single star for the lineage, and the Plans page lists one card per workout.
 
 Product rules:
 
@@ -346,7 +347,7 @@ Important invariants:
 - Seeded movements and system templates are not user-editable.
 - User custom templates are owned by the creator.
 - Started sessions store `prescription_snapshot`.
-- `workout_sessions.program_instance_id` and `planned_session_id` are null together (ad-hoc) or set together (programme sessions); `is_favorite` marks favourited ad-hoc sessions.
+- `workout_sessions.program_instance_id` and `planned_session_id` are null together (ad-hoc) or set together (programme sessions); `is_favorite` marks favourited ad-hoc sessions, and `source_session_id` links a repeated session to its lineage root (favourite state is resolved per lineage, at most one flagged row per lineage).
 - Exercise logs store both planned and performed movement.
 - Set logs store target and actual values separately.
 - Progression decisions are stored separately from logs and programme definitions.

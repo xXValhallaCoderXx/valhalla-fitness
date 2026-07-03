@@ -336,7 +336,10 @@ export type WorkoutSession = PlannedSession & {
   completedAt?: string | null
   notes?: string | null
   isAdHoc?: boolean
+  /** Favourite state of the whole workout lineage (the session or the workout it repeats). */
   isFavorite?: boolean
+  /** Root session this one was repeated from; null for originals. */
+  sourceSessionId?: string | null
   syncState?: SyncState
 }
 

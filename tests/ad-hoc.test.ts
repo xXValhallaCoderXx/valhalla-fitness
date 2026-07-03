@@ -5,10 +5,12 @@ import {
   buildAdHocMovementSlot,
   buildAdHocSnapshot,
   DEFAULT_AD_HOC_TITLE,
+  favoriteLineageKeys,
   favoriteWorkoutFromRow,
   nextAdHocSlotId,
   normalizeAdHocTitle,
   seedMovementsFromSource,
+  sessionLineageKey,
 } from '../src/domains/session/lib/ad-hoc'
 import type { MovementSlot, SetLog, WorkoutSession } from '../src/shared/types'
 
@@ -197,5 +199,27 @@ describe('favoriteWorkoutFromRow', () => {
     expect(favorite.movementNames).toEqual([])
     expect(favorite.setCount).toBe(0)
     expect(favorite.completedAt).toBeNull()
+  })
+})
+
+describe('favourite lineage', () => {
+  it('keys a session by its repeat root, falling back to itself', () => {
+    expect(sessionLineageKey({ id: 'root' })).toBe('root')
+    expect(sessionLineageKey({ id: 'root', source_session_id: null })).toBe('root')
+    expect(sessionLineageKey({ id: 'repeat', source_session_id: 'root' })).toBe('root')
+  })
+
+  it('marks every instance of a favourited workout, wherever the star lives', () => {
+    const keys = favoriteLineageKeys([{ id: 'fav-root', source_session_id: null }])
+    // The root itself, and any repeat of it, resolve into the favourited set.
+    expect(keys.has(sessionLineageKey({ id: 'fav-root' }))).toBe(true)
+    expect(keys.has(sessionLineageKey({ id: 'repeat-1', source_session_id: 'fav-root' }))).toBe(true)
+    expect(keys.has(sessionLineageKey({ id: 'unrelated' }))).toBe(false)
+  })
+
+  it('handles a star anchored on a repeat: the root and siblings still match', () => {
+    const keys = favoriteLineageKeys([{ id: 'repeat-2', source_session_id: 'root' }])
+    expect(keys.has(sessionLineageKey({ id: 'root' }))).toBe(true)
+    expect(keys.has(sessionLineageKey({ id: 'repeat-1', source_session_id: 'root' }))).toBe(true)
   })
 })

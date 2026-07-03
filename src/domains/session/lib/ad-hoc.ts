@@ -131,6 +131,22 @@ export function seedMovementsFromSource(source: WorkoutSession): MovementSlot[] 
     })
 }
 
+type SessionLineageRow = { id: string; source_session_id?: string | null }
+
+/**
+ * Identity of the workout a session belongs to. Repeats store their root in
+ * source_session_id (flattened at insert), so every instance of the same ad-hoc
+ * workout shares one key — the root's id.
+ */
+export function sessionLineageKey(row: SessionLineageRow): string {
+  return row.source_session_id ?? row.id
+}
+
+/** Lineage keys covered by the user's favourites — membership means "this workout is favourited". */
+export function favoriteLineageKeys(favoriteRows: SessionLineageRow[]): Set<string> {
+  return new Set(favoriteRows.map(sessionLineageKey))
+}
+
 export function favoriteWorkoutFromRow(row: {
   id: string
   completed_at?: string | null

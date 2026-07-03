@@ -30,6 +30,7 @@ import {
   nextAdHocSlotId,
   normalizeAdHocTitle,
   seedMovementsFromSource,
+  sessionLineageKey,
 } from '~/domains/session/lib/ad-hoc'
 import { ensureProfile } from '~/domains/account/server/profile-functions'
 import { expandPlannedSession, programForNextUncompletedSession } from '~/domains/program/lib/templates'
@@ -363,6 +364,23 @@ export async function getSessionInternal(sessionId: string): Promise<WorkoutSess
   if (setError) throw new Error(setError.message)
 
   const snapshot = sessionRow.prescription_snapshot as PlannedSession
+  const isAdHoc = sessionRow.program_instance_id === null || snapshot.kind === 'ad_hoc'
+  // Favourite state belongs to the workout lineage, not this row alone: a repeat of a
+  // favourited workout (or the root of a favourited repeat) reads as favourited too.
+  let isFavorite = Boolean(sessionRow.is_favorite)
+  if (isAdHoc && !isFavorite) {
+    const lineageKey = sessionLineageKey(sessionRow)
+    const { data: lineageFavorite, error: lineageError } = await supabase
+      .from('workout_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_favorite', true)
+      .or(`id.eq.${lineageKey},source_session_id.eq.${lineageKey}`)
+      .limit(1)
+      .maybeSingle()
+    if (lineageError) throw new Error(lineageError.message)
+    isFavorite = Boolean(lineageFavorite)
+  }
   return {
     ...snapshot,
     sessionId: sessionRow.id,
@@ -370,8 +388,9 @@ export async function getSessionInternal(sessionId: string): Promise<WorkoutSess
     startedAt: sessionRow.started_at,
     completedAt: sessionRow.completed_at,
     notes: sessionRow.notes,
-    isAdHoc: sessionRow.program_instance_id === null || snapshot.kind === 'ad_hoc',
-    isFavorite: Boolean(sessionRow.is_favorite),
+    isAdHoc,
+    isFavorite,
+    sourceSessionId: sessionRow.source_session_id ?? null,
     syncState: 'synced',
     movements: snapshot.movements.map((movement) => {
       const slotId = movement.slotId ?? movement.id
@@ -512,11 +531,15 @@ export const startAdHocSessionFn = createServerFn({ method: 'POST' })
 
     let title: string | null = null
     let movements: MovementSlot[] = []
+    let lineageRootId: string | null = null
     if (data.sourceSessionId) {
       const source = await getSessionInternal(data.sourceSessionId)
       if (!source.isAdHoc) throw new Error('Only ad-hoc workouts can be repeated.')
       title = source.title
       movements = seedMovementsFromSource(source)
+      // Flatten repeat chains: every instance points at the lineage root, so favourite
+      // state stays shared no matter which instance was repeated.
+      lineageRootId = source.sourceSessionId ?? source.sessionId
     }
 
     const snapshot = buildAdHocSnapshot({
@@ -540,6 +563,7 @@ export const startAdHocSessionFn = createServerFn({ method: 'POST' })
         user_id: user.id,
         program_instance_id: null,
         planned_session_id: null,
+        source_session_id: lineageRootId,
         status: 'in_progress',
         scheduled_date: scheduledDate,
         started_at: new Date().toISOString(),

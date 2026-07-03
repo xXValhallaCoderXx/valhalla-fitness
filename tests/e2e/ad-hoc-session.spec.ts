@@ -159,6 +159,26 @@ test('ad-hoc workout: start, log, rename, finish, find, favourite, restart', asy
   const repeatWeight = setRow(page, 1).locator('input[type="number"]').first()
   await expect(repeatWeight).toHaveValue('33', { timeout: 15000 })
 
-  // Leave the account without a live session so reruns start clean.
+  // Finish the repeat too (also leaves the account without a live session for reruns).
   await finishCurrentSession(page)
+
+  // The favourite star belongs to the workout, not one session: both instances are starred,
+  // and the repeat's summary already reads as favourited instead of offering the action again.
+  await page.goto('/history')
+  await expect(async () => {
+    await page.getByRole('tab', { name: 'Sessions' }).click()
+    await expect(page.getByPlaceholder('Search sessions')).toBeVisible({ timeout: 1500 })
+  }).toPass({ timeout: 20000 })
+  await page.getByPlaceholder('Search sessions').fill(title)
+  await expect(sessionRowButton).toHaveCount(2, { timeout: 15000 })
+  await expect(page.getByLabel('Favourite workout')).toHaveCount(2)
+
+  await sessionRowButton.first().click() // most recent = the repeat, not the row that holds the flag
+  await expect(page.getByRole('button', { name: 'Favourited' })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByRole('button', { name: 'Favourite', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Close' }).click()
+
+  // Still exactly one favourites card on the Plans page for the whole lineage.
+  await page.goto('/templates')
+  await expect(page.getByRole('button', { name: `Start ${title}` })).toHaveCount(1, { timeout: 15000 })
 })
