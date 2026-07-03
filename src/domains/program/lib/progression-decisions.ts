@@ -1,4 +1,5 @@
 import type { MovementSlot, ProgramInstance, ProgressionDecision, SetLog, WorkoutSession } from '~/shared/types'
+import { formatWeight } from '~/shared/lib/set-notation'
 import { programStateKey } from '~/domains/program/lib/template-engine'
 import {
   evaluateAccessoryDoubleProgression,
@@ -103,6 +104,9 @@ export function buildProgressionDecisionsForSession(
     if (movement.role === 'accessory' && usesAccessoryAutoregulation(movement) && hasCompleteAccessoryInputs(movement)) {
       const outcome = accessoryOutcome(movement)
       if (outcome === 'Add load next time') {
+        // Accessories have no programmed load, so anchor the suggestion to the heaviest weight the
+        // user actually logged; without one (bodyweight work) the decision stays qualitative.
+        const topLoad = topCompletedLoad(movement)
         decisions.push({
           id: `pending-accessory-${movement.movementId}`,
           movementId: movement.movementId,
@@ -110,13 +114,33 @@ export function buildProgressionDecisionsForSession(
           ruleId: 'accessory_double_progression',
           scope: 'session',
           status: 'pending',
-          inputSummary: `${movement.movementName} completed the top of the rep range.`,
+          inputSummary:
+            topLoad == null
+              ? `${movement.movementName} completed the top of the rep range.`
+              : `${movement.movementName} completed the top of the rep range at ${formatWeight(topLoad, activeProgram.units)}.`,
           recommendation: outcome,
+          ...(topLoad == null
+            ? {}
+            : {
+                rationale: 'You hit the top of the rep range on every set with effort to spare, so Sheetless suggests a small increase.',
+                previousValue: topLoad,
+                recommendedValue: topLoad + activeProgram.rounding,
+              }),
         })
       }
     }
   }
   return decisions
+}
+
+/** Heaviest load logged across the movement's completed sets, or null when none carried weight. */
+function topCompletedLoad(movement: MovementSlot): number | null {
+  let top: number | null = null
+  for (const set of movement.sets) {
+    if (!set.completed || !hasNumber(set.actualLoad) || set.actualLoad <= 0) continue
+    if (top == null || set.actualLoad > top) top = set.actualLoad
+  }
+  return top
 }
 
 function stateForMovement(

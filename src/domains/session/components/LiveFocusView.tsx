@@ -5,6 +5,7 @@ import { Text } from '~/components'
 import { sessionCompletion } from '~/domains/session/lib/session-cache'
 import { useAddExerciseSet } from '~/domains/session/lib/useAddExerciseSet'
 import type { WorkoutSession } from '~/shared/types'
+import { AddAdHocExerciseModal } from './AddAdHocExerciseModal'
 import { FocusComingUp } from './FocusComingUp'
 import { FocusExerciseHeader } from './FocusExerciseHeader'
 import { FocusSessionOnboarding } from './FocusSessionOnboarding'
@@ -40,7 +41,32 @@ export function LiveFocusView({
   )
   const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<Record<number, number | undefined>>({})
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [addExerciseOpen, setAddExerciseOpen] = useState(false)
   const addSet = useAddExerciseSet(session, activeMovement ?? session.movements[0] ?? ({} as never))
+  const isAdHoc = Boolean(session.isAdHoc)
+  const addExerciseButton = isAdHoc ? (
+    <Button
+      type="button"
+      fullWidth
+      variant="default"
+      className="border-dashed"
+      onClick={() => setAddExerciseOpen(true)}
+    >
+      <Plus size={16} />
+      Add exercise
+    </Button>
+  ) : null
+  const addExerciseModal = isAdHoc ? (
+    <AddAdHocExerciseModal
+      open={addExerciseOpen}
+      session={session}
+      onClose={() => setAddExerciseOpen(false)}
+      onAdded={(movementId) => {
+        setAddExerciseOpen(false)
+        onSelectMovement(movementId)
+      }}
+    />
+  ) : null
 
   // Jump to the first actionable set whenever the active exercise changes.
   useEffect(() => {
@@ -60,9 +86,13 @@ export function LiveFocusView({
           finishDisabled={finishDisabled}
           onFinish={onFinish}
         />
-        <div className="p-8 text-center">
-          <Text tone="dimmed">This session has no movements yet.</Text>
+        <div className="space-y-4 p-8 text-center">
+          <Text tone="dimmed">
+            {isAdHoc ? 'No exercises yet — add anything from the catalog.' : 'This session has no movements yet.'}
+          </Text>
+          {addExerciseButton}
         </div>
+        {addExerciseModal}
       </FocusShell>
     )
   }
@@ -142,7 +172,7 @@ export function LiveFocusView({
           />
         ) : null}
 
-        {activeMovement.role === 'accessory' ? (
+        {activeMovement.role === 'accessory' || isAdHoc ? (
           <Button
             type="button"
             fullWidth
@@ -164,10 +194,13 @@ export function LiveFocusView({
           </Button>
         ) : null}
 
+        {addExerciseButton}
+
         <FocusComingUp movements={coming} onJumpTo={onSelectMovement} />
       </div>
 
       <MovementHistoryModal open={historyOpen} movement={activeMovement} onClose={() => setHistoryOpen(false)} />
+      {addExerciseModal}
     </FocusShell>
   )
 }

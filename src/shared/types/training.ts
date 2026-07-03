@@ -273,6 +273,8 @@ export type ProgramSetupPreviewSession = {
   movements: ProgramSetupPreviewMovement[]
 }
 
+export type SessionHardness = 'Light' | 'Medium' | 'Hard' | 'Deload'
+
 export type ProgramSetupPreviewWeek = {
   index: number
   label: string
@@ -280,7 +282,7 @@ export type ProgramSetupPreviewWeek = {
   phaseLabel: string
   subtitle: string
   summary: string
-  hardness: 'Light' | 'Medium' | 'Hard' | 'Deload'
+  hardness: SessionHardness
   /** Representative main-lift working intensity as a 0–1 fraction; undefined when the template is
    *  not percent-of-state (working-load / RPE / user-selected) so the intensity ramp degrades. */
   intensityPercent?: number
@@ -311,12 +313,15 @@ export type ProgramSetupOptions = {
 export type PlannedSession = {
   id: string
   templateSessionId?: string
+  /** Present (as 'ad_hoc') on snapshots of plan-less one-off sessions. */
+  kind?: 'ad_hoc'
   title: string
   programTitle: string
   templateId: string
   weekIndex: number
   weekLabel: string
-  hardness: 'Light' | 'Medium' | 'Hard' | 'Deload'
+  /** null for ad-hoc sessions — they have no prescribed intensity. */
+  hardness: SessionHardness | null
   scheduledDate: string
   estimatedMinutes: number
   units: Unit
@@ -330,6 +335,11 @@ export type WorkoutSession = PlannedSession & {
   startedAt?: string | null
   completedAt?: string | null
   notes?: string | null
+  isAdHoc?: boolean
+  /** Favourite state of the whole workout lineage (the session or the workout it repeats). */
+  isFavorite?: boolean
+  /** Root session this one was repeated from; null for originals. */
+  sourceSessionId?: string | null
   syncState?: SyncState
 }
 
@@ -390,6 +400,18 @@ export type RecentHistoryEntry = {
   movementCount: number
   completedSetCount: number
   plannedSetCount: number
+  isAdHoc?: boolean
+  isFavorite?: boolean
+}
+
+/** A favourited ad-hoc session, listed on the Plans page as a restartable workout. */
+export type FavoriteWorkout = {
+  sessionId: string
+  title: string
+  movementNames: string[]
+  movementCount: number
+  setCount: number
+  completedAt: string | null
 }
 
 export type MovementHistorySet = Pick<

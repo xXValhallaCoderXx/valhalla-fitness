@@ -17,11 +17,23 @@ import {
 import { buildProgramOverview } from '~/domains/program/lib/program-overview'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { mapProgressionDecision } from '~/domains/program/server/program-functions'
+import { favoriteLineageKeys, sessionLineageKey } from '~/domains/session/lib/ad-hoc'
 import { getTodayInternal } from '~/domains/session/server/session-functions'
 
 async function requireUser() {
   const { requireUser } = await import('~/shared/server/require-user')
   return requireUser()
+}
+
+/** Lineage keys of the user's favourited workouts — repeats of a favourite show its star. */
+async function getFavoriteLineageKeys(supabase: any, userId: string): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .select('id, source_session_id')
+    .eq('user_id', userId)
+    .eq('is_favorite', true)
+  if (error) throw new Error(error.message)
+  return favoriteLineageKeys(data ?? [])
 }
 
 export async function getHistoryInputs(
@@ -34,7 +46,7 @@ export async function getHistoryInputs(
 ): Promise<{ sessions: HistorySessionInput[]; substitutions: HistorySubstitutionInput[] }> {
   let sessionQuery = supabase
     .from('workout_sessions')
-    .select('id, program_instance_id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot')
+    .select('id, program_instance_id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot, is_favorite, source_session_id')
     .eq('user_id', userId)
     .eq('status', 'completed')
     .order('completed_at', { ascending: false })
@@ -46,6 +58,7 @@ export async function getHistoryInputs(
   const rows = sessionRows ?? []
   const sessionIds = rows.map((row: any) => row.id as string)
   if (!sessionIds.length) return { sessions: [], substitutions: [] }
+  const favoriteKeys = await getFavoriteLineageKeys(supabase, userId)
 
   const { data: exerciseRows, error: exerciseError } = await supabase
     .from('exercise_logs')
@@ -95,7 +108,7 @@ export async function getHistoryInputs(
     return {
       id: row.id,
       plannedSessionId: row.planned_session_id,
-      title: snapshot?.title ?? row.planned_session_id,
+      title: snapshot?.title ?? row.planned_session_id ?? 'Workout',
       programTitle: snapshot?.programTitle ?? null,
       templateId: snapshot?.templateId ?? null,
       programInstanceId: row.program_instance_id,
@@ -106,6 +119,8 @@ export async function getHistoryInputs(
       hardness: snapshot?.hardness ?? null,
       estimatedMinutes: snapshot?.estimatedMinutes ?? null,
       movementCount: snapshot?.movements.length ?? exercises.length,
+      isAdHoc: row.program_instance_id === null,
+      isFavorite: Boolean(row.is_favorite) || favoriteKeys.has(sessionLineageKey(row)),
       plannedSetCount: plannedSetCount || exercises.reduce((total, exercise) => total + (setsByExerciseId.get(exercise.id)?.length ?? 0), 0),
       exercises: exercises.map((exercise: any) => ({
         id: exercise.id,
@@ -224,13 +239,14 @@ export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(asyn
   const { supabase, user } = await requireUser()
   const { data, error } = await supabase
     .from('workout_sessions')
-    .select('id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot')
+    .select('id, program_instance_id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot, is_favorite, source_session_id')
     .eq('user_id', user.id)
     .eq('status', 'completed')
     .order('completed_at', { ascending: false })
     .limit(20)
   if (error) throw new Error(error.message)
   const rows = data ?? []
+  const favoriteKeys = await getFavoriteLineageKeys(supabase, user.id)
   const sessionIds = rows.map((row: any) => row.id as string)
   const { data: exercises, error: exerciseError } = sessionIds.length
     ? await supabase
@@ -268,7 +284,7 @@ export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(asyn
     const plannedSetCount = snapshot?.movements.reduce((total, movement) => total + movement.sets.length, 0) ?? 0
     return {
       id: row.id,
-      title: snapshot?.title ?? row.planned_session_id,
+      title: snapshot?.title ?? row.planned_session_id ?? 'Workout',
       completedAt: row.completed_at,
       scheduledDate: row.scheduled_date,
       programTitle: snapshot?.programTitle ?? null,
@@ -278,6 +294,8 @@ export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(asyn
       movementCount: snapshot?.movements.length ?? 0,
       completedSetCount: completedSetsBySessionId.get(row.id) ?? 0,
       plannedSetCount: loggedSetsBySessionId.get(row.id) ?? plannedSetCount,
+      isAdHoc: row.program_instance_id === null,
+      isFavorite: Boolean(row.is_favorite) || favoriteKeys.has(sessionLineageKey(row)),
     }
   })
 })

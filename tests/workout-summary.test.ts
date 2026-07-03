@@ -137,3 +137,40 @@ describe('rirTone', () => {
     expect(rirTone(null)).toBe('neutral')
   })
 })
+
+describe('durationMinutes fallback', () => {
+  it('uses elapsed time when there is no estimate (ad-hoc sessions)', () => {
+    const model = buildWorkoutSummary(
+      session([mv('main', [st(1, { actualLoad: 60, actualReps: 5 })])], {
+        estimatedMinutes: 0,
+        startedAt: '2026-07-03T12:00:00Z',
+        completedAt: '2026-07-03T12:41:30Z',
+      }),
+    )
+    expect(model.stats.durationMinutes).toBe(42)
+  })
+
+  it('stays 0 when timestamps are missing or inverted', () => {
+    expect(buildWorkoutSummary(session([mv('main', [st(1)])], { estimatedMinutes: 0 })).stats.durationMinutes).toBe(0)
+    expect(
+      buildWorkoutSummary(
+        session([mv('main', [st(1)])], {
+          estimatedMinutes: 0,
+          startedAt: '2026-07-03T13:00:00Z',
+          completedAt: '2026-07-03T12:00:00Z',
+        }),
+      ).stats.durationMinutes,
+    ).toBe(0)
+  })
+
+  it('still prefers the plan estimate when present', () => {
+    const model = buildWorkoutSummary(
+      session([mv('main', [st(1)])], {
+        estimatedMinutes: 80,
+        startedAt: '2026-07-03T12:00:00Z',
+        completedAt: '2026-07-03T12:30:00Z',
+      }),
+    )
+    expect(model.stats.durationMinutes).toBe(80)
+  })
+})

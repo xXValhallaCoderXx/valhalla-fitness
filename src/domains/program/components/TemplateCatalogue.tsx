@@ -2,10 +2,12 @@ import { Badge, Button, Modal, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useRouterState } from '@tanstack/react-router'
-import { Eye, Layers3, Plus, RotateCcw, Search, Sparkles, Wrench, type LucideIcon } from 'lucide-react'
+import { Eye, Layers3, Plus, RotateCcw, Search, Sparkles, Star, Wrench, type LucideIcon } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { track } from '~/shared/lib/analytics'
 import { Caption, EmptyState, Heading, Page, PageHeader, Panel, SectionLabel, Text } from '~/components'
+import { FavoriteWorkoutCard } from '~/domains/session/components/FavoriteWorkoutCard'
+import { favoriteWorkoutsQueryOptions } from '~/domains/session/queries'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
 import type { ProgramOverview, ProgramTemplateSummary, TodayPayload } from '~/shared/types'
 import { buildCatalogueItems, type CatalogueItem } from '~/domains/program/lib/template-families'
@@ -45,6 +47,8 @@ export function TemplateCatalogue({
     ...programOverviewQueryOptions(),
     enabled: Boolean(activeTemplateId),
   })
+  const favoritesQuery = useQuery(favoriteWorkoutsQueryOptions())
+  const favoriteWorkouts = favoritesQuery.data ?? []
 
   // Open Find-my-plan once when arriving from the onboarding checklist (`?find=1`), then strip
   // the param so a refresh/back won't re-pop it. Done in an effect (not a state initializer)
@@ -232,6 +236,27 @@ export function TemplateCatalogue({
       </Panel>
 
       <div className="space-y-6">
+        {favoriteWorkouts.length ? (
+          <section>
+            <TemplateSectionHeader
+              icon={Star}
+              label="Favourite workouts"
+              count={favoriteWorkouts.length}
+              countLabel="saved"
+              helper="One-off workouts you saved from Insights — start a fresh copy any time."
+            />
+            <TemplateGrid>
+              {favoriteWorkouts.map((workout) => (
+                <FavoriteWorkoutCard
+                  key={workout.sessionId}
+                  workout={workout}
+                  activeSessionId={today.activeSession?.sessionId ?? null}
+                />
+              ))}
+            </TemplateGrid>
+          </section>
+        ) : null}
+
         {builtInItems.length ? (
           <section>
             <TemplateSectionHeader
@@ -329,11 +354,13 @@ function TemplateSectionHeader({
   icon: Icon,
   label,
   count,
+  countLabel = 'matching',
   helper,
 }: {
   icon: LucideIcon
   label: string
   count: number
+  countLabel?: string
   helper: string
 }) {
   return (
@@ -350,7 +377,7 @@ function TemplateSectionHeader({
           <Caption mt={2}>{helper}</Caption>
         </div>
       </div>
-      <Badge color="neutral" variant="light">{count} matching</Badge>
+      <Badge color="neutral" variant="light">{count} {countLabel}</Badge>
     </div>
   )
 }

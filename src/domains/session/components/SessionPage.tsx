@@ -55,8 +55,11 @@ function LoadedSessionRoute({
   const forceLiveTour = search.tour === 'live'
   const forceFocusTour = search.tour === 'focus'
   // Mobile shows the single-exercise Focus view by default; Overview is the existing list.
-  // The live walkthrough spotlights elements in the Overview frame, so it starts there.
-  const [mobileView, setMobileView] = useState<'focus' | 'overview'>(() => (forceLiveTour ? 'overview' : 'focus'))
+  // The live walkthrough spotlights elements in the Overview frame, so it starts there —
+  // as does an empty ad-hoc session, whose add-exercise flow is clearest in the list view.
+  const [mobileView, setMobileView] = useState<'focus' | 'overview'>(() =>
+    forceLiveTour || (session.isAdHoc && session.movements.length === 0) ? 'overview' : 'focus',
+  )
   const { start: startLiveTour } = useOnboardingTour(buildLiveSessionSteps, 'live')
   const { start: startFocusTour } = useOnboardingTour(buildFocusSessionSteps, 'focus')
   const liveTourRan = useRef(false)
@@ -97,7 +100,9 @@ function LoadedSessionRoute({
       notifications.show({
         color: 'success',
         title: 'Session finished',
-        message: `${summary.completedSets} of ${summary.totalSets} sets completed. Your next session is ready.`,
+        message: `${summary.completedSets} of ${summary.totalSets} sets completed. ${
+          session.isAdHoc ? 'Logged to your history.' : 'Your next session is ready.'
+        }`,
       })
       queryClient.setQueryData(['summary', sessionId], summary)
       queryClient.setQueryData(['session', sessionId], summary.session)

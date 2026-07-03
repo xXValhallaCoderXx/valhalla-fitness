@@ -76,3 +76,27 @@ export const listAccessoryMovementOptionsFn = createServerFn({ method: 'GET' })
     const catalog = await getMovementCatalogForSwap(supabase)
     return listAccessoryMovementOptionsFromCatalog(catalog)
   })
+
+// Full catalog for ad-hoc workouts — competition lifts included and surfaced first.
+function listMovementOptionsFromCatalog(catalog: Record<string, Movement>): AccessoryMovementOption[] {
+  return Object.values(catalog)
+    .sort((left, right) => {
+      if (left.isCompetition !== right.isCompetition) return left.isCompetition ? -1 : 1
+      return left.name.localeCompare(right.name)
+    })
+    .map((movement) => ({
+      movementId: movement.id,
+      movementName: movement.name,
+      category: movement.category,
+      equipment: movement.equipment,
+      defaultUnit: movement.defaultUnit,
+    }))
+}
+
+export const listMovementOptionsFn = createServerFn({ method: 'GET' })
+  .handler(async (): Promise<AccessoryMovementOption[]> => {
+    if (!(await hasSupabaseEnv())) return listMovementOptionsFromCatalog(movementCatalog)
+    const { supabase } = await requireUser()
+    const catalog = await getMovementCatalogForSwap(supabase)
+    return listMovementOptionsFromCatalog(catalog)
+  })

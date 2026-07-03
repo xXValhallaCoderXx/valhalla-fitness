@@ -9,6 +9,7 @@ import { formatCategoryLabel, formatEquipmentLabel } from './live-session-utils'
 
 type AccessoryMovementPickerProps = {
   search: string
+  searchPlaceholder?: string
   categoryFilter: string
   categoryFilters: Array<{ value: string; label: string; count: number }>
   totalCount: number
@@ -24,6 +25,7 @@ type AccessoryMovementPickerProps = {
 
 export function AccessoryMovementPicker({
   search,
+  searchPlaceholder = 'Search accessory movements',
   categoryFilter,
   categoryFilters,
   totalCount,
@@ -41,7 +43,7 @@ export function AccessoryMovementPicker({
       <TextInput
         value={search}
         onChange={(event) => onSearchChange(event.target.value)}
-        placeholder="Search accessory movements"
+        placeholder={searchPlaceholder}
         styles={insetFieldStyles}
       />
       <AccessoryCategoryFilters

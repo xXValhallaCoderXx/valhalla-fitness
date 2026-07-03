@@ -32,7 +32,7 @@ export type HistoryExerciseInput = {
 
 export type HistorySessionInput = {
   id: string
-  plannedSessionId: string
+  plannedSessionId: string | null
   title: string
   programTitle?: string | null
   templateId?: string | null
@@ -45,6 +45,8 @@ export type HistorySessionInput = {
   estimatedMinutes?: number | null
   movementCount: number
   plannedSetCount: number
+  isAdHoc?: boolean
+  isFavorite?: boolean
   exercises: HistoryExerciseInput[]
 }
 
@@ -296,6 +298,8 @@ export function buildRecentHistoryEntries(sessions: HistorySessionInput[]): Rece
       movementCount: session.movementCount,
       completedSetCount,
       plannedSetCount: session.plannedSetCount,
+      isAdHoc: session.isAdHoc,
+      isFavorite: session.isFavorite,
     }
   })
 }

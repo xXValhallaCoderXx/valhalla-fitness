@@ -1,6 +1,7 @@
 import { Minus, Plus } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Caption } from '~/components'
+import { selectAllOnFocus } from './live-session-utils'
 
 /** Big −/＋ stepper with a tap-to-type centre value. Used for weight and reps in focus mode. */
 export function FocusStepper({
@@ -51,6 +52,7 @@ export function FocusStepper({
           }}
           value={Number.isFinite(value) ? value : 0}
           disabled={disabled}
+          onFocus={selectAllOnFocus}
           onChange={(event) => onType(Number(event.target.value))}
         />
         <StepButton ariaLabel={`Increase ${label}`} disabled={disabled} onClick={() => onAdjust(step)}>

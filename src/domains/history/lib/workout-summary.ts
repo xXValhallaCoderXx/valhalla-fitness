@@ -159,7 +159,8 @@ export function buildWorkoutSummary(session: WorkoutSession): WorkoutSummaryMode
       volumeLabel: formatVolume(completedVolume(completedSets), units),
       movementCount: session.movements.length,
       topSetCount: completedSets.filter((set) => set.isTopSet || set.isAmrap).length,
-      durationMinutes: session.estimatedMinutes,
+      // Ad-hoc sessions carry no estimate (0) — fall back to the actual elapsed time.
+      durationMinutes: session.estimatedMinutes || elapsedMinutes(session),
     },
     sessionBest: best
       ? {
@@ -172,4 +173,11 @@ export function buildWorkoutSummary(session: WorkoutSession): WorkoutSummaryMode
     exercises,
     notes: session.notes ?? null,
   }
+}
+
+function elapsedMinutes(session: WorkoutSession): number {
+  if (!session.startedAt || !session.completedAt) return 0
+  const elapsedMs = new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()
+  if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return 0
+  return Math.ceil(elapsedMs / 60_000)
 }

@@ -52,10 +52,13 @@ export function buildProgramOverview({
   const mainCount = nextSessionMovements.filter((movement) => movement.role === 'main').length
   const variationCount = plannedSession.movements.filter((movement) => movement.role === 'variation').length
   const accessoryCount = plannedSession.movements.filter((movement) => movement.role === 'accessory').length
-  const activeSessionId = today.activeSession?.sessionId
+  // A live ad-hoc session is not the plan's session — it must not mark the next workout
+  // "in progress" or point its Resume link at the ad-hoc logger.
+  const planActiveSession = today.activeSession && !today.activeSession.isAdHoc ? today.activeSession : null
+  const activeSessionId = planActiveSession?.sessionId
   const completedSessionId = today.completedSession?.sessionId
   const completedPlannedSession = today.completedSession?.id === plannedSession.id
-  const nextSessionStatus = today.activeSession ? 'in_progress' : completedPlannedSession ? 'completed' : 'planned'
+  const nextSessionStatus = planActiveSession ? 'in_progress' : completedPlannedSession ? 'completed' : 'planned'
 
   return {
     activeProgram: program,

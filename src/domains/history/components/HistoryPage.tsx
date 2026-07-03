@@ -1,7 +1,7 @@
 import { Badge, Button, Tabs, TextInput } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Activity, ArrowRight, BarChart3, ChevronDown, ChevronRight, ChevronUp, Dumbbell, History, Search, Trophy } from 'lucide-react'
+import { Activity, ArrowRight, BarChart3, ChevronDown, ChevronRight, ChevronUp, Dumbbell, History, Search, Star, Trophy } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { cn } from '~/shared/lib/cn'
 import { formatCompactDate, formatRelativeTime } from '~/shared/lib/dates'
@@ -14,17 +14,19 @@ import {
   bestSetTagLabel,
   buildVolumeSeries,
   filterMovements,
-  filterSessionsByIntensity,
+  filterSessions,
   groupBestSets,
+  hasAdHocSessions,
   intensityColor,
   movementCategories,
   sortMovementSummaries,
   type AccentColor,
-  type Intensity,
   type MovementSortKey,
+  type SessionFilter,
   type SortDir,
   type VolumeSeries,
 } from '~/domains/history/lib/insights'
+import { AD_HOC_BADGE_LABEL } from '~/domains/session/lib/ad-hoc'
 import { sessionQueryOptions } from '~/domains/session/queries'
 import type {
   BodyLoadRegion,
@@ -92,7 +94,8 @@ function AuthedHistory() {
   const [movementQuery, setMovementQuery] = useState('')
   const [movementCategory, setMovementCategory] = useState<string | null>(null)
   const [movementSort, setMovementSort] = useState<{ key: MovementSortKey; dir: SortDir }>({ key: 'volume', dir: 'desc' })
-  const [sessionIntensity, setSessionIntensity] = useState<Intensity | 'all'>('all')
+  const [sessionFilter, setSessionFilter] = useState<SessionFilter>('all')
+  const [sessionSearch, setSessionSearch] = useState('')
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const selectedSessionQuery = useQuery({
     ...sessionQueryOptions(selectedSessionId ?? ''),
@@ -174,8 +177,10 @@ function AuthedHistory() {
             sessions={data.recentSessions}
             activeProgramTitle={activeProgramTitle}
             onOpenSession={setSelectedSessionId}
-            intensity={sessionIntensity}
-            onIntensityChange={setSessionIntensity}
+            filter={sessionFilter}
+            onFilterChange={setSessionFilter}
+            search={sessionSearch}
+            onSearchChange={setSessionSearch}
           />
         </Tabs.Panel>
       </Tabs>
@@ -698,17 +703,22 @@ function SessionsTab({
   sessions,
   activeProgramTitle,
   onOpenSession,
-  intensity,
-  onIntensityChange,
+  filter,
+  onFilterChange,
+  search,
+  onSearchChange,
 }: {
   sessions: RecentHistoryEntry[]
   activeProgramTitle?: string | null
   onOpenSession: (sessionId: string) => void
-  intensity: Intensity | 'all'
-  onIntensityChange: (intensity: Intensity | 'all') => void
+  filter: SessionFilter
+  onFilterChange: (filter: SessionFilter) => void
+  search: string
+  onSearchChange: (value: string) => void
 }) {
   const intensities = availableIntensities(sessions)
-  const filtered = filterSessionsByIntensity(sessions, intensity)
+  const showAdHocFilter = hasAdHocSessions(sessions)
+  const filtered = filterSessions(sessions, filter, search)
 
   if (!sessions.length) {
     return (
@@ -722,11 +732,21 @@ function SessionsTab({
 
   return (
     <div className="space-y-3">
+      <TextInput
+        leftSection={<Search size={16} />}
+        placeholder="Search sessions"
+        value={search}
+        onChange={(event) => onSearchChange(event.target.value)}
+        styles={historySearchInputStyles}
+      />
       <div className="flex flex-wrap gap-2">
-        <FilterChip label="All" active={intensity === 'all'} onClick={() => onIntensityChange('all')} />
+        <FilterChip label="All" active={filter === 'all'} onClick={() => onFilterChange('all')} />
         {intensities.map((level) => (
-          <FilterChip key={level} label={level} active={intensity === level} onClick={() => onIntensityChange(level)} />
+          <FilterChip key={level} label={level} active={filter === level} onClick={() => onFilterChange(level)} />
         ))}
+        {showAdHocFilter ? (
+          <FilterChip label={AD_HOC_BADGE_LABEL} active={filter === 'adhoc'} onClick={() => onFilterChange('adhoc')} />
+        ) : null}
       </div>
       <Panel px="md" py="xs">
         {filtered.length ? (
@@ -739,7 +759,7 @@ function SessionsTab({
             />
           ))
         ) : (
-          <Text size="sm" tone="dimmed" className="py-3">No {intensity.toString().toLowerCase()} sessions.</Text>
+          <Text size="sm" tone="dimmed" className="py-3">No matching sessions.</Text>
         )}
       </Panel>
     </div>
@@ -767,7 +787,13 @@ function SessionRow({ session, last, onOpen }: { session: RecentHistoryEntry; la
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <Text fw={800} truncate>{session.title}</Text>
+            {session.isFavorite ? (
+              <Star size={13} fill="var(--vf-accent-text)" color="var(--vf-accent-text)" style={{ flexShrink: 0 }} aria-label="Favourite workout" />
+            ) : null}
             {session.hardness ? <Badge color={color} variant="light" style={{ flexShrink: 0 }}>{session.hardness}</Badge> : null}
+            {session.isAdHoc ? (
+              <Badge color="accent" variant="light" style={{ flexShrink: 0 }}>{AD_HOC_BADGE_LABEL}</Badge>
+            ) : null}
           </div>
           <Caption mt={2} truncate>
             {[session.weekLabel, `${session.movementCount} movements`, `${session.completedSetCount}/${session.plannedSetCount} sets`]
