@@ -229,6 +229,26 @@ Implemented:
 
 This feature now satisfies the first major workstream from `research/my-custom-workout.md`.
 
+### Ad-Hoc Workouts And Favourites
+
+Implemented:
+
+- One-off sessions with no programme linkage (ad-hoc = `workout_sessions.program_instance_id` is null), started from the Today page: a "Blank workout" header action alongside a planned session, and a "Start a blank workout" CTA in the no-programme empty state.
+- Free exercise picking inside the live session from the full catalog, competition lifts included (role `main` for competition lifts, `accessory` otherwise).
+- Ad-hoc-only in-session editing: remove an exercise, add sets to any movement, session-scope swaps only.
+- Optional renaming during the session; the title persists via `prescription_snapshot.title`.
+- "Last time" comparables and load/rep seeding computed per movement against all history.
+- Finish path that marks the session complete without creating progression decisions or advancing programme weeks.
+- Insights → Sessions: "Ad hoc" badge and filter chip, plus session title search.
+- Repeat from the workout summary modal: starts a fresh ad-hoc session seeded with the same exercises (as performed), set counts from what was completed, and freshly computed comparables.
+- Favourites: a completed ad-hoc session can be favourited (naming it is required); favourites are listed in a Plans-page section and can be started from there.
+
+Product rules:
+
+- Ad-hoc training is real training: it feeds History/Insights aggregates, records, and body load.
+- Ad-hoc sessions must never mutate programme state — no decisions, no week advance — and are not gated by pending progression reviews.
+- Only one in-progress session may exist at a time; starting an ad-hoc workout returns any live session instead of creating a second.
+
 ### Finish Flow And Progression
 
 Implemented:
@@ -280,8 +300,9 @@ Implemented:
 - Substitution summaries.
 - Body-load analytics from completed session data.
 - Movement history lookup.
+- Sessions tab search, intensity filters, and an "Ad hoc" filter with per-row ad-hoc/favourite markers.
 
-History must continue using only real completed sessions and set logs. Sparse or missing data should produce honest empty states rather than fake trends.
+History must continue using only real completed sessions and set logs. Sparse or missing data should produce honest empty states rather than fake trends. Ad-hoc sessions carry no prescribed intensity (`hardness` is null) and must not fake one.
 
 ### PWA And Deployment
 
@@ -325,6 +346,7 @@ Important invariants:
 - Seeded movements and system templates are not user-editable.
 - User custom templates are owned by the creator.
 - Started sessions store `prescription_snapshot`.
+- `workout_sessions.program_instance_id` and `planned_session_id` are null together (ad-hoc) or set together (programme sessions); `is_favorite` marks favourited ad-hoc sessions.
 - Exercise logs store both planned and performed movement.
 - Set logs store target and actual values separately.
 - Progression decisions are stored separately from logs and programme definitions.

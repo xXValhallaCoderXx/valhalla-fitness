@@ -2,13 +2,14 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Badge, Button } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { Link, useRouter } from '@tanstack/react-router'
-import { Activity, ArrowRight, CheckCircle2, Dumbbell, Layers3, ListChecks, Play, RotateCw } from 'lucide-react'
+import { Activity, ArrowRight, CheckCircle2, Dumbbell, Layers3, ListChecks, Play, Plus, RotateCw } from 'lucide-react'
 import { useState } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { historyDashboardQueryOptions } from '~/domains/history/queries'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
+import { AD_HOC_BADGE_LABEL, DEFAULT_AD_HOC_TITLE } from '~/domains/session/lib/ad-hoc'
 import { todayQueryOptions } from '~/domains/session/queries'
-import { startSessionFn } from '~/domains/session/server/session-functions'
+import { startAdHocSessionFn, startSessionFn } from '~/domains/session/server/session-functions'
 import type { HistoryDashboard, PlannedSession, ProgramOverview, Unit, WorkoutSession } from '~/shared/types'
 import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatCard, Text } from '~/components'
 import { PendingProgressionReviewModal, PendingReviewAlert, PendingReviewGate } from '~/domains/program/components/PendingReview'
@@ -65,69 +66,78 @@ function AuthedToday() {
       })
     },
   })
+  const adHocMutation = useMutation({
+    mutationFn: () => startAdHocSessionFn({ data: { clientMutationId: crypto.randomUUID() } }),
+    onSuccess: async (session) => {
+      router.options.context.queryClient.setQueryData(['session', session.sessionId], session)
+      await router.options.context.queryClient.invalidateQueries({ queryKey: ['today'] })
+      await router.navigate({ to: '/sessions/$sessionId', params: { sessionId: session.sessionId } })
+    },
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Could not start workout',
+        message: getApiErrorMessage(error, 'Unable to start a blank workout'),
+      })
+    },
+  })
 
   if (todayQuery.isPending) return <PageSkeleton />
   if (todayQuery.isError) return <PageLoadError error={todayQuery.error} onRetry={() => void todayQuery.refetch()} />
 
   const data = todayQuery.data
 
-  if (!data.activeProgram || !data.plannedSession) {
-    return (
-      <Page>
-        <OnboardingPanel />
-        {!onboardingActive && !onboardingPending ? (
-          <EmptyState
-            centered
-            title="No active program"
-            action={
-              <Link to="/templates">
-                <Button>Browse plans</Button>
-              </Link>
-            }
-          >
-            Choose a training template to generate your daily sessions and start tracking your progress.
-          </EmptyState>
-        ) : null}
-      </Page>
-    )
-  }
-
+  // Active session first: an ad-hoc workout can be live with no programme at all, and it
+  // must surface here rather than falling into the "No active program" empty state.
   if (data.activeSession) {
-    const nextIncompleteLabel = nextIncompleteSetLabel(data.activeSession)
-    const syncAction = isMeaningfulSyncState(data.activeSession.syncState)
-      ? <SyncPill state={data.activeSession.syncState} />
+    const activeSession = data.activeSession
+    const isAdHoc = Boolean(activeSession.isAdHoc)
+    const nextIncompleteLabel = nextIncompleteSetLabel(activeSession)
+    const syncAction = isMeaningfulSyncState(activeSession.syncState)
+      ? <SyncPill state={activeSession.syncState} />
       : null
-    const completedSets = countCompletedSets(data.activeSession)
-    const totalSets = countPlannedSets(data.activeSession)
+    const completedSets = countCompletedSets(activeSession)
+    const totalSets = countPlannedSets(activeSession)
     const completionPercent = totalSets ? Math.round((completedSets / totalSets) * 100) : 0
+    const eyebrow =
+      !isAdHoc && data.activeProgram && data.plannedSession
+        ? `${data.activeProgram.title} · ${data.plannedSession.weekLabel}`
+        : DEFAULT_AD_HOC_TITLE
 
     return (
       <Page className="max-w-5xl">
         <OnboardingPanel />
         <PageHeader
           title="Today"
-          eyebrow={`${data.activeProgram.title} · ${data.plannedSession.weekLabel}`}
+          eyebrow={eyebrow}
           actions={syncAction}
         >
           Resume the workout currently in progress.
         </PageHeader>
-        <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
+        {pendingDecisions.length ? (
+          <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
+        ) : null}
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Panel className="space-y-4 vf-card-hover" p="md" style={{ borderColor: 'var(--vf-action-border)' }}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <Badge color="action" variant="filled">In progress</Badge>
-                  <Badge color="warning">{data.activeSession.hardness}</Badge>
+                  {isAdHoc ? (
+                    <Badge color="accent">{AD_HOC_BADGE_LABEL}</Badge>
+                  ) : (
+                    <Badge color="warning">{activeSession.hardness}</Badge>
+                  )}
                 </div>
                 <Heading order={2} size="h3" lh={1.15} className="truncate">
-                  {data.activeSession.title}
+                  {activeSession.title}
                 </Heading>
                 <Text mt="xs" size="sm" tone="dimmed">
-                  {data.activeSession.movements.length} movements · {data.activeSession.estimatedMinutes} min
+                  {activeSession.movements.length} movements
+                  {activeSession.estimatedMinutes ? ` · ${activeSession.estimatedMinutes} min` : ''}
                 </Text>
               </div>
-              <Button className="w-full sm:w-auto" onClick={() => router.navigate({ to: '/sessions/$sessionId', params: { sessionId: data.activeSession!.sessionId } })}>
+              <Button className="w-full sm:w-auto" onClick={() => router.navigate({ to: '/sessions/$sessionId', params: { sessionId: activeSession.sessionId } })}>
                 <RotateCw size={16} />
                 Resume workout
               </Button>
@@ -138,14 +148,18 @@ function AuthedToday() {
                 <Text mt={2} size="sm" fw={800} truncate>{nextIncompleteLabel}</Text>
               </Panel>
             ) : null}
-            <SessionProgress session={data.activeSession} compact />
+            <SessionProgress session={activeSession} compact />
           </Panel>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             <StatCard label="Completed sets" value={`${completedSets}/${totalSets}`} icon={<ListChecks size={15} />} />
             <StatCard label="Session progress" value={`${completionPercent}%`} icon={<Activity size={15} />} />
-            <ProgramProgressPanel overview={overviewQuery.data} />
-            <WeeklyVolumePanel history={historyQuery.data} />
+            {data.activeProgram ? (
+              <>
+                <ProgramProgressPanel overview={overviewQuery.data} />
+                <WeeklyVolumePanel history={historyQuery.data} />
+              </>
+            ) : null}
           </div>
         </div>
         <PendingProgressionReviewModal
@@ -154,6 +168,37 @@ function AuthedToday() {
           onClose={() => setReviewOpen(false)}
           onResolved={(decisionId) => setResolvedDecisionIds((current) => new Set(current).add(decisionId))}
         />
+      </Page>
+    )
+  }
+
+  if (!data.activeProgram || !data.plannedSession) {
+    return (
+      <Page>
+        <OnboardingPanel />
+        {!onboardingActive && !onboardingPending ? (
+          <EmptyState
+            centered
+            title="No active program"
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Link to="/templates">
+                  <Button>Browse plans</Button>
+                </Link>
+                <Button
+                  variant="default"
+                  disabled={adHocMutation.isPending}
+                  onClick={() => adHocMutation.mutate()}
+                >
+                  <Plus size={16} />
+                  {adHocMutation.isPending ? 'Starting...' : 'Start a blank workout'}
+                </Button>
+              </div>
+            }
+          >
+            Choose a training template to generate your daily sessions — or just log a one-off workout.
+          </EmptyState>
+        ) : null}
       </Page>
     )
   }
@@ -171,6 +216,17 @@ function AuthedToday() {
       <PageHeader
         title="Today"
         eyebrow={`${data.activeProgram.title} · ${data.plannedSession.weekLabel}`}
+        actions={
+          <Button
+            variant="default"
+            size="compact-sm"
+            disabled={adHocMutation.isPending}
+            onClick={() => adHocMutation.mutate()}
+          >
+            <Plus size={14} />
+            {adHocMutation.isPending ? 'Starting...' : 'Blank workout'}
+          </Button>
+        }
       >
         {data.completedSession ? 'Workout complete. Your next session is ready.' : new Date(data.plannedSession.scheduledDate).toLocaleDateString(undefined, {
           weekday: 'short',

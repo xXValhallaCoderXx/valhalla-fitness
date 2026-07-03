@@ -1,12 +1,18 @@
-import { Box, Button, TextInput } from '@mantine/core'
-import { Plus } from 'lucide-react'
+import { ActionIcon, Box, Button, Modal, TextInput } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Pencil, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { Caption, SectionLabel, Text } from '~/components'
+import { Caption, EmptyState, SectionLabel, Text } from '~/components'
+import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { cn } from '~/shared/lib/cn'
+import { AD_HOC_BADGE_LABEL, AD_HOC_TITLE_MAX_LENGTH } from '~/domains/session/lib/ad-hoc'
 import { sessionCompletion } from '~/domains/session/lib/session-cache'
+import { renameSessionFn } from '~/domains/session/server/session-functions'
 import type { WorkoutSession } from '~/shared/types'
 import { SyncPill } from './Session'
 import { AddAccessoryModal } from './AddAccessoryModal'
+import { AddAdHocExerciseModal } from './AddAdHocExerciseModal'
 import { LiveMovementCard } from './LiveMovementCard'
 import { LiveSessionOnboarding } from './LiveSessionOnboarding'
 import {
@@ -48,7 +54,9 @@ export function LiveSessionFrame({
   const selectedMovement = session.movements.find((movement) => movement.id === activeMovementId) ?? session.movements[0]
   const selectedMovementId = selectedMovement?.id ?? activeMovementId
   const completedMovements = session.movements.filter(isMovementComplete).length
-  const [addAccessoryOpen, setAddAccessoryOpen] = useState(false)
+  const [addExerciseOpen, setAddExerciseOpen] = useState(false)
+  const [renameOpen, setRenameOpen] = useState(false)
+  const isAdHoc = Boolean(session.isAdHoc)
 
   return (
     <Box
@@ -68,6 +76,7 @@ export function LiveSessionFrame({
         finishDisabled={finishDisabled}
         onFinish={onFinish}
         onEnterFocus={onEnterFocus}
+        onRename={isAdHoc && session.status === 'in_progress' ? () => setRenameOpen(true) : undefined}
       />
 
       <Box className="h-1" bg="var(--vf-surface-2)" aria-hidden="true">
@@ -112,26 +121,45 @@ export function LiveSessionFrame({
             )
           })}
 
+          {session.movements.length === 0 ? (
+            <EmptyState title="No exercises yet" centered>
+              Pick anything from the catalog below — sets are yours to shape as you go.
+            </EmptyState>
+          ) : null}
+
           <Button
             type="button"
             fullWidth
             variant="default"
             className="border-dashed"
-            onClick={() => setAddAccessoryOpen(true)}
+            data-testid="add-exercise"
+            onClick={() => setAddExerciseOpen(true)}
           >
             <Plus size={16} />
-            Add accessory
+            {isAdHoc ? 'Add exercise' : 'Add accessory'}
           </Button>
 
           <LiveNotesBox value={notes} onChange={onNotesChange} />
         </main>
       </div>
-      <AddAccessoryModal
-        open={addAccessoryOpen}
-        session={session}
-        onClose={() => setAddAccessoryOpen(false)}
-        onAdded={(movementId) => onSelectMovement(movementId)}
-      />
+      {isAdHoc ? (
+        <AddAdHocExerciseModal
+          open={addExerciseOpen}
+          session={session}
+          onClose={() => setAddExerciseOpen(false)}
+          onAdded={(movementId) => onSelectMovement(movementId)}
+        />
+      ) : (
+        <AddAccessoryModal
+          open={addExerciseOpen}
+          session={session}
+          onClose={() => setAddExerciseOpen(false)}
+          onAdded={(movementId) => onSelectMovement(movementId)}
+        />
+      )}
+      {isAdHoc ? (
+        <RenameSessionModal open={renameOpen} session={session} onClose={() => setRenameOpen(false)} />
+      ) : null}
     </Box>
   )
 }
@@ -144,6 +172,7 @@ function SessionContextBar({
   finishDisabled,
   onFinish,
   onEnterFocus,
+  onRename,
 }: {
   session: WorkoutSession
   progress: ReturnType<typeof sessionCompletion>
@@ -152,6 +181,7 @@ function SessionContextBar({
   finishDisabled: boolean
   onFinish: () => void
   onEnterFocus?: () => void
+  onRename?: () => void
 }) {
   return (
     <Box
@@ -165,17 +195,37 @@ function SessionContextBar({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <div>
-              <Text component="h1" size="sm" fw={900} lh={1.1} truncate>
-                {session.title}
-              </Text>
+              <span className="flex items-center gap-1.5">
+                <Text component="h1" size="sm" fw={900} lh={1.1} truncate>
+                  {session.title}
+                </Text>
+                {onRename ? (
+                  <ActionIcon
+                    aria-label="Rename workout"
+                    size="sm"
+                    radius="xl"
+                    variant="subtle"
+                    color="neutral"
+                    onClick={onRename}
+                  >
+                    <Pencil size={12} />
+                  </ActionIcon>
+                ) : null}
+              </span>
               <Caption component="p" mt={2} size="xs">
                 {completedMovements} of {session.movements.length} movements · {progress.completed} of {progress.total} sets
               </Caption>
             </div>
             <div className="hidden flex-wrap gap-1.5 md:flex">
-              <MetaPill tone={session.hardness === 'Hard' ? 'danger' : 'neutral'}>{session.hardness}</MetaPill>
-              <MetaPill>{session.weekLabel}</MetaPill>
-              <MetaPill>{session.programTitle}</MetaPill>
+              {session.isAdHoc ? (
+                <MetaPill>{AD_HOC_BADGE_LABEL}</MetaPill>
+              ) : (
+                <>
+                  <MetaPill tone={session.hardness === 'Hard' ? 'danger' : 'neutral'}>{session.hardness}</MetaPill>
+                  <MetaPill>{session.weekLabel}</MetaPill>
+                  <MetaPill>{session.programTitle}</MetaPill>
+                </>
+              )}
               <SyncPill state={session.syncState} />
             </div>
           </div>
@@ -259,6 +309,88 @@ function MovementRail({
         })}
       </div>
     </Box>
+  )
+}
+
+function RenameSessionModal({
+  open,
+  session,
+  onClose,
+}: {
+  open: boolean
+  session: WorkoutSession
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [title, setTitle] = useState(session.title)
+  const mutation = useMutation({
+    mutationFn: (nextTitle: string) =>
+      renameSessionFn({ data: { sessionId: session.sessionId, title: nextTitle } }),
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Could not rename workout',
+        message: getApiErrorMessage(error, 'Unable to rename this workout.'),
+      })
+    },
+    onSuccess: async (nextSession) => {
+      queryClient.setQueryData(['session', session.sessionId], nextSession)
+      await queryClient.invalidateQueries({ queryKey: ['today'] })
+      onClose()
+    },
+  })
+  const trimmed = title.trim()
+
+  return (
+    <Modal
+      opened={open}
+      onClose={() => {
+        if (!mutation.isPending) onClose()
+      }}
+      title="Name this workout"
+      size="sm"
+      styles={{
+        content: {
+          border: '1px solid var(--mantine-color-default-border)',
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        header: {
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        title: {
+          color: 'var(--mantine-color-text)',
+          fontWeight: 700,
+        },
+        close: { color: 'var(--mantine-color-dimmed)' },
+      }}
+    >
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (trimmed && !mutation.isPending) mutation.mutate(trimmed)
+        }}
+        className="space-y-3"
+      >
+        <TextInput
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          maxLength={AD_HOC_TITLE_MAX_LENGTH}
+          placeholder="e.g. Push day"
+          data-autofocus
+          styles={insetFieldStyles}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" variant="default" disabled={mutation.isPending} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={!trimmed || mutation.isPending}>
+            {mutation.isPending ? 'Saving...' : 'Save name'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

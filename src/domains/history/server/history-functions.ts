@@ -34,7 +34,7 @@ export async function getHistoryInputs(
 ): Promise<{ sessions: HistorySessionInput[]; substitutions: HistorySubstitutionInput[] }> {
   let sessionQuery = supabase
     .from('workout_sessions')
-    .select('id, program_instance_id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot')
+    .select('id, program_instance_id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot, is_favorite')
     .eq('user_id', userId)
     .eq('status', 'completed')
     .order('completed_at', { ascending: false })
@@ -95,7 +95,7 @@ export async function getHistoryInputs(
     return {
       id: row.id,
       plannedSessionId: row.planned_session_id,
-      title: snapshot?.title ?? row.planned_session_id,
+      title: snapshot?.title ?? row.planned_session_id ?? 'Workout',
       programTitle: snapshot?.programTitle ?? null,
       templateId: snapshot?.templateId ?? null,
       programInstanceId: row.program_instance_id,
@@ -106,6 +106,8 @@ export async function getHistoryInputs(
       hardness: snapshot?.hardness ?? null,
       estimatedMinutes: snapshot?.estimatedMinutes ?? null,
       movementCount: snapshot?.movements.length ?? exercises.length,
+      isAdHoc: row.program_instance_id === null,
+      isFavorite: Boolean(row.is_favorite),
       plannedSetCount: plannedSetCount || exercises.reduce((total, exercise) => total + (setsByExerciseId.get(exercise.id)?.length ?? 0), 0),
       exercises: exercises.map((exercise: any) => ({
         id: exercise.id,
@@ -224,7 +226,7 @@ export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(asyn
   const { supabase, user } = await requireUser()
   const { data, error } = await supabase
     .from('workout_sessions')
-    .select('id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot')
+    .select('id, program_instance_id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot, is_favorite')
     .eq('user_id', user.id)
     .eq('status', 'completed')
     .order('completed_at', { ascending: false })
@@ -268,7 +270,7 @@ export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(asyn
     const plannedSetCount = snapshot?.movements.reduce((total, movement) => total + movement.sets.length, 0) ?? 0
     return {
       id: row.id,
-      title: snapshot?.title ?? row.planned_session_id,
+      title: snapshot?.title ?? row.planned_session_id ?? 'Workout',
       completedAt: row.completed_at,
       scheduledDate: row.scheduled_date,
       programTitle: snapshot?.programTitle ?? null,
@@ -278,6 +280,8 @@ export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(asyn
       movementCount: snapshot?.movements.length ?? 0,
       completedSetCount: completedSetsBySessionId.get(row.id) ?? 0,
       plannedSetCount: loggedSetsBySessionId.get(row.id) ?? plannedSetCount,
+      isAdHoc: row.program_instance_id === null,
+      isFavorite: Boolean(row.is_favorite),
     }
   })
 })

@@ -5,8 +5,9 @@ import {
   bestSetTagLabel,
   buildVolumeSeries,
   filterMovements,
-  filterSessionsByIntensity,
+  filterSessions,
   groupBestSets,
+  hasAdHocSessions,
   intensityColor,
   movementCategories,
   sortMovementSummaries,
@@ -60,10 +61,12 @@ function session(partial: Partial<RecentHistoryEntry> & { id: string }): RecentH
     title: partial.title ?? 'Session',
     completedAt: partial.completedAt ?? '2026-06-20',
     scheduledDate: partial.scheduledDate ?? '2026-06-20',
-    hardness: partial.hardness ?? 'Medium',
+    hardness: 'hardness' in partial ? partial.hardness : 'Medium',
     movementCount: partial.movementCount ?? 4,
     completedSetCount: partial.completedSetCount ?? 12,
     plannedSetCount: partial.plannedSetCount ?? 15,
+    isAdHoc: partial.isAdHoc,
+    isFavorite: partial.isFavorite,
   }
 }
 
@@ -193,7 +196,25 @@ describe('session intensity', () => {
 
   it('filters sessions by intensity', () => {
     const sessions = [session({ id: 's1', hardness: 'Hard' }), session({ id: 's2', hardness: 'Light' })]
-    expect(filterSessionsByIntensity(sessions, 'all')).toHaveLength(2)
-    expect(filterSessionsByIntensity(sessions, 'Hard').map((entry) => entry.id)).toEqual(['s1'])
+    expect(filterSessions(sessions, 'all')).toHaveLength(2)
+    expect(filterSessions(sessions, 'Hard').map((entry) => entry.id)).toEqual(['s1'])
+  })
+
+  it('excludes null-hardness ad-hoc sessions from available intensities', () => {
+    const sessions = [session({ id: 's1', hardness: 'Hard' }), session({ id: 's2', hardness: null, isAdHoc: true })]
+    expect(availableIntensities(sessions)).toEqual(['Hard'])
+  })
+
+  it('filters ad-hoc sessions and searches titles', () => {
+    const sessions = [
+      session({ id: 's1', hardness: 'Hard', title: 'Day A — Upper' }),
+      session({ id: 's2', hardness: null, isAdHoc: true, title: 'Extra bench day' }),
+    ]
+    expect(hasAdHocSessions(sessions)).toBe(true)
+    expect(hasAdHocSessions([sessions[0]])).toBe(false)
+    expect(filterSessions(sessions, 'adhoc').map((entry) => entry.id)).toEqual(['s2'])
+    expect(filterSessions(sessions, 'all', 'BENCH').map((entry) => entry.id)).toEqual(['s2'])
+    expect(filterSessions(sessions, 'Hard', 'bench')).toHaveLength(0)
+    expect(filterSessions(sessions, 'all', '  ')).toHaveLength(2)
   })
 })

@@ -5,7 +5,7 @@ import { Caption, Text } from '~/components'
 import { useSetLogMutation } from '~/domains/session/lib/useSetLogMutation'
 import { cn } from '~/shared/lib/cn'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
-import { formatSetTarget, resolveSetRir, RIR_OPTIONS, roundToStep, seedLoadForSet, selectAllOnFocus, SET_GRID_CLASS } from './live-session-utils'
+import { formatSetTarget, resolveSetRir, RIR_OPTIONS, roundToStep, seedLoadForSet, seedRepsForSet, selectAllOnFocus, SET_GRID_CLASS } from './live-session-utils'
 
 function rirLabel(value: number) {
   return value >= 3 ? '3+' : String(value)
@@ -32,7 +32,7 @@ export function LiveSetRow({
   // touched; untouched values derive from the set each render. That lets an open set pick up the
   // carried-over weight the moment an earlier set completes, without clobbering typed input.
   const [draft, setDraft] = useState<{ actualLoad?: number; actualReps?: number; actualRir?: number }>({})
-  const seedReps = () => set.actualReps ?? set.targetReps ?? set.targetRepMin ?? 0
+  const seedReps = () => seedRepsForSet(movement, set)
   const loadValue = draft.actualLoad ?? seedLoadForSet(movement, set)
   const repsValue = draft.actualReps ?? seedReps()
   const [pickerOpen, setPickerOpen] = useState(false)

@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
-import { listAccessoryMovementOptionsFn } from '~/domains/movement/server/movement-functions'
+import { listAccessoryMovementOptionsFn, listMovementOptionsFn } from '~/domains/movement/server/movement-functions'
+import { listFavoriteWorkoutsFn } from '~/domains/session/server/favorite-functions'
 import {
   getSessionFn,
   getTodayFn,
@@ -34,4 +35,19 @@ export const accessoryMovementOptionsQueryOptions = () =>
     queryFn: () => listAccessoryMovementOptionsFn(),
     staleTime: queryStaleTimes.options,
     gcTime: 30 * 60_000,
+  })
+
+export const movementOptionsQueryOptions = () =>
+  queryOptions({
+    queryKey: ['movementOptions'],
+    queryFn: () => listMovementOptionsFn(),
+    staleTime: queryStaleTimes.options,
+    gcTime: 30 * 60_000,
+  })
+
+export const favoriteWorkoutsQueryOptions = () =>
+  queryOptions({
+    queryKey: ['favoriteWorkouts'],
+    queryFn: () => listFavoriteWorkoutsFn(),
+    staleTime: queryStaleTimes.history,
   })

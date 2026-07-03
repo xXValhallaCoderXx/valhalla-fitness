@@ -6,7 +6,7 @@ import { useSetLogMutation } from '~/domains/session/lib/useSetLogMutation'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
 import { FocusRirRow } from './FocusRirRow'
 import { FocusStepper } from './FocusStepper'
-import { formatSetTarget, roundToStep, seedLoadForSet } from './live-session-utils'
+import { formatSetTarget, roundToStep, seedLoadForSet, seedRepsForSet } from './live-session-utils'
 
 /**
  * The current-set logging card: target chip, weight + reps steppers, RIR row, and the
@@ -33,7 +33,7 @@ export function FocusSetCard({
 }) {
   const [draft, setDraft] = useState({
     actualLoad: seedLoadForSet(movement, set),
-    actualReps: set.actualReps ?? set.targetReps ?? set.targetRepMin ?? 0,
+    actualReps: seedRepsForSet(movement, set),
     actualRir: set.actualRir ?? undefined,
   })
   const mutation = useSetLogMutation(session, movement, set.setIndex)

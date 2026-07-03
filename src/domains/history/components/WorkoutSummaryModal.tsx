@@ -1,9 +1,15 @@
-import { Button, Modal } from '@mantine/core'
-import { Check, ChevronDown, FileText, Star, Trophy, X } from 'lucide-react'
+import { Button, Modal, TextInput } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from '@tanstack/react-router'
+import { Check, ChevronDown, FileText, RotateCw, Star, Trophy, X } from 'lucide-react'
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { formatFullDate, formatRelativeTime } from '~/shared/lib/dates'
 import { buildWorkoutSummary, type AccentTone, type EffortTone, type SummaryExercise, type WorkoutSummaryModel } from '~/domains/history/lib/workout-summary'
+import { AD_HOC_BADGE_LABEL, AD_HOC_TITLE_MAX_LENGTH } from '~/domains/session/lib/ad-hoc'
+import { setSessionFavoriteFn } from '~/domains/session/server/favorite-functions'
+import { startAdHocSessionFn } from '~/domains/session/server/session-functions'
 import type { RecentHistoryEntry, WorkoutSession } from '~/shared/types'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 
@@ -39,7 +45,57 @@ export function WorkoutSummaryModal({
   error: unknown
   onClose: () => void
 }) {
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const [nameDialogOpen, setNameDialogOpen] = useState(false)
   const model = session ? buildWorkoutSummary(session) : null
+  // Repeat/favourite only make sense for completed ad-hoc workouts — plan sessions stay plan-driven.
+  const canActOnAdHoc = Boolean(session?.isAdHoc && session.status === 'completed')
+
+  const repeatMutation = useMutation({
+    mutationFn: (sourceSessionId: string) =>
+      startAdHocSessionFn({ data: { clientMutationId: crypto.randomUUID(), sourceSessionId } }),
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Could not start workout',
+        message: getApiErrorMessage(error, 'Unable to repeat this workout.'),
+      })
+    },
+    onSuccess: async (nextSession) => {
+      queryClient.setQueryData(['session', nextSession.sessionId], nextSession)
+      await queryClient.invalidateQueries({ queryKey: ['today'] })
+      onClose()
+      await router.navigate({ to: '/sessions/$sessionId', params: { sessionId: nextSession.sessionId } })
+    },
+  })
+
+  const favoriteMutation = useMutation({
+    mutationFn: (input: { sessionId: string; favorite: boolean; title?: string }) =>
+      setSessionFavoriteFn({ data: input }),
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Could not update favourites',
+        message: getApiErrorMessage(error, 'Unable to update this favourite.'),
+      })
+    },
+    onSuccess: async (nextSession, input) => {
+      setNameDialogOpen(false)
+      queryClient.setQueryData(['session', nextSession.sessionId], nextSession)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['history'] }),
+        queryClient.invalidateQueries({ queryKey: ['favoriteWorkouts'] }),
+      ])
+      notifications.show({
+        color: 'success',
+        title: input.favorite ? 'Saved to favourites' : 'Removed from favourites',
+        message: input.favorite
+          ? `${nextSession.title} is on the Plans page, ready to run again.`
+          : `${nextSession.title} is no longer a favourite.`,
+      })
+    },
+  })
 
   return (
     <Modal
@@ -113,8 +169,116 @@ export function WorkoutSummaryModal({
         className="flex-none px-4 py-3 sm:px-5"
         style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}
       >
-        <Button fullWidth onClick={onClose}>Done</Button>
+        {canActOnAdHoc && session ? (
+          <div className="flex gap-2">
+            <Button
+              variant="default"
+              className="shrink-0"
+              loading={favoriteMutation.isPending}
+              onClick={() =>
+                session.isFavorite
+                  ? favoriteMutation.mutate({ sessionId: session.sessionId, favorite: false })
+                  : setNameDialogOpen(true)
+              }
+            >
+              <Star size={16} fill={session.isFavorite ? 'currentColor' : 'none'} />
+              {session.isFavorite ? 'Favourited' : 'Favourite'}
+            </Button>
+            <Button
+              className="flex-1"
+              loading={repeatMutation.isPending}
+              onClick={() => repeatMutation.mutate(session.sessionId)}
+            >
+              <RotateCw size={16} />
+              Repeat workout
+            </Button>
+          </div>
+        ) : (
+          <Button fullWidth onClick={onClose}>Done</Button>
+        )}
       </div>
+      {nameDialogOpen && session ? (
+        <FavoriteNameDialog
+          initialTitle={session.title}
+          isPending={favoriteMutation.isPending}
+          onCancel={() => setNameDialogOpen(false)}
+          onSave={(title) => favoriteMutation.mutate({ sessionId: session.sessionId, favorite: true, title })}
+        />
+      ) : null}
+    </Modal>
+  )
+}
+
+/** Favourites need a recognisable name — prompt for one (prefilled) before saving. */
+function FavoriteNameDialog({
+  initialTitle,
+  isPending,
+  onCancel,
+  onSave,
+}: {
+  initialTitle: string
+  isPending: boolean
+  onCancel: () => void
+  onSave: (title: string) => void
+}) {
+  const [title, setTitle] = useState(initialTitle)
+  const trimmed = title.trim()
+
+  return (
+    <Modal
+      opened
+      onClose={() => {
+        if (!isPending) onCancel()
+      }}
+      title="Name this favourite"
+      size="sm"
+      styles={{
+        content: {
+          border: '1px solid var(--mantine-color-default-border)',
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        header: {
+          backgroundColor: 'var(--mantine-color-default)',
+          color: 'var(--mantine-color-text)',
+        },
+        title: {
+          color: 'var(--mantine-color-text)',
+          fontWeight: 700,
+        },
+        close: { color: 'var(--mantine-color-dimmed)' },
+      }}
+    >
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (trimmed && !isPending) onSave(trimmed)
+        }}
+        className="space-y-3"
+      >
+        <TextInput
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          maxLength={AD_HOC_TITLE_MAX_LENGTH}
+          placeholder="e.g. Push day"
+          data-autofocus
+          styles={{
+            input: {
+              borderColor: 'var(--mantine-color-default-border)',
+              backgroundColor: 'var(--vf-surface-2)',
+            },
+          }}
+        />
+        <Caption>The name shows with your favourites on the Plans page.</Caption>
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" variant="default" disabled={isPending} onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={!trimmed} loading={isPending}>
+            Save favourite
+          </Button>
+        </div>
+      </form>
     </Modal>
   )
 }
@@ -132,7 +296,11 @@ function Hero({ model, session }: { model: WorkoutSummaryModel; session: Workout
           <Heading order={2} size="h2" mt={4} lh={1.15}>{session.title}</Heading>
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {session.weekLabel ? <Chip>{session.weekLabel}</Chip> : null}
-            <Chip tone="action">{session.hardness} day</Chip>
+            {session.hardness ? (
+              <Chip tone="action">{session.hardness} day</Chip>
+            ) : session.isAdHoc ? (
+              <Chip tone="action">{AD_HOC_BADGE_LABEL}</Chip>
+            ) : null}
             <Chip>{formatFullDate(date)} · {formatRelativeTime(date)}</Chip>
           </div>
         </div>

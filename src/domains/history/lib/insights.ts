@@ -165,10 +165,25 @@ export function availableIntensities(sessions: RecentHistoryEntry[]): Intensity[
   return INTENSITY_LEVELS.filter((level) => present.has(level))
 }
 
-export function filterSessionsByIntensity(
+/** Sessions-tab filter: an intensity, everything, or ad-hoc workouts (which have no intensity). */
+export type SessionFilter = Intensity | 'all' | 'adhoc'
+
+export function hasAdHocSessions(sessions: RecentHistoryEntry[]): boolean {
+  return sessions.some((session) => session.isAdHoc)
+}
+
+export function filterSessions(
   sessions: RecentHistoryEntry[],
-  intensity: Intensity | 'all',
+  filter: SessionFilter,
+  query = '',
 ): RecentHistoryEntry[] {
-  if (intensity === 'all') return sessions
-  return sessions.filter((session) => session.hardness === intensity)
+  const byKind =
+    filter === 'all'
+      ? sessions
+      : filter === 'adhoc'
+        ? sessions.filter((session) => session.isAdHoc)
+        : sessions.filter((session) => session.hardness === filter)
+  const text = query.trim().toLowerCase()
+  if (!text) return byKind
+  return byKind.filter((session) => session.title.toLowerCase().includes(text))
 }

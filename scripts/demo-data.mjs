@@ -55,6 +55,7 @@ const DEMO_USERS = [
     },
     acceptedDecisions: ['squat', 'bench_press', 'deadlift'],
     pendingDecisions: ['overhead_press', 'barbell_row'],
+    adHocFavorite: true,
   },
   {
     email: `demo.wave@${DEMO_EMAIL_DOMAIN}`,
@@ -336,6 +337,7 @@ async function seedDemoUsers() {
     const userClient = await createSignedInClient(demo)
     await seedProfile(userClient, authUser.id, demo)
     if (!demo.profileOnly) await seedProgram(userClient, authUser.id, demo)
+    if (demo.adHocFavorite) await insertAdHocSession(userClient, authUser.id, demo)
     await userClient.auth.signOut()
   }
 
@@ -682,6 +684,145 @@ async function insertWorkoutSession(client, userId, programInstanceId, plannedSe
       })
       if (substitutionError) throw new Error(`Unable to seed substitution: ${substitutionError.message}`)
     }
+  }
+}
+
+/**
+ * One completed, favourited ad-hoc workout (no programme linkage) so the Sessions tab
+ * "Ad hoc" filter, the summary-modal repeat/favourite actions, and the Plans-page
+ * favourites section all have demo data.
+ */
+async function insertAdHocSession(client, userId, demo) {
+  const scheduledDate = daysAgo(2)
+  const startedAt = timestampForDate(scheduledDate, 12)
+  const completedAt = timestampForDate(scheduledDate, 12.75)
+  const movements = [
+    {
+      slotId: 'adhoc-1-bench_press',
+      movementId: 'bench_press',
+      movementName: 'Bench Press',
+      role: 'main',
+      loads: [45, 45, 45],
+      reps: [8, 8, 6],
+    },
+    {
+      slotId: 'adhoc-2-lat_pulldown',
+      movementId: 'lat_pulldown',
+      movementName: 'Lat Pulldown',
+      role: 'accessory',
+      loads: [45, 45, 45],
+      reps: [12, 12, 10],
+    },
+  ]
+
+  const snapshot = {
+    id: 'ad-hoc',
+    templateSessionId: 'ad-hoc',
+    kind: 'ad_hoc',
+    title: 'Extra bench day',
+    programTitle: 'Ad hoc',
+    templateId: 'ad_hoc',
+    weekIndex: 0,
+    weekLabel: '',
+    hardness: null,
+    scheduledDate,
+    estimatedMinutes: 0,
+    units: demo.units,
+    rounding: demo.rounding,
+    movements: movements.map((movement, index) => ({
+      id: movement.slotId,
+      slotId: movement.slotId,
+      phaseKey: 'ad_hoc',
+      movementId: movement.movementId,
+      movementName: movement.movementName,
+      performedMovementId: movement.movementId,
+      performedMovementName: movement.movementName,
+      role: movement.role,
+      orderIndex: index,
+      targetSummary: 'Ad hoc',
+      progressionRuleId: null,
+      progressionMethod: null,
+      previous: null,
+      notes: null,
+      isAdded: true,
+      sets: movement.loads.map((load, setIndex) => ({
+        id: `set-${setIndex + 1}`,
+        setIndex: setIndex + 1,
+        targetLoad: null,
+        targetReps: null,
+        targetRepMin: null,
+        targetRepMax: null,
+        targetRir: null,
+        targetRpe: null,
+        isTopSet: false,
+        isAmrap: false,
+        isBackoff: false,
+        actualLoad: load,
+        actualReps: movement.reps[setIndex],
+        actualRir: 2,
+        completed: true,
+      })),
+    })),
+  }
+
+  const { data: session, error: sessionError } = await client
+    .from('workout_sessions')
+    .insert({
+      user_id: userId,
+      program_instance_id: null,
+      planned_session_id: null,
+      status: 'completed',
+      scheduled_date: scheduledDate,
+      started_at: startedAt,
+      completed_at: completedAt,
+      prescription_snapshot: snapshot,
+      notes: 'Demo ad-hoc workout: quick extra pressing volume.',
+      client_mutation_id: `demo-${demo.email}-adhoc-1`,
+      is_favorite: true,
+    })
+    .select('*')
+    .single()
+  if (sessionError) throw new Error(`Unable to seed ad-hoc session: ${sessionError.message}`)
+
+  for (const movement of snapshot.movements) {
+    const { data: exercise, error: exerciseError } = await client
+      .from('exercise_logs')
+      .insert({
+        user_id: userId,
+        session_id: session.id,
+        slot_id: movement.slotId,
+        planned_movement_id: movement.movementId,
+        performed_movement_id: movement.movementId,
+        role: movement.role,
+        order_index: movement.orderIndex,
+        target_summary: movement.targetSummary,
+        client_mutation_id: `demo-${demo.email}-adhoc-1-${movement.slotId}`,
+      })
+      .select('*')
+      .single()
+    if (exerciseError) throw new Error(`Unable to seed ad-hoc exercise ${movement.movementName}: ${exerciseError.message}`)
+
+    const { error: setError } = await client.from('set_logs').insert(
+      movement.sets.map((set) => ({
+        user_id: userId,
+        exercise_log_id: exercise.id,
+        set_index: set.setIndex,
+        target_load: set.targetLoad,
+        target_reps: set.targetReps,
+        target_rep_min: set.targetRepMin,
+        target_rep_max: set.targetRepMax,
+        target_rir: set.targetRir,
+        target_rpe: set.targetRpe,
+        actual_load: set.actualLoad,
+        actual_reps: set.actualReps,
+        actual_rir: set.actualRir,
+        completed: set.completed,
+        is_top_set: set.isTopSet,
+        is_amrap: set.isAmrap,
+        is_backoff: set.isBackoff,
+      })),
+    )
+    if (setError) throw new Error(`Unable to seed ad-hoc sets for ${movement.movementName}: ${setError.message}`)
   }
 }
 

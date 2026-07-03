@@ -8,12 +8,13 @@ import {
   Info,
   Plus,
   Repeat2,
+  Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
-import { Caption, Panel, SectionLabel, Text } from '~/components'
+import { Caption, ConfirmDialog, Panel, SectionLabel, Text } from '~/components'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { cn } from '~/shared/lib/cn'
-import { addExerciseSetFn } from '~/domains/session/server/session-functions'
+import { addExerciseSetFn, removeAdHocExerciseFn } from '~/domains/session/server/session-functions'
 import type { MovementSlot, WorkoutSession } from '~/shared/types'
 import {
   MovementNumberBadge,
@@ -52,8 +53,11 @@ export function LiveMovementCard({
   )
   const [historyOpen, setHistoryOpen] = useState(false)
   const [swapOpen, setSwapOpen] = useState(false)
+  const [removeOpen, setRemoveOpen] = useState(false)
   const [showRirHelp, setShowRirHelp] = useState(false)
   const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<Record<number, number | undefined>>({})
+  const isAdHoc = Boolean(session.isAdHoc)
+  const canAddSet = movement.role === 'accessory' || isAdHoc
   const addSetMutation = useMutation({
     mutationKey: ['addExerciseSet', session.sessionId, movement.id],
     mutationFn: () =>
@@ -79,6 +83,28 @@ export function LiveMovementCard({
       )
       const nextSetIndex = nextMovement?.sets.at(-1)?.setIndex
       if (nextSetIndex) setSelectedSetIndex(nextSetIndex)
+    },
+  })
+
+  const removeMutation = useMutation({
+    mutationKey: ['removeAdHocExercise', session.sessionId, movement.id],
+    mutationFn: () =>
+      removeAdHocExerciseFn({
+        data: { sessionId: session.sessionId, exerciseLogId: movement.id },
+      }),
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Exercise not removed',
+        message: getApiErrorMessage(error, 'Unable to remove this exercise.'),
+      })
+    },
+    onSuccess: (nextSession) => {
+      setRemoveOpen(false)
+      queryClient.setQueryData(['session', session.sessionId], nextSession)
+      queryClient.setQueryData(['today'], (current: any) =>
+        current ? { ...current, activeSession: nextSession } : current,
+      )
     },
   })
 
@@ -119,7 +145,7 @@ export function LiveMovementCard({
               <RolePill role={movement.role} />
             </div>
             <Caption component="p" size="xs">
-              {movement.targetSummary} · {session.programTitle}
+              {isAdHoc ? movement.targetSummary : `${movement.targetSummary} · ${session.programTitle}`}
             </Caption>
             {movement.performedMovementId && movement.performedMovementId !== movement.movementId ? (
               <Caption component="p" mt={4} fw={700} c="var(--vf-warning-text)">
@@ -137,6 +163,14 @@ export function LiveMovementCard({
               onClick={() => setSwapOpen(true)}
             />
             <ToolButton title="Movement history" icon={<History size={13} />} label="History" onClick={() => setHistoryOpen(true)} />
+            {isAdHoc ? (
+              <ToolButton
+                title="Remove exercise"
+                icon={<Trash2 size={13} />}
+                label="Remove"
+                onClick={() => setRemoveOpen(true)}
+              />
+            ) : null}
           </div>
         </div>
 
@@ -214,13 +248,25 @@ export function LiveMovementCard({
           onClose={() => setSwapOpen(false)}
         />
       ) : null}
+      <ConfirmDialog
+        open={removeOpen}
+        title={`Remove ${movement.movementName}?`}
+        confirmLabel="Remove exercise"
+        cancelLabel="Keep it"
+        tone="danger"
+        isPending={removeMutation.isPending}
+        onCancel={() => setRemoveOpen(false)}
+        onConfirm={() => removeMutation.mutate()}
+      >
+        Its logged sets are deleted with it. You can always add it back from the catalog.
+      </ConfirmDialog>
 
       <Button
         type="button"
         className="mx-3 mb-3 w-[calc(100%-1.5rem)] md:mx-0 md:mb-0 md:mt-3 md:w-full"
         variant="default"
-        title={movement.role === 'accessory' ? 'Add another accessory set' : 'Extra sets can only be added to accessories'}
-        disabled={movement.role !== 'accessory' || addSetMutation.isPending}
+        title={canAddSet ? 'Add another set' : 'Extra sets can only be added to accessories'}
+        disabled={!canAddSet || addSetMutation.isPending}
         onClick={() => addSetMutation.mutate()}
       >
         <Plus size={12} />

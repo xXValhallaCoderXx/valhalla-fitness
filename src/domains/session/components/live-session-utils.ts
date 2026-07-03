@@ -118,6 +118,33 @@ export function seedLoadForSet(movement: MovementSlot, set: SetLog): number {
   return isPositiveLoad(previousLoad) ? previousLoad : 0
 }
 
+function isPositiveReps(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+/**
+ * Reps to pre-fill for a set, mirroring seedLoadForSet: logged value, then the prescribed target,
+ * then the nearest earlier completed set, then last session's comparable. Matters for ad-hoc
+ * exercises, which have no rep targets at all.
+ */
+export function seedRepsForSet(movement: MovementSlot, set: SetLog): number {
+  if (set.actualReps != null) return set.actualReps
+  if (set.targetReps != null) return set.targetReps
+  if (set.targetRepMin != null) return set.targetRepMin
+  let carried: number | null = null
+  let carriedIndex = -1
+  for (const other of movement.sets) {
+    if (other.setIndex >= set.setIndex || !other.completed || !isPositiveReps(other.actualReps)) continue
+    if (other.setIndex > carriedIndex) {
+      carried = other.actualReps
+      carriedIndex = other.setIndex
+    }
+  }
+  if (carried != null) return carried
+  const previousReps = movement.previous?.reps
+  return isPositiveReps(previousReps) ? previousReps : 0
+}
+
 export function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }

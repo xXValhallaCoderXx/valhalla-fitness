@@ -56,7 +56,8 @@ export function MovementSwapModal({
   }, [options, search])
   const effectiveSelectedMovementId = selectedMovementId ?? options[0]?.movementId ?? null
   const selectedOption = options.find((option) => option.movementId === effectiveSelectedMovementId) ?? null
-  const canUsePhaseScope = Boolean(selectedOption?.allowedScopes.includes('phase_slot'))
+  // Ad-hoc sessions have no programme slots to persist a swap into.
+  const canUsePhaseScope = Boolean(selectedOption?.allowedScopes.includes('phase_slot')) && !session.isAdHoc
   const effectiveScope: SwapScope = scope === 'phase_slot' && canUsePhaseScope ? 'phase_slot' : 'session'
   const phaseLabel = phaseScopeLabel(session)
 
@@ -238,27 +239,29 @@ export function MovementSwapModal({
             disabled={mutation.isPending}
             styles={defaultFieldStyles}
           />
-          <Checkbox
-            checked={effectiveScope === 'phase_slot'}
-            disabled={!canUsePhaseScope || mutation.isPending}
-            onChange={(event) => setScope(event.currentTarget.checked ? 'phase_slot' : 'session')}
-            label={`Use for this slot for ${phaseLabel.toLowerCase()}`}
-            styles={{
-              label: {
-                color: 'var(--mantine-color-text)',
-                fontSize: 'var(--mantine-font-size-sm)',
-                fontWeight: 600,
-              },
-              input: {
-                borderColor: 'var(--mantine-color-default-border)',
-              },
-            }}
-          />
+          {!session.isAdHoc ? (
+            <Checkbox
+              checked={effectiveScope === 'phase_slot'}
+              disabled={!canUsePhaseScope || mutation.isPending}
+              onChange={(event) => setScope(event.currentTarget.checked ? 'phase_slot' : 'session')}
+              label={`Use for this slot for ${phaseLabel.toLowerCase()}`}
+              styles={{
+                label: {
+                  color: 'var(--mantine-color-text)',
+                  fontSize: 'var(--mantine-font-size-sm)',
+                  fontWeight: 600,
+                },
+                input: {
+                  borderColor: 'var(--mantine-color-default-border)',
+                },
+              }}
+            />
+          ) : null}
           <Panel p="sm">
             <SectionLabel>Selected</SectionLabel>
             <Text component="p" mt={4} size="sm" fw={900}>{selectedOption?.movementName ?? 'No movement selected'}</Text>
             <Caption component="p" mt={2}>
-              {effectiveScope === 'phase_slot' ? phaseLabel : 'This session only'}
+              {effectiveScope === 'phase_slot' ? phaseLabel : session.isAdHoc ? 'This workout only' : 'This session only'}
             </Caption>
           </Panel>
           <div className="grid grid-cols-2 gap-2 pt-1">
