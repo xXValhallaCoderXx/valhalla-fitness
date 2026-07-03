@@ -133,6 +133,10 @@ test('"Don\'t show again" confirms before exiting onboarding, then persists', as
 })
 
 test('saving estimates after the "Set estimates" deep-link redirects to Today', async ({ page }) => {
+  // Saving estimates ends the account's "needs estimates" state, so run on a single project —
+  // the desktop and mobile projects would otherwise race each other through the same account.
+  test.skip((page.viewportSize()?.width ?? 0) < 768, 'server-flag mutation: desktop project only')
+
   await login(page, DEMO_ESTIMATES)
   await page.goto('/settings?focus=estimates')
 

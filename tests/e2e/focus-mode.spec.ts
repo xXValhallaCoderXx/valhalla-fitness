@@ -33,6 +33,12 @@ test('mobile focus mode: steppers, RIR, Overview round-trip, exercise nav', asyn
     await expect(weight).not.toHaveValue(String(startWeight), { timeout: 1000 })
   }).toPass({ timeout: 10000 })
 
+  // Typing replaces the seeded value (select-on-focus) — no "050" leading-zero artifacts.
+  await page.getByLabel('Reps', { exact: true }).click()
+  await weight.click()
+  await weight.pressSequentially('50')
+  await expect(weight).toHaveValue('50')
+
   // RIR selection reflects in aria-pressed.
   const rirTwo = page.getByRole('button', { name: '2 — two more reps' })
   await rirTwo.click()
@@ -57,6 +63,45 @@ test('mobile focus mode: steppers, RIR, Overview round-trip, exercise nav', asyn
     await nextExercise.click()
     await expect(title).not.toHaveText(initial, { timeout: 5000 })
   }
+})
+
+test('mobile focus: weight carries to the next set on choose-your-load movements', async ({ page }) => {
+  test.skip(!isMobileViewport(page), 'Focus mode is mobile-only')
+  await enterSession(page)
+
+  const enterFocus = page.getByTestId('enter-focus')
+  if (await enterFocus.isVisible().catch(() => false)) await enterFocus.click()
+  await expect(page.getByTestId('focus-view')).toBeVisible()
+
+  // Walk to a "choose your load" movement (accessory): its target chip reads "— × reps".
+  const userSelectedTarget = page.getByText(/Target — ×/)
+  const nextExercise = page.getByTestId('focus-next-exercise')
+  for (let hops = 0; hops < 8 && !(await userSelectedTarget.isVisible().catch(() => false)); hops++) {
+    if (!(await nextExercise.isEnabled().catch(() => false))) break
+    await nextExercise.click()
+    await expect(page.getByTestId('focus-log-set')).toBeVisible()
+  }
+  test.skip(
+    !(await userSelectedTarget.isVisible().catch(() => false)),
+    'No open user-selected-load movement left in this session (stale seed)',
+  )
+
+  const setLabel = (await page.getByText(/Set \d+ of \d+/).first().textContent()) ?? ''
+  const [, current, total] = setLabel.match(/Set (\d+) of (\d+)/) ?? []
+  test.skip(!current || current === total, 'On the last set (stale seed) — carry-over needs a next set')
+
+  const weight = page.getByLabel('Weight', { exact: true })
+  await page.getByLabel('Reps', { exact: true }).click()
+  await weight.click()
+  await weight.pressSequentially('33')
+  await expect(weight).toHaveValue('33')
+
+  await page.getByTestId('focus-log-set').click()
+  // The card advances to the next set and pre-fills the weight just logged.
+  await expect(page.getByText(new RegExp(`Current · Set ${Number(current) + 1} of ${total}`)).first()).toBeVisible({
+    timeout: 10000,
+  })
+  await expect(weight).toHaveValue('33')
 })
 
 test('mobile focus onboarding: card launches the focus tour and dismisses', async ({ page }) => {

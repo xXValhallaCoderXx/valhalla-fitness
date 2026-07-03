@@ -1103,22 +1103,35 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
       currentWeekIndex: activeProgram.currentWeekIndex + 1,
     })
 
-    for (const decision of decisions) {
-      const { error: decisionError } = await supabase.from('progression_decisions').insert({
-        user_id: user.id,
-        program_instance_id: activeProgram.id,
-        movement_id: decision.movementId,
-        rule_id: decision.ruleId,
-        scope: decision.scope,
-        status: 'pending',
-        input_summary: decision.inputSummary,
-        recommendation: decision.recommendation,
-        state_key: decision.stateKey,
-        state_type: decision.stateType,
-        previous_value: decision.previousValue,
-        recommended_value: decision.recommendedValue,
-      })
+    if (decisions.length > 0) {
+      const { data: insertedDecisions, error: decisionError } = await supabase
+        .from('progression_decisions')
+        .insert(
+          decisions.map((decision) => ({
+            user_id: user.id,
+            program_instance_id: activeProgram.id,
+            movement_id: decision.movementId,
+            rule_id: decision.ruleId,
+            scope: decision.scope,
+            status: 'pending',
+            input_summary: decision.inputSummary,
+            recommendation: decision.recommendation,
+            state_key: decision.stateKey,
+            state_type: decision.stateType,
+            previous_value: decision.previousValue,
+            recommended_value: decision.recommendedValue,
+          })),
+        )
+        .select('id, movement_id')
       if (decisionError) throw new Error(decisionError.message)
+      // The builder's decisions carry placeholder ids; swap in the DB uuids (one decision per
+      // movement) so the summary page can resolve them without re-fetching.
+      const decisionIdByMovement = new Map(
+        (insertedDecisions ?? []).map((row: { id: string; movement_id: string }) => [row.movement_id, row.id]),
+      )
+      for (const decision of decisions) {
+        decision.id = decisionIdByMovement.get(decision.movementId) ?? decision.id
+      }
     }
 
     const completedSession = await getSessionInternal(data.sessionId)

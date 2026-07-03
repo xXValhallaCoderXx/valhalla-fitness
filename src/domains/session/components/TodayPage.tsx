@@ -180,6 +180,10 @@ function AuthedToday() {
       </PageHeader>
 
       {data.completedSession ? (
+        /* Desktop-only (plain wrapper div: Tailwind's layered `hidden` loses to Mantine Paper's
+           unlayered `display: block`): on mobile the header subtitle already says the workout is
+           done, and this card would stack with the pending-review alert + next-session card as noise. */
+        <div className="hidden md:block">
         <Panel className="mb-4" p="md" style={{ borderColor: 'var(--vf-success-border)', backgroundColor: 'var(--vf-success-soft)' }}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -201,6 +205,7 @@ function AuthedToday() {
             <Badge color="action">Next session unlocked</Badge>
           </div>
         </Panel>
+        </div>
       ) : null}
 
       {data.pendingDecisions.length ? (

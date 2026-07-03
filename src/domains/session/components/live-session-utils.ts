@@ -77,6 +77,47 @@ export function roundToStep(value: number, step: number) {
   return Math.round(value / step) * step
 }
 
+/**
+ * Select the whole value when a logger number input gains focus, so the first keystroke replaces
+ * the seeded value instead of appending to it ("0" + "5" → "05"). Mobile Safari undoes a select()
+ * made during the focus event, so re-select on the next frame — but only while the value is
+ * untouched, otherwise a fast first keystroke would get selected and eaten by the second.
+ */
+export function selectAllOnFocus(event: { currentTarget: HTMLInputElement }) {
+  const input = event.currentTarget
+  const initialValue = input.value
+  input.select()
+  requestAnimationFrame(() => {
+    if (document.activeElement === input && input.value === initialValue) input.select()
+  })
+}
+
+function isPositiveLoad(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+/**
+ * Weight to pre-fill for a set: a logged value wins, then the prescribed target. Sets without a
+ * prescribed load (user-selected accessories) carry the nearest earlier completed set's weight,
+ * falling back to last session's comparable — so straight sets only need the weight entered once.
+ */
+export function seedLoadForSet(movement: MovementSlot, set: SetLog): number {
+  if (set.actualLoad != null) return set.actualLoad
+  if (set.targetLoad != null) return set.targetLoad
+  let carried: number | null = null
+  let carriedIndex = -1
+  for (const other of movement.sets) {
+    if (other.setIndex >= set.setIndex || !other.completed || !isPositiveLoad(other.actualLoad)) continue
+    if (other.setIndex > carriedIndex) {
+      carried = other.actualLoad
+      carriedIndex = other.setIndex
+    }
+  }
+  if (carried != null) return carried
+  const previousLoad = movement.previous?.load
+  return isPositiveLoad(previousLoad) ? previousLoad : 0
+}
+
 export function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }

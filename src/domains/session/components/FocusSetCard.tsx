@@ -6,7 +6,7 @@ import { useSetLogMutation } from '~/domains/session/lib/useSetLogMutation'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
 import { FocusRirRow } from './FocusRirRow'
 import { FocusStepper } from './FocusStepper'
-import { formatSetTarget, roundToStep } from './live-session-utils'
+import { formatSetTarget, roundToStep, seedLoadForSet } from './live-session-utils'
 
 /**
  * The current-set logging card: target chip, weight + reps steppers, RIR row, and the
@@ -32,7 +32,7 @@ export function FocusSetCard({
   onRirSelected: (setIndex: number, value: number) => void
 }) {
   const [draft, setDraft] = useState({
-    actualLoad: set.actualLoad ?? set.targetLoad ?? 0,
+    actualLoad: seedLoadForSet(movement, set),
     actualReps: set.actualReps ?? set.targetReps ?? set.targetRepMin ?? 0,
     actualRir: set.actualRir ?? undefined,
   })
@@ -43,7 +43,7 @@ export function FocusSetCard({
     draft.actualRir ?? (!set.completed && typeof set.actualRir !== 'number' ? suggestedRir : undefined)
 
   const adjustLoad = (delta: number) =>
-    setDraft((current) => ({ ...current, actualLoad: roundToStep(Number(current.actualLoad) + delta, session.rounding) }))
+    setDraft((current) => ({ ...current, actualLoad: Math.max(0, roundToStep(Number(current.actualLoad) + delta, session.rounding)) }))
   const adjustReps = (delta: number) =>
     setDraft((current) => ({ ...current, actualReps: Math.max(0, Number(current.actualReps) + delta) }))
 
@@ -89,7 +89,7 @@ export function FocusSetCard({
           value={Number(draft.actualLoad)}
           step={session.rounding}
           onAdjust={adjustLoad}
-          onType={(value) => setDraft((current) => ({ ...current, actualLoad: value }))}
+          onType={(value) => setDraft((current) => ({ ...current, actualLoad: Math.max(0, value) }))}
           disabled={isSaving}
           dataTour="focus-weight"
         />

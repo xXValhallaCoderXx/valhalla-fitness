@@ -5,7 +5,7 @@ import { Caption, Text } from '~/components'
 import { useSetLogMutation } from '~/domains/session/lib/useSetLogMutation'
 import { cn } from '~/shared/lib/cn'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
-import { formatSetTarget, resolveSetRir, RIR_OPTIONS, roundToStep, SET_GRID_CLASS } from './live-session-utils'
+import { formatSetTarget, resolveSetRir, RIR_OPTIONS, roundToStep, seedLoadForSet, selectAllOnFocus, SET_GRID_CLASS } from './live-session-utils'
 
 function rirLabel(value: number) {
   return value >= 3 ? '3+' : String(value)
@@ -28,11 +28,13 @@ export function LiveSetRow({
   onSelect: () => void
   onRirSelected: (setIndex: number, value: number) => void
 }) {
-  const [draft, setDraft] = useState({
-    actualLoad: set.actualLoad ?? set.targetLoad ?? 0,
-    actualReps: set.actualReps ?? set.targetReps ?? set.targetRepMin ?? 0,
-    actualRir: set.actualRir ?? undefined,
-  })
+  // Rows stay mounted for the whole session, so the draft only holds what the user actually
+  // touched; untouched values derive from the set each render. That lets an open set pick up the
+  // carried-over weight the moment an earlier set completes, without clobbering typed input.
+  const [draft, setDraft] = useState<{ actualLoad?: number; actualReps?: number; actualRir?: number }>({})
+  const seedReps = () => set.actualReps ?? set.targetReps ?? set.targetRepMin ?? 0
+  const loadValue = draft.actualLoad ?? seedLoadForSet(movement, set)
+  const repsValue = draft.actualReps ?? seedReps()
   const [pickerOpen, setPickerOpen] = useState(false)
   const effectiveActualRir = resolveSetRir({
     draftRir: draft.actualRir,
@@ -64,8 +66,8 @@ export function LiveSetRow({
       exerciseLogId: movement.id,
       movementSlotId: movement.id,
       setIndex: set.setIndex,
-      actualLoad: Number(draft.actualLoad),
-      actualReps: Number(draft.actualReps),
+      actualLoad: loadValue,
+      actualReps: repsValue,
       actualRir,
       completed,
       clientMutationId: crypto.randomUUID(),
@@ -83,10 +85,13 @@ export function LiveSetRow({
 
   // Desktop-only ± steppers on the selected row, so weight/reps can be set without the keyboard.
   const adjustLoad = (delta: number) => {
-    setDraft((current) => ({ ...current, actualLoad: roundToStep(Number(current.actualLoad) + delta, session.rounding) }))
+    setDraft((current) => ({
+      ...current,
+      actualLoad: Math.max(0, roundToStep((current.actualLoad ?? seedLoadForSet(movement, set)) + delta, session.rounding)),
+    }))
   }
   const adjustReps = (delta: number) => {
-    setDraft((current) => ({ ...current, actualReps: Math.max(0, Number(current.actualReps) + delta) }))
+    setDraft((current) => ({ ...current, actualReps: Math.max(0, (current.actualReps ?? seedReps()) + delta) }))
   }
 
   return (
@@ -147,27 +152,27 @@ export function LiveSetRow({
         </Caption>
 
         <StepCell
-          value={draft.actualLoad}
+          value={loadValue}
           disabled={isEditingDisabled}
           muted={set.completed || isFuture}
           showSteppers={isSelected && !isEditingDisabled}
           step={session.rounding}
           onAdjust={adjustLoad}
           onFocus={onSelect}
-          onChange={(value) => setDraft((current) => ({ ...current, actualLoad: value }))}
+          onChange={(value) => setDraft((current) => ({ ...current, actualLoad: Math.max(0, value) }))}
           dataTour={isSelected ? 'live-weight' : undefined}
           decreaseLabel="Decrease weight"
           increaseLabel="Increase weight"
         />
         <StepCell
-          value={draft.actualReps}
+          value={repsValue}
           disabled={isEditingDisabled}
           muted={set.completed || isFuture}
           showSteppers={isSelected && !isEditingDisabled}
           step={1}
           onAdjust={adjustReps}
           onFocus={onSelect}
-          onChange={(value) => setDraft((current) => ({ ...current, actualReps: value }))}
+          onChange={(value) => setDraft((current) => ({ ...current, actualReps: Math.max(0, value) }))}
           decreaseLabel="Decrease reps"
           increaseLabel="Increase reps"
         />
@@ -304,7 +309,10 @@ function StepCell({
         }}
         value={Number.isFinite(value) ? value : 0}
         disabled={disabled}
-        onFocus={onFocus}
+        onFocus={(event) => {
+          selectAllOnFocus(event)
+          onFocus()
+        }}
         onChange={(event) => onChange(Number(event.target.value))}
       />
       {showSteppers ? (
