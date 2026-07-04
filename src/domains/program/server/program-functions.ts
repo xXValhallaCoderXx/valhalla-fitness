@@ -410,6 +410,7 @@ export async function getActiveProgramInternal(): Promise<ProgramInstance | null
       label: state.label,
       value: Number(state.value),
       unit: state.unit ?? instance.units,
+      updatedAt: state.updated_at ?? null,
     })),
     movementOverrides: (movementOverrides ?? []).map(mapProgramMovementOverride),
     accessoryAdditions: (accessoryAdditions ?? []).map(mapProgramAccessoryAddition),
@@ -445,6 +446,7 @@ export function mapProgressionDecision(row: any): ProgressionDecision {
     recommendation: row.recommendation,
     previousValue: row.previous_value === null ? null : Number(row.previous_value),
     recommendedValue: row.recommended_value === null ? null : Number(row.recommended_value),
+    resolvedAt: row.resolved_at ?? null,
   }
 }
 

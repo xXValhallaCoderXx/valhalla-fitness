@@ -1,29 +1,30 @@
-import { Badge, Box, Card, Group, SimpleGrid } from '@mantine/core'
-import { Check } from 'lucide-react'
-import { useState } from 'react'
+import { Badge, Card, Group } from '@mantine/core'
+import { Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { Fragment, useState } from 'react'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
-import type { ProgramTimelineModel } from '~/domains/program/lib/program-timeline'
+import type {
+  ProgramTrajectory,
+  TrajectoryLiftTarget,
+  TrajectoryPhase,
+  TrajectoryValuePill,
+  TrajectoryWeek,
+} from '~/domains/program/lib/program-trajectory'
 import { ProgramInfoHint } from './ProgramInfoHint'
 
-export function ProgramTimeline({
-  currentSessionIndex,
-  status,
-  timeline,
-}: {
-  currentSessionIndex: number
-  status: string
-  timeline: ProgramTimelineModel
-}) {
-  const [expandedWeeks, setExpandedWeeks] = useState(() => new Set([timeline.currentWeekIndex]))
+/**
+ * Full timeline — the plan grouped into phases. Completed phases show the
+ * training maxes they banked; the current and upcoming phases show weekly
+ * top-set targets and where they land if every progression hits.
+ */
+export function ProgramTimeline({ trajectory }: { trajectory: ProgramTrajectory }) {
+  const currentKey = trajectory.phases.find((phase) => phase.status === 'current')?.key
+  const [expandedPhases, setExpandedPhases] = useState(() => new Set(currentKey ? [currentKey] : []))
 
-  const toggleWeek = (weekIndex: number) => {
-    setExpandedWeeks((current) => {
+  const togglePhase = (key: string) => {
+    setExpandedPhases((current) => {
       const next = new Set(current)
-      if (next.has(weekIndex)) {
-        next.delete(weekIndex)
-      } else {
-        next.add(weekIndex)
-      }
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }
@@ -31,155 +32,212 @@ export function ProgramTimeline({
   return (
     <Card p="md">
       <Group align="flex-start" justify="space-between" gap="md" wrap="nowrap">
-        <div>
-          <Group gap="xs">
-            <SectionLabel>Timeline</SectionLabel>
-            <ProgramInfoHint label="Why can't I see later weights?">
-              Later weeks open as you go — Sheetless sets their exact loads from how your recent sessions actually went, so they aren&apos;t fixed yet.
-            </ProgramInfoHint>
-          </Group>
-          <Caption mt={4}>{timeline.description}</Caption>
-        </div>
-        <Badge color="action">{status}</Badge>
+        <Group gap="xs">
+          <SectionLabel>Full timeline</SectionLabel>
+          <ProgramInfoHint label="Are later weights fixed?">
+            Upcoming numbers assume you hit each week&apos;s targets — Sheetless re-checks after every session and
+            adjusts the plan from how your training actually went.
+          </ProgramInfoHint>
+        </Group>
+        <Badge style={{ flexShrink: 0 }}>{trajectory.totalWeeks} weeks</Badge>
       </Group>
-      <Box className="relative mt-4 overflow-y-auto pr-2" style={{ maxHeight: 'min(72vh, 44rem)' }}>
-        <Box
-          aria-hidden
-          className="absolute bottom-4 left-4 top-4"
-          style={{
-            width: 1,
-            backgroundColor: 'var(--mantine-color-default-border)',
-          }}
-        />
-        <div className="relative space-y-3">
-          {timeline.weeks.map((week) => {
-            const current = week.index === timeline.currentWeekIndex
-            const complete = week.index < timeline.currentWeekIndex
-            const expanded = expandedWeeks.has(week.index)
-            return (
-              <div key={week.index} className="relative z-10 flex gap-3">
-                <TimelineMarker current={current} complete={complete} />
-                <Card
-                  p="sm"
-                  className="flex-1"
-                  style={{
-                    backgroundColor: current
-                      ? 'var(--vf-action-soft)'
-                      : complete
-                        ? 'var(--mantine-color-default)'
-                        : 'transparent',
-                    borderColor: current ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default-border)',
-                    borderStyle: current || complete ? 'solid' : 'dashed',
-                    opacity: complete ? 0.7 : 1,
-                  }}
-                >
-                  <button type="button" className="w-full text-left" onClick={() => toggleWeek(week.index)}>
-                    <Group justify="space-between" gap="md" wrap="nowrap">
-                      <div>
-                        <Text fw={800}>Week {week.index + 1}</Text>
-                        <Caption>{week.subtitle}</Caption>
-                      </div>
-                      <Group className="shrink-0" gap="xs" wrap="nowrap">
-                        {complete ? <Badge color="success">Done</Badge> : current ? <Badge color="action">Current</Badge> : <Badge>Upcoming</Badge>}
-                        <Caption fw={700}>{expanded ? 'Hide' : 'Details'}</Caption>
-                      </Group>
-                    </Group>
-                    <Caption mt="sm">{week.summary}</Caption>
-                  </button>
-
-                  {expanded ? (
-                    <div className="mt-3 space-y-2 border-t pt-3">
-                      {week.sessions.map((session) => (
-                        <Card
-                          component="details"
-                          key={session.label}
-                          p="xs"
-                          radius="md"
-                          style={{
-                            backgroundColor: 'var(--vf-surface-2)',
-                            borderColor:
-                              session.globalIndex === currentSessionIndex
-                                ? 'var(--vf-action-border)'
-                                : session.globalIndex < currentSessionIndex
-                                  ? 'var(--vf-success-border)'
-                                  : 'var(--mantine-color-default-border)',
-                            opacity: session.globalIndex < currentSessionIndex ? 0.75 : 1,
-                          }}
-                        >
-                          <summary className="cursor-pointer list-none">
-                            <Group align="flex-start" justify="space-between" gap="sm">
-                              <Text size="xs" fw={800}>
-                                {session.label}: {session.title}
-                              </Text>
-                              <Caption fw={600}>{session.movementSummary}</Caption>
-                            </Group>
-                          </summary>
-                          <SimpleGrid cols={{ base: 1, sm: 2, xl: 3 }} spacing="xs" mt="xs" pt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
-                            {session.movements.map((movement, index) => (
-                              <TimelineSessionDetail
-                                key={`${movement.roleLabel}-${movement.movementName}-${index}`}
-                                label={movement.roleLabel}
-                                movementName={movement.movementName}
-                                targetSummary={movement.targetSummary}
-                              />
-                            ))}
-                          </SimpleGrid>
-                          <Caption mt="sm">{session.progressionNote}</Caption>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : null}
-                </Card>
-              </div>
-            )
-          })}
-        </div>
-      </Box>
+      {trajectory.hasTargets ? (
+        <Text mt={4} size="sm" tone="dimmed">
+          Weekly top-set targets for the main lifts, computed from your training maxes. Hit them and this is your
+          trajectory.
+        </Text>
+      ) : null}
+      <div className="mt-3 space-y-3">
+        {trajectory.phases.map((phase) => (
+          <PhaseCard
+            key={phase.key}
+            phase={phase}
+            expanded={expandedPhases.has(phase.key)}
+            onToggle={() => togglePhase(phase.key)}
+          />
+        ))}
+      </div>
     </Card>
   )
 }
 
-function TimelineMarker({ current, complete }: { current: boolean; complete: boolean }) {
-  const backgroundColor = complete
-    ? 'var(--mantine-color-success-filled)'
-    : current
-      ? 'var(--mantine-primary-color-filled)'
-      : 'var(--vf-surface-2)'
+function PhaseCard({ phase, expanded, onToggle }: { phase: TrajectoryPhase; expanded: boolean; onToggle: () => void }) {
+  const badge =
+    phase.status === 'done' ? (
+      <Badge color="success">Done</Badge>
+    ) : phase.status === 'current' ? (
+      <Badge color="action">Current</Badge>
+    ) : (
+      <Badge>Upcoming</Badge>
+    )
+  const Chevron = expanded ? ChevronUp : ChevronDown
 
   return (
-    <Box
-      className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-4"
-      style={{
-        backgroundColor,
-        borderColor: 'var(--mantine-color-body)',
-        color: complete || current ? 'white' : 'var(--mantine-color-dimmed)',
-      }}
-    >
-      {complete ? <Check size={12} /> : current ? (
-        <Box className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: 'white' }} />
-      ) : (
-        <Box className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--mantine-color-default-border)' }} />
-      )}
-    </Box>
+    <Panel surface="inset" p="md">
+      <button type="button" className="w-full text-left" onClick={onToggle} aria-expanded={expanded}>
+        <Group justify="space-between" gap="md" wrap="nowrap">
+          <div className="min-w-0">
+            <Text fw={800} truncate>
+              {phase.label}
+            </Text>
+            <Caption mt={1}>{phase.subtitle}</Caption>
+          </div>
+          <Group className="shrink-0" gap="xs" wrap="nowrap">
+            {badge}
+            <Chevron size={16} color="var(--mantine-color-dimmed)" />
+          </Group>
+        </Group>
+      </button>
+
+      {expanded ? (
+        <>
+          {phase.description ? (
+            <Text mt="sm" size="sm" tone="dimmed">
+              {phase.description}
+            </Text>
+          ) : null}
+          <div className="mt-3 space-y-1">
+            {phase.weeks.map((week) => (
+              <WeekRow key={week.index} week={week} />
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {phase.banked ? (
+        <ValuePillsPanel
+          tone="success"
+          label={`Banked at Wk ${phase.banked.atWeekNumber}`}
+          values={phase.banked.values}
+        />
+      ) : null}
+      {phase.projected ? (
+        <ValuePillsPanel
+          tone="action"
+          label={`If targets hit — by Wk ${phase.projected.byWeekNumber}`}
+          values={phase.projected.values}
+        />
+      ) : null}
+    </Panel>
   )
 }
 
-function TimelineSessionDetail({
+function WeekRow({ week }: { week: TrajectoryWeek }) {
+  const current = week.status === 'current'
+  const caption = current
+    ? `Session ${Math.min(week.sessionsDone + 1, week.sessionsTotal)} of ${week.sessionsTotal} next`
+    : week.status === 'done'
+      ? `${week.sessionsDone}/${week.sessionsTotal} sessions`
+      : `${week.sessionsTotal} sessions`
+
+  return (
+    <div
+      className="flex items-center gap-3 px-2 py-2"
+      style={
+        current
+          ? {
+              backgroundColor: 'var(--vf-action-soft)',
+              border: '1px solid var(--vf-action-border)',
+              borderRadius: 'var(--mantine-radius-md)',
+            }
+          : undefined
+      }
+    >
+      <WeekMarker status={week.status} />
+      <div className="min-w-0 shrink-0">
+        <Text size="sm" fw={700}>
+          Week {week.number}
+        </Text>
+        <Caption>{caption}</Caption>
+      </div>
+      {week.targets.length ? (
+        <Text size="sm" ta="right" className="min-w-0 flex-1">
+          {week.targets.map((target, index) => (
+            <Fragment key={target.movementId}>
+              {index > 0 ? <Text component="span" size="sm" tone="dimmed">{' · '}</Text> : null}
+              <TargetSegment target={target} />
+            </Fragment>
+          ))}
+        </Text>
+      ) : null}
+    </div>
+  )
+}
+
+function TargetSegment({ target }: { target: TrajectoryLiftTarget }) {
+  return (
+    <Text component="span" size="sm" tone="dimmed" style={{ whiteSpace: 'nowrap' }}>
+      {target.label}{' '}
+      <Text component="span" size="sm" fw={700} tone="default">
+        {formatLoad(target.load)}
+      </Text>
+    </Text>
+  )
+}
+
+function WeekMarker({ status }: { status: TrajectoryWeek['status'] }) {
+  if (status === 'done') {
+    return (
+      <div
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+        style={{ backgroundColor: 'var(--vf-action-text)', color: 'var(--mantine-color-white)' }}
+      >
+        <Check size={13} strokeWidth={3} />
+      </div>
+    )
+  }
+  if (status === 'current') {
+    return (
+      <div
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+        style={{ border: '2px solid var(--vf-action-text)' }}
+      >
+        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--vf-action-text)' }} />
+      </div>
+    )
+  }
+  return (
+    <div className="h-6 w-6 shrink-0 rounded-full" style={{ border: '2px solid var(--mantine-color-default-border)' }} />
+  )
+}
+
+function ValuePillsPanel({
+  tone,
   label,
-  movementName,
-  targetSummary,
+  values,
 }: {
+  tone: 'success' | 'action'
   label: string
-  movementName: string
-  targetSummary: string
+  values: TrajectoryValuePill[]
 }) {
   return (
-    <Panel surface="panel" p="xs">
-      <SectionLabel>{label}</SectionLabel>
-      <Text mt={4} fw={600}>
-        {movementName}
-      </Text>
-      <Caption mt={2}>{targetSummary}</Caption>
+    <Panel
+      surface="inset"
+      p="sm"
+      mt="sm"
+      style={{
+        borderStyle: 'dashed',
+        borderColor: `var(--vf-${tone}-border)`,
+        backgroundColor: `var(--vf-${tone}-soft)`,
+      }}
+    >
+      <SectionLabel tone={tone}>{label}</SectionLabel>
+      <Group gap="xs" mt={8}>
+        {values.map((pill) => (
+          <Panel key={pill.movementId} surface="panel" px="sm" py={6} radius="md" shadow="none">
+            <Group gap={6} wrap="nowrap">
+              <Caption fw={600}>{pill.label}</Caption>
+              <Text size="sm" fw={800}>
+                {formatLoad(pill.value)}
+              </Text>
+            </Group>
+          </Panel>
+        ))}
+      </Group>
     </Panel>
   )
+}
+
+function formatLoad(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }

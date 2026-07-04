@@ -4,6 +4,7 @@ import type {
   ProgramInstance,
   ProgramOverview,
   ProgramRecentSessionSummary,
+  ProgramSessionStamp,
   ProgramStateOverview,
   ProgressionDecision,
   TodayPayload,
@@ -17,11 +18,13 @@ export function buildProgramOverview({
   recentSessions,
   bodyLoad,
   acceptedDecisions,
+  sessionStamps = [],
 }: {
   today: TodayPayload
   recentSessions: ProgramRecentSessionSummary[]
   bodyLoad: BodyLoadSummary
   acceptedDecisions: ProgressionDecision[]
+  sessionStamps?: ProgramSessionStamp[]
 }): ProgramOverview {
   const program = today.activeProgram
   if (!program || !program.templateDefinition) {
@@ -34,6 +37,8 @@ export function buildProgramOverview({
       accessoryPlan: program ? buildAccessoryPlan(program) : [],
       bodyLoad,
       pendingDecisions: today.pendingDecisions,
+      acceptedDecisions,
+      sessionStamps,
     }
   }
 
@@ -98,6 +103,8 @@ export function buildProgramOverview({
     accessoryPlan: buildAccessoryPlan(program),
     bodyLoad,
     pendingDecisions: today.pendingDecisions,
+    acceptedDecisions,
+    sessionStamps,
   }
 }
 
@@ -110,17 +117,28 @@ function buildStateOverview(
     .filter((state): state is ProgramInstance['stateValues'][number] & { value: number } =>
       typeof state.value === 'number' && Number.isFinite(state.value) && state.value > 0,
     )
-    .map((state): ProgramStateOverview => ({
-      movementId: state.movementId,
-      movementName: getMovementName(state.movementId),
-      stateKey: state.key,
-      stateType: state.type,
-      label: state.label ?? null,
-      value: state.value,
-      units: program.units,
-      pendingDecision: pendingDecisions.find((decision) => decision.stateKey === state.key) ?? null,
-      lastAcceptedDecision: acceptedDecisions.find((decision) => decision.stateKey === state.key) ?? null,
-    }))
+    .map((state): ProgramStateOverview => {
+      // acceptedDecisions arrive newest-first, so the last match is the earliest change.
+      const stateDecisions = acceptedDecisions.filter((decision) => decision.stateKey === state.key)
+      const earliest = stateDecisions[stateDecisions.length - 1]
+      const startValue =
+        typeof earliest?.previousValue === 'number' && Number.isFinite(earliest.previousValue)
+          ? earliest.previousValue
+          : state.value
+      return {
+        movementId: state.movementId,
+        movementName: getMovementName(state.movementId),
+        stateKey: state.key,
+        stateType: state.type,
+        label: state.label ?? null,
+        value: state.value,
+        units: program.units,
+        startValue,
+        updatedAt: state.updatedAt ?? null,
+        pendingDecision: pendingDecisions.find((decision) => decision.stateKey === state.key) ?? null,
+        lastAcceptedDecision: stateDecisions[0] ?? null,
+      }
+    })
 }
 
 function buildAccessoryPlan(program: ProgramInstance): ProgramAccessoryPlan[] {

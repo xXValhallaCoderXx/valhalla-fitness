@@ -1,6 +1,7 @@
 import { Badge, Card, Group, SimpleGrid } from '@mantine/core'
 import { Caption, Panel, SectionLabel, StatValue, Text } from '~/components'
-import type { ProgramInstance, ProgramOverview } from '~/shared/types'
+import type { ProgramInstance, ProgramOverview, ProgramStateOverview } from '~/shared/types'
+import { formatRelativeTime } from '~/shared/lib/dates'
 import { ProgramInfoHint } from './ProgramInfoHint'
 
 export function ProgramLoadChips({
@@ -35,35 +36,108 @@ export function CurrentLoadsCard({
   overview: ProgramOverview
   program: ProgramInstance
 }) {
+  const states = overview.stateValues
+  // Lead with the most recently progressed lift — it's the freshest win.
+  const hero = states.reduce<ProgramStateOverview | null>((top, state) => {
+    if (!top) return state
+    if (!state.updatedAt) return top
+    if (!top.updatedAt) return state
+    return Date.parse(state.updatedAt) > Date.parse(top.updatedAt) ? state : top
+  }, null)
+  const rest = states.filter((state) => state !== hero)
+
   return (
     <Card p="md">
       <Group align="flex-start" justify="space-between" gap="md" wrap="nowrap">
         <div>
           <Group gap="xs">
-            <SectionLabel>Current loads</SectionLabel>
-            <ProgramInfoHint label="Why these weights?">
-              Each planned weight is a percentage of your training max — the strength number Sheetless bases your sessions on. It's set a little below your true max so the weights stay doable, and Sheetless nudges it up or down based on how your sessions actually go.
+            <SectionLabel>Current training maxes</SectionLabel>
+            <ProgramInfoHint label="Why these numbers?">
+              Each planned weight is a percentage of your training max — a strength number set a little below your
+              true max so the weights stay doable. Sheetless nudges it up or down based on how your sessions actually
+              go.
             </ProgramInfoHint>
           </Group>
-          <Caption mt={4}>The training maxes and working loads your planned weights are based on.</Caption>
+          <Caption mt={4}>Every planned weight on this page is computed from these.</Caption>
         </div>
         <Badge style={{ flexShrink: 0 }}>{program.units}</Badge>
       </Group>
-      <SimpleGrid cols={2} spacing="xs" mt="sm">
-        {overview.stateValues.map((state) => (
+
+      {hero ? <HeroLoadRow state={hero} /> : null}
+
+      <SimpleGrid cols={2} spacing="xs" mt="xs">
+        {rest.map((state) => (
           <Panel key={state.stateKey} surface="inset" p="sm">
-            <Caption>{state.movementName}</Caption>
-            <StatValue mt={4}>
-              {formatNumber(state.value)} <Caption component="span">{state.units}</Caption>
-            </StatValue>
-            <SectionLabel mt={4}>
-              {state.pendingDecision ? 'pending review' : state.lastAcceptedDecision ? 'last change saved' : state.stateType.replaceAll('_', ' ')}
-            </SectionLabel>
+            <Caption fw={600} truncate>
+              {state.movementName}
+            </Caption>
+            <Group justify="space-between" align="flex-end" gap="xs" wrap="nowrap">
+              <StatValue mt={4}>
+                {formatNumber(state.value)} <Caption component="span">{state.units}</Caption>
+              </StatValue>
+              <DeltaText state={state} />
+            </Group>
+            {state.pendingDecision ? (
+              <Caption mt={2} tone="warning" fw={600}>
+                pending review
+              </Caption>
+            ) : null}
           </Panel>
         ))}
       </SimpleGrid>
     </Card>
   )
+}
+
+function HeroLoadRow({ state }: { state: ProgramStateOverview }) {
+  const delta = state.value - state.startValue
+  return (
+    <Panel surface="inset" p="sm" mt="sm">
+      <Group justify="space-between" gap="sm" wrap="nowrap">
+        <div className="min-w-0">
+          <Text fw={700} truncate>
+            {state.movementName}
+          </Text>
+          <Caption mt={1} truncate>
+            {state.updatedAt ? `updated ${formatRelativeTime(state.updatedAt)}` : stateTypeLabel(state)}
+          </Caption>
+        </div>
+        <Group className="shrink-0" gap="sm" wrap="nowrap" align="center">
+          {delta !== 0 ? (
+            <Badge color="success" variant="light">
+              {formatDelta(delta)} {state.units} since Wk 1
+            </Badge>
+          ) : null}
+          <StatValue size="xl">
+            {formatNumber(state.value)} <Caption component="span">{state.units}</Caption>
+          </StatValue>
+        </Group>
+      </Group>
+      {state.pendingDecision ? (
+        <Caption mt={4} tone="warning" fw={600}>
+          pending review
+        </Caption>
+      ) : null}
+    </Panel>
+  )
+}
+
+function DeltaText({ state }: { state: ProgramStateOverview }) {
+  const delta = state.value - state.startValue
+  if (delta === 0) return null
+  return (
+    <Text size="sm" fw={700} tone={delta > 0 ? 'success' : 'danger'} style={{ whiteSpace: 'nowrap' }}>
+      {formatDelta(delta)}
+    </Text>
+  )
+}
+
+function stateTypeLabel(state: ProgramStateOverview) {
+  return state.stateType.replaceAll('_', ' ')
+}
+
+function formatDelta(delta: number) {
+  return `${delta > 0 ? '+' : ''}${formatNumber(delta)}`
 }
 
 export function CustomizationCard({ program }: { program: ProgramInstance }) {

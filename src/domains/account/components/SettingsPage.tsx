@@ -9,10 +9,10 @@ import { track } from '~/shared/lib/analytics'
 import { prefersReducedMotion } from '~/shared/lib/reduced-motion'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { e1rm, mround } from '~/domains/program/lib/progression'
-import { authUserQueryOptions, meQueryOptions } from '~/domains/account/queries'
+import { meQueryOptions } from '~/domains/account/queries'
 import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
 import { hasAllStrengthEstimates } from '~/domains/onboarding/onboarding-progress'
-import { signOutFn } from '~/domains/account/server/auth-functions'
+import { useSignOut } from '~/domains/account/useSignOut'
 import { updateSettingsFn } from '~/domains/account/server/profile-functions'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { buildEstimatesSteps } from '~/domains/onboarding/onboarding-tour'
@@ -271,32 +271,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
     }
   }
 
-  const signOutMutation = useMutation({
-    mutationFn: async () => {
-      const result = await signOutFn()
-      if (!result.ok) throw new Error(result.message)
-      return result
-    },
-    onSuccess: async () => {
-      const queryClient = router.options.context.queryClient
-      queryClient.setQueryData(authUserQueryOptions().queryKey, null)
-      queryClient.setQueryData(meQueryOptions().queryKey, null)
-      queryClient.removeQueries({ queryKey: ['activeProgram'] })
-      queryClient.removeQueries({ queryKey: ['today'] })
-      queryClient.removeQueries({ queryKey: ['programOverview'] })
-      queryClient.removeQueries({ queryKey: ['history'] })
-      queryClient.removeQueries({ queryKey: ['session'] })
-      await router.invalidate()
-      await router.navigate({ to: '/auth' })
-    },
-    onError: (error) => {
-      notifications.show({
-        color: 'danger',
-        title: 'Could not sign out',
-        message: getApiErrorMessage(error, 'Unable to sign out'),
-      })
-    },
-  })
+  const signOutMutation = useSignOut()
 
   return (
     <Page>

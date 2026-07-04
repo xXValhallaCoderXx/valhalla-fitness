@@ -214,6 +214,16 @@ const DEMO_USERS = [
     pendingDecisions: ['deadlift'],
     onboardingCompleted: false,
   },
+  {
+    // Dedicated to the avatar-menu logout e2e: signing out revokes ALL of an account's
+    // sessions, so no other spec (or helper) may authenticate as this user.
+    email: `demo.logout@${DEMO_EMAIL_DOMAIN}`,
+    displayName: 'Lee Logout',
+    units: 'kg',
+    rounding: 2.5,
+    equipmentProfile: ['barbell', 'plates', 'rack', 'bench'],
+    profileOnly: true,
+  },
 ]
 
 const action = process.argv[2] ?? 'seed'

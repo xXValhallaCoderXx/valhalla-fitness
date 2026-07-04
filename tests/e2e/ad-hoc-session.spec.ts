@@ -62,8 +62,8 @@ test('ad-hoc workout: start, log, rename, finish, find, favourite, restart', asy
   await login(page, DEMO_READY)
   await finishAnyActiveSession(page)
 
-  // Start a blank workout from the Today header. demo.ready has a seeded pending deadlift
-  // review which gates "Start workout" — the ad-hoc entry must NOT be gated by it.
+  // Start a blank workout from the Today floating button. demo.ready has a seeded pending
+  // deadlift review which gates "Start workout" — the ad-hoc entry must NOT be gated by it.
   const blankWorkout = page.getByRole('button', { name: /blank workout/i })
   await expect(blankWorkout).toBeEnabled({ timeout: 15000 })
   await expect(async () => {

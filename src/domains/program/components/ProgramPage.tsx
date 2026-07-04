@@ -5,13 +5,12 @@ import { useState } from 'react'
 import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
 import { buildProgramTimeline } from '~/domains/program/lib/program-timeline'
 import { buildProgramPhaseMap } from '~/domains/program/lib/program-phase-map'
+import { buildProgramTrajectory } from '~/domains/program/lib/program-trajectory'
+import { getFallbackTemplateDefinition } from '~/domains/program/lib/template-definitions'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
 import { ProgramCommandBar } from './ProgramCommandBar'
 import { CurrentLoadsCard } from './ProgramLoads'
-import { NextWorkoutHero } from './ProgramNextWorkout'
-import { ProgramMobileSection } from './ProgramMobileSection'
 import { RecentProgramSessions } from './ProgramRecentSessions'
-import { ProgramSummaryGrid } from './ProgramSummaryGrid'
 import { ProgramTimeline } from './ProgramTimeline'
 import { PendingProgressionReviewModal, PendingReviewAlert } from './PendingReview'
 
@@ -58,6 +57,15 @@ function AuthedProgram() {
 
   const timeline = buildProgramTimeline(program, program.templateDefinition)
   const phaseMap = buildProgramPhaseMap(timeline)
+  const trajectory = buildProgramTrajectory({
+    definition: program.templateDefinition ?? getFallbackTemplateDefinition(program.templateId),
+    currentGlobalIndex: program.currentWeekIndex,
+    rounding: program.rounding,
+    units: program.units,
+    stateValues: overview.stateValues,
+    acceptedDecisions: overview.acceptedDecisions,
+    sessionStamps: overview.sessionStamps,
+  })
 
   return (
     <Page>
@@ -65,34 +73,13 @@ function AuthedProgram() {
 
       <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
 
-      <NextWorkoutHero
-        overview={overview}
-        timeline={timeline}
-        pendingCount={pendingDecisions.length}
-        onReview={() => setReviewOpen(true)}
-      />
-
-      <ProgramSummaryGrid overview={overview} timeline={timeline} />
-
-      <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <ProgramTimeline key={timeline.currentWeekIndex} timeline={timeline} status={program.status} currentSessionIndex={program.currentWeekIndex} />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <ProgramTimeline key={trajectory.currentWeekNumber} trajectory={trajectory} />
 
         <div className="space-y-4">
           <CurrentLoadsCard overview={overview} program={program} />
           <RecentProgramSessions overview={overview} />
         </div>
-      </div>
-
-      <div className="space-y-3 lg:hidden">
-        <ProgramMobileSection title="Full timeline" badge={`${timeline.totalWeeks} weeks`}>
-          <ProgramTimeline key={`mobile-${timeline.currentWeekIndex}`} timeline={timeline} status={program.status} currentSessionIndex={program.currentWeekIndex} />
-        </ProgramMobileSection>
-        <ProgramMobileSection title="Current loads" badge={program.units}>
-          <CurrentLoadsCard overview={overview} program={program} />
-        </ProgramMobileSection>
-        <ProgramMobileSection title="Recent sessions" badge={overview.recentSessions.length}>
-          <RecentProgramSessions overview={overview} />
-        </ProgramMobileSection>
       </div>
 
       <PendingProgressionReviewModal

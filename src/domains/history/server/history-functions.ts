@@ -116,6 +116,7 @@ export async function getHistoryInputs(
       completedAt: row.completed_at,
       units: snapshot?.units ?? null,
       weekLabel: snapshot?.weekLabel ?? null,
+      weekIndex: typeof snapshot?.weekIndex === 'number' ? snapshot.weekIndex : null,
       hardness: snapshot?.hardness ?? null,
       estimatedMinutes: snapshot?.estimatedMinutes ?? null,
       movementCount: snapshot?.movements.length ?? exercises.length,
@@ -190,6 +191,7 @@ function buildProgramRecentSessions(sessions: HistorySessionInput[], units: Unit
   })
 }
 
+/** Every accepted decision for the program, newest first (no dedupe — callers reconstruct history). */
 async function getAcceptedDecisionsInternal(supabase: any, userId: string, programInstanceId: string): Promise<ProgressionDecision[]> {
   const { data, error } = await supabase
     .from('progression_decisions')
@@ -200,14 +202,7 @@ async function getAcceptedDecisionsInternal(supabase: any, userId: string, progr
     .order('resolved_at', { ascending: false })
     .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
-  const seen = new Set<string>()
-  const decisions: ProgressionDecision[] = []
-  for (const row of data ?? []) {
-    if (seen.has(row.movement_id)) continue
-    seen.add(row.movement_id)
-    decisions.push(mapProgressionDecision(row))
-  }
-  return decisions
+  return (data ?? []).map(mapProgressionDecision)
 }
 
 export const getHistoryDashboardFn = createServerFn({ method: 'GET' }).handler(async (): Promise<HistoryDashboard> => {
@@ -227,11 +222,20 @@ export const getProgramOverviewFn = createServerFn({ method: 'GET' }).handler(as
   const acceptedDecisions = today.activeProgram
     ? await getAcceptedDecisionsInternal(supabase, user.id, today.activeProgram.id)
     : []
+  const sessionStamps = today.activeProgram
+    ? history.sessions
+        .filter((session) => session.programInstanceId === today.activeProgram!.id)
+        .filter((session): session is typeof session & { weekIndex: number; completedAt: string } =>
+          typeof session.weekIndex === 'number' && Boolean(session.completedAt),
+        )
+        .map((session) => ({ weekIndex: session.weekIndex, completedAt: session.completedAt }))
+    : []
   return buildProgramOverview({
     today,
     recentSessions: buildProgramRecentSessions(programHistory.sessions, today.activeProgram?.units ?? 'kg'),
     bodyLoad,
     acceptedDecisions,
+    sessionStamps,
   })
 })
 

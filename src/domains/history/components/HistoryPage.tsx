@@ -41,7 +41,9 @@ import type {
 import { Caption, EmptyState, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { WorkoutSummaryModal } from './WorkoutSummaryModal'
 
-type HistoryTab = 'overview' | 'body-load' | 'movements' | 'records' | 'sessions'
+export type HistoryTab = 'overview' | 'body-load' | 'movements' | 'records' | 'sessions'
+
+export const HISTORY_TAB_VALUES: HistoryTab[] = ['overview', 'body-load', 'movements', 'records', 'sessions']
 
 const HISTORY_TABS: Array<{ value: HistoryTab; label: string; icon: ReactNode }> = [
   { value: 'overview', label: 'Overview', icon: <BarChart3 size={14} /> },
@@ -76,7 +78,7 @@ const historySearchInputStyles = {
   },
 }
 
-export function HistoryPage({ user }: { user: unknown }) {
+export function HistoryPage({ user, initialTab }: { user: unknown; initialTab?: HistoryTab }) {
   if (!user) {
     return (
       <Page>
@@ -84,13 +86,13 @@ export function HistoryPage({ user }: { user: unknown }) {
       </Page>
     )
   }
-  return <AuthedHistory />
+  return <AuthedHistory initialTab={initialTab} />
 }
 
-function AuthedHistory() {
+function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
   const historyQuery = useQuery(historyDashboardQueryOptions())
   const activeProgramQuery = useQuery(activeProgramQueryOptions())
-  const [activeTab, setActiveTab] = useState<HistoryTab>('overview')
+  const [activeTab, setActiveTab] = useState<HistoryTab>(initialTab ?? 'overview')
   const [movementQuery, setMovementQuery] = useState('')
   const [movementCategory, setMovementCategory] = useState<string | null>(null)
   const [movementSort, setMovementSort] = useState<{ key: MovementSortKey; dir: SortDir }>({ key: 'volume', dir: 'desc' })
