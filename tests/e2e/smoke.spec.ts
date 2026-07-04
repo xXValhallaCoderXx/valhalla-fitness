@@ -20,5 +20,5 @@ test('authenticated app shell loads', async ({ page }) => {
   await page.goto('/today')
   await expect(page).toHaveURL(/\/today/)
   await expect(page.getByText('Sheetless').first()).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Your Plan' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Plan', exact: true }).first()).toBeVisible()
 })

@@ -4,6 +4,7 @@ import {
     Button,
     Card,
     Checkbox,
+    Menu,
     Modal,
     NativeSelect,
     Notification,
@@ -204,6 +205,14 @@ export const mantineTheme = createTheme({
             defaultProps: {
                 color: 'action',
                 radius: 'sm',
+            },
+        }),
+        Menu: Menu.extend({
+            styles: {
+                dropdown: {
+                    // Dropdowns float over same-color surfaces; without a shadow they read as flush.
+                    boxShadow: 'var(--vf-shadow-panel)',
+                },
             },
         }),
         Modal: Modal.extend({

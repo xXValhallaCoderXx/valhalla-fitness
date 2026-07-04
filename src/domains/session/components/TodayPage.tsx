@@ -1,17 +1,19 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Badge, Button } from '@mantine/core'
+import { ActionIcon, Badge, Button, Tooltip, VisuallyHidden } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { Link, useRouter } from '@tanstack/react-router'
-import { Activity, ArrowRight, CheckCircle2, Dumbbell, Layers3, ListChecks, Play, Plus, RotateCw } from 'lucide-react'
+import { Activity, ArrowRight, CheckCircle2, Dumbbell, ListChecks, Play, Plus, RotateCw } from 'lucide-react'
 import { useState } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { bodyLoadTierLabels, recoverySummaryLine, worstBodyLoadTier } from '~/domains/history/lib/body-load'
 import { historyDashboardQueryOptions } from '~/domains/history/queries'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
 import { AD_HOC_BADGE_LABEL, DEFAULT_AD_HOC_TITLE } from '~/domains/session/lib/ad-hoc'
+import { buildTodayNumbersRows, buildTodayNumbersSummary, countPlannedSets } from '~/domains/session/lib/today-numbers'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { startAdHocSessionFn, startSessionFn } from '~/domains/session/server/session-functions'
-import type { HistoryDashboard, PlannedSession, ProgramOverview, Unit, WorkoutSession } from '~/shared/types'
-import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatCard, Text } from '~/components'
+import type { BodyLoadTier, HistoryDashboard, PlannedSession, ProgramOverview, Unit, WorkoutSession } from '~/shared/types'
+import { Caption, CollapsiblePanel, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatCard, Text } from '~/components'
 import { PendingProgressionReviewModal, PendingReviewAlert, PendingReviewGate } from '~/domains/program/components/PendingReview'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { useOnboardingActive } from '~/domains/onboarding/useOnboardingActive'
@@ -204,42 +206,18 @@ function AuthedToday() {
   }
 
   const main = data.plannedSession.movements.find((movement) => movement.role === 'main')
-  const accessories = data.plannedSession.movements.filter((movement) => movement.role !== 'main')
   const completedSets = data.completedSession?.movements.flatMap((movement) => movement.sets) ?? []
   const completedSetCount = completedSets.filter((set) => set.completed).length
   const startLabel = data.completedSession ? 'Start next session' : 'Start workout'
-  const plannedSetCount = countPlannedSets(data.plannedSession)
 
   return (
-    <Page className="max-w-5xl">
+    <Page className="max-w-3xl pb-24 md:pb-16">
       <OnboardingPanel />
-      <PageHeader
-        title="Today"
-        eyebrow={`${data.activeProgram.title} · ${data.plannedSession.weekLabel}`}
-        actions={
-          <Button
-            variant="default"
-            size="compact-sm"
-            disabled={adHocMutation.isPending}
-            onClick={() => adHocMutation.mutate()}
-          >
-            <Plus size={14} />
-            {adHocMutation.isPending ? 'Starting...' : 'Blank workout'}
-          </Button>
-        }
-      >
-        {data.completedSession ? 'Workout complete. Your next session is ready.' : new Date(data.plannedSession.scheduledDate).toLocaleDateString(undefined, {
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-        })}
-      </PageHeader>
+      <VisuallyHidden>
+        <Heading order={1}>Today</Heading>
+      </VisuallyHidden>
 
       {data.completedSession ? (
-        /* Desktop-only (plain wrapper div: Tailwind's layered `hidden` loses to Mantine Paper's
-           unlayered `display: block`): on mobile the header subtitle already says the workout is
-           done, and this card would stack with the pending-review alert + next-session card as noise. */
-        <div className="hidden md:block">
         <Panel className="mb-4" p="md" style={{ borderColor: 'var(--vf-success-border)', backgroundColor: 'var(--vf-success-soft)' }}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -261,14 +239,14 @@ function AuthedToday() {
             <Badge color="action">Next session unlocked</Badge>
           </div>
         </Panel>
-        </div>
       ) : null}
 
       {data.pendingDecisions.length ? (
         <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
       ) : null}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      {/* minmax(0,1fr): an auto track would size to the widest card's intrinsic width and overflow narrow screens. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
         <Panel className="space-y-4 vf-card-hover" p="md">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
@@ -314,32 +292,10 @@ function AuthedToday() {
             </Panel>
           ) : null}
 
-          <div>
-            <SectionLabel className="mb-1.5">Accessories</SectionLabel>
-            <div className="grid gap-2">
-            {accessories.map((movement) => (
-              <Panel key={movement.id} surface="inset" p="sm" className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <Text fw={700} truncate>{movement.movementName}</Text>
-                  <Caption>{movement.targetSummary}</Caption>
-                  {movement.previous?.label ? (
-                    <Caption mt={2} size="0.625rem">{movement.previous.label}</Caption>
-                  ) : null}
-                </div>
-                <Badge>{movement.role}</Badge>
-              </Panel>
-            ))}
-            </div>
-          </div>
         </Panel>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <StatCard label="Planned sets" value={plannedSetCount} icon={<ListChecks size={15} />} />
-          <StatCard label="Movements" value={data.plannedSession.movements.length} icon={<Layers3 size={15} />} />
-          <ProgramProgressPanel overview={overviewQuery.data} fallbackWeekLabel={data.plannedSession.weekLabel} />
-          <WeeklyVolumePanel history={historyQuery.data} />
-          <BodyLoadPanel history={historyQuery.data} />
-        </div>
+        <TodayWorkoutPanel session={data.plannedSession} />
+        <RecoveryCheckPanel history={historyQuery.data} />
       </div>
       <PendingProgressionReviewModal
         opened={reviewOpen}
@@ -347,6 +303,24 @@ function AuthedToday() {
         onClose={() => setReviewOpen(false)}
         onResolved={(decisionId) => setResolvedDecisionIds((current) => new Set(current).add(decisionId))}
       />
+
+      {/* Ad-hoc entry stays ungated by pending reviews (unlike "Start workout"). */}
+      <div className="fixed right-4 bottom-[calc(4rem+env(safe-area-inset-bottom)+1rem)] z-30 md:right-6 md:bottom-6">
+        <Tooltip label="Blank workout">
+          <ActionIcon
+            size={56}
+            radius={9999}
+            variant="filled"
+            color="action"
+            aria-label="Blank workout"
+            disabled={adHocMutation.isPending}
+            onClick={() => adHocMutation.mutate()}
+            style={{ boxShadow: 'var(--vf-shadow-card)' }}
+          >
+            <Plus size={24} />
+          </ActionIcon>
+        </Tooltip>
+      </div>
     </Page>
   )
 }
@@ -399,30 +373,78 @@ function WeeklyVolumePanel({ history }: { history?: HistoryDashboard }) {
   )
 }
 
-function BodyLoadPanel({ history }: { history?: HistoryDashboard }) {
-  const regions = history?.bodyLoad.topRegions.slice(0, 3) ?? []
+function TodayWorkoutPanel({ session }: { session: PlannedSession }) {
   return (
-    <Panel p="sm">
-      <div className="flex items-center justify-between gap-3">
-        <SectionLabel>Muscle Fatigue</SectionLabel>
-        <Badge>{history?.bodyLoad.windowDays ?? 0} days</Badge>
-      </div>
-      <div className="mt-3 grid gap-2">
-        {regions.length ? regions.map((region) => (
-          <div key={region.regionId} className="grid grid-cols-[minmax(0,1fr)_3rem] items-center gap-2">
-            <div className="min-w-0">
-              <Text size="xs" fw={800} truncate>{region.label}</Text>
-              <ProgressBar value={region.impactPercent} className="mt-1" />
+    <CollapsiblePanel data-testid="today-workout" title="Today's workout" summary={buildTodayNumbersSummary(session)}>
+      <div className="grid gap-4">
+        {buildTodayNumbersRows(session).map((row) => (
+          <div key={row.slotId}>
+            <div className="flex items-baseline justify-between gap-3">
+              <Text size="sm" fw={700} truncate className="min-w-0">{row.movementName}</Text>
+              <div className="shrink-0">
+                {row.targets.map((target, index) => (
+                  <Text key={index} size="sm" ta="right" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {target}
+                  </Text>
+                ))}
+              </div>
             </div>
-            <Text size="xs" fw={900} ta="right" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {region.impactPercent}%
-            </Text>
+            {row.previousLabel ? <Caption mt={2}>{row.previousLabel}</Caption> : null}
           </div>
-        )) : (
+        ))}
+      </div>
+    </CollapsiblePanel>
+  )
+}
+
+const recoveryDotColors: Record<BodyLoadTier, string> = {
+  fresh: 'var(--vf-success-text)',
+  low: 'var(--vf-success-text)',
+  moderate: 'var(--vf-warning-text)',
+  high: 'var(--vf-danger-text)',
+}
+
+function RecoveryCheckPanel({ history }: { history?: HistoryDashboard }) {
+  if (!history) return null
+  const regions = history.bodyLoad.topRegions
+  return (
+    <CollapsiblePanel
+      data-testid="recovery-check"
+      title="Recovery check"
+      leading={
+        <span
+          aria-hidden="true"
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{ backgroundColor: recoveryDotColors[worstBodyLoadTier(regions)] }}
+        />
+      }
+      summary={recoverySummaryLine(regions)}
+    >
+      <div className="grid gap-3">
+        {regions.length ? (
+          regions.slice(0, 3).map((region) => (
+            <div key={region.regionId} className="grid grid-cols-[minmax(0,1fr)_3rem] items-center gap-2">
+              <div className="min-w-0">
+                <div className="flex items-baseline justify-between gap-2">
+                  <Text size="xs" fw={800} truncate>{region.label}</Text>
+                  <Caption>{bodyLoadTierLabels[region.tier]}</Caption>
+                </div>
+                <ProgressBar value={region.impactPercent} className="mt-1" />
+              </div>
+              <Text size="xs" fw={900} ta="right" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {region.impactPercent}%
+              </Text>
+            </div>
+          ))
+        ) : (
           <Caption>No recent muscle fatigue data.</Caption>
         )}
       </div>
-    </Panel>
+      <Link to="/history" search={{ tab: 'body-load' }} className="mt-3 inline-flex items-center gap-1">
+        <Text component="span" size="sm" fw={700} tone="action">Body map in Insights</Text>
+        <ArrowRight size={14} color="var(--vf-action-text)" />
+      </Link>
+    </CollapsiblePanel>
   )
 }
 
@@ -472,10 +494,6 @@ function ProgressBar({ value, className }: { value: number; className?: string }
       <div style={{ width, height: '100%', borderRadius: 999, backgroundColor: 'var(--mantine-primary-color-filled)' }} />
     </div>
   )
-}
-
-function countPlannedSets(session: Pick<PlannedSession, 'movements'>) {
-  return session.movements.reduce((total, movement) => total + movement.sets.length, 0)
 }
 
 function countCompletedSets(session: WorkoutSession) {

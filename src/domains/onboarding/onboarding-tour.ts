@@ -23,7 +23,7 @@ export function buildOnboardingSteps(): DriveStep[] {
     {
       element: navSelector('program'),
       data: { stepId: 'program' },
-      popover: { title: 'Your Plan', description: 'See where you are in your training block and what comes next.' },
+      popover: { title: 'Plan', description: 'See where you are in your training block and what comes next.' },
     },
     {
       element: navSelector('history'),
@@ -33,7 +33,7 @@ export function buildOnboardingSteps(): DriveStep[] {
     {
       element: navSelector('templates'),
       data: { stepId: 'templates' },
-      popover: { title: 'Plans', description: 'Browse training plans, or tap "Find my plan" to get a recommendation.' },
+      popover: { title: 'Programs', description: 'Browse training programs, or tap "Find my plan" to get a recommendation.' },
     },
     {
       data: { stepId: 'first-steps' },

@@ -125,7 +125,8 @@ test('"Don\'t show again" confirms before exiting onboarding, then persists', as
   await expect(card).toBeHidden({ timeout: 10000 })
 
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible({ timeout: 10000 })
+  // The "Today" h1 is visually hidden since the 4A redesign (page opens with the hero card).
+  await expect(page.getByRole('heading', { name: 'Today' })).toBeAttached({ timeout: 10000 })
   await expect(card).toHaveCount(0)
 
   // Restore the seeded state for other runs.

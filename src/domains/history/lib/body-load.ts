@@ -36,6 +36,35 @@ export const bodyLoadTierLabels: Record<BodyLoadTier, string> = {
 /** One-line explanation of what the Muscle Fatigue metric measures. */
 export const bodyLoadExplanation = 'How hard each muscle group has worked recently, based on your logged sets.'
 
+/** Copy for the Today-page recovery drawer when nothing has been trained recently. */
+export const allFreshRecoveryLabel = 'All muscle groups fresh'
+
+const tierSeverity: Record<BodyLoadTier, number> = { fresh: 0, low: 1, moderate: 2, high: 3 }
+
+/** Highest fatigue tier present; 'fresh' for an empty list. */
+export function worstBodyLoadTier(regions: BodyLoadRegion[]): BodyLoadTier {
+  return regions.reduce<BodyLoadTier>(
+    (worst, region) => (tierSeverity[region.tier] > tierSeverity[worst] ? region.tier : worst),
+    'fresh',
+  )
+}
+
+/** One-line teaser for the most fatigued muscle: "Quads worked hard Mon". */
+export function recoverySummaryLine(topRegions: BodyLoadRegion[]): string {
+  const top = topRegions[0]
+  if (!top) return allFreshRecoveryLabel
+  const phrase = bodyLoadTierLabels[top.tier].toLowerCase()
+  const weekday = formatWeekday(top.lastTrainedAt)
+  return weekday ? `${top.label} ${phrase} ${weekday}` : `${top.label} ${phrase}`
+}
+
+function formatWeekday(value?: string | null) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toLocaleDateString('en-US', { weekday: 'short' })
+}
+
 export const bodyRegionOrder: BodyRegionId[] = [
   'chest',
   'shoulders',

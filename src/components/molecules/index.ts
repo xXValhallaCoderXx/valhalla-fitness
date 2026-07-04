@@ -1,3 +1,4 @@
+export { CollapsiblePanel, type CollapsiblePanelProps } from './CollapsiblePanel'
 export { ConfirmDialog } from './ConfirmDialog'
 export { EmptyState } from './EmptyState'
 export { Page } from './Page'

@@ -1,20 +1,20 @@
 import { Box, Button } from '@mantine/core'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { CalendarDays, History, Layers3, ListChecks, Settings } from 'lucide-react'
+import { CalendarDays, History, Layers3, ListChecks } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { BrandLockup, Text } from '~/components/atoms'
+import { UserMenu } from '~/domains/account/components'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { cn } from '~/shared/lib/cn'
 
 const navItems = [
   { to: '/today', label: 'Today', icon: CalendarDays },
-  { to: '/program', label: 'Your Plan', icon: ListChecks },
+  { to: '/program', label: 'Plan', icon: ListChecks },
   { to: '/history', label: 'Insights', icon: History },
-  { to: '/templates', label: 'Plans', icon: Layers3 },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/templates', label: 'Programs', icon: Layers3 },
 ] as const
 
-export function AppShell({ children }: { user: AuthUser | null; children: ReactNode }) {
+export function AppShell({ user, children }: { user: AuthUser | null; children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const isNavigating = useRouterState({ select: (state) => state.isLoading })
   const isChromeless = pathname === '/' || pathname.startsWith('/auth')
@@ -68,7 +68,11 @@ export function AppShell({ children }: { user: AuthUser | null; children: ReactN
               )
             })}
           </Box>
-          <div aria-hidden="true" />
+          {/* col-start-3 pins the avatar to the right column even on mobile, where the
+              display:none desktop nav drops out of the grid flow. */}
+          <div className="col-start-3 flex items-center justify-self-end">
+            {user ? <UserMenu user={user} /> : null}
+          </div>
         </div>
         <NavigationProgress active={isNavigating} />
       </Box>
@@ -85,7 +89,7 @@ export function AppShell({ children }: { user: AuthUser | null; children: ReactN
           boxShadow: '0 -12px 36px rgb(0 0 0 / 0.12)',
         }}
       >
-        <div className="grid h-16 grid-cols-5">
+        <div className="grid h-16 grid-cols-4">
           {navItems.map((item) => {
             const Icon = item.icon
             const active = pathname.startsWith(item.to)
