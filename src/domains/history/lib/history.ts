@@ -41,6 +41,8 @@ export type HistorySessionInput = {
   completedAt?: string | null
   units?: Unit | null
   weekLabel?: string | null
+  /** Global session index from the prescription snapshot; used for phase attribution. */
+  weekIndex?: number | null
   hardness?: PlannedSession['hardness'] | null
   estimatedMinutes?: number | null
   movementCount: number

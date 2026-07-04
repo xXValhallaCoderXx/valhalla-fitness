@@ -79,6 +79,8 @@ export type ProgramStateRequirement = {
 export type ProgramStateInput = ProgramStateRequirement & {
   value: number | null
   unit?: Unit
+  /** Last time the persisted state row changed (progression accepted, manual edit). */
+  updatedAt?: string | null
 }
 
 export type ProgramInstance = {
@@ -369,6 +371,8 @@ export type ProgressionDecision = {
   rationale?: string | null
   previousValue?: number | null
   recommendedValue?: number | null
+  /** When the decision was accepted/dismissed; null while pending. */
+  resolvedAt?: string | null
 }
 
 export type TodayPayload = {
@@ -558,6 +562,12 @@ export type ProgramRecentSessionSummary = {
   topSetHighlights: string[]
 }
 
+export type ProgramSessionStamp = {
+  /** Global session index at the time the session was planned (snapshot weekIndex). */
+  weekIndex: number
+  completedAt: string
+}
+
 export type ProgramStateOverview = {
   movementId: string
   movementName: string
@@ -566,6 +576,9 @@ export type ProgramStateOverview = {
   label?: string | null
   value: number
   units: Unit
+  /** Value at program start, reconstructed from the earliest accepted progression decision. */
+  startValue: number
+  updatedAt?: string | null
   pendingDecision?: ProgressionDecision | null
   lastAcceptedDecision?: ProgressionDecision | null
 }
@@ -621,4 +634,8 @@ export type ProgramOverview = {
   accessoryPlan: ProgramAccessoryPlan[]
   bodyLoad: BodyLoadSummary
   pendingDecisions: ProgressionDecision[]
+  /** Full accepted-decision history for this program, newest first. */
+  acceptedDecisions: ProgressionDecision[]
+  /** Completed program sessions: global session index + completion time, for phase attribution. */
+  sessionStamps: ProgramSessionStamp[]
 }

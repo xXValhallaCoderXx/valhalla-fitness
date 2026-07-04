@@ -151,7 +151,7 @@ export type Intensity = NonNullable<RecentHistoryEntry['hardness']>
 
 const INTENSITY_LEVELS: Intensity[] = ['Light', 'Medium', 'Hard', 'Deload']
 
-/** Mirrors `hardnessColor` (Your Plan page) for cross-page consistency. */
+/** Hardness-to-accent mapping shared with the Your Plan page styling. */
 export function intensityColor(hardness?: RecentHistoryEntry['hardness']): AccentColor {
   if (hardness === 'Hard') return 'danger'
   if (hardness === 'Medium') return 'warning'

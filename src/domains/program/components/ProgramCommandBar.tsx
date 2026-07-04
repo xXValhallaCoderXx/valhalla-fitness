@@ -57,7 +57,7 @@ export function ProgramCommandBar({
         <div className="flex gap-2">
           <StatTile label="Week" value={position?.weekNumber ?? phaseMap.currentWeekNumber} suffix={`/${phaseMap.totalWeeks}`} />
           {position ? <StatTile label="Session" value={position.sessionNumber} suffix={`/${position.daysPerWeek}`} /> : null}
-          <StatTile label="Cycle" value={`${cyclePercent}%`} highlight />
+          <StatTile label="Plan" value={`${cyclePercent}%`} highlight />
         </div>
       </div>
 
