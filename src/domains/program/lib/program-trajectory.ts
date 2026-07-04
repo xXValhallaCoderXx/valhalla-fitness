@@ -83,6 +83,14 @@ const SHORT_LIFT_LABELS: Record<string, string> = {
   barbell_row: 'Row',
 }
 
+/** Canonical big-lift ordering so pills read the same in every panel. */
+const LIFT_ORDER = ['squat', 'bench_press', 'deadlift', 'overhead_press', 'barbell_row']
+
+function liftSortIndex(movementId: string) {
+  const index = LIFT_ORDER.indexOf(movementId)
+  return index === -1 ? LIFT_ORDER.length : index
+}
+
 export function shortLiftLabel(movementId: string) {
   return SHORT_LIFT_LABELS[movementId] ?? getMovementName(movementId)
 }
@@ -159,7 +167,9 @@ function weekTopSets(definition: TemplateDefinition, weekIndex: number): TopSetR
       else if (ref.progresses && !existing.progresses) existing.progresses = true
     }
   }
-  return Array.from(byMovement.values())
+  return Array.from(byMovement.values()).sort(
+    (left, right) => liftSortIndex(left.movementId) - liftSortIndex(right.movementId),
+  )
 }
 
 function percentOf(set: TemplateSetDefinition) {
@@ -409,14 +419,27 @@ export function buildProgramTrajectory({
         values.push({ movementId: ref.movementId, label: shortLiftLabel(ref.movementId), value })
       }
       if (values.length) phase.banked = { atWeekNumber: lastWeek.number, values }
-    } else if (lastWeek.targets.length) {
-      phase.projected = {
-        byWeekNumber: lastWeek.number,
-        values: lastWeek.targets.map((target) => ({
-          movementId: target.movementId,
-          label: target.label,
-          value: target.load,
-        })),
+    } else {
+      // Project from the heaviest week still ahead — a deload finale would
+      // undersell the trajectory, and a phase ending on the current week
+      // would just repeat the current row.
+      const projectionWeek = [...phase.weeks]
+        .reverse()
+        .find(
+          (week) =>
+            week.status === 'upcoming' &&
+            week.targets.length > 0 &&
+            definition.weeks[week.index]?.hardness !== 'Deload',
+        )
+      if (projectionWeek) {
+        phase.projected = {
+          byWeekNumber: projectionWeek.number,
+          values: projectionWeek.targets.map((target) => ({
+            movementId: target.movementId,
+            label: target.label,
+            value: target.load,
+          })),
+        }
       }
     }
   }

@@ -154,6 +154,13 @@ describe('program trajectory', () => {
     expect(buildPhase.banked).toBeUndefined()
   })
 
+  it('projects from the heaviest upcoming week, skipping a deload finale', () => {
+    const def = definition()
+    def.weeks[3]!.hardness = 'Deload'
+    const trajectory = build({ definition: def, currentGlobalIndex: 2 }) // week 2 current
+    expect(trajectory.phases[1]!.projected?.byWeekNumber).toBe(3)
+  })
+
   it('banks completed-phase values from accepted decision history', () => {
     const decisions: ProgressionDecision[] = [
       {
