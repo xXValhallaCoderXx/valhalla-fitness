@@ -6,7 +6,6 @@ import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
 import { buildProgramTimeline } from '~/domains/program/lib/program-timeline'
 import { buildProgramPhaseMap } from '~/domains/program/lib/program-phase-map'
 import { buildProgramTrajectory } from '~/domains/program/lib/program-trajectory'
-import { getFallbackTemplateDefinition } from '~/domains/program/lib/template-definitions'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
 import { ProgramCommandBar } from './ProgramCommandBar'
 import { CurrentLoadsCard } from './ProgramLoads'
@@ -55,10 +54,18 @@ function AuthedProgram() {
     )
   }
 
-  const timeline = buildProgramTimeline(program, program.templateDefinition)
+  // The server always pins a definition on the active program (with its own fallback), so a
+  // missing one means a partial payload — retry rather than crash on a client-side fallback
+  // (the catalogue lookup throws for custom template ids and would bloat the bundle anyway).
+  const definition = program.templateDefinition
+  if (!definition) {
+    return <PageLoadError error={new Error('Program definition unavailable')} onRetry={() => void overviewQuery.refetch()} />
+  }
+
+  const timeline = buildProgramTimeline(program, definition)
   const phaseMap = buildProgramPhaseMap(timeline)
   const trajectory = buildProgramTrajectory({
-    definition: program.templateDefinition ?? getFallbackTemplateDefinition(program.templateId),
+    definition,
     currentGlobalIndex: program.currentWeekIndex,
     rounding: program.rounding,
     units: program.units,

@@ -79,7 +79,7 @@ The docs should say that the app uses TanStack Start, React Query, server functi
 ### Main Gaps
 
 - 70s Powerlifter and Volume/Intensity are listed but unavailable.
-- Program expansion is still hardcoded in `src/lib/templates.ts`.
+- Program expansion is still hardcoded in `src/domains/program/lib/templates.ts`.
 - Template definitions exist in `program_template_versions.definition`, but runtime expansion does not yet consume them as the source of truth.
 - Previous comparable performance is mostly hardcoded as "no prior log yet".
 - Rest timer setting exists but there is no real timer feature.
@@ -106,7 +106,7 @@ Powerbuilder remains stretch after the engine handles the two missing MVP templa
 
 The training engine should be driven by the database template DSL, not by TypeScript template-specific branches.
 
-`src/lib/templates.ts` may keep small fallback metadata for local/dev safety, but it must stop being the runtime source of truth for program structure.
+`src/domains/program/lib/templates.ts` may keep small fallback metadata for local/dev safety, but it must stop being the runtime source of truth for program structure.
 
 ### Fix Previous Comparable Performance
 
@@ -171,11 +171,11 @@ Goal: make templates data-driven so new programs are added by seed data plus gen
 
 Target files:
 
-- `src/lib/templates.ts`
-- `src/lib/progression.ts`
-- `src/lib/program-timeline.ts`
-- `src/server/api.ts`
-- `src/types/training.ts`
+- `src/domains/program/lib/templates.ts`
+- `src/domains/program/lib/progression.ts`
+- `src/domains/program/lib/program-timeline.ts`
+- `src/domains/program/server/program-functions.ts`
+- `src/shared/types/training.ts`
 - `supabase/migrations/*`
 - `tests/*templates*`
 - `tests/*progression*`
@@ -285,9 +285,9 @@ Goal: show useful prior performance at the moment of logging.
 
 Target files:
 
-- `src/server/api.ts`
-- `src/lib/progression.ts`
-- `src/types/training.ts`
+- `src/domains/*/server/*-functions.ts`
+- `src/domains/program/lib/progression.ts`
+- `src/shared/types/training.ts`
 - `src/routes/today.tsx`
 - `src/features/workout/components/live-session.tsx`
 - `src/routes/sessions.$sessionId.summary.tsx`
@@ -295,7 +295,7 @@ Target files:
 
 Current issue:
 
-- Planned movements contain labels such as "Last comparable: no prior log yet" from `src/lib/templates.ts`.
+- Planned movements contain labels such as "Last comparable: no prior log yet" from `src/domains/program/lib/templates.ts`.
 - The app already has `getMovementHistoryFn()`, but session expansion does not use it to populate `PreviousComparable`.
 
 Required behavior:
@@ -345,8 +345,8 @@ Goal: stop advertising a feature that is not implemented.
 Target files:
 
 - `src/routes/settings.tsx`
-- `src/types/training.ts`
-- `src/server/api.ts`
+- `src/shared/types/training.ts`
+- `src/domains/*/server/*-functions.ts`
 - `final-app-spec.md`
 - `mvp-plan.md`
 - Any design or UI text that promises timer controls.
@@ -371,11 +371,11 @@ Goal: make History useful without fabricating analytics.
 
 Target files:
 
-- `src/server/api.ts`
-- `src/types/training.ts`
-- `src/lib/query-options.ts`
+- `src/domains/*/server/*-functions.ts`
+- `src/shared/types/training.ts`
+- `src/domains/*/queries.ts`
 - `src/routes/history.tsx`
-- Optional new helpers under `src/lib/history.ts`.
+- Optional new helpers under `src/domains/history/lib/history.ts`.
 
 Current page:
 
@@ -423,9 +423,9 @@ Goal: make Program answer "where am I, what is changing, and what is next?"
 Target files:
 
 - `src/routes/program.tsx`
-- `src/server/api.ts`
-- `src/types/training.ts`
-- `src/lib/program-timeline.ts`
+- `src/domains/*/server/*-functions.ts`
+- `src/shared/types/training.ts`
+- `src/domains/program/lib/program-timeline.ts`
 - New generic timeline helpers if Phase 1 moves timeline into the DSL.
 
 Current page:
@@ -550,7 +550,7 @@ This plan is complete when:
 
 - Healthy 5/3/1, Bullmastiff, 70s Powerlifter, and Volume/Intensity are all available and startable.
 - Session expansion is driven by validated template definitions from Supabase.
-- `src/lib/templates.ts` no longer contains template-specific runtime expansion logic.
+- `src/domains/program/lib/templates.ts` no longer contains template-specific runtime expansion logic.
 - Previous comparable performance is real and visible in Today/live/session summary contexts.
 - Rest timer UI and MVP docs are removed or deferred.
 - Program setup remains simple and valid for MVP.

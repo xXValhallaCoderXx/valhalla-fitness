@@ -3,7 +3,7 @@ import { PencilLine, Plus } from 'lucide-react'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
 import type { GuidanceIssue } from '~/domains/program/lib/custom-builder-guidance'
 import { loggerMovementOptions } from '~/domains/program/lib/custom-builder-ui'
-import { MAX_LOGGER_EXERCISES_PER_DAY, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-templates'
+import { MAX_LOGGER_EXERCISES_PER_DAY, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-program-meta'
 import { GuidanceList, issuesForScope } from './CustomBuilderGuidance'
 import { BuilderExerciseRow, BuilderNumberField, BuilderSelect, DeleteRowAction } from './CustomBuilderFields'
 

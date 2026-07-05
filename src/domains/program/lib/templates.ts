@@ -1,11 +1,7 @@
 import type {
   PlannedSession,
   ProgramInstance,
-  ProgramStateDefaults,
-  ProgramStateInput,
-  ProgramStateRequirement,
   ProgramTemplateSummary,
-  Unit,
 } from '~/shared/types'
 import {
   expandSessionFromTemplateDefinition,
@@ -18,6 +14,10 @@ import {
 } from '~/domains/program/lib/template-definitions'
 import { fiveDayCatalog } from '~/domains/program/lib/template-definitions-5day'
 import { applyFamilyMeta } from '~/domains/program/lib/template-families'
+import {
+  requiredTrainingMaxState,
+  requiredWorkingLoadState,
+} from '~/domains/program/lib/program-state-defaults'
 
 const rawTemplateCatalog: ProgramTemplateSummary[] = [
   {
@@ -159,42 +159,14 @@ const rawTemplateCatalog: ProgramTemplateSummary[] = [
 /** Fallback catalogue (no-Supabase path), enriched with programme-family/variant metadata. */
 export const templateCatalog: ProgramTemplateSummary[] = rawTemplateCatalog.map(applyFamilyMeta)
 
-export function defaultStateValues(
-  unit: Unit = 'kg',
-  requiredState: ProgramStateRequirement[] = requiredTrainingMaxState(),
-  defaults: ProgramStateDefaults = defaultProgramStateDefaults(unit),
-): ProgramStateInput[] {
-  return requiredState.map((state) => ({
-    ...state,
-    value: stateDefaultValue(state, defaults),
-    unit,
-  }))
-}
-
-export function defaultProgramStateDefaults(unit: Unit = 'kg'): ProgramStateDefaults {
-  void unit
-  const defaults: ProgramStateDefaults = {}
-  for (const state of defaultProgramStateRequirements()) {
-    defaults[state.key] = null
-  }
-  return defaults
-}
-
-export function defaultProgramStateRequirements(): ProgramStateRequirement[] {
-  return [
-    ...requiredOneRepMaxState(['squat', 'bench_press', 'deadlift', 'overhead_press', 'barbell_row']),
-    ...requiredTrainingMaxState(),
-    ...requiredWorkingLoadState(['squat', 'bench_press', 'overhead_press', 'deadlift', 'barbell_row']),
-  ]
-}
-
-function stateDefaultValue(state: ProgramStateRequirement, defaults: ProgramStateDefaults) {
-  const rawValue = defaults[state.key]
-  if (rawValue === null || rawValue === undefined) return null
-  const value = Number(rawValue)
-  if (Number.isFinite(value) && value > 0) return value
-  return null
-}
+// State-default helpers live in the import-light `program-state-defaults` module so client
+// code can use them without bundling the template DSL data; re-exported here for server code
+// and tests that treat templates.ts as the domain surface.
+export {
+  defaultProgramStateDefaults,
+  defaultProgramStateRequirements,
+  defaultStateValues,
+} from '~/domains/program/lib/program-state-defaults'
 
 export function expandPlannedSession(
   program: ProgramInstance,
@@ -220,27 +192,3 @@ export function programForNextUncompletedSession(
 }
 
 export { getFallbackTemplateDefinition, listFallbackTemplateDefinitions }
-
-function requiredTrainingMaxState(): ProgramStateRequirement[] {
-  return ['squat', 'bench_press', 'deadlift', 'overhead_press'].map((movementId) => ({
-    key: `${movementId}_training_max`,
-    movementId,
-    type: 'training_max',
-  }))
-}
-
-function requiredOneRepMaxState(movementIds: string[]): ProgramStateRequirement[] {
-  return movementIds.map((movementId) => ({
-    key: `${movementId}_one_rep_max`,
-    movementId,
-    type: 'one_rep_max',
-  }))
-}
-
-function requiredWorkingLoadState(movementIds: string[]): ProgramStateRequirement[] {
-  return movementIds.map((movementId) => ({
-    key: `${movementId}_working_load`,
-    movementId,
-    type: 'working_load',
-  }))
-}

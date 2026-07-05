@@ -7,7 +7,7 @@ import { ProgramInfoHint } from '~/domains/program/components/ProgramInfoHint'
 import type { GuidanceIssue } from '~/domains/program/lib/custom-builder-guidance'
 import { buildProgressionPreviews, type ProgressionPreview } from '~/domains/program/lib/custom-builder-preview'
 import { customBuilderDayTitle } from '~/domains/program/lib/custom-builder-ui'
-import { customProgramMethodologies, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-templates'
+import { customProgramMethodologies, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-program-meta'
 import type { UserProfile } from '~/shared/types'
 import { GUIDANCE_SEVERITY_ORDER, GuidanceList } from './CustomBuilderGuidance'
 

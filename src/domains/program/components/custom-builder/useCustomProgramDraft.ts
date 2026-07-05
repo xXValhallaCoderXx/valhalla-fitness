@@ -11,7 +11,7 @@ import {
   MAX_LOGGER_EXERCISES_PER_DAY,
   type CustomProgramBuilderInput,
   type CustomProgramMethodology,
-} from '~/domains/program/lib/custom-templates'
+} from '~/domains/program/lib/custom-program-meta'
 
 /** Draft state + all update handlers for the custom programme builder wizard. */
 export function useCustomProgramDraft() {

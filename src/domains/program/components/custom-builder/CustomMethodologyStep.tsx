@@ -9,7 +9,7 @@ import {
   customProgramMethodologies,
   type CustomProgramBuilderInput,
   type CustomProgramMethodology,
-} from '~/domains/program/lib/custom-templates'
+} from '~/domains/program/lib/custom-program-meta'
 import { GuidanceList } from './CustomBuilderGuidance'
 
 export function CustomMethodologyStep({

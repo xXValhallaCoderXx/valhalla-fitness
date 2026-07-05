@@ -7,7 +7,7 @@ import {
   DEFAULT_WORKING_LOAD_PERCENT,
   suggestedLoadFromOneRepMax,
 } from '~/domains/program/lib/program-loads'
-import type { CustomProgramBuilderInput } from './custom-templates'
+import type { CustomProgramBuilderInput } from './custom-program-meta'
 
 /**
  * Builds an illustrative "this is how your loads progress" example for the Custom Program

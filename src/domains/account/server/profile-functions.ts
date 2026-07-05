@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import type { ProgramStateDefaults, Sex, ThemePreference, Unit, UserProfile } from '~/shared/types'
-import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
+import { defaultProgramStateDefaults } from '~/domains/program/lib/program-state-defaults'
 
 async function requireUser() {
   const { requireUser } = await import('~/shared/server/require-user')

@@ -3,7 +3,7 @@ import {
   createDefaultCustomProgramBuilderInput,
   type CustomProgramBuilderInput,
   type CustomProgramMethodology,
-} from './custom-templates'
+} from './custom-program-meta'
 
 export type CustomBuilderStep = 'methodology' | 'main_lifts' | 'accessories' | 'review'
 

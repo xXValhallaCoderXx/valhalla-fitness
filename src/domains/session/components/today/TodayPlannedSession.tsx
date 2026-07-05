@@ -49,7 +49,7 @@ export function TodayPlannedSession({
         <Heading order={1}>Today</Heading>
       </VisuallyHidden>
 
-      {data.pendingDecisions.length ? (
+      {pendingDecisions.length ? (
         <PendingReviewAlert decisions={pendingDecisions} onReview={onReviewOpen} className="mb-4" />
       ) : null}
 

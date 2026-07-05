@@ -5,7 +5,7 @@ import {
   customProgramMethodologies,
   type CustomProgramBuilderInput,
   type CustomProgramMethodology,
-} from './custom-templates'
+} from './custom-program-meta'
 
 /**
  * Best-effort guidance for the Custom Program Builder. This is pure (no React) so it can

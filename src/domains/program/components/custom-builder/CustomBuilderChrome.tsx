@@ -1,7 +1,7 @@
 import { Badge } from '@mantine/core'
 import { Check } from 'lucide-react'
 import { Caption, Panel, Text } from '~/components'
-import { customProgramMethodologies, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-templates'
+import { customProgramMethodologies, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-program-meta'
 import type { CustomBuilderStep } from '~/domains/program/lib/custom-builder-ui'
 
 export function BuilderStepNavigation({

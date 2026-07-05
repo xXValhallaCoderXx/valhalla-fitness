@@ -17,12 +17,8 @@ import type {
 } from '~/shared/types'
 import { defaultStateValues, getFallbackTemplateDefinition, templateCatalog } from '~/domains/program/lib/templates'
 import { applyFamilyMeta } from '~/domains/program/lib/template-families'
-import {
-  parseTemplateDefinition,
-  validateRequiredState,
-  validateTemplateDefinition,
-  type TemplateDefinition,
-} from '~/domains/program/lib/template-engine'
+import { validateRequiredState, type TemplateDefinition } from '~/domains/program/lib/template-engine'
+import { parseTemplateDefinition, validateTemplateDefinition } from '~/domains/program/lib/template-engine-schema'
 import {
   buildCustomProgramTemplateDefinition,
   type CustomProgramBuilderInput,

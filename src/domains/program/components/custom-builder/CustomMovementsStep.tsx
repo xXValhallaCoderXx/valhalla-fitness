@@ -7,7 +7,7 @@ import {
   mainWorkSummary,
   variationMovementOptions,
 } from '~/domains/program/lib/custom-builder-ui'
-import { customProgramMethodologies, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-templates'
+import { customProgramMethodologies, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-program-meta'
 import { GUIDANCE_SEVERITY_ORDER, GuidanceList } from './CustomBuilderGuidance'
 import { BuilderSelect } from './CustomBuilderFields'
 

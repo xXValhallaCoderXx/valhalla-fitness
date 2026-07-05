@@ -8,7 +8,7 @@ import {
   mainWorkSummary,
   variationSummary,
 } from '~/domains/program/lib/custom-builder-ui'
-import { MAX_ACCESSORIES_PER_DAY, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-templates'
+import { MAX_ACCESSORIES_PER_DAY, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-program-meta'
 import { GuidanceList, issuesForScope } from './CustomBuilderGuidance'
 import { BuilderExerciseRow, BuilderNumberField, BuilderSelect, DeleteRowAction } from './CustomBuilderFields'
 

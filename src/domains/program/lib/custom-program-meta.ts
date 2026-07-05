@@ -1,6 +1,5 @@
 import type { Movement } from '~/shared/types'
 import { movementCatalog } from '~/domains/movement/lib/movements'
-import type { CustomProgramBuilderInput } from './custom-templates'
 
 /**
  * Presentation metadata + defaults for the Custom Program Builder, kept free of the DSL
@@ -12,6 +11,41 @@ import type { CustomProgramBuilderInput } from './custom-templates'
 export const customProgramMethodologyValues = ['none', 'training_max_wave', 'plus_set_wave', 'simple_linear'] as const
 
 export type CustomProgramMethodology = (typeof customProgramMethodologyValues)[number]
+
+/**
+ * Hand-written mirror of `customProgramBuilderInputSchema`'s output type so this module
+ * stays zod-free. A compile-time equality guard in `custom-templates.ts` keeps the two
+ * in lockstep — change them together.
+ */
+export type CustomProgramBuilderInput = {
+    name: string
+    goal?: string | null
+    methodology: CustomProgramMethodology
+    daysPerWeek: number
+    sessions: Array<{
+        title: string
+        mainMovementId: string
+        variationMovementId?: string | null
+        mainSetCount: number
+        mainTargetReps: number
+        mainTargetRir?: number | null
+        accessories: Array<{
+            movementId: string
+            setCount: number
+            repMin: number
+            repMax: number
+            targetRir?: number | null
+            progressionMethod: 'history_only' | 'double_progression'
+        }>
+        loggerExercises: Array<{
+            movementId: string
+            setCount: number
+            repMin: number
+            repMax: number
+            targetRir?: number | null
+        }>
+    }>
+}
 
 export const MAX_ACCESSORIES_PER_DAY = 6
 export const MAX_LOGGER_EXERCISES_PER_DAY = 12
@@ -152,5 +186,3 @@ export function createDefaultCustomProgramBuilderInput({
     }),
   }
 }
-
-export type { CustomProgramBuilderInput }

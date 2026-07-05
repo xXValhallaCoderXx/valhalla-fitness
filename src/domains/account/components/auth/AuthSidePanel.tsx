@@ -90,10 +90,6 @@ export function AuthSidePanel() {
           </Panel>
         </div>
       </div>
-
-      <div className="relative flex items-center gap-2">
-
-      </div>
     </Box>
   )
 }
