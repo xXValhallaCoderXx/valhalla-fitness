@@ -2,22 +2,24 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { ActionIcon, Badge, Button, Tooltip, VisuallyHidden } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { Link, useRouter } from '@tanstack/react-router'
-import { Activity, ArrowRight, CheckCircle2, Dumbbell, ListChecks, Play, Plus, RotateCw } from 'lucide-react'
+import { Activity, ArrowRight, Dumbbell, ListChecks, Lock, Play, Plus, RotateCw } from 'lucide-react'
 import { useState } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { bodyLoadTierLabels, recoverySummaryLine, worstBodyLoadTier } from '~/domains/history/lib/body-load'
+import { intensityColor } from '~/domains/history/lib/insights'
 import { historyDashboardQueryOptions } from '~/domains/history/queries'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
 import { AD_HOC_BADGE_LABEL, DEFAULT_AD_HOC_TITLE } from '~/domains/session/lib/ad-hoc'
-import { buildTodayNumbersRows, buildTodayNumbersSummary, countPlannedSets } from '~/domains/session/lib/today-numbers'
+import { countPlannedSets, formatPreviousHero } from '~/domains/session/lib/today-numbers'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { startAdHocSessionFn, startSessionFn } from '~/domains/session/server/session-functions'
-import type { BodyLoadTier, HistoryDashboard, PlannedSession, ProgramOverview, Unit, WorkoutSession } from '~/shared/types'
+import type { BodyLoadTier, HistoryDashboard, ProgramOverview, Unit, WorkoutSession } from '~/shared/types'
 import { Caption, CollapsiblePanel, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, StatCard, Text } from '~/components'
 import { PendingProgressionReviewModal, PendingReviewAlert, PendingReviewGate } from '~/domains/program/components/PendingReview'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { useOnboardingActive } from '~/domains/onboarding/useOnboardingActive'
 import { SessionProgress, SyncPill } from './Session'
+import { TodayWorkoutLedger } from './TodayWorkoutLedger'
 
 export function TodayPage({ user }: { user: unknown }) {
   const router = useRouter()
@@ -206,9 +208,9 @@ function AuthedToday() {
   }
 
   const main = data.plannedSession.movements.find((movement) => movement.role === 'main')
-  const completedSets = data.completedSession?.movements.flatMap((movement) => movement.sets) ?? []
-  const completedSetCount = completedSets.filter((set) => set.completed).length
   const startLabel = data.completedSession ? 'Start next session' : 'Start workout'
+  const startLocked = pendingDecisions.length > 0
+  const heroLastLine = main ? formatPreviousHero(main.previous, data.plannedSession.units) : null
 
   return (
     <Page className="max-w-3xl pb-24 md:pb-16">
@@ -217,30 +219,6 @@ function AuthedToday() {
         <Heading order={1}>Today</Heading>
       </VisuallyHidden>
 
-      {data.completedSession ? (
-        <Panel className="mb-4" p="md" style={{ borderColor: 'var(--vf-success-border)', backgroundColor: 'var(--vf-success-soft)' }}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <CheckCircle2 color="var(--vf-success-text)" size={18} />
-                <Badge color="success">Completed</Badge>
-              </div>
-              <Heading mt="xs" order={2} size="h4">{data.completedSession.title}</Heading>
-              <Text mt={4} size="sm" tone="dimmed">
-                {completedSetCount} of {completedSets.length} sets completed
-                {data.completedSession.completedAt
-                  ? ` · ${new Date(data.completedSession.completedAt).toLocaleTimeString(undefined, {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}`
-                  : ''}
-              </Text>
-            </div>
-            <Badge color="action">Next session unlocked</Badge>
-          </div>
-        </Panel>
-      ) : null}
-
       {data.pendingDecisions.length ? (
         <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
       ) : null}
@@ -248,53 +226,58 @@ function AuthedToday() {
       {/* minmax(0,1fr): an auto track would size to the widest card's intrinsic width and overflow narrow screens. */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
         <Panel className="space-y-4 vf-card-hover" p="md">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge color="action" variant="filled">{data.completedSession ? 'Next session' : 'Ready'}</Badge>
-                <Badge color={data.plannedSession.hardness === 'Hard' ? 'danger' : 'warning'}>
-                  {data.plannedSession.hardness}
-                </Badge>
-              </div>
-              <Heading mt="xs" order={2} size="h3" lh={1.15}>{data.plannedSession.title}</Heading>
-              <Text mt={4} size="sm" tone="dimmed">
-                {data.plannedSession.movements.length} movements · {data.plannedSession.estimatedMinutes} min
-              </Text>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge color="action" variant="filled">{data.completedSession ? 'Next session' : 'Ready'}</Badge>
+              {data.plannedSession.hardness ? (
+                <Badge color={intensityColor(data.plannedSession.hardness)}>{data.plannedSession.hardness}</Badge>
+              ) : null}
             </div>
-            <PendingReviewGate
-              pendingCount={pendingDecisions.length}
-              onReview={() => setReviewOpen(true)}
-              className="flex w-full sm:w-auto"
-            >
-              <Button
-                className="w-full sm:w-auto"
-                disabled={startMutation.isPending || pendingDecisions.length > 0}
-                style={pendingDecisions.length > 0 ? { pointerEvents: 'none' } : undefined}
-                onClick={pendingDecisions.length > 0 ? undefined : () => startMutation.mutate()}
-              >
-                <Play size={16} />
-                {startMutation.isPending ? 'Starting...' : startLabel}
-              </Button>
-            </PendingReviewGate>
+            <Heading mt="xs" order={2} size="h3" lh={1.15}>{data.plannedSession.title}</Heading>
+            <Text mt={4} size="sm" tone="dimmed">
+              {data.plannedSession.movements.length} movements · {data.plannedSession.estimatedMinutes} min
+            </Text>
           </div>
 
           {main ? (
             <Panel surface="inset" p="sm" style={{ borderColor: 'var(--vf-action-border)', backgroundColor: 'var(--vf-action-soft)' }}>
               <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <Badge color="action" leftSection={<Dumbbell size={12} />}>Main lift</Badge>
-                  <Heading mt="xs" order={3} size="h4" lh={1.15} className="truncate">{main.movementName}</Heading>
-                  <Text size="sm" tone="dimmed">{main.targetSummary}</Text>
-                </div>
-                <ArrowRight color="var(--mantine-color-dimmed)" size={18} />
+                <Badge color="action" leftSection={<Dumbbell size={12} />}>Main lift</Badge>
+                <ArrowRight color="var(--mantine-color-dimmed)" size={16} />
               </div>
-              {main.previous?.label ? <Caption mt="sm">{main.previous.label}</Caption> : null}
+              <Heading mt="xs" order={3} size="h4" lh={1.15} className="truncate">{main.movementName}</Heading>
+              <Text mt={2} size="sm" tone="dimmed">{main.targetSummary}</Text>
+              {heroLastLine ? <Caption mt={6} truncate>{heroLastLine}</Caption> : null}
             </Panel>
           ) : null}
 
+          <div>
+            <PendingReviewGate
+              pendingCount={pendingDecisions.length}
+              onReview={() => setReviewOpen(true)}
+              className="flex w-full"
+            >
+              {/* Mantine's fullWidth, not a Tailwind w-full: unlayered Button styles beat layered
+                  utilities, leaving the button narrow while the popover anchor span spans the card. */}
+              <Button
+                fullWidth
+                disabled={startMutation.isPending || startLocked}
+                style={startLocked ? { pointerEvents: 'none' } : undefined}
+                onClick={startLocked ? undefined : () => startMutation.mutate()}
+              >
+                {startLocked ? <Lock size={16} /> : <Play size={16} />}
+                {startMutation.isPending ? 'Starting...' : startLabel}
+              </Button>
+            </PendingReviewGate>
+            {startLocked ? (
+              <Caption component="p" mt={6} ta="center">
+                Unlocks after you review the {pendingDecisions[0].movementName} progression
+              </Caption>
+            ) : null}
+          </div>
         </Panel>
 
-        <TodayWorkoutPanel session={data.plannedSession} />
+        <TodayWorkoutLedger session={data.plannedSession} />
         <RecoveryCheckPanel history={historyQuery.data} />
       </div>
       <PendingProgressionReviewModal
@@ -373,29 +356,6 @@ function WeeklyVolumePanel({ history }: { history?: HistoryDashboard }) {
   )
 }
 
-function TodayWorkoutPanel({ session }: { session: PlannedSession }) {
-  return (
-    <CollapsiblePanel data-testid="today-workout" title="Today's workout" summary={buildTodayNumbersSummary(session)}>
-      <div className="grid gap-4">
-        {buildTodayNumbersRows(session).map((row) => (
-          <div key={row.slotId}>
-            <div className="flex items-baseline justify-between gap-3">
-              <Text size="sm" fw={700} truncate className="min-w-0">{row.movementName}</Text>
-              <div className="shrink-0">
-                {row.targets.map((target, index) => (
-                  <Text key={index} size="sm" ta="right" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {target}
-                  </Text>
-                ))}
-              </div>
-            </div>
-            {row.previousLabel ? <Caption mt={2}>{row.previousLabel}</Caption> : null}
-          </div>
-        ))}
-      </div>
-    </CollapsiblePanel>
-  )
-}
 
 const recoveryDotColors: Record<BodyLoadTier, string> = {
   fresh: 'var(--vf-success-text)',
