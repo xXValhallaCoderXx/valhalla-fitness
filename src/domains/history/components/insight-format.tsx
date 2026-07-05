@@ -2,9 +2,9 @@ import type { AccentColor } from '~/domains/history/lib/insights'
 import type { BodyLoadRegion, HistoryBestSet, Unit } from '~/shared/types'
 import { Text } from '~/components'
 
-export type HistoryTab = 'overview' | 'body-load' | 'movements' | 'records' | 'sessions'
+export type HistoryTab = 'overview' | 'strength' | 'body-load' | 'movements' | 'records' | 'sessions'
 
-export const HISTORY_TAB_VALUES: HistoryTab[] = ['overview', 'body-load', 'movements', 'records', 'sessions']
+export const HISTORY_TAB_VALUES: HistoryTab[] = ['overview', 'strength', 'body-load', 'movements', 'records', 'sessions']
 
 /** Mantine palette names → themed CSS variables for dots, stripes, and rings. */
 export const ACCENT_TEXT: Record<AccentColor, string> = {

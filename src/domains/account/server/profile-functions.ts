@@ -127,3 +127,12 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
     if (error) throw new Error(error.message)
     return getMeFn()
   })
+
+export const updateSexFn = createServerFn({ method: 'POST' })
+  .validator((data: { sex: Sex | null }) => data)
+  .handler(async ({ data }) => {
+    const { supabase, user } = await requireUser()
+    const { error } = await supabase.from('profiles').update({ sex: data.sex }).eq('id', user.id)
+    if (error) throw new Error(error.message)
+    return getMeFn()
+  })

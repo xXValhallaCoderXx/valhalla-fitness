@@ -1,23 +1,27 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { Badge, Button, Modal, NativeSelect, SegmentedControl, TextInput } from '@mantine/core'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Badge, Button, Modal, NativeSelect, NumberInput, SegmentedControl, Select, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useRouter, useRouterState } from '@tanstack/react-router'
-import { ArrowRight, Calculator, Check, Cloud, Compass, Download, Dumbbell, Gauge, Layers, LogOut, Monitor, Moon, RefreshCw, SlidersHorizontal, Sun, User, X, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Calculator, Check, Cloud, Compass, Download, Dumbbell, Gauge, Layers, LogOut, Monitor, Moon, RefreshCw, Scale, SlidersHorizontal, Sun, Trash2, User, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { track } from '~/shared/lib/analytics'
 import { prefersReducedMotion } from '~/shared/lib/reduced-motion'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { e1rm, mround } from '~/domains/program/lib/progression'
-import { meQueryOptions } from '~/domains/account/queries'
+import { bodyweightEntriesQueryOptions, meQueryOptions } from '~/domains/account/queries'
 import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
 import { hasAllStrengthEstimates } from '~/domains/onboarding/onboarding-progress'
 import { useSignOut } from '~/domains/account/useSignOut'
 import { updateSettingsFn } from '~/domains/account/server/profile-functions'
+import { deleteBodyweightEntryFn, logBodyweightFn } from '~/domains/account/server/bodyweight-functions'
+import { convertLoad } from '~/domains/history/lib/history'
+import { formatNumber } from '~/domains/history/components/insight-format'
+import { formatCompactDate } from '~/shared/lib/dates'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { buildEstimatesSteps } from '~/domains/onboarding/onboarding-tour'
 import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
-import type { ProgramStateDefaults, ThemePreference, Unit, UserProfile } from '~/shared/types'
+import type { ProgramStateDefaults, Sex, ThemePreference, Unit, UserProfile } from '~/shared/types'
 import { Caption, EmptyState, Heading, Page, PageHeader, PageLoadError, PageSkeleton, Panel, SectionLabel, Text } from '~/components'
 
 const equipmentOptions = [
@@ -45,6 +49,7 @@ const themeOptions: Array<{
 
 const settingsSections = [
   { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
+  { id: 'body-strength', label: 'Body & Strength', icon: Scale },
   { id: 'programme-loads', label: 'Strength Estimates', icon: Gauge },
   { id: 'equipment', label: 'Equipment', icon: Dumbbell },
   { id: 'data-sync', label: 'Data & Sync', icon: Cloud },
@@ -135,6 +140,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
   const [units, setUnits] = useState<Unit>(me?.units ?? 'kg')
   const [rounding, setRounding] = useState(me?.rounding ?? 2.5)
   const [equipmentProfile, setEquipmentProfile] = useState<string[]>(me?.equipmentProfile ?? [])
+  const [sex, setSex] = useState<Sex | null>(me?.sex ?? null)
   const [themePreference, setThemePreference] = useState<ThemePreference>(me?.themePreference ?? 'system')
   const [programStateDefaults, setProgramStateDefaults] = useState<ProgramStateDefaults>(
     me?.programStateDefaults ?? defaultProgramStateDefaults(me?.units ?? 'kg'),
@@ -148,10 +154,11 @@ function SettingsForm({ me }: { me: UserProfile }) {
       Boolean(me) &&
       (units !== me?.units ||
         rounding !== me?.rounding ||
+        sex !== (me?.sex ?? null) ||
         themePreference !== (me?.themePreference ?? 'system') ||
         !sameNumberRecord(programStateDefaults, me?.programStateDefaults ?? defaultProgramStateDefaults(me?.units ?? units)) ||
         !sameStringSet(equipmentProfile, me?.equipmentProfile ?? [])),
-    [equipmentProfile, me, programStateDefaults, rounding, themePreference, units],
+    [equipmentProfile, me, programStateDefaults, rounding, sex, themePreference, units],
   )
 
   useEffect(() => {
@@ -170,14 +177,18 @@ function SettingsForm({ me }: { me: UserProfile }) {
           equipmentProfile,
           themePreference,
           programStateDefaults,
+          sex,
         },
       }),
     onSuccess: (next) => {
       router.options.context.queryClient.setQueryData(['me'], next)
+      // Sex (and units) feed the DOTS strength score, so refresh insights too.
+      void router.options.context.queryClient.invalidateQueries({ queryKey: ['history', 'dashboard'] })
       if (next) {
         setUnits(next.units)
         setRounding(next.rounding)
         setEquipmentProfile(next.equipmentProfile)
+        setSex(next.sex ?? null)
         setThemePreference(next.themePreference)
         setProgramStateDefaults(next.programStateDefaults)
       }
@@ -203,6 +214,7 @@ function SettingsForm({ me }: { me: UserProfile }) {
     setUnits(me.units)
     setRounding(me.rounding)
     setEquipmentProfile(me.equipmentProfile ?? [])
+    setSex(me.sex ?? null)
     setThemePreference(me.themePreference ?? 'system')
     setProgramStateDefaults(me.programStateDefaults ?? defaultProgramStateDefaults(me.units))
   }
@@ -365,6 +377,36 @@ function SettingsForm({ me }: { me: UserProfile }) {
                     />
                   </div>
                 </div>
+              </div>
+            </Panel>
+          </SettingsSection>
+
+          <SettingsSection
+            id="body-strength"
+            icon={Scale}
+            title="Body & Strength Score"
+            description="Bodyweight and sex feed the DOTS relative-strength score on the Insights page."
+          >
+            <Panel p="md">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid content-start gap-1.5">
+                  <SectionLabel>Sex</SectionLabel>
+                  <Select
+                    aria-label="Sex"
+                    placeholder="Prefer not to say"
+                    data={[
+                      { value: 'male', label: 'Male' },
+                      { value: 'female', label: 'Female' },
+                    ]}
+                    value={sex}
+                    onChange={(value) => setSex((value as Sex | null) ?? null)}
+                    clearable
+                  />
+                  <Caption mt={1} lh={1.4}>
+                    Only used for DOTS relative-strength scoring on the Insights page.
+                  </Caption>
+                </div>
+                <BodyweightLogger units={units} />
               </div>
             </Panel>
           </SettingsSection>
@@ -671,6 +713,104 @@ function SettingsSidebar({ active }: { active: string }) {
         </Panel>
       </div>
     </aside>
+  )
+}
+
+function BodyweightLogger({ units }: { units: Unit }) {
+  const queryClient = useQueryClient()
+  const entriesQuery = useQuery(bodyweightEntriesQueryOptions())
+  const [weight, setWeight] = useState<number | string>('')
+
+  const invalidateBodyweightConsumers = () => {
+    void queryClient.invalidateQueries({ queryKey: ['bodyweight'] })
+    void queryClient.invalidateQueries({ queryKey: ['history', 'dashboard'] })
+  }
+
+  const logMutation = useMutation({
+    mutationFn: (value: number) => logBodyweightFn({ data: { weight: value, unit: units } }),
+    onSuccess: () => {
+      setWeight('')
+      invalidateBodyweightConsumers()
+    },
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Could not log bodyweight',
+        message: getApiErrorMessage(error, 'Unable to log bodyweight'),
+      })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteBodyweightEntryFn({ data: { id } }),
+    onSuccess: invalidateBodyweightConsumers,
+    onError: (error) => {
+      notifications.show({
+        color: 'danger',
+        title: 'Could not delete entry',
+        message: getApiErrorMessage(error, 'Unable to delete bodyweight entry'),
+      })
+    },
+  })
+
+  const canLog = typeof weight === 'number' && weight > 0
+  // Server returns entries oldest-first; show the latest five, newest first.
+  const recentEntries = (entriesQuery.data ?? []).slice(-5).reverse()
+
+  return (
+    <div className="grid content-start gap-1.5">
+      <SectionLabel>Bodyweight</SectionLabel>
+      <div className="flex items-start gap-2">
+        <NumberInput
+          className="min-w-0 flex-1"
+          min={1}
+          max={units === 'lb' ? 1100 : 500}
+          decimalScale={1}
+          suffix={` ${units}`}
+          placeholder={`Today's weight (${units})`}
+          aria-label={`Bodyweight in ${units}`}
+          value={weight}
+          onChange={setWeight}
+        />
+        <Button
+          className="shrink-0"
+          disabled={!canLog}
+          loading={logMutation.isPending}
+          onClick={() => {
+            if (typeof weight === 'number' && weight > 0) logMutation.mutate(weight)
+          }}
+        >
+          Log weight
+        </Button>
+      </div>
+      {recentEntries.length ? (
+        <div className="mt-1 grid gap-0.5">
+          {recentEntries.map((entry) => (
+            <div key={entry.id} className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-baseline gap-1.5">
+                <Text size="sm" fw={700}>
+                  {formatNumber(convertLoad(entry.weightKg, 'kg', units))} {units}
+                </Text>
+                <Caption>· {formatCompactDate(entry.recordedOn)}</Caption>
+              </div>
+              <button
+                type="button"
+                aria-label={`Delete bodyweight entry from ${formatCompactDate(entry.recordedOn)}`}
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(entry.id)}
+              >
+                <Trash2 size={14} color="var(--mantine-color-dimmed)" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : entriesQuery.isPending ? null : (
+        <Caption mt={1} lh={1.4}>
+          No bodyweight logged yet — your DOTS score unlocks with the first entry.
+        </Caption>
+      )}
+    </div>
   )
 }
 
