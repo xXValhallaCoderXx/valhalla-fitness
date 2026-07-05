@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import type { ProgramStateDefaults, ThemePreference, Unit, UserProfile } from '~/shared/types'
+import type { ProgramStateDefaults, Sex, ThemePreference, Unit, UserProfile } from '~/shared/types'
 import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
 
 async function requireUser() {
@@ -73,6 +73,7 @@ export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promi
     onboardingCompleted: Boolean(profile.onboarding_completed),
     liveOnboardingDismissed: Boolean(profile.live_onboarding_dismissed),
     postWorkoutFeedbackDismissed: Boolean(profile.post_workout_feedback_dismissed),
+    sex: (profile.sex ?? null) as Sex | null,
   }
 })
 
@@ -105,6 +106,8 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
       equipmentProfile: string[]
       themePreference: ThemePreference
       programStateDefaults: ProgramStateDefaults
+      /** Omitted = leave unchanged (partial callers like UserMenu); null = explicitly cleared. */
+      sex?: Sex | null
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -118,6 +121,7 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
         equipment_profile: data.equipmentProfile,
         theme_preference: data.themePreference,
         program_state_defaults: programStateDefaults,
+        ...(data.sex !== undefined ? { sex: data.sex } : {}),
       })
       .eq('id', user.id)
     if (error) throw new Error(error.message)

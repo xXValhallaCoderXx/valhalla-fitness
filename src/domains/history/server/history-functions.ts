@@ -1,12 +1,14 @@
 import { createServerFn } from '@tanstack/react-start'
 import type {
-  HistoryDashboard,
+  BodyweightEntry,
+  HistoryDashboardWithInsights,
   MovementHistoryEntry,
   PlannedSession,
   ProgramOverview,
   ProgramRecentSessionSummary,
   ProgressionDecision,
   RecentHistoryEntry,
+  Sex,
   Unit,
 } from '~/shared/types'
 import {
@@ -14,6 +16,7 @@ import {
   type HistorySessionInput,
   type HistorySubstitutionInput,
 } from '~/domains/history/lib/history'
+import { buildHistoryInsights } from '~/domains/history/lib/build-insights'
 import { buildProgramOverview } from '~/domains/program/lib/program-overview'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { mapProgressionDecision } from '~/domains/program/server/program-functions'
@@ -23,6 +26,27 @@ import { getTodayInternal } from '~/domains/session/server/session-functions'
 async function requireUser() {
   const { requireUser } = await import('~/shared/server/require-user')
   return requireUser()
+}
+
+/**
+ * Sessions for the insights dashboard: ~2.5 years at 4×/week. The child-row
+ * queries below must go through chunkedIn at this scale — a single
+ * .in('exercise_log_id', ...) with thousands of ids overflows the GET URL.
+ */
+const SESSION_FETCH_LIMIT = 520
+const IN_CHUNK_SIZE = 150
+
+async function chunkedIn<T>(
+  ids: string[],
+  fetchChunk: (chunk: string[]) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const rows: T[] = []
+  for (let start = 0; start < ids.length; start += IN_CHUNK_SIZE) {
+    const { data, error } = await fetchChunk(ids.slice(start, start + IN_CHUNK_SIZE))
+    if (error) throw new Error(error.message)
+    rows.push(...(data ?? []))
+  }
+  return rows
 }
 
 /** Lineage keys of the user's favourited workouts — repeats of a favourite show its star. */
@@ -60,32 +84,35 @@ export async function getHistoryInputs(
   if (!sessionIds.length) return { sessions: [], substitutions: [] }
   const favoriteKeys = await getFavoriteLineageKeys(supabase, userId)
 
-  const { data: exerciseRows, error: exerciseError } = await supabase
-    .from('exercise_logs')
-    .select('id, session_id, planned_movement_id, performed_movement_id, role, target_summary, order_index')
-    .eq('user_id', userId)
-    .in('session_id', sessionIds)
-    .order('order_index', { ascending: true })
-  if (exerciseError) throw new Error(exerciseError.message)
+  // Children of a parent id always land in that id's chunk, so per-session /
+  // per-exercise ordering survives chunk concatenation.
+  const exerciseRows = await chunkedIn<any>(sessionIds, (chunk) =>
+    supabase
+      .from('exercise_logs')
+      .select('id, session_id, planned_movement_id, performed_movement_id, role, target_summary, order_index')
+      .eq('user_id', userId)
+      .in('session_id', chunk)
+      .order('order_index', { ascending: true }),
+  )
 
-  const exerciseIds = (exerciseRows ?? []).map((exercise: any) => exercise.id as string)
-  const { data: setRows, error: setError } = exerciseIds.length
-    ? await supabase
-        .from('set_logs')
-        .select('id, exercise_log_id, set_index, target_load, target_reps, target_rep_min, target_rep_max, target_rir, actual_load, actual_reps, actual_rir, completed, is_top_set, is_amrap, is_backoff')
-        .eq('user_id', userId)
-        .in('exercise_log_id', exerciseIds)
-        .order('set_index', { ascending: true })
-    : { data: [], error: null }
-  if (setError) throw new Error(setError.message)
+  const exerciseIds = exerciseRows.map((exercise: any) => exercise.id as string)
+  const setRows = await chunkedIn<any>(exerciseIds, (chunk) =>
+    supabase
+      .from('set_logs')
+      .select('id, exercise_log_id, set_index, target_load, target_reps, target_rep_min, target_rep_max, target_rir, actual_load, actual_reps, actual_rir, completed, is_top_set, is_amrap, is_backoff')
+      .eq('user_id', userId)
+      .in('exercise_log_id', chunk)
+      .order('set_index', { ascending: true }),
+  )
 
-  const { data: substitutionRows, error: substitutionError } = await supabase
-    .from('substitution_logs')
-    .select('id, session_id, planned_movement_id, performed_movement_id, reason, note, created_at')
-    .eq('user_id', userId)
-    .in('session_id', sessionIds)
-    .order('created_at', { ascending: false })
-  if (substitutionError) throw new Error(substitutionError.message)
+  const substitutionRows = await chunkedIn<any>(sessionIds, (chunk) =>
+    supabase
+      .from('substitution_logs')
+      .select('id, session_id, planned_movement_id, performed_movement_id, reason, note, created_at')
+      .eq('user_id', userId)
+      .in('session_id', chunk)
+      .order('created_at', { ascending: false }),
+  )
 
   const setsByExerciseId = new Map<string, any[]>()
   for (const set of setRows ?? []) {
@@ -205,11 +232,45 @@ async function getAcceptedDecisionsInternal(supabase: any, userId: string, progr
   return (data ?? []).map(mapProgressionDecision)
 }
 
-export const getHistoryDashboardFn = createServerFn({ method: 'GET' }).handler(async (): Promise<HistoryDashboard> => {
-  const { supabase, user } = await requireUser()
-  const history = await getHistoryInputs(supabase, user.id, { limit: 240 })
-  return buildHistoryDashboard(history)
-})
+async function getBodyweightEntriesInternal(supabase: any, userId: string): Promise<BodyweightEntry[]> {
+  const { data, error } = await supabase
+    .from('bodyweight_entries')
+    .select('id, recorded_on, weight_kg')
+    .eq('user_id', userId)
+    .order('recorded_on', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row: any): BodyweightEntry => ({
+    id: row.id,
+    recordedOn: row.recorded_on,
+    weightKg: Number(row.weight_kg),
+  }))
+}
+
+async function getProfileSexInternal(supabase: any, userId: string): Promise<Sex | null> {
+  const { data, error } = await supabase.from('profiles').select('sex').eq('id', userId).maybeSingle()
+  if (error) throw new Error(error.message)
+  return (data?.sex as Sex | undefined) ?? null
+}
+
+export const getHistoryDashboardFn = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<HistoryDashboardWithInsights> => {
+    const { supabase, user } = await requireUser()
+    const [history, bodyweightEntries, sex] = await Promise.all([
+      getHistoryInputs(supabase, user.id, { limit: SESSION_FETCH_LIMIT }),
+      getBodyweightEntriesInternal(supabase, user.id),
+      getProfileSexInternal(supabase, user.id),
+    ])
+    const dashboard = buildHistoryDashboard(history)
+    const insights = buildHistoryInsights({
+      sessions: history.sessions,
+      overview: dashboard.overview,
+      bodyweightEntries,
+      sex,
+      now: new Date().toISOString(),
+    })
+    return { ...dashboard, insights }
+  },
+)
 
 export const getProgramOverviewFn = createServerFn({ method: 'GET' }).handler(async (): Promise<ProgramOverview> => {
   const today = await getTodayInternal()
