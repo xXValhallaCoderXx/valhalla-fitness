@@ -32,7 +32,7 @@ const HISTORY_TABS: Array<{ value: HistoryTab; label: string; icon: ReactNode }>
 ]
 
 /** Tabs whose trend cards respond to the global range switch. */
-const RANGED_TABS: HistoryTab[] = ['strength']
+const RANGED_TABS: HistoryTab[] = ['overview', 'strength']
 
 export function HistoryPage({ user, initialTab }: { user: unknown; initialTab?: HistoryTab }) {
   if (!user) {
@@ -133,6 +133,9 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
         <Tabs.Panel value="overview">
           <OverviewTab
             data={data}
+            gating={gating}
+            range={range}
+            programOverview={programOverview}
             activeProgramTitle={activeProgramTitle}
             onOpenSession={setSelectedSessionId}
             onNavigate={setActiveTab}
