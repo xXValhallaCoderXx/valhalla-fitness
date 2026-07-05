@@ -10,8 +10,8 @@ import type {
   TotalPoint,
   Unit,
 } from '~/shared/types'
-import { e1rm, mround } from '~/shared/lib/math'
-import { convertLoad, parseDate, type HistorySessionInput } from '~/domains/history/lib/history'
+import { e1rm, mround, convertWeight } from '~/shared/lib/math'
+import { parseDate, type HistorySessionInput } from '~/domains/history/lib/history'
 import { getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
 
 export const E1RM_MAX_REPS = 12
@@ -260,7 +260,7 @@ export function buildPowerliftingTotal(
       bests.reduce((sum, value) => sum + value, 0),
       0.5,
     )
-    totals.push({ date, total, totalKg: convertLoad(total, units ?? 'kg', 'kg') })
+    totals.push({ date, total, totalKg: convertWeight(total, units ?? 'kg', 'kg') })
   }
 
   return totals

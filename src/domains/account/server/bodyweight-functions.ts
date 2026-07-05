@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import type { BodyweightEntry, Unit } from '~/shared/types'
-import { convertLoad } from '~/domains/history/lib/history'
+import { convertWeight } from '~/shared/lib/math'
 
 async function requireUser() {
   const { requireUser } = await import('~/shared/server/require-user')
@@ -24,7 +24,7 @@ export const bodyweightBoundsKg = { min: 20, max: 500 }
  * `now` is an ISO timestamp injected by the caller so the default date is testable.
  */
 export function normalizeBodyweightLog(input: BodyweightLogInput, now: string): { recordedOn: string; weightKg: number } {
-  const weightKg = convertLoad(input.weight, input.unit, 'kg')
+  const weightKg = convertWeight(input.weight, input.unit, 'kg')
   if (!Number.isFinite(weightKg) || weightKg <= bodyweightBoundsKg.min || weightKg >= bodyweightBoundsKg.max) {
     throw new Error('That bodyweight looks unlikely — enter a weight between 20 and 500 kg (about 44 and 1100 lb).')
   }

@@ -2,11 +2,11 @@ import { Alert, Box, Button, Card, Divider, PasswordInput, TextInput } from '@ma
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Mail } from 'lucide-react'
-import { type ReactNode, useState } from 'react'
-import { BrandLockup, BrandMark, Caption, Heading, Panel, SectionLabel, Text, toneColor } from '~/components'
+import { AlertTriangle, ArrowRight, Check, Mail } from 'lucide-react'
+import { useState } from 'react'
+import { BrandMark, Caption, Heading, SectionLabel, Text } from '~/components'
 import { sendBrowserMagicLink, startBrowserGoogleSignIn } from '~/domains/account/lib/oauth-browser'
-import { isValidEmail, scorePasswordStrength } from '~/domains/account/lib/password-strength'
+import { isValidEmail } from '~/domains/account/lib/password-strength'
 import { useCompleteAuthRedirect } from '~/domains/account/lib/useCompleteAuthRedirect'
 import { authPolicyQueryOptions } from '~/domains/account/queries'
 import {
@@ -17,142 +17,12 @@ import {
   startGoogleSignInFn,
 } from '~/domains/account/server/auth-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { GoogleGIcon, PasswordStrengthMeter } from './auth/AuthFormControls'
+import { AuthSentPanel, type SentKind, type SentState } from './auth/AuthSentPanel'
+import { AuthSidePanel } from './auth/AuthSidePanel'
 
 type AuthMode = 'login' | 'signup'
 type AuthMessage = { tone: 'success' | 'danger' | 'neutral'; text: string }
-type SentKind = 'magic' | 'reset' | 'signup'
-/** When an email is dispatched we swap the form for a confirmation view. `message` carries the
- * server's neutral copy for the allowlist case, where we must not assert that a link was sent. */
-type SentState = { kind: SentKind; email: string; message?: string }
-
-const sidePanelChips = ['Est. 1RM 108 kg', 'Fatigue Fresh']
-const sidePanelReceipt = [
-  'Last time you hit 87.5 × 5 at RIR 1–2.',
-  'So Sheetless added 2.5 kg today.',
-]
-
-const sentCopy: Record<SentKind, { title: string; body: (email: ReactNode) => ReactNode }> = {
-  magic: {
-    title: 'Check your inbox',
-    body: (email) => <>We sent a one-time sign-in link to {email}.</>,
-  },
-  reset: {
-    title: 'Reset link sent',
-    body: (email) => <>We sent a password-reset link to {email}. Follow it to choose a new password.</>,
-  },
-  signup: {
-    title: 'Confirm your email',
-    body: (email) => <>We sent a confirmation link to {email}. Confirm it to finish setting up your account.</>,
-  },
-}
-
-function GoogleGIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="#4285F4"
-        d="M23.52 12.27c0-.79-.07-1.54-.2-2.27H12v4.51h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.87Z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 24c3.24 0 5.96-1.08 7.95-2.91l-3.88-3c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09A12 12 0 0 0 12 24Z"
-      />
-      <path fill="#FBBC05" d="M5.27 14.28a7.2 7.2 0 0 1 0-4.56V6.63H1.29a12 12 0 0 0 0 10.74l3.98-3.09Z" />
-      <path
-        fill="#EA4335"
-        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.44-3.44A11.99 11.99 0 0 0 12 0 12 12 0 0 0 1.29 6.63l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75Z"
-      />
-    </svg>
-  )
-}
-
-/** Sign-up only: a themed bar + label derived from the pure `scorePasswordStrength` scorer. */
-function PasswordStrengthMeter({ password }: { password: string }) {
-  const strength = scorePasswordStrength(password)
-  const color = toneColor(strength.tone)
-  return (
-    <div className="mt-2 flex items-center gap-3">
-      <div
-        className="h-1.5 flex-1 overflow-hidden rounded-full"
-        style={{ backgroundColor: 'var(--mantine-color-default-border)' }}
-      >
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${strength.widthPct}%`, backgroundColor: color, transition: 'width 160ms ease' }}
-        />
-      </div>
-      <Text component="span" size="xs" fw={700} ta="right" tone={strength.tone} style={{ width: '4.5rem' }}>
-        {strength.label}
-      </Text>
-    </div>
-  )
-}
-
-/** Post-send confirmation shown in place of the form for magic-link / reset / sign-up emails. */
-function AuthSentPanel({
-  sent,
-  resending,
-  errorText,
-  onResend,
-  onBack,
-}: {
-  sent: SentState
-  resending: boolean
-  errorText: string | null
-  onResend: () => void
-  onBack: () => void
-}) {
-  const copy = sentCopy[sent.kind]
-  return (
-    <div className="mt-6">
-      <span
-        className="inline-flex h-14 w-14 items-center justify-center rounded-full"
-        style={{ backgroundColor: 'var(--vf-success-soft)' }}
-      >
-        <Mail color="var(--vf-success-text)" size={28} />
-      </span>
-      <Heading order={1} size="1.5rem" lh={1.15} mt="md">
-        {copy.title}
-      </Heading>
-      <Text component="p" size="sm" tone="dimmed" fw={600} mt={8} lh={1.55}>
-        {sent.message ?? (
-          <>
-            {copy.body(
-              <Text component="span" inherit fw={700} tone="default">
-                {sent.email}
-              </Text>,
-            )}
-          </>
-        )}
-      </Text>
-
-      <Caption component="p" mt="md">
-        Didn’t get it? Check your spam folder, or resend below.
-      </Caption>
-
-      {errorText ? (
-        <Alert mt="md" color="danger" role="alert" icon={<AlertTriangle size={16} />}>
-          {errorText}
-        </Alert>
-      ) : null}
-
-      <Button className="mt-5" type="button" fullWidth size="md" variant="subtle" onClick={onResend} loading={resending}>
-        Resend email
-      </Button>
-      <Button
-        className="mt-2"
-        type="button"
-        fullWidth
-        size="md"
-        variant="default"
-        leftSection={<ArrowLeft color="currentColor" size={17} />}
-        onClick={onBack}
-      >
-        Back to sign in
-      </Button>
-    </div>
-  )
-}
 
 export function AuthPage() {
   const completeAuthRedirect = useCompleteAuthRedirect()
@@ -313,90 +183,7 @@ export function AuthPage() {
       c="var(--mantine-color-text)"
       className="grid min-h-screen md:grid-cols-[minmax(20rem,0.9fr)_minmax(26rem,1.1fr)]"
     >
-      {/* Left cockpit panel */}
-      <Box
-        component="section"
-        bg="var(--vf-bg-elevated)"
-        className="relative hidden overflow-hidden p-8 md:flex md:flex-col md:justify-between lg:p-12"
-        style={{ borderRight: '1px solid var(--mantine-color-default-border)' }}
-      >
-        <div className="vf-radial-glow absolute inset-0" style={{ ['--vf-glow-x' as string]: '12%' }} aria-hidden />
-        <div className="vf-dot-grid absolute inset-0" aria-hidden />
-
-        <div className="relative">
-          <Link to="/" aria-label="Sheetless home" className="inline-flex w-fit">
-            <BrandLockup size="md" />
-          </Link>
-        </div>
-
-        <div className="relative max-w-md py-8">
-          <SectionLabel>Training cockpit</SectionLabel>
-          <Heading order={2} size="2.25rem" lh={1.07} mt="xs">
-            Planned work, fast logging, clear progression.
-          </Heading>
-          <Text component="p" size="lg" tone="dimmed" fw={600} mt="md" maw="27rem">
-            Sign in and pick up exactly where you left off — your plan, your loads, and your next decision
-            are already waiting.
-          </Text>
-
-          <div className="vf-floaty mt-8 max-w-sm">
-            <Panel p={0} className="overflow-hidden">
-              <div
-                className="flex items-center justify-between gap-3 px-4 py-3"
-                style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
-              >
-                <Heading order={3} size="0.95rem" lh={1.2}>
-                  Squat · Week 4
-                </Heading>
-                <span
-                  className="rounded-full px-2.5 py-1"
-                  style={{
-                    backgroundColor: 'var(--vf-success-soft)',
-                    border: '1px solid var(--vf-success-border)',
-                  }}
-                >
-                  <Caption fw={800} tt="uppercase" tone="success">
-                    On track
-                  </Caption>
-                </span>
-              </div>
-              <div className="p-4">
-                <SectionLabel>Next session</SectionLabel>
-                <Heading order={3} size="1.6rem" lh={1.1} mt={3}>
-                  90 kg{' '}
-                  <Text component="span" inherit tone="dimmed">
-                    × 5
-                  </Text>
-                </Heading>
-                <div className="mt-3 grid gap-2">
-                  {sidePanelReceipt.map((line) => (
-                    <div key={line} className="flex gap-2.5">
-                      <CheckCircle2 color="var(--vf-success-text)" size={16} className="mt-0.5 shrink-0" />
-                      <Text component="p" size="sm" tone="dimmed" fw={600}>
-                        {line}
-                      </Text>
-                    </div>
-                  ))}
-                </div>
-                <div
-                  className="mt-3 flex flex-wrap gap-2 pt-3"
-                  style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}
-                >
-                  {sidePanelChips.map((chip) => (
-                    <span key={chip} className="vf-chip">
-                      {chip}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </Panel>
-          </div>
-        </div>
-
-        <div className="relative flex items-center gap-2">
-
-        </div>
-      </Box>
+      <AuthSidePanel />
 
       {/* Right auth panel */}
       <Box component="section" className="flex min-h-screen items-center justify-center px-4 py-8 md:px-8">

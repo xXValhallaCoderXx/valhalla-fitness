@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { normalizeFeedbackInput, type SubmitFeedbackInput } from '~/domains/feedback/lib/feedback-options'
+import type { Json } from '~/shared/types/database'
 
 async function requireUser() {
   const { requireUser } = await import('~/shared/server/require-user')
@@ -21,7 +22,7 @@ export const submitFeedbackFn = createServerFn({ method: 'POST' })
       route: input.route,
       session_id: input.sessionId,
       decision_id: input.decisionId,
-      metadata: input.metadata ?? {},
+      metadata: (input.metadata ?? {}) as Json,
     })
     if (error) throw new Error(error.message)
     return { ok: true as const }

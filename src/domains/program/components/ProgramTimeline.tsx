@@ -2,6 +2,7 @@ import { Badge, Card, Group } from '@mantine/core'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { Fragment, useState } from 'react'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
+import { formatNumber } from '~/shared/lib/set-notation'
 import type {
   ProgramTrajectory,
   TrajectoryLiftTarget,
@@ -169,7 +170,7 @@ function TargetSegment({ target }: { target: TrajectoryLiftTarget }) {
     <Text component="span" size="sm" tone="dimmed" style={{ whiteSpace: 'nowrap' }}>
       {target.label}{' '}
       <Text component="span" size="sm" fw={700} tone="default">
-        {formatLoad(target.load)}
+        {formatNumber(target.load)}
       </Text>
     </Text>
   )
@@ -228,7 +229,7 @@ function ValuePillsPanel({
             <Group gap={6} wrap="nowrap">
               <Caption fw={600}>{pill.label}</Caption>
               <Text size="sm" fw={800}>
-                {formatLoad(pill.value)}
+                {formatNumber(pill.value)}
               </Text>
             </Group>
           </Panel>
@@ -236,8 +237,4 @@ function ValuePillsPanel({
       </Group>
     </Panel>
   )
-}
-
-function formatLoad(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }

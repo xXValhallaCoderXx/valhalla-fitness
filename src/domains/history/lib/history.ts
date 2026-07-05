@@ -15,6 +15,7 @@ import type {
 import { calculateBodyLoad, type BodyLoadWork } from '~/domains/history/lib/body-load'
 import { getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
 import { e1rm, mround } from '~/domains/program/lib/progression'
+import { convertWeight } from '~/shared/lib/math'
 
 export type HistorySetInput = MovementHistorySet & {
   actualRpe?: number | null
@@ -118,7 +119,7 @@ export function calculateCompletedVolumeInUnits(
 ) {
   return sets.reduce((total, set) => {
     if (!set.completed || !hasNumber(set.actualLoad) || !hasNumber(set.actualReps)) return total
-    return total + convertLoad(set.actualLoad, sourceUnits, targetUnits) * set.actualReps
+    return total + convertWeight(set.actualLoad, sourceUnits, targetUnits) * set.actualReps
   }, 0)
 }
 
@@ -366,11 +367,6 @@ function hasNumber(value: unknown): value is number {
 
 function exerciseUnits(session: HistorySessionInput, fallback: Unit): Unit {
   return session.units ?? fallback
-}
-
-export function convertLoad(value: number, sourceUnits: Unit, targetUnits: Unit) {
-  if (sourceUnits === targetUnits) return value
-  return sourceUnits === 'lb' ? value / 2.20462262185 : value * 2.20462262185
 }
 
 export function parseDate(value?: string | null) {

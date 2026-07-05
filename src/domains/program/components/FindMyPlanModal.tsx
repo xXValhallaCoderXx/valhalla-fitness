@@ -1,59 +1,19 @@
-import { Badge, Button, Modal, Popover } from '@mantine/core'
+import { Modal } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Info,
-  Pencil,
-  RefreshCw,
-  RotateCcw,
-  Scale,
-  Sparkles,
-  TrendingUp,
-  X,
-} from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
+import { useEffect, useMemo, useState } from 'react'
 import { programSetupOptionsQueryOptions } from '~/domains/program/queries'
-import { cn } from '~/shared/lib/cn'
 import type { ProgramTemplateSummary } from '~/shared/types'
+import { type WizardAnswers } from '~/domains/program/lib/find-my-plan'
 import {
   FIND_MY_PLAN_QUESTIONS,
   recommendFamilies,
-  TAG_GLOSSARY,
   type ExperienceLevel,
   type FindMyPlanAnswers,
   type PlanGoal,
 } from '~/domains/program/lib/recommend-plan'
 import { templateFamilies } from '~/domains/program/lib/template-families'
-
-type WizardAnswers = Partial<Record<'experience' | 'days' | 'goal', string | number>>
-
-const RECAP_KEYS = ['experience', 'days', 'goal'] as const
-
-const TAG_LABELS: Record<string, string> = {
-  '5x5': '5×5',
-  'upper-lower': 'Upper/Lower',
-  'training max': 'Training max',
-  'high volume': 'High volume',
-}
-
-function tagLabel(tag: string) {
-  return TAG_LABELS[tag] ?? tag.charAt(0).toUpperCase() + tag.slice(1)
-}
-
-function levelTone(complexity: string): 'success' | 'action' | 'warning' {
-  if (complexity === 'Beginner') return 'success'
-  if (complexity === 'Advanced') return 'warning'
-  return 'action'
-}
-
-function answerLabel(key: string, value: string | number | undefined) {
-  const question = FIND_MY_PLAN_QUESTIONS.find((item) => item.key === key)
-  return question?.options.find((option) => option.value === value)?.label ?? '—'
-}
+import { FindMyPlanQuestions } from './find-my-plan/FindMyPlanQuestions'
+import { FindMyPlanResult } from './find-my-plan/FindMyPlanResult'
 
 /**
  * Step-by-step plan picker: one question at a time → a ranked result with a real "typical week"
@@ -109,8 +69,6 @@ export function FindMyPlanModal({
   }, [phase, answers, templates])
   const activeIndex = Math.min(selected, Math.max(0, recs.length - 1))
   const activeRec = recs[activeIndex]
-  const glossedTags = activeRec ? activeRec.template.tags.filter((tag) => TAG_GLOSSARY[tag]) : []
-  const isReco = activeIndex === 0
   const goodFits = recs.map((rec, index) => ({ rec, index })).filter((entry) => entry.index !== activeIndex).slice(0, 2)
 
   const weekQuery = useQuery({
@@ -152,8 +110,6 @@ export function FindMyPlanModal({
     if (activeRec) onStart(activeRec.template.id)
   }
 
-  const progressPct = Math.round(((step + 1) / totalSteps) * 100)
-
   return (
     <Modal
       opened={opened}
@@ -171,386 +127,31 @@ export function FindMyPlanModal({
       }}
     >
       {phase === 'questions' ? (
-        <div className="flex h-full flex-col overflow-hidden sm:max-h-[88dvh] md:h-[680px] md:max-h-none md:flex-row">
-          {/* LEFT — question */}
-          <div
-            className="flex min-h-0 flex-1 flex-col p-5 md:w-[360px] md:flex-none md:border-r"
-            style={{ borderColor: 'var(--mantine-color-default-border)' }}
-          >
-            <ModalHeader onClose={onClose} />
-
-            <div className="mt-6">
-              <div className="mb-2 flex items-center justify-between">
-                <SectionLabel size="0.625rem">
-                  Question {step + 1} of {totalSteps}
-                </SectionLabel>
-                <Caption fw={800} tone="action">
-                  {progressPct}%
-                </Caption>
-              </div>
-              <ProgressBar pct={progressPct} />
-            </div>
-
-            <Heading order={2} size="1.25rem" lh={1.25} mt="lg">
-              {question.title}
-            </Heading>
-            <Caption component="p" mt={6} lh={1.5}>
-              {question.helper}
-            </Caption>
-
-            <div className="mt-4 flex flex-col gap-2.5">
-              {question.options.map((option) => (
-                <OptionCard
-                  key={String(option.value)}
-                  selected={answers[question.key] === option.value}
-                  label={option.label}
-                  sub={option.sub}
-                  onClick={() => choose(option.value)}
-                />
-              ))}
-            </div>
-
-            <div className="flex-1" />
-            {step > 0 ? (
-              <button
-                type="button"
-                onClick={back}
-                className="mt-4 inline-flex items-center gap-1.5 self-start py-1"
-                style={{ color: 'var(--mantine-color-dimmed)' }}
-              >
-                <ChevronLeft size={16} />
-                <Caption component="span" fw={600} c="inherit">
-                  Back
-                </Caption>
-              </button>
-            ) : null}
-          </div>
-
-          {/* RIGHT — reassurance (desktop only) */}
-          <div className="hidden min-h-0 flex-1 md:flex md:flex-col" style={{ backgroundColor: 'var(--vf-surface-2)' }}>
-            <div className="flex h-full flex-col p-7">
-              <SectionLabel>So far</SectionLabel>
-              {RECAP_KEYS.some((key) => answers[key] != null) ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {RECAP_KEYS.filter((key) => answers[key] != null).map((key) => (
-                    <span key={key} className="vf-chip" data-active="true">
-                      <Caption component="span" fw={700} c="inherit">
-                        {answerLabel(key, answers[key])}
-                      </Caption>
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <Text component="p" size="sm" tone="dimmed" fw={600} mt="sm" maw="22rem">
-                  Answer on the left and your picks show up here. We&apos;ll keep it to three quick questions.
-                </Text>
-              )}
-
-              <div className="mt-auto">
-                <Panel p="md">
-                  <Heading order={3} size="0.95rem" lh={1.2}>
-                    Whatever you pick, Sheetless handles the rest
-                  </Heading>
-                  <div className="mt-3.5 flex flex-col gap-3">
-                    <Reassurance icon={<Scale size={15} color="var(--vf-action-text)" />}>
-                      Your starting weights, worked out for you
-                    </Reassurance>
-                    <Reassurance icon={<TrendingUp size={15} color="var(--vf-action-text)" />}>
-                      When to add weight, every session
-                    </Reassurance>
-                    <Reassurance icon={<RefreshCw size={15} color="var(--vf-action-text)" />}>
-                      A different plan anytime — nothing&apos;s locked in
-                    </Reassurance>
-                  </div>
-                </Panel>
-              </div>
-            </div>
-          </div>
-        </div>
+        <FindMyPlanQuestions
+          step={step}
+          answers={answers}
+          onChoose={choose}
+          onBack={back}
+          onClose={onClose}
+        />
       ) : (
-        <div className="flex h-full flex-col overflow-hidden sm:max-h-[88dvh] md:h-[680px] md:max-h-none">
-          <div className="border-b px-5 py-4 md:px-7" style={{ borderColor: 'var(--mantine-color-default-border)' }}>
-            <ModalHeader onClose={onClose} />
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--vf-surface-2)' }}>
-            <div className="mx-auto max-w-[40rem] p-5 pb-8 md:p-7 md:pb-10">
-              {/* editable recap */}
-              <div className="flex flex-wrap items-center gap-2">
-                {FIND_MY_PLAN_QUESTIONS.map((item, index) => (
-                  <button key={item.key} type="button" onClick={() => editAnswer(index)} className="vf-chip" data-active="true">
-                    <Caption component="span" fw={700} c="inherit">
-                      {answerLabel(item.key, answers[item.key])}
-                    </Caption>
-                    <Pencil size={11} />
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="inline-flex items-center gap-1.5 px-1 py-1"
-                  style={{ color: 'var(--mantine-color-dimmed)' }}
-                >
-                  <RotateCcw size={14} />
-                  <Caption component="span" fw={600} c="inherit">
-                    Start over
-                  </Caption>
-                </button>
-              </div>
-
-              {activeRec ? (
-                <div className="mt-4">
-                  <Badge color={isReco ? 'action' : 'warning'} variant="light" radius="xl">
-                    {isReco ? 'We recommend' : 'Also a good fit'}
-                  </Badge>
-                  <Heading order={2} size="1.5rem" lh={1.15} mt="sm">
-                    {activeRec.family.name}
-                  </Heading>
-                  <Text component="p" size="sm" fw={700} mt={4}>
-                    Recommended schedule: {activeRec.template.variantLabel ?? activeRec.template.name}
-                  </Text>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Badge color={levelTone(activeRec.template.complexity)} variant="light">
-                      {activeRec.template.complexity}
-                    </Badge>
-                    <Caption>{activeRec.template.daysPerWeek} days/week</Caption>
-                    <span className="h-1 w-1 rounded-full" style={{ backgroundColor: 'var(--mantine-color-dimmed)' }} />
-                    <Caption>{activeRec.template.progressionLabel}</Caption>
-                  </div>
-                  <Text component="p" size="sm" tone="dimmed" fw={600} mt="sm" lh={1.55}>
-                    {activeRec.reason}
-                  </Text>
-
-                  {/* tags + a single glossary popover (tap-friendly — not per-pill toggles) */}
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    {activeRec.template.tags.map((tag) => (
-                      <span key={tag} className="vf-chip">
-                        <Caption component="span" fw={700} c="inherit">
-                          {tagLabel(tag)}
-                        </Caption>
-                      </span>
-                    ))}
-                    {glossedTags.length ? (
-                      <Popover withArrow withinPortal shadow="md" radius="md" width={320} position="bottom-start">
-                        <Popover.Target>
-                          <button type="button" className="vf-chip">
-                            <Info size={11} />
-                            <Caption component="span" fw={700} c="inherit">
-                              What do these mean?
-                            </Caption>
-                          </button>
-                        </Popover.Target>
-                        <Popover.Dropdown>
-                          <div className="grid gap-2.5">
-                            {glossedTags.map((tag) => (
-                              <div key={tag}>
-                                <Text size="sm" fw={800}>
-                                  {tagLabel(tag)}
-                                </Text>
-                                <Caption lh={1.5}>{TAG_GLOSSARY[tag]}</Caption>
-                              </div>
-                            ))}
-                          </div>
-                        </Popover.Dropdown>
-                      </Popover>
-                    ) : null}
-                  </div>
-
-                  {/* typical week */}
-                  <div className="mt-5 flex items-center justify-between">
-                    <SectionLabel className="hidden md:block">A typical week</SectionLabel>
-                    <button
-                      type="button"
-                      onClick={() => setWeekOpen((current) => !current)}
-                      className="inline-flex items-center gap-1 md:hidden"
-                    >
-                      <Caption component="span" fw={700} tone="action">
-                        {weekOpen ? 'Hide the week' : "See what's inside"}
-                      </Caption>
-                      <ChevronDown
-                        size={16}
-                        color="var(--vf-action-text)"
-                        style={{ transform: weekOpen ? 'rotate(180deg)' : undefined, transition: 'transform .2s' }}
-                      />
-                    </button>
-                  </div>
-                  <div className={cn('mt-3 flex-col gap-2', weekOpen ? 'flex' : 'hidden', 'md:flex')}>
-                    {weekLoading ? (
-                      <Caption>Loading the week…</Caption>
-                    ) : weekSessions.length ? (
-                      weekSessions.map((session) => (
-                        <div
-                          key={session.id}
-                          className="flex items-start gap-3 rounded-xl border p-3"
-                          style={{ borderColor: 'var(--mantine-color-default-border)', backgroundColor: 'var(--mantine-color-default)' }}
-                        >
-                          <span className="shrink-0 rounded-md px-2 py-1" style={{ backgroundColor: 'var(--vf-action-soft)' }}>
-                            <Caption component="span" fw={800} tone="action">
-                              {session.label}
-                            </Caption>
-                          </span>
-                          <div className="min-w-0">
-                            <Text component="p" size="sm" fw={700}>
-                              {session.title}
-                            </Text>
-                            <Caption component="p" mt={2} lh={1.4}>
-                              {session.movementSummary}
-                            </Caption>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <Caption>Plan preview is unavailable right now.</Caption>
-                    )}
-                  </div>
-
-                  {/* actions */}
-                  <div className="mt-5 flex flex-wrap gap-2.5">
-                    <Button className="flex-1" onClick={start}>
-                      <Check size={16} />
-                      View plan
-                    </Button>
-                    {showBrowseAll ? (
-                      <Button variant="default" onClick={onClose}>
-                        Browse all
-                      </Button>
-                    ) : null}
-                  </div>
-
-                  {/* other good fits */}
-                  {goodFits.length ? (
-                    <div className="mt-8 border-t pt-6" style={{ borderColor: 'var(--mantine-color-default-border)' }}>
-                      <SectionLabel>Other good fits</SectionLabel>
-                      <div className="mt-3 flex flex-col gap-2">
-                        {goodFits.map(({ rec, index }) => (
-                          <button
-                            key={rec.template.id}
-                            type="button"
-                            onClick={() => selectPlan(index)}
-                            className="vf-card-hover flex items-center gap-3 rounded-xl border p-3 text-left"
-                            style={{ borderColor: 'var(--mantine-color-default-border)', backgroundColor: 'var(--mantine-color-default)' }}
-                          >
-                            <span
-                              className="h-9 w-1 shrink-0 rounded-full"
-                              style={{ backgroundColor: `var(--vf-${levelTone(rec.template.complexity)}-text)` }}
-                            />
-                            <span className="min-w-0 flex-1">
-                              <Text component="span" size="sm" fw={700} className="block" truncate>
-                                {rec.family.name}
-                              </Text>
-                              <Caption component="span" className="block">
-                                {rec.template.complexity} · {rec.template.variantShortLabel ?? `${rec.template.daysPerWeek} days`} · {rec.template.progressionLabel}
-                              </Caption>
-                            </span>
-                            <ChevronRight size={16} color="var(--mantine-color-dimmed)" className="shrink-0" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <Text component="p" tone="dimmed" fw={600} mt="md">
-                  No plans are available right now.
-                </Text>
-              )}
-            </div>
-          </div>
-        </div>
+        <FindMyPlanResult
+          answers={answers}
+          activeRec={activeRec}
+          activeIndex={activeIndex}
+          goodFits={goodFits}
+          weekOpen={weekOpen}
+          weekLoading={weekLoading}
+          weekSessions={weekSessions}
+          showBrowseAll={showBrowseAll}
+          onEditAnswer={editAnswer}
+          onReset={reset}
+          onToggleWeek={() => setWeekOpen((current) => !current)}
+          onSelectPlan={selectPlan}
+          onStart={start}
+          onClose={onClose}
+        />
       )}
     </Modal>
-  )
-}
-
-function ModalHeader({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2.5">
-        <span
-          className="flex h-8 w-8 items-center justify-center rounded-lg"
-          style={{ backgroundColor: 'var(--vf-action-soft)', border: '1px solid var(--vf-action-border)' }}
-        >
-          <Sparkles size={16} color="var(--vf-action-text)" />
-        </span>
-        <Text component="span" fw={800}>
-          Find my plan
-        </Text>
-      </div>
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="flex h-8 w-8 items-center justify-center rounded-lg transition"
-        style={{ color: 'var(--mantine-color-dimmed)' }}
-      >
-        <X size={18} />
-      </button>
-    </div>
-  )
-}
-
-function ProgressBar({ pct }: { pct: number }) {
-  return (
-    <div className="h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: 'var(--vf-surface-3)' }}>
-      <div
-        className="h-full rounded-full transition-[width] duration-300"
-        style={{ width: `${pct}%`, backgroundColor: 'var(--vf-action-text)' }}
-      />
-    </div>
-  )
-}
-
-function OptionCard({
-  selected,
-  label,
-  sub,
-  onClick,
-}: {
-  selected: boolean
-  label: string
-  sub: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition"
-      style={{
-        borderColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default-border)',
-        backgroundColor: selected ? 'var(--vf-action-soft)' : 'var(--mantine-color-default)',
-      }}
-    >
-      <span
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border"
-        style={{
-          borderColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default-border)',
-          backgroundColor: selected ? 'var(--mantine-primary-color-filled)' : 'transparent',
-        }}
-      >
-        {selected ? <Check size={12} color="white" /> : null}
-      </span>
-      <span className="min-w-0">
-        <Text component="span" size="sm" fw={700} className="block">
-          {label}
-        </Text>
-        <Caption component="span" className="block">
-          {sub}
-        </Caption>
-      </span>
-    </button>
-  )
-}
-
-function Reassurance({ icon, children }: { icon: ReactNode; children: ReactNode }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: 'var(--vf-action-soft)' }}>
-        {icon}
-      </span>
-      <Text component="span" size="sm" fw={600}>
-        {children}
-      </Text>
-    </div>
   )
 }

@@ -26,7 +26,8 @@ export type LiftValues = {
   amrap?: boolean
 }
 
-function formatNumber(value: number) {
+/** "147.5" — trims a trailing .0, keeps one decimal otherwise. */
+export function formatNumber(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }
 

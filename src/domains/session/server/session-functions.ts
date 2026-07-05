@@ -38,6 +38,8 @@ import { e1rm, mround } from '~/domains/program/lib/progression'
 import { accessoryOutcomeSummary, buildProgressionDecisionsForSession } from '~/domains/program/lib/progression-decisions'
 import { buildMovementSwapOptions, getMovementName } from '~/domains/movement/lib/movements'
 import { getMovementCatalogForSwap, getReplacementRulesForSwap } from '~/domains/movement/server/movement-functions'
+import type { Tables } from '~/shared/types/database'
+import type { SupabaseServerClient } from '~/shared/server/supabase'
 import {
   getActiveProgramInternal,
   getPendingDecisionsInternal,
@@ -95,7 +97,7 @@ export async function getTodayInternal(): Promise<TodayPayload> {
   if (!activeSession) {
     const nextProgram = programForNextUncompletedSession(
       activeProgram,
-      (completedSessionRows ?? []).map((row: any) => row.planned_session_id),
+      (completedSessionRows ?? []).map((row) => row.planned_session_id).filter((id): id is string => id !== null),
       scheduledDate,
       templateDefinition,
     )
@@ -142,7 +144,7 @@ type ComparableSessionRow = {
 }
 
 async function getPreviousComparablesBySlotId(
-  supabase: any,
+  supabase: SupabaseServerClient,
   userId: string,
   plannedSession: PlannedSession,
 ): Promise<Record<string, MovementSlot['previous']>> {
@@ -163,12 +165,12 @@ async function getPreviousComparablesBySlotId(
   if (exerciseError) throw new Error(exerciseError.message)
 
   const relevantExerciseRows = (exerciseRows ?? []).filter(
-    (exercise: any) =>
+    (exercise) =>
       movementIds.has(exercise.planned_movement_id) ||
       movementIds.has(exercise.performed_movement_id),
   )
-  const exerciseIds = relevantExerciseRows.map((exercise: any) => exercise.id as string)
-  const sessionIds = Array.from(new Set(relevantExerciseRows.map((exercise: any) => exercise.session_id as string)))
+  const exerciseIds = relevantExerciseRows.map((exercise) => exercise.id)
+  const sessionIds = Array.from(new Set(relevantExerciseRows.map((exercise) => exercise.session_id)))
   if (!exerciseIds.length || !sessionIds.length) return {}
 
   const { data: sessionRows, error: sessionError } = await supabase
@@ -180,16 +182,16 @@ async function getPreviousComparablesBySlotId(
   if (sessionError) throw new Error(sessionError.message)
 
   const completedSessionsById = new Map<string, ComparableSessionRow>(
-    (sessionRows ?? []).map((session: any) => [session.id, session as ComparableSessionRow]),
+    (sessionRows ?? []).map((session) => [session.id, { ...session, prescription_snapshot: session.prescription_snapshot as PlannedSession | null }]),
   )
-  const completedExerciseRows = relevantExerciseRows.filter((exercise: any) => completedSessionsById.has(exercise.session_id))
+  const completedExerciseRows = relevantExerciseRows.filter((exercise) => completedSessionsById.has(exercise.session_id))
   if (!completedExerciseRows.length) return {}
 
   const { data: setRows, error: setError } = await supabase
     .from('set_logs')
     .select('id, exercise_log_id, set_index, target_load, target_reps, target_rep_min, target_rep_max, target_rir, target_rpe, actual_load, actual_reps, actual_rir, actual_rpe, completed, is_top_set, is_amrap, is_backoff')
     .eq('user_id', userId)
-    .in('exercise_log_id', completedExerciseRows.map((exercise: any) => exercise.id))
+    .in('exercise_log_id', completedExerciseRows.map((exercise) => exercise.id))
     .order('set_index', { ascending: true })
   if (setError) throw new Error(setError.message)
 
@@ -218,14 +220,14 @@ async function getPreviousComparablesBySlotId(
     setsByExerciseId.set(row.exercise_log_id, sets)
   }
 
-  const candidates: ComparableCandidate[] = completedExerciseRows.map((exercise: any): ComparableCandidate => {
+  const candidates: ComparableCandidate[] = completedExerciseRows.map((exercise): ComparableCandidate => {
     const session = completedSessionsById.get(exercise.session_id)
-    const snapshot = session?.prescription_snapshot as PlannedSession | null
+    const snapshot = session?.prescription_snapshot ?? null
     return {
       slotId: exercise.slot_id,
       plannedMovementId: exercise.planned_movement_id,
       performedMovementId: exercise.performed_movement_id,
-      role: exercise.role,
+      role: exercise.role as MovementSlot['role'],
       completedAt: session?.completed_at,
       scheduledDate: session?.scheduled_date ?? plannedSession.scheduledDate,
       templateId: snapshot?.templateId ?? null,
@@ -352,7 +354,7 @@ export async function getSessionInternal(sessionId: string): Promise<WorkoutSess
     .order('order_index')
   if (exerciseError) throw new Error(exerciseError.message)
 
-  const exerciseIds = (exerciseRows ?? []).map((row: any) => row.id)
+  const exerciseIds = (exerciseRows ?? []).map((row) => row.id)
   const { data: setRows, error: setError } = exerciseIds.length
     ? await supabase
         .from('set_logs')
@@ -384,7 +386,7 @@ export async function getSessionInternal(sessionId: string): Promise<WorkoutSess
   return {
     ...snapshot,
     sessionId: sessionRow.id,
-    status: sessionRow.status,
+    status: sessionRow.status as WorkoutSession['status'],
     startedAt: sessionRow.started_at,
     completedAt: sessionRow.completed_at,
     notes: sessionRow.notes,
@@ -394,10 +396,10 @@ export async function getSessionInternal(sessionId: string): Promise<WorkoutSess
     syncState: 'synced',
     movements: snapshot.movements.map((movement) => {
       const slotId = movement.slotId ?? movement.id
-      const exercise = (exerciseRows ?? []).find((row: any) => row.slot_id === slotId)
+      const exercise = (exerciseRows ?? []).find((row) => row.slot_id === slotId)
       const sets = (setRows ?? [])
-        .filter((set: any) => set.exercise_log_id === exercise?.id)
-        .map((set: any): SetLog => ({
+        .filter((set) => set.exercise_log_id === exercise?.id)
+        .map((set): SetLog => ({
           id: set.id,
           exerciseLogId: set.exercise_log_id,
           setIndex: set.set_index,
@@ -466,7 +468,7 @@ export const startSessionFn = createServerFn({ method: 'POST' })
   })
 
 async function insertExerciseLogsForMovements(
-  supabase: any,
+  supabase: SupabaseServerClient,
   userId: string,
   sessionId: string,
   movements: MovementSlot[],
@@ -673,7 +675,7 @@ export const upsertSetLogFn = createServerFn({ method: 'POST' })
     return getSessionInternal(data.sessionId)
   })
 
-function templateSessionIdForSnapshot(snapshot: PlannedSession, sessionRow: any) {
+function templateSessionIdForSnapshot(snapshot: PlannedSession, sessionRow: Pick<Tables<'workout_sessions'>, 'planned_session_id'>) {
   if (snapshot.templateSessionId) return snapshot.templateSessionId
   const plannedSessionId = String(sessionRow.planned_session_id ?? snapshot.id)
   return plannedSessionId.replace(/-w\d+$/i, '')
@@ -799,7 +801,7 @@ export const addSessionAccessoryFn = createServerFn({ method: 'POST' })
       .eq('user_id', user.id)
       .order('order_index', { ascending: true })
     if (exerciseRowsError) throw new Error(exerciseRowsError.message)
-    if ((exerciseRows ?? []).some((row: any) => row.client_mutation_id === data.clientMutationId)) {
+    if ((exerciseRows ?? []).some((row) => row.client_mutation_id === data.clientMutationId)) {
       return getSessionInternal(data.sessionId)
     }
 
@@ -810,12 +812,12 @@ export const addSessionAccessoryFn = createServerFn({ method: 'POST' })
     const snapshot = sessionRow.prescription_snapshot as PlannedSession
     const phaseKey = phaseKeyForSnapshot(snapshot)
     const templateSessionId = templateSessionIdForSnapshot(snapshot, sessionRow)
-    const usedSlotIds = new Set((exerciseRows ?? []).map((row: any) => row.slot_id as string))
+    const usedSlotIds = new Set((exerciseRows ?? []).map((row) => row.slot_id))
     for (const snapshotSlot of snapshot.movements) usedSlotIds.add(snapshotSlot.slotId ?? snapshotSlot.id)
     const { additionSlotId, sessionSlotId } = nextAccessorySlotIds(templateSessionId, usedSlotIds, movement.id)
     const maxOrderIndex = Math.max(
       0,
-      ...(exerciseRows ?? []).map((row: any) => Number(row.order_index) || 0),
+      ...(exerciseRows ?? []).map((row) => Number(row.order_index) || 0),
       ...snapshot.movements.map((item) => Number(item.orderIndex) || 0),
     )
     const orderIndex = maxOrderIndex + 1
@@ -873,18 +875,20 @@ export const addSessionAccessoryFn = createServerFn({ method: 'POST' })
     if (snapshotError) throw new Error(snapshotError.message)
 
     if (data.scope === 'phase_slot') {
+      const programInstanceId = sessionRow.program_instance_id
+      if (!programInstanceId) throw new Error('Only program sessions can apply accessories to future weeks.')
       const { data: additionRows, error: additionRowsError } = await supabase
         .from('program_accessory_additions')
         .select('order_index')
         .eq('user_id', user.id)
-        .eq('program_instance_id', sessionRow.program_instance_id)
+        .eq('program_instance_id', programInstanceId)
         .eq('session_id', templateSessionId)
       if (additionRowsError) throw new Error(additionRowsError.message)
-      const additionOrderIndex = Math.max(0, ...(additionRows ?? []).map((row: any) => Number(row.order_index) || 0)) + 1
+      const additionOrderIndex = Math.max(0, ...(additionRows ?? []).map((row) => Number(row.order_index) || 0)) + 1
 
       const { error: additionError } = await supabase.from('program_accessory_additions').insert({
         user_id: user.id,
-        program_instance_id: sessionRow.program_instance_id,
+        program_instance_id: programInstanceId,
         session_id: templateSessionId,
         slot_id: additionSlotId,
         phase_key: phaseKey,
@@ -903,7 +907,7 @@ export const addSessionAccessoryFn = createServerFn({ method: 'POST' })
       const { data: programRow, error: programError } = await supabase
         .from('program_instances')
         .select('customization_summary')
-        .eq('id', sessionRow.program_instance_id)
+        .eq('id', programInstanceId)
         .eq('user_id', user.id)
         .single()
       if (programError) throw new Error(programError.message)
@@ -917,7 +921,7 @@ export const addSessionAccessoryFn = createServerFn({ method: 'POST' })
             accessoryAdditionCount: summary.accessoryAdditionCount + 1,
           },
         })
-        .eq('id', sessionRow.program_instance_id)
+        .eq('id', programInstanceId)
         .eq('user_id', user.id)
       if (summaryError) throw new Error(summaryError.message)
     }
@@ -953,7 +957,7 @@ export const addAdHocExerciseFn = createServerFn({ method: 'POST' })
       .eq('user_id', user.id)
       .order('order_index', { ascending: true })
     if (exerciseRowsError) throw new Error(exerciseRowsError.message)
-    if ((exerciseRows ?? []).some((row: any) => row.client_mutation_id === data.clientMutationId)) {
+    if ((exerciseRows ?? []).some((row) => row.client_mutation_id === data.clientMutationId)) {
       return getSessionInternal(data.sessionId)
     }
 
@@ -962,14 +966,14 @@ export const addAdHocExerciseFn = createServerFn({ method: 'POST' })
     if (!movement) throw new Error('Unknown movement.')
 
     const snapshot = sessionRow.prescription_snapshot as PlannedSession
-    const usedSlotIds = new Set<string>((exerciseRows ?? []).map((row: any) => row.slot_id as string))
+    const usedSlotIds = new Set<string>((exerciseRows ?? []).map((row) => row.slot_id))
     for (const snapshotSlot of snapshot.movements) usedSlotIds.add(snapshotSlot.slotId ?? snapshotSlot.id)
     const slotId = nextAdHocSlotId(usedSlotIds, movement.id)
     const hasMovements = (exerciseRows ?? []).length > 0 || snapshot.movements.length > 0
     const orderIndex = hasMovements
       ? Math.max(
           0,
-          ...(exerciseRows ?? []).map((row: any) => Number(row.order_index) || 0),
+          ...(exerciseRows ?? []).map((row) => Number(row.order_index) || 0),
           ...snapshot.movements.map((item) => Number(item.orderIndex) || 0),
         ) + 1
       : 0
@@ -1097,7 +1101,7 @@ export const removeAdHocExerciseFn = createServerFn({ method: 'POST' })
     return getSessionInternal(data.sessionId)
   })
 
-function setTargetFromRow(row: any, setIndex: number): SetTarget {
+function setTargetFromRow(row: Tables<'set_logs'> | undefined, setIndex: number): SetTarget {
   return {
     id: `set-${setIndex}`,
     setIndex,
@@ -1176,7 +1180,7 @@ export const addExerciseSetFn = createServerFn({ method: 'POST' })
     if (setRowsError) throw new Error(setRowsError.message)
 
     const lastSet = (setRows ?? []).at(-1)
-    const setIndex = Math.max(0, ...(setRows ?? []).map((set: any) => Number(set.set_index) || 0)) + 1
+    const setIndex = Math.max(0, ...(setRows ?? []).map((set) => Number(set.set_index) || 0)) + 1
     const target = setTargetFromRow(lastSet, setIndex)
     const [setInsert] = setLogsFromTargets(data.exerciseLogId, user.id, [target])
     if (!setInsert) throw new Error('Unable to build the next set.')
@@ -1211,8 +1215,8 @@ export const addExerciseSetFn = createServerFn({ method: 'POST' })
   })
 
 type SwapContext = {
-  sessionRow: any
-  exerciseRow: any
+  sessionRow: Tables<'workout_sessions'>
+  exerciseRow: Tables<'exercise_logs'>
   snapshot: PlannedSession
   slotId: string
   phaseKey: string
@@ -1229,7 +1233,7 @@ function phaseKeyForSnapshot(snapshot: PlannedSession, movement?: MovementSlot |
   return 'cycle'
 }
 
-async function getSwapContext(supabase: any, userId: string, sessionId: string, exerciseLogId: string): Promise<SwapContext> {
+async function getSwapContext(supabase: SupabaseServerClient, userId: string, sessionId: string, exerciseLogId: string): Promise<SwapContext> {
   const { data: sessionRow, error: sessionError } = await supabase
     .from('workout_sessions')
     .select('*')
@@ -1248,7 +1252,7 @@ async function getSwapContext(supabase: any, userId: string, sessionId: string, 
   if (exerciseError) throw new Error(exerciseError.message)
 
   const snapshot = sessionRow.prescription_snapshot as PlannedSession
-  const slotId = exerciseRow.slot_id as string
+  const slotId = exerciseRow.slot_id
   const movement = snapshot.movements.find((item) => (item.slotId ?? item.id) === slotId)
 
   return {
@@ -1257,11 +1261,11 @@ async function getSwapContext(supabase: any, userId: string, sessionId: string, 
     snapshot,
     slotId,
     phaseKey: phaseKeyForSnapshot(snapshot, movement),
-    role: exerciseRow.role,
+    role: exerciseRow.role as MovementSlot['role'],
   }
 }
 
-async function getSwapOptionsForContext(supabase: any, context: SwapContext): Promise<MovementSwapOption[]> {
+async function getSwapOptionsForContext(supabase: SupabaseServerClient, context: SwapContext): Promise<MovementSwapOption[]> {
   if (context.role === 'main') return []
   const [catalog, rules] = await Promise.all([
     getMovementCatalogForSwap(supabase),
@@ -1358,10 +1362,12 @@ export const substituteMovementFn = createServerFn({ method: 'POST' })
     if (logError) throw new Error(logError.message)
 
     if (scope === 'phase_slot') {
+      const programInstanceId = context.sessionRow.program_instance_id
+      if (!programInstanceId) throw new Error('Only program sessions can swap movements for future weeks.')
       const { data: programRow, error: programError } = await supabase
         .from('program_instances')
         .select('id, current_week_index')
-        .eq('id', context.sessionRow.program_instance_id)
+        .eq('id', programInstanceId)
         .eq('user_id', user.id)
         .single()
       if (programError) throw new Error(programError.message)

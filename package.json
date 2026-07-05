@@ -16,6 +16,7 @@
     "db:migrate:local": "supabase db push --local --yes",
     "db:migrate": "supabase db push --db-url \"$SUPABASE_DB_URL\" --yes",
     "db:migrate:dry-run": "supabase db push --db-url \"$SUPABASE_DB_URL\" --dry-run",
+    "db:types": "supabase gen types typescript --local --schema public > src/shared/types/database.ts",
     "demo:seed": "node scripts/demo-data.mjs seed",
     "demo:reset": "node scripts/demo-data.mjs reset",
     "demo:refresh": "node scripts/demo-data.mjs refresh",

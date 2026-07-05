@@ -15,6 +15,7 @@ import type {
 import { accessoryProgressionRuleId } from '~/domains/session/lib/accessories'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { mround } from '~/domains/program/lib/progression'
+import { convertWeight } from '~/shared/lib/math'
 
 const hardnessSchema = z.enum(['Light', 'Medium', 'Hard', 'Deload'])
 
@@ -508,7 +509,7 @@ function resolveTargetLoad(
 ) {
   if (!load || load.kind === 'user_selected') return null
   if (load.kind === 'fixed') {
-    return context.units === 'kg' ? load.kg : load.lb ?? mround(load.kg * 2.205, 5)
+    return context.units === 'kg' ? load.kg : load.lb ?? mround(convertWeight(load.kg, 'kg', 'lb'), 5)
   }
   const movementId = load.kind === 'percent_of_state' ? context.anchorMovementId : context.movementId
   const stateKey = load.stateKey ?? programStateKey(movementId, load.stateType)

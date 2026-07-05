@@ -1,6 +1,7 @@
 import type { Unit, UserProfile } from '~/shared/types'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { mround } from '~/domains/program/lib/progression'
+import { convertWeight } from '~/shared/lib/math'
 import {
   DEFAULT_TRAINING_MAX_PERCENT,
   DEFAULT_WORKING_LOAD_PERCENT,
@@ -46,15 +47,13 @@ const EXAMPLE_ANCHOR_KG: Record<string, number> = {
 }
 const FALLBACK_EXAMPLE_ANCHOR_KG = 60
 
-const KG_TO_LB = 2.20462
-
 function defaultRounding(units: Unit) {
   return units === 'lb' ? 5 : 2.5
 }
 
 function exampleAnchorFor(movementId: string, units: Unit, rounding: number) {
   const kg = EXAMPLE_ANCHOR_KG[movementId] ?? FALLBACK_EXAMPLE_ANCHOR_KG
-  return units === 'lb' ? mround(kg * KG_TO_LB, rounding) : kg
+  return units === 'lb' ? mround(convertWeight(kg, 'kg', 'lb'), rounding) : kg
 }
 
 function standardIncrement(movementId: string, units: Unit) {

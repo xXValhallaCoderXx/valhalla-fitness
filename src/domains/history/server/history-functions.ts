@@ -3,12 +3,14 @@ import type {
   BodyweightEntry,
   HistoryDashboardWithInsights,
   MovementHistoryEntry,
+  MovementRole,
   PlannedSession,
   ProgramOverview,
   ProgramRecentSessionSummary,
   ProgressionDecision,
   RecentHistoryEntry,
   Sex,
+  SubstitutionReason,
   Unit,
 } from '~/shared/types'
 import {
@@ -19,6 +21,8 @@ import {
 import { buildHistoryInsights } from '~/domains/history/lib/build-insights'
 import { buildProgramOverview } from '~/domains/program/lib/program-overview'
 import { getMovementName } from '~/domains/movement/lib/movements'
+import { formatNumber } from '~/shared/lib/set-notation'
+import type { SupabaseServerClient } from '~/shared/server/supabase'
 import { mapProgressionDecision } from '~/domains/program/server/program-functions'
 import { favoriteLineageKeys, sessionLineageKey } from '~/domains/session/lib/ad-hoc'
 import { getTodayInternal } from '~/domains/session/server/session-functions'
@@ -50,7 +54,7 @@ async function chunkedIn<T>(
 }
 
 /** Lineage keys of the user's favourited workouts — repeats of a favourite show its star. */
-async function getFavoriteLineageKeys(supabase: any, userId: string): Promise<Set<string>> {
+async function getFavoriteLineageKeys(supabase: SupabaseServerClient, userId: string): Promise<Set<string>> {
   const { data, error } = await supabase
     .from('workout_sessions')
     .select('id, source_session_id')
@@ -61,7 +65,7 @@ async function getFavoriteLineageKeys(supabase: any, userId: string): Promise<Se
 }
 
 export async function getHistoryInputs(
-  supabase: any,
+  supabase: SupabaseServerClient,
   userId: string,
   options: {
     programInstanceId?: string
@@ -80,13 +84,13 @@ export async function getHistoryInputs(
   const { data: sessionRows, error } = await sessionQuery
   if (error) throw new Error(error.message)
   const rows = sessionRows ?? []
-  const sessionIds = rows.map((row: any) => row.id as string)
+  const sessionIds = rows.map((row) => row.id)
   if (!sessionIds.length) return { sessions: [], substitutions: [] }
   const favoriteKeys = await getFavoriteLineageKeys(supabase, userId)
 
   // Children of a parent id always land in that id's chunk, so per-session /
   // per-exercise ordering survives chunk concatenation.
-  const exerciseRows = await chunkedIn<any>(sessionIds, (chunk) =>
+  const exerciseRows = await chunkedIn(sessionIds, (chunk) =>
     supabase
       .from('exercise_logs')
       .select('id, session_id, planned_movement_id, performed_movement_id, role, target_summary, order_index')
@@ -95,8 +99,8 @@ export async function getHistoryInputs(
       .order('order_index', { ascending: true }),
   )
 
-  const exerciseIds = exerciseRows.map((exercise: any) => exercise.id as string)
-  const setRows = await chunkedIn<any>(exerciseIds, (chunk) =>
+  const exerciseIds = exerciseRows.map((exercise) => exercise.id)
+  const setRows = await chunkedIn(exerciseIds, (chunk) =>
     supabase
       .from('set_logs')
       .select('id, exercise_log_id, set_index, target_load, target_reps, target_rep_min, target_rep_max, target_rir, actual_load, actual_reps, actual_rir, completed, is_top_set, is_amrap, is_backoff')
@@ -105,7 +109,7 @@ export async function getHistoryInputs(
       .order('set_index', { ascending: true }),
   )
 
-  const substitutionRows = await chunkedIn<any>(sessionIds, (chunk) =>
+  const substitutionRows = await chunkedIn(sessionIds, (chunk) =>
     supabase
       .from('substitution_logs')
       .select('id, session_id, planned_movement_id, performed_movement_id, reason, note, created_at')
@@ -114,21 +118,21 @@ export async function getHistoryInputs(
       .order('created_at', { ascending: false }),
   )
 
-  const setsByExerciseId = new Map<string, any[]>()
+  const setsByExerciseId = new Map<string, typeof setRows>()
   for (const set of setRows ?? []) {
     const sets = setsByExerciseId.get(set.exercise_log_id) ?? []
     sets.push(set)
     setsByExerciseId.set(set.exercise_log_id, sets)
   }
 
-  const exercisesBySessionId = new Map<string, any[]>()
+  const exercisesBySessionId = new Map<string, typeof exerciseRows>()
   for (const exercise of exerciseRows ?? []) {
     const exercises = exercisesBySessionId.get(exercise.session_id) ?? []
     exercises.push(exercise)
     exercisesBySessionId.set(exercise.session_id, exercises)
   }
 
-  const sessions = rows.map((row: any): HistorySessionInput => {
+  const sessions = rows.map((row): HistorySessionInput => {
     const snapshot = row.prescription_snapshot as PlannedSession | null
     const exercises = exercisesBySessionId.get(row.id) ?? []
     const plannedSetCount = snapshot?.movements.reduce((total, movement) => total + movement.sets.length, 0) ?? 0
@@ -150,14 +154,14 @@ export async function getHistoryInputs(
       isAdHoc: row.program_instance_id === null,
       isFavorite: Boolean(row.is_favorite) || favoriteKeys.has(sessionLineageKey(row)),
       plannedSetCount: plannedSetCount || exercises.reduce((total, exercise) => total + (setsByExerciseId.get(exercise.id)?.length ?? 0), 0),
-      exercises: exercises.map((exercise: any) => ({
+      exercises: exercises.map((exercise) => ({
         id: exercise.id,
         plannedMovementId: exercise.planned_movement_id,
         performedMovementId: exercise.performed_movement_id,
         performedMovementName: getMovementName(exercise.performed_movement_id),
-        role: exercise.role,
+        role: exercise.role as MovementRole,
         targetSummary: exercise.target_summary,
-        sets: (setsByExerciseId.get(exercise.id) ?? []).map((set: any) => ({
+        sets: (setsByExerciseId.get(exercise.id) ?? []).map((set) => ({
           id: set.id,
           setIndex: set.set_index,
           targetLoad: set.target_load === null ? null : Number(set.target_load),
@@ -177,21 +181,17 @@ export async function getHistoryInputs(
     }
   })
 
-  const substitutions = (substitutionRows ?? []).map((row: any): HistorySubstitutionInput => ({
+  const substitutions = (substitutionRows ?? []).map((row): HistorySubstitutionInput => ({
     id: row.id,
     sessionId: row.session_id,
     plannedMovementId: row.planned_movement_id,
     performedMovementId: row.performed_movement_id,
-    reason: row.reason,
+    reason: row.reason as SubstitutionReason,
     note: row.note,
     createdAt: row.created_at,
   }))
 
   return { sessions, substitutions }
-}
-
-function formatNumber(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }
 
 function buildProgramRecentSessions(sessions: HistorySessionInput[], units: Unit): ProgramRecentSessionSummary[] {
@@ -219,7 +219,7 @@ function buildProgramRecentSessions(sessions: HistorySessionInput[], units: Unit
 }
 
 /** Every accepted decision for the program, newest first (no dedupe — callers reconstruct history). */
-async function getAcceptedDecisionsInternal(supabase: any, userId: string, programInstanceId: string): Promise<ProgressionDecision[]> {
+async function getAcceptedDecisionsInternal(supabase: SupabaseServerClient, userId: string, programInstanceId: string): Promise<ProgressionDecision[]> {
   const { data, error } = await supabase
     .from('progression_decisions')
     .select('*')
@@ -232,21 +232,21 @@ async function getAcceptedDecisionsInternal(supabase: any, userId: string, progr
   return (data ?? []).map(mapProgressionDecision)
 }
 
-async function getBodyweightEntriesInternal(supabase: any, userId: string): Promise<BodyweightEntry[]> {
+async function getBodyweightEntriesInternal(supabase: SupabaseServerClient, userId: string): Promise<BodyweightEntry[]> {
   const { data, error } = await supabase
     .from('bodyweight_entries')
     .select('id, recorded_on, weight_kg')
     .eq('user_id', userId)
     .order('recorded_on', { ascending: true })
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row: any): BodyweightEntry => ({
+  return (data ?? []).map((row): BodyweightEntry => ({
     id: row.id,
     recordedOn: row.recorded_on,
     weightKg: Number(row.weight_kg),
   }))
 }
 
-async function getProfileSexInternal(supabase: any, userId: string): Promise<Sex | null> {
+async function getProfileSexInternal(supabase: SupabaseServerClient, userId: string): Promise<Sex | null> {
   const { data, error } = await supabase.from('profiles').select('sex').eq('id', userId).maybeSingle()
   if (error) throw new Error(error.message)
   return (data?.sex as Sex | undefined) ?? null
@@ -312,7 +312,7 @@ export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(asyn
   if (error) throw new Error(error.message)
   const rows = data ?? []
   const favoriteKeys = await getFavoriteLineageKeys(supabase, user.id)
-  const sessionIds = rows.map((row: any) => row.id as string)
+  const sessionIds = rows.map((row) => row.id)
   const { data: exercises, error: exerciseError } = sessionIds.length
     ? await supabase
         .from('exercise_logs')
@@ -322,7 +322,7 @@ export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(asyn
     : { data: [], error: null }
   if (exerciseError) throw new Error(exerciseError.message)
 
-  const exerciseToSessionId = new Map((exercises ?? []).map((exercise: any) => [exercise.id, exercise.session_id as string]))
+  const exerciseToSessionId = new Map((exercises ?? []).map((exercise) => [exercise.id, exercise.session_id]))
   const exerciseIds = Array.from(exerciseToSessionId.keys())
   const { data: sets, error: setError } = exerciseIds.length
     ? await supabase
@@ -344,7 +344,7 @@ export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(asyn
     }
   }
 
-  return rows.map((row: any): RecentHistoryEntry => {
+  return rows.map((row): RecentHistoryEntry => {
     const snapshot = row.prescription_snapshot as PlannedSession | null
     const plannedSetCount = snapshot?.movements.reduce((total, movement) => total + movement.sets.length, 0) ?? 0
     return {
@@ -379,8 +379,8 @@ export const getMovementHistoryFn = createServerFn({ method: 'GET' })
     if (error) throw new Error(error.message)
 
     const exerciseRows = exercises ?? []
-    const exerciseIds = exerciseRows.map((exercise: any) => exercise.id as string)
-    const sessionIds = Array.from(new Set(exerciseRows.map((exercise: any) => exercise.session_id as string)))
+    const exerciseIds = exerciseRows.map((exercise) => exercise.id)
+    const sessionIds = Array.from(new Set(exerciseRows.map((exercise) => exercise.session_id)))
     if (!exerciseIds.length || !sessionIds.length) return []
 
     const { data: sessions, error: sessionError } = await supabase
@@ -399,8 +399,8 @@ export const getMovementHistoryFn = createServerFn({ method: 'GET' })
       .order('set_index', { ascending: true })
     if (setError) throw new Error(setError.message)
 
-    const sessionsById = new Map((sessions ?? []).map((session: any) => [session.id, session]))
-    const setsByExerciseId = new Map<string, any[]>()
+    const sessionsById = new Map((sessions ?? []).map((session) => [session.id, session]))
+    const setsByExerciseId = new Map<string, NonNullable<typeof setRows>>()
     for (const set of setRows ?? []) {
       const sets = setsByExerciseId.get(set.exercise_log_id) ?? []
       sets.push(set)
@@ -408,14 +408,14 @@ export const getMovementHistoryFn = createServerFn({ method: 'GET' })
     }
 
     return exerciseRows
-      .map((exercise: any): MovementHistoryEntry | null => {
+      .map((exercise): MovementHistoryEntry | null => {
         const session = sessionsById.get(exercise.session_id)
         if (!session) return null
         const snapshot = session.prescription_snapshot as PlannedSession | null
         return {
           id: exercise.id,
           sessionId: session.id,
-          sessionTitle: snapshot?.title ?? session.planned_session_id,
+          sessionTitle: snapshot?.title ?? session.planned_session_id ?? 'Workout',
           programTitle: snapshot?.programTitle ?? null,
           scheduledDate: session.scheduled_date,
           completedAt: session.completed_at,
@@ -423,9 +423,9 @@ export const getMovementHistoryFn = createServerFn({ method: 'GET' })
           plannedMovementId: exercise.planned_movement_id,
           performedMovementId: exercise.performed_movement_id,
           performedMovementName: getMovementName(exercise.performed_movement_id),
-          role: exercise.role,
+          role: exercise.role as MovementRole,
           targetSummary: exercise.target_summary,
-          sets: (setsByExerciseId.get(exercise.id) ?? []).map((set: any) => ({
+          sets: (setsByExerciseId.get(exercise.id) ?? []).map((set) => ({
             id: set.id,
             setIndex: set.set_index,
             targetLoad: set.target_load === null ? null : Number(set.target_load),

@@ -12,7 +12,7 @@ export const Route = createFileRoute('/templates')({
   }),
   loader: async ({ context }) => {
     await loadRouteQuery(context.queryClient, templatesQueryOptions())
-    if ((context as any).user) {
+    if (context.user) {
       await loadRouteQueries(context.queryClient, [todayQueryOptions(), programOverviewQueryOptions()])
     }
   },
@@ -20,6 +20,6 @@ export const Route = createFileRoute('/templates')({
 })
 
 function TemplatesRoute() {
-  const user = (Route.useRouteContext() as any).user
+  const { user } = Route.useRouteContext()
   return <TemplatesPage user={user} />
 }

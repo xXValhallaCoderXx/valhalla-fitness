@@ -9,7 +9,7 @@ export const Route = createFileRoute('/history')({
     tab: HISTORY_TAB_VALUES.includes(search.tab as HistoryTab) ? (search.tab as HistoryTab) : undefined,
   }),
   loader: async ({ context }) => {
-    if ((context as any).user) {
+    if (context.user) {
       await loadRouteQueries(context.queryClient, [historyDashboardQueryOptions(), programOverviewQueryOptions()])
     }
   },
@@ -17,7 +17,7 @@ export const Route = createFileRoute('/history')({
 })
 
 function HistoryRoute() {
-  const user = (Route.useRouteContext() as any).user
+  const { user } = Route.useRouteContext()
   const { tab } = Route.useSearch()
   return <HistoryPage user={user} initialTab={tab} />
 }
