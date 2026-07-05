@@ -41,6 +41,8 @@ export type UserProfile = {
   programStateDefaults: ProgramStateDefaults
   onboardingCompleted: boolean
   liveOnboardingDismissed: boolean
+  /** "Don't ask again" opt-out for the post-workout beta feedback prompt. */
+  postWorkoutFeedbackDismissed: boolean
 }
 
 export type ProgramTemplateSummary = {

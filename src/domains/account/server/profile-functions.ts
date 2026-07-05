@@ -72,6 +72,7 @@ export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promi
     programStateDefaults: normalizeProgramStateDefaults(profile.program_state_defaults, profile.units as Unit),
     onboardingCompleted: Boolean(profile.onboarding_completed),
     liveOnboardingDismissed: Boolean(profile.live_onboarding_dismissed),
+    postWorkoutFeedbackDismissed: Boolean(profile.post_workout_feedback_dismissed),
   }
 })
 
@@ -85,6 +86,13 @@ export const completeOnboardingFn = createServerFn({ method: 'POST' }).handler(a
 export const dismissLiveOnboardingFn = createServerFn({ method: 'POST' }).handler(async () => {
   const { supabase, user } = await requireUser()
   const { error } = await supabase.from('profiles').update({ live_onboarding_dismissed: true }).eq('id', user.id)
+  if (error) throw new Error(error.message)
+  return getMeFn()
+})
+
+export const dismissPostWorkoutFeedbackFn = createServerFn({ method: 'POST' }).handler(async () => {
+  const { supabase, user } = await requireUser()
+  const { error } = await supabase.from('profiles').update({ post_workout_feedback_dismissed: true }).eq('id', user.id)
   if (error) throw new Error(error.message)
   return getMeFn()
 })

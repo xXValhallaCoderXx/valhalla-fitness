@@ -22,6 +22,7 @@
     "demo:verify": "node scripts/demo-data.mjs verify",
     "demo:list": "node scripts/demo-data.mjs list",
     "provision:allowed": "node scripts/provision-allowed-users.mjs",
+    "feedback:report": "node scripts/feedback-report.mjs",
     "typecheck": "tsc --noEmit",
     "pwa:verify": "node scripts/verify-pwa.mjs",
     "test": "vitest run",

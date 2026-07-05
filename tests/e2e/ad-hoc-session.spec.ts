@@ -114,9 +114,11 @@ test('ad-hoc workout: start, log, rename, finish, find, favourite, restart', asy
   await page.getByRole('button', { name: 'Save name' }).click()
   await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 10000 })
 
-  // Finish (2 sets unlogged → confirm). Ad-hoc finishes produce no load-update review.
+  // Finish (2 sets unlogged → confirm). Ad-hoc finishes produce no load-update review
+  // and no post-workout feedback prompt (there is no progression to rate).
   await finishCurrentSession(page)
   await expect(page.getByText(/load updates? ready/i)).toHaveCount(0)
+  await expect(page.getByText('Did Sheetless explain your next workout clearly?')).toHaveCount(0)
 
   // Insights → Sessions: findable via the Ad hoc filter and via search.
   await page.goto('/history')

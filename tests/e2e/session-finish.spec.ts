@@ -121,6 +121,46 @@ test('finishing a session and applying all load updates succeeds', async ({ page
   const suggestedLabel = Number.isInteger(suggested) ? String(suggested) : suggested.toFixed(1)
   await expect(page.getByText(`${suggestedLabel} kg`).first()).toBeVisible()
 
+  // --- Beta feedback surfaces (fresh summaries only) ---
+
+  // Per-decision "Something off?" inside the review modal — the popover must escape
+  // the modal's scrolling body (withinPortal), so drive it end-to-end.
+  const dialog = page.getByRole('dialog')
+  await expect(async () => {
+    await page.getByRole('button', { name: 'Review each instead' }).click()
+    await expect(dialog).toBeVisible({ timeout: 1500 })
+  }).toPass({ timeout: 15000 })
+  // The trigger's accessible name is its aria-label, not the visible "Something off?" text.
+  const somethingOff = /^Report an issue with .* recommendation$/
+  await expect(async () => {
+    await dialog.getByRole('button', { name: somethingOff }).first().click()
+    await expect(page.getByRole('button', { name: 'Weight should increase' })).toBeVisible({ timeout: 1500 })
+  }).toPass({ timeout: 15000 })
+  await page.getByRole('button', { name: 'Weight should increase' }).click()
+  await page.getByTestId('send-decision-feedback').click()
+  await expect(page.getByText('Thanks — this helps improve the beta.').first()).toBeVisible({ timeout: 15000 })
+  await expect(page.getByTestId('decision-feedback-sent').first()).toBeVisible()
+  await dialog.getByRole('button', { name: 'Decide later' }).click()
+  await expect(dialog).toBeHidden({ timeout: 10000 })
+
+  // Same trigger on the "What changed, and why" receipt rows.
+  await expect(async () => {
+    await page.getByRole('button', { name: somethingOff }).first().click()
+    await expect(page.getByRole('button', { name: 'Weight should stay the same' })).toBeVisible({ timeout: 1500 })
+  }).toPass({ timeout: 15000 })
+  await page.getByRole('button', { name: 'Weight should stay the same' }).click()
+  await page.getByTestId('send-decision-feedback').click()
+  await expect(page.getByTestId('decision-feedback-sent').first()).toBeVisible({ timeout: 15000 })
+
+  // Post-workout micro-prompt: "No" reveals reason chips; sending collapses to thanks.
+  const prompt = page.getByTestId('post-workout-feedback')
+  await expect(prompt.getByText('Did Sheetless explain your next workout clearly?')).toBeVisible()
+  await prompt.getByRole('button', { name: 'No', exact: true }).click()
+  await prompt.getByRole('button', { name: 'The explanation was unclear' }).click()
+  await page.getByTestId('post-workout-feedback-message').fill('e2e: expected the receipt to mention the deload rule.')
+  await page.getByTestId('send-post-workout-feedback').click()
+  await expect(prompt.getByText(/Thanks — noted/)).toBeVisible({ timeout: 15000 })
+
   await page.getByRole('button', { name: /^Apply all \d+ & finish$/ }).click()
   await expect(page.getByText('Loads updated').first()).toBeVisible({ timeout: 15000 })
   await expect(page.getByText('Could not apply updates')).toHaveCount(0)

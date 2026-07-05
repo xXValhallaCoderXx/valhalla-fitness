@@ -66,6 +66,7 @@ describe('buildSessionReceipt', () => {
     expect(entry.change).toBe('190 kg → 195 kg')
     expect(entry.why).toContain('progresses the lift')
     expect(entry.tone).toBe('success')
+    expect(entry.decision?.id).toBe('d1')
   })
 
   it('keeps the accessory cue qualitative when the engine gives no target load', () => {
@@ -97,6 +98,7 @@ describe('buildSessionReceipt', () => {
     const missed = entries.find((entry) => entry.learned.includes('3 reps'))
     expect(missed).toBeDefined()
     expect(missed?.change).toContain('repeat this weight')
+    expect(missed?.decision).toBeUndefined()
   })
 
   it('explains a substitution as similar work', () => {

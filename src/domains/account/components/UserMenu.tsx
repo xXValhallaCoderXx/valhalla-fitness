@@ -2,9 +2,10 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Avatar, Menu, SegmentedControl, UnstyledButton } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { Link, useRouter } from '@tanstack/react-router'
-import { LogOut, Settings as SettingsIcon } from 'lucide-react'
+import { LogOut, MessageSquarePlus, Settings as SettingsIcon } from 'lucide-react'
 import { useState } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { BetaFeedbackModal } from '~/domains/feedback/components/BetaFeedbackModal'
 import { initialsFrom } from '~/domains/account/lib/initials'
 import { meQueryOptions } from '~/domains/account/queries'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
@@ -17,6 +18,7 @@ import { Caption, Text } from '~/components/atoms'
 export function UserMenu({ user }: { user: AuthUser }) {
   const router = useRouter()
   const [opened, setOpened] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const me = useQuery(meQueryOptions()).data ?? null
   const signOutMutation = useSignOut()
   const unitsMutation = useMutation({
@@ -57,6 +59,7 @@ export function UserMenu({ user }: { user: AuthUser }) {
   const initials = initialsFrom(displayName, email)
 
   return (
+    <>
     <Menu opened={opened} onChange={setOpened} position="bottom-end" width={260} withinPortal>
       <Menu.Target>
         <UnstyledButton
@@ -99,6 +102,12 @@ export function UserMenu({ user }: { user: AuthUser }) {
           </div>
         ) : null}
         <Menu.Item
+          leftSection={<MessageSquarePlus size={14} color="var(--mantine-color-dimmed)" />}
+          onClick={() => setFeedbackOpen(true)}
+        >
+          Beta feedback
+        </Menu.Item>
+        <Menu.Item
           component={Link}
           to="/settings"
           leftSection={<SettingsIcon size={14} color="var(--mantine-color-dimmed)" />}
@@ -116,5 +125,8 @@ export function UserMenu({ user }: { user: AuthUser }) {
         </Menu.Item>
       </Menu.Dropdown>
     </Menu>
+    {/* Sibling of the Menu: Menu.Dropdown unmounts its children when the menu closes. */}
+    <BetaFeedbackModal opened={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+    </>
   )
 }

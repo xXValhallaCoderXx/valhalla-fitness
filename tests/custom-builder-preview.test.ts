@@ -21,6 +21,7 @@ function makeProfile(programStateDefaults: ProgramStateDefaults, units: Unit = '
     programStateDefaults,
     onboardingCompleted: true,
     liveOnboardingDismissed: true,
+    postWorkoutFeedbackDismissed: true,
   }
 }
 
