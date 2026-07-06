@@ -55,6 +55,11 @@ export async function setLiveOnboardingDismissed(value: boolean) {
   await updateProfile(DEMO_USER, { live_onboarding_dismissed: value })
 }
 
+/** Reset the demo user's rest-timer auto-start flag so the timer spec is deterministic. */
+export async function setAutoStartTimer(value: boolean) {
+  await updateProfile(DEMO_USER, { auto_start_timer: value })
+}
+
 function getSupabaseTestEnv() {
   const fileEnv = loadEnvFile()
   const needsLocalEnv =

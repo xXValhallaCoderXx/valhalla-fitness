@@ -24,11 +24,13 @@ import {
 import { LiveSetRow } from './LiveSetRow'
 import { MovementHistoryModal } from './MovementHistoryModal'
 import { MovementSwapModal } from './MovementSwapModal'
+import { PlateCalculatorModal } from './PlateCalculatorModal'
 import {
   formatPreviousShort,
   formatSetTarget,
   getTopSet,
   isMovementComplete,
+  seedLoadForSet,
   SET_GRID_CLASS,
 } from './live-session-utils'
 
@@ -53,6 +55,7 @@ export function LiveMovementCard({
   )
   const [historyOpen, setHistoryOpen] = useState(false)
   const [swapOpen, setSwapOpen] = useState(false)
+  const [plateOpen, setPlateOpen] = useState(false)
   const [removeOpen, setRemoveOpen] = useState(false)
   const [showRirHelp, setShowRirHelp] = useState(false)
   const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<Record<number, number | undefined>>({})
@@ -125,6 +128,9 @@ export function LiveMovementCard({
     )
   }
 
+  const plateSeedSet = movement.sets.find((set) => set.setIndex === selectedSetIndex) ?? movement.sets[0]
+  const plateSeed = plateSeedSet ? seedLoadForSet(movement, plateSeedSet) : 0
+
   return (
     <article
       data-tour="live-movement"
@@ -154,7 +160,7 @@ export function LiveMovementCard({
             ) : null}
           </div>
           <div className="flex gap-1.5 md:pt-0.5">
-            <ToolButton title="Plate math" icon={<Calculator size={13} />} label="Plates" />
+            <ToolButton title="Plate math" icon={<Calculator size={13} />} label="Plates" onClick={() => setPlateOpen(true)} />
             <ToolButton
               title={movement.role === 'main' ? 'Main lifts cannot be swapped' : 'Swap movement'}
               icon={<Repeat2 size={13} />}
@@ -240,6 +246,13 @@ export function LiveMovementCard({
       </div>
 
       <MovementHistoryModal open={historyOpen} movement={movement} onClose={() => setHistoryOpen(false)} />
+      <PlateCalculatorModal
+        open={plateOpen}
+        onClose={() => setPlateOpen(false)}
+        units={session.units}
+        movementName={movement.movementName}
+        initialTarget={plateSeed}
+      />
       {swapOpen ? (
         <MovementSwapModal
           open={swapOpen}

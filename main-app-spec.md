@@ -193,12 +193,14 @@ Implemented:
 - Movement history modal.
 - Non-main movement swaps.
 - In-session accessory additions.
+- Rest timer: auto-starts a wall-clock countdown after each completed set, with role-scaled default durations, +15s / skip controls, an audio + vibration cue, and a global opt-out in Settings.
+- Plate calculator: per-side barbell plate breakdown for the current target weight, available from both the Overview and Focus views.
 
 Current limitations:
 
 - The Dexie local DB has active-session and queued-mutation primitives, but full offline replay is not complete enough to describe as shipped offline mode.
 - Retry behavior exists at the set-row level, but there is no finished background sync worker that drains the Dexie queue after reconnect.
-- The rest timer is intentionally not part of the current MVP surface.
+- The rest timer runs while the tab is open; the completion cue is best-effort on a locked screen, and screen-locked delivery via Web Push is deferred.
 
 ### Movement Swaps
 
@@ -394,7 +396,6 @@ These remain out of scope for the current MVP:
 - Coaching marketplace.
 - Public leaderboards.
 - Full visual programme builder.
-- Rest timer.
 - Advertising or marketplace monetization inside the app.
 
 The data model may leave clean extension points for these modules, but the UI must not present them as usable features until they are actually implemented.
@@ -419,7 +420,7 @@ The data model may leave clean extension points for these modules, but the UI mu
 | History | Implemented with real dashboard stats, best sets, movement summaries, volume, substitutions, and body-load inputs |
 | Custom programme builder | Implemented with constrained methodologies and logger-only mode |
 | Local resilience | Partially implemented: optimistic UI and Dexie groundwork exist, but full offline replay is not complete |
-| Rest timer | Removed/deferred from MVP surface |
+| Rest timer | Implemented post-MVP: auto-start on set completion, role-based defaults, +15s/skip, audio+vibration cue, global opt-out |
 | AI/readiness/injury/export modules | Not implemented and intentionally out of scope |
 | ChatGPT app submission | Not implemented; future companion only |
 

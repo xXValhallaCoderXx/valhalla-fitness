@@ -129,6 +129,7 @@ export function FocusModeDemo() {
                 onPrev={() => {}}
                 onNext={() => {}}
                 onOpenHistory={() => {}}
+                onOpenPlates={() => {}}
               />
 
               <FocusSetProgressBar

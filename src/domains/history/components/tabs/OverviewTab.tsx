@@ -118,7 +118,7 @@ export function OverviewTab({
           ) : null}
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <StrengthScoreCard insights={insights} completedSessions={data.overview.completedSessions} onNavigate={onNavigate} />
+            <StrengthScoreCard insights={insights} completedSessions={data.overview.completedSessions} range={range} onNavigate={onNavigate} />
             <VolumeTrendCard insights={insights} gating={gating} range={range} />
             <ConsistencyCard consistency={insights.consistency} />
             <StallWatchStrip insights={insights} staleWelcomeBack={gating.staleWelcomeBack} />

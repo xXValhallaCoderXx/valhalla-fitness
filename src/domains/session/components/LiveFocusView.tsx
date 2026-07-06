@@ -13,7 +13,9 @@ import { FocusSetCard } from './FocusSetCard'
 import { FocusSetProgressBar } from './FocusSetProgressBar'
 import { FocusTopBar } from './FocusTopBar'
 import { advanceAfterLog, exerciseNeighbors, firstActionableSetIndex, upcomingMovements } from './live-focus-utils'
+import { seedLoadForSet } from './live-session-utils'
 import { MovementHistoryModal } from './MovementHistoryModal'
+import { PlateCalculatorModal } from './PlateCalculatorModal'
 
 type LiveFocusViewProps = {
   session: WorkoutSession
@@ -41,6 +43,7 @@ export function LiveFocusView({
   )
   const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<Record<number, number | undefined>>({})
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [plateOpen, setPlateOpen] = useState(false)
   const [addExerciseOpen, setAddExerciseOpen] = useState(false)
   const addSet = useAddExerciseSet(session, activeMovement ?? session.movements[0] ?? ({} as never))
   const isAdHoc = Boolean(session.isAdHoc)
@@ -150,6 +153,7 @@ export function LiveFocusView({
           onPrev={() => prevId && onSelectMovement(prevId)}
           onNext={() => nextId && onSelectMovement(nextId)}
           onOpenHistory={() => setHistoryOpen(true)}
+          onOpenPlates={() => setPlateOpen(true)}
         />
 
         <FocusSetProgressBar
@@ -200,6 +204,13 @@ export function LiveFocusView({
       </div>
 
       <MovementHistoryModal open={historyOpen} movement={activeMovement} onClose={() => setHistoryOpen(false)} />
+      <PlateCalculatorModal
+        open={plateOpen}
+        onClose={() => setPlateOpen(false)}
+        units={session.units}
+        movementName={activeMovement.movementName}
+        initialTarget={selectedSet ? seedLoadForSet(activeMovement, selectedSet) : 0}
+      />
       {addExerciseModal}
     </FocusShell>
   )

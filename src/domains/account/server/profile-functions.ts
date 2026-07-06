@@ -74,6 +74,8 @@ export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promi
     liveOnboardingDismissed: Boolean(profile.live_onboarding_dismissed),
     postWorkoutFeedbackDismissed: Boolean(profile.post_workout_feedback_dismissed),
     sex: (profile.sex ?? null) as Sex | null,
+    autoStartTimer: profile.auto_start_timer ?? true,
+    defaultRestSeconds: Number(profile.default_rest_seconds ?? 120),
   }
 })
 
@@ -108,6 +110,9 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
       programStateDefaults: ProgramStateDefaults
       /** Omitted = leave unchanged (partial callers like UserMenu); null = explicitly cleared. */
       sex?: Sex | null
+      /** Omitted = leave unchanged (partial callers don't touch rest-timer prefs). */
+      autoStartTimer?: boolean
+      defaultRestSeconds?: number
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -122,6 +127,8 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
         theme_preference: data.themePreference,
         program_state_defaults: programStateDefaults,
         ...(data.sex !== undefined ? { sex: data.sex } : {}),
+        ...(data.autoStartTimer !== undefined ? { auto_start_timer: data.autoStartTimer } : {}),
+        ...(data.defaultRestSeconds !== undefined ? { default_rest_seconds: data.defaultRestSeconds } : {}),
       })
       .eq('id', user.id)
     if (error) throw new Error(error.message)

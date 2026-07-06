@@ -22,6 +22,8 @@ function makeProfile(programStateDefaults: ProgramStateDefaults, units: Unit = '
     onboardingCompleted: true,
     liveOnboardingDismissed: true,
     postWorkoutFeedbackDismissed: true,
+    autoStartTimer: true,
+    defaultRestSeconds: 120,
   }
 }
 

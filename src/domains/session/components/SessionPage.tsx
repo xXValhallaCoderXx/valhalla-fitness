@@ -12,6 +12,7 @@ import { ConfirmDialog, EmptyState, Page, PageLoadError, PageSkeleton } from '~/
 import { cn } from '~/shared/lib/cn'
 import { LiveSessionFrame } from './LiveSession'
 import { LiveFocusView } from './LiveFocusView'
+import { RestTimerProvider } from './RestTimerProvider'
 
 export function SessionPage({ sessionId, user }: { sessionId: string; user: unknown }) {
   const sessionQuery = useQuery({
@@ -137,46 +138,48 @@ function LoadedSessionRoute({
   }
 
   return (
-    <Page className="max-w-none md:py-8">
-      <div className={cn('md:hidden', mobileView !== 'focus' && 'hidden')}>
-        <LiveFocusView
-          session={session}
-          activeMovementId={activeMovementId}
-          onSelectMovement={setActiveMovementId}
-          onExitToOverview={() => setMobileView('overview')}
-          onFinish={requestFinish}
-          finishLabel={finishMutation.isPending ? 'Finishing...' : 'Finish'}
-          finishDisabled={finishMutation.isPending || finishBlocked}
-        />
-      </div>
-      <div className={cn(mobileView !== 'overview' && 'hidden md:block')}>
-        <LiveSessionFrame
-          session={session}
-          activeMovementId={activeMovementId}
-          onSelectMovement={setActiveMovementId}
-          notes={notes}
-          onNotesChange={setNotes}
-          onFinish={requestFinish}
-          finishLabel={finishMutation.isPending ? 'Finishing...' : 'Finish'}
-          finishDisabled={finishMutation.isPending || finishBlocked}
-          finishBlockedReason={finishBlockedReason}
-          finishError={finishError}
-          onEnterFocus={() => setMobileView('focus')}
-        />
-      </div>
-      <ConfirmDialog
-        open={showFinishConfirm}
-        title="Finish here?"
-        confirmLabel="Finish anyway"
-        cancelLabel="Keep going"
-        tone="warning"
-        isPending={finishMutation.isPending}
-        onCancel={() => setShowFinishConfirm(false)}
-        onConfirm={confirmFinish}
-      >
-        You have {incompleteSetCount} set{incompleteSetCount === 1 ? '' : 's'} left to log. Finishing now is fine — Sheetless
-        only uses the sets you&apos;ve logged and won&apos;t make aggressive changes.
-      </ConfirmDialog>
-    </Page>
+    <RestTimerProvider>
+      <Page className="max-w-none md:py-8">
+        <div className={cn('md:hidden', mobileView !== 'focus' && 'hidden')}>
+          <LiveFocusView
+            session={session}
+            activeMovementId={activeMovementId}
+            onSelectMovement={setActiveMovementId}
+            onExitToOverview={() => setMobileView('overview')}
+            onFinish={requestFinish}
+            finishLabel={finishMutation.isPending ? 'Finishing...' : 'Finish'}
+            finishDisabled={finishMutation.isPending || finishBlocked}
+          />
+        </div>
+        <div className={cn(mobileView !== 'overview' && 'hidden md:block')}>
+          <LiveSessionFrame
+            session={session}
+            activeMovementId={activeMovementId}
+            onSelectMovement={setActiveMovementId}
+            notes={notes}
+            onNotesChange={setNotes}
+            onFinish={requestFinish}
+            finishLabel={finishMutation.isPending ? 'Finishing...' : 'Finish'}
+            finishDisabled={finishMutation.isPending || finishBlocked}
+            finishBlockedReason={finishBlockedReason}
+            finishError={finishError}
+            onEnterFocus={() => setMobileView('focus')}
+          />
+        </div>
+        <ConfirmDialog
+          open={showFinishConfirm}
+          title="Finish here?"
+          confirmLabel="Finish anyway"
+          cancelLabel="Keep going"
+          tone="warning"
+          isPending={finishMutation.isPending}
+          onCancel={() => setShowFinishConfirm(false)}
+          onConfirm={confirmFinish}
+        >
+          You have {incompleteSetCount} set{incompleteSetCount === 1 ? '' : 's'} left to log. Finishing now is fine — Sheetless
+          only uses the sets you&apos;ve logged and won&apos;t make aggressive changes.
+        </ConfirmDialog>
+      </Page>
+    </RestTimerProvider>
   )
 }

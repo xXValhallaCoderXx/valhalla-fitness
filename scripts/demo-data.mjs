@@ -493,6 +493,8 @@ async function seedProfile(client, userId, demo) {
     onboarding_completed: demo.onboardingCompleted ?? true,
     live_onboarding_dismissed: demo.liveOnboardingDismissed ?? false,
     sex: demo.sex ?? null,
+    auto_start_timer: demo.autoStartTimer ?? true,
+    default_rest_seconds: demo.defaultRestSeconds ?? 120,
   }, { onConflict: 'id' })
   if (error) throw new Error(`Unable to seed profile for ${demo.email}: ${error.message}`)
 }

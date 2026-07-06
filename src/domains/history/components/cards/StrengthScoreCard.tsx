@@ -1,6 +1,10 @@
+import { LineChart } from '@mantine/charts'
 import { Badge } from '@mantine/core'
 import { ArrowRight } from 'lucide-react'
+import { formatCompactDate } from '~/shared/lib/dates'
 import { strengthScoreKindLabels } from '~/domains/history/lib/dots'
+import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
+import { formatTotalMetricValue, totalMetricFor, totalMetricLabel, totalMetricValue } from '~/domains/history/lib/total-metric'
 import type { HistoryInsights, StrengthScoreKind } from '~/shared/types'
 import { Caption, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { BodyweightPromptCard } from '../BodyweightPromptCard'
@@ -17,10 +21,12 @@ const SCORE_BADGE_COLOR: Record<StrengthScoreKind, string> = {
 export function StrengthScoreCard({
   insights,
   completedSessions,
+  range,
   onNavigate,
 }: {
   insights: HistoryInsights
   completedSessions: number
+  range: InsightRange
   onNavigate: (tab: HistoryTab) => void
 }) {
   const score = insights.strengthScore
@@ -28,6 +34,16 @@ export function StrengthScoreCard({
   const hasSex = insights.bodyweight.sex !== null
   // Prompt once there's real training to reward, even before a full S/B/D total exists.
   const showPrompt = (!hasBodyweight || !hasSex) && completedSessions >= 2
+
+  // Honest history: chart only the metric matching score.kind, and only with >= 2 real points.
+  const metric = totalMetricFor(score.kind)
+  const chartPoints = filterToRange(insights.totalSeries, range, {
+    firstDataDate: insights.firstSessionDate,
+    now: insights.generatedAt,
+    getDate: (point) => point.date,
+  })
+    .map((point) => ({ date: formatCompactDate(point.date), value: totalMetricValue(point, metric) }))
+    .filter((point): point is { date: string; value: number } => typeof point.value === 'number' && Number.isFinite(point.value))
 
   return (
     <Panel p="md">
@@ -43,6 +59,23 @@ export function StrengthScoreCard({
           {strengthScoreKindLabels[score.kind]}
         </Badge>
       </div>
+
+      {chartPoints.length >= 2 ? (
+        <div className="mt-4">
+          <LineChart
+            h={150}
+            data={chartPoints}
+            dataKey="date"
+            series={[{ name: 'value', label: totalMetricLabel(metric, insights.units), color: 'var(--vf-action-text)' }]}
+            curveType="linear"
+            strokeWidth={2}
+            dotProps={{ r: 3 }}
+            valueFormatter={(value) => formatTotalMetricValue(value, metric, insights.units)}
+            yAxisProps={{ domain: ['auto', 'auto'], width: 44 }}
+            xAxisProps={{ minTickGap: 24 }}
+          />
+        </div>
+      ) : null}
 
       {score.kind !== 'insufficient' ? (
         <button type="button" onClick={() => onNavigate('strength')} className="mt-3 inline-flex items-center gap-1">

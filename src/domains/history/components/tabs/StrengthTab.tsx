@@ -5,6 +5,7 @@ import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-
 import { calibrationSignalLabels } from '~/domains/history/lib/calibration'
 import { strengthScoreKindLabels } from '~/domains/history/lib/dots'
 import { dataLifecycleLabels } from '~/domains/history/lib/insight-state'
+import { formatTotalMetricValue, totalMetricFor, totalMetricLabel, totalMetricValue } from '~/domains/history/lib/total-metric'
 import type { HistoryInsights, InsightGating, StrengthScoreKind, TotalPoint } from '~/shared/types'
 import { Caption, EmptyState, Heading, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { BodyweightPromptCard } from '../BodyweightPromptCard'
@@ -17,8 +18,6 @@ const SCORE_BADGE_COLOR: Record<StrengthScoreKind, string> = {
   total: 'warning',
   insufficient: 'neutral',
 }
-
-type TotalMetric = 'dots' | 'bwMultiple' | 'total'
 
 export function StrengthTab({
   insights,
@@ -188,30 +187,6 @@ function MiniStat({ label, value, caption }: { label: string; value: string; cap
       <Caption mt={1}>{caption}</Caption>
     </Panel>
   )
-}
-
-function totalMetricFor(kind: StrengthScoreKind): TotalMetric {
-  if (kind === 'dots') return 'dots'
-  if (kind === 'bw_multiple') return 'bwMultiple'
-  return 'total'
-}
-
-function totalMetricValue(point: TotalPoint, metric: TotalMetric): number | null {
-  if (metric === 'dots') return point.dots
-  if (metric === 'bwMultiple') return point.bwMultiple
-  return point.total
-}
-
-function totalMetricLabel(metric: TotalMetric, units: HistoryInsights['units']) {
-  if (metric === 'dots') return 'DOTS'
-  if (metric === 'bwMultiple') return 'x bodyweight'
-  return `Total ${units ?? ''}`.trim()
-}
-
-function formatTotalMetricValue(value: number, metric: TotalMetric, units: HistoryInsights['units']) {
-  if (metric === 'dots') return formatNumber(value)
-  if (metric === 'bwMultiple') return `${formatNumber(value)}x`
-  return formatLoad(value, units)
 }
 
 function formatStrengthScore(kind: StrengthScoreKind, value: number | null, units: HistoryInsights['units']) {

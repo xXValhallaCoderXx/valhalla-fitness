@@ -42,6 +42,12 @@ test.describe('insights', () => {
     await expect(page.getByText(/^consistency$/i)).toBeVisible()
     await expect(page.getByText(/muscle balance/i)).toBeVisible()
     await expect(page.getByText(/weekly volume/i)).toBeVisible()
+
+    // demo.linear has bodyweight + sex + history, so the DOTS-over-time trend renders on the
+    // Overview strength card (a LineChart) once recharts settles after hydration.
+    await expect(async () => {
+      await expect(page.locator('.mantine-LineChart-root').first()).toBeVisible({ timeout: 1000 })
+    }).toPass({ timeout: 15000 })
   })
 
   test('settings logs a bodyweight entry', async ({ page }) => {

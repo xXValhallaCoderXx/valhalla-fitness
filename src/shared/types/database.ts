@@ -312,6 +312,7 @@ export type Database = {
         Row: {
           auto_start_timer: boolean
           created_at: string
+          default_rest_seconds: number
           display_name: string | null
           email: string | null
           equipment_profile: string[]
@@ -330,6 +331,7 @@ export type Database = {
         Insert: {
           auto_start_timer?: boolean
           created_at?: string
+          default_rest_seconds?: number
           display_name?: string | null
           email?: string | null
           equipment_profile?: string[]
@@ -348,6 +350,7 @@ export type Database = {
         Update: {
           auto_start_timer?: boolean
           created_at?: string
+          default_rest_seconds?: number
           display_name?: string | null
           email?: string | null
           equipment_profile?: string[]

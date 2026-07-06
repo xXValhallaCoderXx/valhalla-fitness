@@ -21,20 +21,35 @@ const roundingOptions = [
   { value: '5', label: '5' },
 ]
 
+const restOptions = [
+  { value: '60', label: '60s' },
+  { value: '90', label: '90s' },
+  { value: '120', label: '120s' },
+  { value: '180', label: '180s' },
+]
+
 export function PreferencesSection({
   themePreference,
   units,
   rounding,
+  autoStartTimer,
+  defaultRestSeconds,
   onThemeChange,
   onUnitsChange,
   onRoundingChange,
+  onAutoStartTimerChange,
+  onDefaultRestSecondsChange,
 }: {
   themePreference: ThemePreference
   units: Unit
   rounding: number
+  autoStartTimer: boolean
+  defaultRestSeconds: number
   onThemeChange: (theme: ThemePreference) => void
   onUnitsChange: (units: Unit) => void
   onRoundingChange: (rounding: number) => void
+  onAutoStartTimerChange: (autoStart: boolean) => void
+  onDefaultRestSecondsChange: (seconds: number) => void
 }) {
   return (
     <SettingsSection
@@ -88,6 +103,33 @@ export function PreferencesSection({
                 data={roundingOptions}
               />
             </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 border-t pt-4 sm:grid-cols-2" style={{ borderColor: 'var(--mantine-color-default-border)' }}>
+          <div className="grid content-start gap-1.5">
+            <SectionLabel>Rest timer</SectionLabel>
+            <SegmentedControl
+              fullWidth
+              value={autoStartTimer ? 'on' : 'off'}
+              onChange={(value) => onAutoStartTimerChange(value === 'on')}
+              data={[
+                { value: 'on', label: 'Auto-start' },
+                { value: 'off', label: 'Off' },
+              ]}
+            />
+            <Caption mt={1}>Starts a rest countdown after each completed set.</Caption>
+          </div>
+          <div className="grid content-start gap-1.5">
+            <SectionLabel>Default rest</SectionLabel>
+            <SegmentedControl
+              fullWidth
+              disabled={!autoStartTimer}
+              value={String(defaultRestSeconds)}
+              onChange={(value) => onDefaultRestSecondsChange(Number(value))}
+              data={restOptions}
+            />
+            <Caption mt={1}>Compounds rest longer, accessories shorter.</Caption>
           </div>
         </div>
       </Panel>

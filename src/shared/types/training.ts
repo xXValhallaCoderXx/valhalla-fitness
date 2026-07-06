@@ -45,6 +45,10 @@ export type UserProfile = {
   postWorkoutFeedbackDismissed: boolean
   /** Only used to pick the DOTS coefficient set; null shows the xBW fallback. */
   sex?: Sex | null
+  /** Auto-start the in-session rest timer after each completed set. */
+  autoStartTimer: boolean
+  /** Baseline rest duration (seconds); role multipliers scale off this. */
+  defaultRestSeconds: number
 }
 
 export type ProgramTemplateSummary = {
@@ -150,6 +154,8 @@ export type MovementSlot = {
   notes?: string | null
   isAdded?: boolean
   addedScope?: SwapScope
+  /** Optional per-slot rest override (seconds); rides the session snapshot, no DB column. */
+  restSeconds?: number
 }
 
 export type ProgramMovementOverride = {

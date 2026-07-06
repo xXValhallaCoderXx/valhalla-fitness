@@ -110,6 +110,8 @@ function SettingsForm({ me }: { me: UserProfile }) {
   const [programStateDefaults, setProgramStateDefaults] = useState<ProgramStateDefaults>(
     me?.programStateDefaults ?? defaultProgramStateDefaults(me?.units ?? 'kg'),
   )
+  const [autoStartTimer, setAutoStartTimer] = useState(me?.autoStartTimer ?? true)
+  const [defaultRestSeconds, setDefaultRestSeconds] = useState(me?.defaultRestSeconds ?? 120)
   const [showOneRepMaxCalculator, setShowOneRepMaxCalculator] = useState(false)
   const [selectedOneRepMaxKey, setSelectedOneRepMaxKey] = useState(oneRepMaxKeys[0]!)
   const [knownSetInput, setKnownSetInput] = useState<KnownSetInput>({ weight: '', reps: '', rir: '0' })
@@ -121,9 +123,11 @@ function SettingsForm({ me }: { me: UserProfile }) {
         rounding !== me?.rounding ||
         sex !== (me?.sex ?? null) ||
         themePreference !== (me?.themePreference ?? 'system') ||
+        autoStartTimer !== (me?.autoStartTimer ?? true) ||
+        defaultRestSeconds !== (me?.defaultRestSeconds ?? 120) ||
         !sameNumberRecord(programStateDefaults, me?.programStateDefaults ?? defaultProgramStateDefaults(me?.units ?? units)) ||
         !sameStringSet(equipmentProfile, me?.equipmentProfile ?? [])),
-    [equipmentProfile, me, programStateDefaults, rounding, sex, themePreference, units],
+    [autoStartTimer, defaultRestSeconds, equipmentProfile, me, programStateDefaults, rounding, sex, themePreference, units],
   )
 
   useEffect(() => {
@@ -143,6 +147,8 @@ function SettingsForm({ me }: { me: UserProfile }) {
           themePreference,
           programStateDefaults,
           sex,
+          autoStartTimer,
+          defaultRestSeconds,
         },
       }),
     onSuccess: (next) => {
@@ -156,6 +162,8 @@ function SettingsForm({ me }: { me: UserProfile }) {
         setSex(next.sex ?? null)
         setThemePreference(next.themePreference)
         setProgramStateDefaults(next.programStateDefaults)
+        setAutoStartTimer(next.autoStartTimer)
+        setDefaultRestSeconds(next.defaultRestSeconds)
       }
       notifications.show({ color: 'success', title: 'Settings saved', message: 'Your preferences were updated.' })
       // During onboarding, a user who arrived via the "Set estimates" button returns to Today once
@@ -182,6 +190,8 @@ function SettingsForm({ me }: { me: UserProfile }) {
     setSex(me.sex ?? null)
     setThemePreference(me.themePreference ?? 'system')
     setProgramStateDefaults(me.programStateDefaults ?? defaultProgramStateDefaults(me.units))
+    setAutoStartTimer(me.autoStartTimer ?? true)
+    setDefaultRestSeconds(me.defaultRestSeconds ?? 120)
   }
 
   const handleUnitsChange = (nextUnits: Unit) => {
@@ -298,9 +308,13 @@ function SettingsForm({ me }: { me: UserProfile }) {
             themePreference={themePreference}
             units={units}
             rounding={rounding}
+            autoStartTimer={autoStartTimer}
+            defaultRestSeconds={defaultRestSeconds}
             onThemeChange={setThemePreference}
             onUnitsChange={handleUnitsChange}
             onRoundingChange={setRounding}
+            onAutoStartTimerChange={setAutoStartTimer}
+            onDefaultRestSecondsChange={setDefaultRestSeconds}
           />
 
           <SettingsSection
