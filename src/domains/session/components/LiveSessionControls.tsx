@@ -61,17 +61,21 @@ export function ToolButton({
   label,
   onClick,
   disabled = false,
+  showLabel = false,
 }: {
   title: string
   icon: ReactNode
   label: string
   onClick?: () => void
   disabled?: boolean
+  /** Show the text label at every breakpoint (not just md+). Use where the button lives on mobile. */
+  showLabel?: boolean
 }) {
+  const sizing = showLabel ? 'h-8 w-auto gap-1 px-2.5 md:h-7' : 'h-8 w-8 md:h-7 md:w-auto md:gap-1 md:px-2.5'
   return (
     <button
       type="button"
-      className="flex h-8 w-8 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-45 md:h-7 md:w-auto md:gap-1 md:rounded-full md:px-2.5"
+      className={`flex ${sizing} items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-45`}
       style={{
         borderColor: 'var(--mantine-color-default-border)',
         backgroundColor: 'var(--vf-surface-2)',
@@ -83,7 +87,7 @@ export function ToolButton({
       onClick={onClick}
     >
       {icon}
-      <Text component="span" size="0.6875rem" fw={700} c="inherit" className="hidden md:inline">
+      <Text component="span" size="0.6875rem" fw={700} c="inherit" className={showLabel ? undefined : 'hidden md:inline'}>
         {label}
       </Text>
     </button>

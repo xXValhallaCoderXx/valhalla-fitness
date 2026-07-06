@@ -29,4 +29,21 @@ test('plate calculator opens and shows a per-side breakdown', async ({ page }) =
 
   await expect(page.getByText(/per side/i)).toBeVisible()
   await expect(page.getByTestId('plate-target-input')).toBeVisible()
+
+  // Drive a target that always needs plates, then confirm the barbell SVG renders one disc per
+  // computed per-side plate (unit-agnostic: compare against the numeric breakdown the modal shows).
+  await page.getByTestId('plate-target-input').fill('100')
+  const barbell = page.getByTestId('barbell-plates')
+  await expect(barbell).toBeVisible()
+
+  const perSideLine = page.locator('[data-testid="plate-calculator"] p', { hasText: /·|^\d/ }).last()
+  await expect(async () => {
+    const discs = await barbell.getByTestId('plate-disc').count()
+    const summary = (await perSideLine.innerText()).trim()
+    const expected = summary.split('·').filter((token) => token.trim().length > 0).length
+    expect(discs).toBeGreaterThan(0)
+    expect(discs).toBe(expected)
+  }).toPass({ timeout: 5000 })
+
+  await page.getByTestId('plate-calculator').screenshot({ path: 'test-results/plate-calculator-barbell.png' })
 })

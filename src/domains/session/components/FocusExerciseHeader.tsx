@@ -45,8 +45,8 @@ export function FocusExerciseHeader({
       ) : null}
 
       <div className="mt-3 flex items-center justify-center gap-2">
-        <ToolButton title="Plate math" icon={<Calculator size={13} />} label="Plates" onClick={onOpenPlates} />
-        <ToolButton title="Movement history" icon={<History size={13} />} label="History" onClick={onOpenHistory} />
+        <ToolButton title="Plate math" icon={<Calculator size={13} />} label="Plates" showLabel onClick={onOpenPlates} />
+        <ToolButton title="Movement history" icon={<History size={13} />} label="History" showLabel onClick={onOpenHistory} />
       </div>
     </div>
   )
