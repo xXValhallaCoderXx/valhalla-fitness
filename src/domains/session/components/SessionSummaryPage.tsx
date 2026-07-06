@@ -14,6 +14,8 @@ import { buildWorkoutSummary, type SummaryExercise } from '~/domains/history/lib
 import { summaryHeadline, updatesStat } from '~/domains/session/lib/summary-decisions'
 import { SessionSummaryDecisionHero, type DecidedState } from './SessionSummaryDecisionHero'
 import { PendingProgressionReviewModal, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
+import { DecisionFeedbackTrigger } from '~/domains/feedback/components/DecisionFeedback'
+import { PostWorkoutFeedbackPrompt } from '~/domains/feedback/components/PostWorkoutFeedbackPrompt'
 import { resolveProgressionDecisionFn } from '~/domains/program/server/program-functions'
 
 export function SessionSummaryPage({ sessionId, user }: { sessionId: string; user: unknown }) {
@@ -162,7 +164,12 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
             </Card>
           ) : null}
 
-          {receipt.length ? <WhatChangedCard receipt={receipt} /> : null}
+          {receipt.length ? <WhatChangedCard receipt={receipt} sessionId={sessionId} /> : null}
+
+          {/* Fresh finishes only: `summary` lives in the finish-time cache, so revisits skip the prompt. */}
+          {summary && !session.isAdHoc && (allDecisions.length > 0 || receipt.length > 0) ? (
+            <PostWorkoutFeedbackPrompt session={session} decisions={allDecisions} />
+          ) : null}
         </div>
       </div>
 
@@ -275,7 +282,7 @@ function receiptChangeColor(tone: ReceiptTone) {
   return 'var(--mantine-color-text)'
 }
 
-function ReceiptRow({ entry }: { entry: ReceiptEntry }) {
+function ReceiptRow({ entry, sessionId }: { entry: ReceiptEntry; sessionId: string }) {
   return (
     <div className="rounded-lg border p-3" style={receiptToneStyle(entry.tone)}>
       <Text size="sm" fw={700} truncate>{entry.movementName}</Text>
@@ -283,12 +290,17 @@ function ReceiptRow({ entry }: { entry: ReceiptEntry }) {
       {entry.why ? (
         <Text mt={1} size="xs" tone="dimmed" lh={1.3} className="line-clamp-2">{entry.why}</Text>
       ) : null}
+      {entry.decision ? (
+        <div className="mt-1.5 -ml-2">
+          <DecisionFeedbackTrigger decision={entry.decision} sessionId={sessionId} />
+        </div>
+      ) : null}
     </div>
   )
 }
 
 // Coaching "receipt" — kept as a secondary reference below the recap.
-function WhatChangedCard({ receipt }: { receipt: ReceiptEntry[] }) {
+function WhatChangedCard({ receipt, sessionId }: { receipt: ReceiptEntry[]; sessionId: string }) {
   return (
     <Card className="p-4">
       <div className="flex items-center gap-2">
@@ -297,7 +309,7 @@ function WhatChangedCard({ receipt }: { receipt: ReceiptEntry[] }) {
       </div>
       <div className={cn('mt-3 grid gap-2.5', 'sm:grid-cols-2')}>
         {receipt.map((entry, index) => (
-          <ReceiptRow key={`${entry.movementName}-${index}`} entry={entry} />
+          <ReceiptRow key={`${entry.movementName}-${index}`} entry={entry} sessionId={sessionId} />
         ))}
       </div>
     </Card>

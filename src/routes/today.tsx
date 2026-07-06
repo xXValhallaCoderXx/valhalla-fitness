@@ -5,7 +5,7 @@ import { loadRouteQuery } from '~/shared/lib/route-loading'
 
 export const Route = createFileRoute('/today')({
   loader: async ({ context }) => {
-    if ((context as any).user) {
+    if (context.user) {
       await loadRouteQuery(context.queryClient, todayQueryOptions())
     }
   },
@@ -13,6 +13,6 @@ export const Route = createFileRoute('/today')({
 })
 
 function TodayRoute() {
-  const user = (Route.useRouteContext() as any).user
+  const { user } = Route.useRouteContext()
   return <TodayPage user={user} />
 }

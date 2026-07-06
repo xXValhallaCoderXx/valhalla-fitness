@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { buildOldSchoolWaveTimeline } from '../src/domains/program/lib/program-timeline'
+import { buildProgramTimeline } from '../src/domains/program/lib/program-timeline'
+import { getFallbackTemplateDefinition } from '../src/domains/program/lib/template-definitions'
 import { buildProgramPhaseMap } from '../src/domains/program/lib/program-phase-map'
 import type { ProgramTimelineModel, TimelineWeek } from '../src/domains/program/lib/template-engine'
+
+function oldSchoolWaveTimeline(currentWeekIndex: number) {
+  return buildProgramTimeline(
+    { templateId: 'bromley-bullmastiff', currentWeekIndex },
+    getFallbackTemplateDefinition('bromley-bullmastiff'),
+  )
+}
 
 function makeWeek(
   partial: Partial<TimelineWeek> & { index: number; phaseKey: string; phaseLabel: string },
@@ -29,7 +37,7 @@ function makeTimeline(weeks: TimelineWeek[], currentWeekIndex: number): ProgramT
 
 describe('buildProgramPhaseMap', () => {
   it('groups an 18-week base→peak program into two phases of three waves × three weeks', () => {
-    const timeline = buildOldSchoolWaveTimeline(36) // currentWeekIndex 9 (week 10)
+    const timeline = oldSchoolWaveTimeline(36) // currentWeekIndex 9 (week 10)
     const map = buildProgramPhaseMap(timeline)
 
     expect(map.totalWeeks).toBe(18)
@@ -50,7 +58,7 @@ describe('buildProgramPhaseMap', () => {
   })
 
   it('marks weeks done / current / upcoming relative to the current week', () => {
-    const map = buildProgramPhaseMap(buildOldSchoolWaveTimeline(36)) // current index 9
+    const map = buildProgramPhaseMap(oldSchoolWaveTimeline(36)) // current index 9
 
     expect(map.phases[0].weeks.every((week) => week.status === 'done')).toBe(true)
     const peak = map.phases[1].weeks

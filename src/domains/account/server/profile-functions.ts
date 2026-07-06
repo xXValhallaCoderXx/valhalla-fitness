@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
-import type { ProgramStateDefaults, ThemePreference, Unit, UserProfile } from '~/shared/types'
-import { defaultProgramStateDefaults } from '~/domains/program/lib/templates'
+import type { ProgramStateDefaults, Sex, ThemePreference, Unit, UserProfile } from '~/shared/types'
+import { defaultProgramStateDefaults } from '~/domains/program/lib/program-state-defaults'
 
 async function requireUser() {
   const { requireUser } = await import('~/shared/server/require-user')
@@ -72,6 +72,10 @@ export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promi
     programStateDefaults: normalizeProgramStateDefaults(profile.program_state_defaults, profile.units as Unit),
     onboardingCompleted: Boolean(profile.onboarding_completed),
     liveOnboardingDismissed: Boolean(profile.live_onboarding_dismissed),
+    postWorkoutFeedbackDismissed: Boolean(profile.post_workout_feedback_dismissed),
+    sex: (profile.sex ?? null) as Sex | null,
+    autoStartTimer: profile.auto_start_timer ?? true,
+    defaultRestSeconds: Number(profile.default_rest_seconds ?? 120),
   }
 })
 
@@ -89,6 +93,13 @@ export const dismissLiveOnboardingFn = createServerFn({ method: 'POST' }).handle
   return getMeFn()
 })
 
+export const dismissPostWorkoutFeedbackFn = createServerFn({ method: 'POST' }).handler(async () => {
+  const { supabase, user } = await requireUser()
+  const { error } = await supabase.from('profiles').update({ post_workout_feedback_dismissed: true }).eq('id', user.id)
+  if (error) throw new Error(error.message)
+  return getMeFn()
+})
+
 export const updateSettingsFn = createServerFn({ method: 'POST' })
   .validator(
     (data: {
@@ -97,6 +108,11 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
       equipmentProfile: string[]
       themePreference: ThemePreference
       programStateDefaults: ProgramStateDefaults
+      /** Omitted = leave unchanged (partial callers like UserMenu); null = explicitly cleared. */
+      sex?: Sex | null
+      /** Omitted = leave unchanged (partial callers don't touch rest-timer prefs). */
+      autoStartTimer?: boolean
+      defaultRestSeconds?: number
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -110,8 +126,20 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
         equipment_profile: data.equipmentProfile,
         theme_preference: data.themePreference,
         program_state_defaults: programStateDefaults,
+        ...(data.sex !== undefined ? { sex: data.sex } : {}),
+        ...(data.autoStartTimer !== undefined ? { auto_start_timer: data.autoStartTimer } : {}),
+        ...(data.defaultRestSeconds !== undefined ? { default_rest_seconds: data.defaultRestSeconds } : {}),
       })
       .eq('id', user.id)
+    if (error) throw new Error(error.message)
+    return getMeFn()
+  })
+
+export const updateSexFn = createServerFn({ method: 'POST' })
+  .validator((data: { sex: Sex | null }) => data)
+  .handler(async ({ data }) => {
+    const { supabase, user } = await requireUser()
+    const { error } = await supabase.from('profiles').update({ sex: data.sex }).eq('id', user.id)
     if (error) throw new Error(error.message)
     return getMeFn()
   })

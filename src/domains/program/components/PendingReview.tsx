@@ -7,6 +7,7 @@ import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { cn } from '~/shared/lib/cn'
 import { meQueryOptions } from '~/domains/account/queries'
+import { DecisionFeedbackTrigger } from '~/domains/feedback/components/DecisionFeedback'
 import { resolveProgressionDecisionFn } from '~/domains/program/server/program-functions'
 import { reviewDecisionView, type ReviewDecisionView } from '~/domains/program/lib/progression-review'
 import type { ProgressionDecision } from '~/shared/types'
@@ -270,6 +271,7 @@ export function PendingProgressionReviewModal({
             lifts.map((decision) => (
               <ReviewLiftCard
                 key={decision.id}
+                decision={decision}
                 view={reviewDecisionView(decision, units)}
                 state={decided.get(decision.id)}
                 isSaving={isSaving}
@@ -304,12 +306,14 @@ export function PendingProgressionReviewModal({
 }
 
 function ReviewLiftCard({
+  decision,
   view,
   state,
   isSaving,
   onAccept,
   onKeep,
 }: {
+  decision: ProgressionDecision
   view: ReviewDecisionView
   state?: 'accepted' | 'kept'
   isSaving: boolean
@@ -393,6 +397,9 @@ function ReviewLiftCard({
           </Button>
         </div>
       )}
+      <div className="mt-2">
+        <DecisionFeedbackTrigger decision={decision} />
+      </div>
     </div>
   )
 }

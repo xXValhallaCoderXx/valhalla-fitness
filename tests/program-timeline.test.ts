@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { buildOldSchoolWaveTimeline, buildProgramTimeline, buildTrainingMaxWaveTimeline } from '../src/domains/program/lib/program-timeline'
+import { buildProgramTimeline } from '../src/domains/program/lib/program-timeline'
+import { getFallbackTemplateDefinition } from '../src/domains/program/lib/template-definitions'
+
+function timelineFor(templateId: string, currentWeekIndex: number) {
+  return buildProgramTimeline({ templateId, currentWeekIndex }, getFallbackTemplateDefinition(templateId))
+}
 
 describe('program timeline model', () => {
   it('normalizes training-max waves into week/session timeline rows', () => {
-    const timeline = buildTrainingMaxWaveTimeline(4)
+    const timeline = timelineFor('healthy-531-fsl', 4)
 
     expect(timeline.totalWeeks).toBe(4)
     expect(timeline.currentWeekIndex).toBe(1)
@@ -23,7 +28,7 @@ describe('program timeline model', () => {
   })
 
   it('normalizes old-school wave powerbuilding into an 18-week base-to-peak timeline', () => {
-    const timeline = buildOldSchoolWaveTimeline(36)
+    const timeline = timelineFor('bromley-bullmastiff', 36)
 
     expect(timeline.totalWeeks).toBe(18)
     expect(timeline.currentWeekIndex).toBe(9)
@@ -43,7 +48,7 @@ describe('program timeline model', () => {
   })
 
   it('shows every beginner 5x5 lift instead of collapsing to the first main slot', () => {
-    const timeline = buildProgramTimeline({ templateId: 'generic_alternating_5x5_lp', currentWeekIndex: 0 })
+    const timeline = timelineFor('generic_alternating_5x5_lp', 0)
 
     expect(timeline.weeks[0]?.sessions.map((session) => session.movementSummary)).toEqual([
       'Squat, Bench Press, Barbell Row, Chin-Up, Back Extension',
@@ -72,9 +77,9 @@ describe('program timeline model', () => {
   })
 
   it('selects the correct timeline builder from the active template id', () => {
-    expect(buildProgramTimeline({ templateId: 'bromley-bullmastiff', currentWeekIndex: 0 }).totalWeeks).toBe(18)
-    expect(buildProgramTimeline({ templateId: 'healthy-531-fsl', currentWeekIndex: 0 }).totalWeeks).toBe(4)
-    expect(buildProgramTimeline({ templateId: 'bromley-70s-powerlifter', currentWeekIndex: 0 }).totalWeeks).toBe(18)
-    expect(buildProgramTimeline({ templateId: 'bromley-volume-intensity', currentWeekIndex: 0 }).totalWeeks).toBe(6)
+    expect(timelineFor('bromley-bullmastiff', 0).totalWeeks).toBe(18)
+    expect(timelineFor('healthy-531-fsl', 0).totalWeeks).toBe(4)
+    expect(timelineFor('bromley-70s-powerlifter', 0).totalWeeks).toBe(18)
+    expect(timelineFor('bromley-volume-intensity', 0).totalWeeks).toBe(6)
   })
 })

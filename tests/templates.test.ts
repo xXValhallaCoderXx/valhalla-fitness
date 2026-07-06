@@ -4,7 +4,8 @@ import { movementCatalog } from '../src/domains/movement/lib/movements'
 import { buildProgramStartStateValues } from '../src/domains/program/lib/program-loads'
 import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, programForNextUncompletedSession } from '../src/domains/program/lib/templates'
 import { getFallbackTemplateDefinition, listFallbackTemplateDefinitions } from '../src/domains/program/lib/template-definitions'
-import { findMissingTemplateMovementIds, validateRequiredState, validateTemplateDefinition } from '../src/domains/program/lib/template-engine'
+import { findMissingTemplateMovementIds, validateRequiredState } from '../src/domains/program/lib/template-engine'
+import { validateTemplateDefinition } from '../src/domains/program/lib/template-engine-schema'
 import type { ProgramInstance } from '../src/shared/types'
 
 const program: ProgramInstance = {

@@ -1,4 +1,4 @@
-import { defaultProgramStateRequirements } from '~/domains/program/lib/templates'
+import { defaultProgramStateRequirements } from '~/domains/program/lib/program-state-defaults'
 import type { ProgramStateDefaults } from '~/shared/types'
 
 export type OnboardingStepId = 'plan' | 'estimates' | 'firstWorkout'

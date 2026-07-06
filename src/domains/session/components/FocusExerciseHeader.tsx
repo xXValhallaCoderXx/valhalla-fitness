@@ -3,7 +3,7 @@ import { Caption, Heading } from '~/components'
 import type { MovementSlot } from '~/shared/types'
 import { RolePill, ToolButton } from './LiveSessionControls'
 
-/** Big exercise title flanked by prev/next-exercise chevrons, with plate (placeholder) + history tools. */
+/** Big exercise title flanked by prev/next-exercise chevrons, with plate calculator + history tools. */
 export function FocusExerciseHeader({
   movement,
   hasPrev,
@@ -11,6 +11,7 @@ export function FocusExerciseHeader({
   onPrev,
   onNext,
   onOpenHistory,
+  onOpenPlates,
 }: {
   movement: MovementSlot
   hasPrev: boolean
@@ -18,6 +19,7 @@ export function FocusExerciseHeader({
   onPrev: () => void
   onNext: () => void
   onOpenHistory: () => void
+  onOpenPlates: () => void
 }) {
   const swapped = movement.performedMovementId && movement.performedMovementId !== movement.movementId
   return (
@@ -43,7 +45,7 @@ export function FocusExerciseHeader({
       ) : null}
 
       <div className="mt-3 flex items-center justify-center gap-2">
-        <ToolButton title="Plate math (coming soon)" icon={<Calculator size={13} />} label="Plates" disabled />
+        <ToolButton title="Plate math" icon={<Calculator size={13} />} label="Plates" onClick={onOpenPlates} />
         <ToolButton title="Movement history" icon={<History size={13} />} label="History" onClick={onOpenHistory} />
       </div>
     </div>

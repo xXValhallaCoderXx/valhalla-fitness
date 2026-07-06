@@ -11,7 +11,8 @@ const DEMO_WAVE = { email: 'demo.wave@sheetless.local', password: 'DemoPass123!'
 test("Today's workout and Recovery check drawers expand; body map deep-links Insights", async ({ page }) => {
   await login(page, DEMO_WAVE)
 
-  // Today's workout: collapsed by default → expand → per-movement target chunks ("5×5 · 85 kg").
+  // Today's workout: collapsed by default → expand → ledger rows (Sets "5 × 5" / "N sets",
+  // Target load "112.5 kg").
   const workout = page.getByTestId('today-workout')
   await expect(workout).toBeVisible({ timeout: 15000 })
   const workoutToggle = workout.getByRole('button', { name: "Today's workout" })
@@ -20,7 +21,8 @@ test("Today's workout and Recovery check drawers expand; body map deep-links Ins
     await workoutToggle.click()
     await expect(workoutToggle).toHaveAttribute('aria-expanded', 'true', { timeout: 1000 })
   }).toPass({ timeout: 15000 })
-  await expect(workout.getByText(/\d+×/).first()).toBeVisible()
+  await expect(workout.getByText(/\d+ × |\d+ sets/).first()).toBeVisible()
+  await expect(workout.getByText(/\d+(\.\d+)? (kg|lb)$/).first()).toBeVisible()
 
   // Recovery check: expand → body-map link → Insights lands on the Muscle Fatigue tab.
   const recovery = page.getByTestId('recovery-check')

@@ -5,7 +5,7 @@ import { loadRouteQuery } from '~/shared/lib/route-loading'
 
 export const Route = createFileRoute('/sessions/$sessionId/summary')({
   loader: async ({ context, params }) => {
-    if ((context as any).user) {
+    if (context.user) {
       await loadRouteQuery(context.queryClient, sessionQueryOptions(params.sessionId))
     }
   },
@@ -14,6 +14,6 @@ export const Route = createFileRoute('/sessions/$sessionId/summary')({
 
 function SessionSummaryRoute() {
   const { sessionId } = Route.useParams()
-  const user = (Route.useRouteContext() as any).user
+  const { user } = Route.useRouteContext()
   return <SessionSummaryPage sessionId={sessionId} user={user} />
 }

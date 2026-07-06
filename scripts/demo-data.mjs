@@ -19,6 +19,8 @@ const DEMO_USERS = [
     templateId: 'generic_alternating_5x5_lp',
     units: 'kg',
     rounding: 2.5,
+    sex: 'female',
+    bodyweightKg: 63,
     completedSessions: 12,
     activeSession: true,
     equipmentProfile: ['barbell', 'plates', 'rack', 'bench', 'dumbbells', 'machine', 'cable'],
@@ -58,6 +60,8 @@ const DEMO_USERS = [
     adHocFavorite: true,
   },
   {
+    // Alex deliberately has NO sex and NO bodyweight entries: this persona
+    // exercises the bodyweight prompt card on the insights page and its e2e.
     email: `demo.wave@${DEMO_EMAIL_DOMAIN}`,
     displayName: 'Alex Wave',
     title: 'Alex - Training Max Wave',
@@ -110,6 +114,8 @@ const DEMO_USERS = [
     templateId: 'bromley-bullmastiff',
     units: 'kg',
     rounding: 2.5,
+    sex: 'male',
+    bodyweightKg: 84,
     completedSessions: 14,
     activeSession: false,
     equipmentProfile: ['barbell', 'plates', 'rack', 'bench', 'dumbbells', 'cable', 'machine', 'specialty_bars', 'bodyweight'],
@@ -346,8 +352,9 @@ async function seedDemoUsers() {
     const authUser = await createDemoAuthUser(demo)
     const userClient = await createSignedInClient(demo)
     await seedProfile(userClient, authUser.id, demo)
-    if (!demo.profileOnly) await seedProgram(userClient, authUser.id, demo)
+    const lastSessionDate = demo.profileOnly ? null : await seedProgram(userClient, authUser.id, demo)
     if (demo.adHocFavorite) await insertAdHocSession(userClient, authUser.id, demo)
+    await seedBodyweight(userClient, authUser.id, demo, lastSessionDate)
     await userClient.auth.signOut()
   }
 
@@ -485,8 +492,40 @@ async function seedProfile(client, userId, demo) {
     program_state_defaults: profileDefaultsForDemo(demo),
     onboarding_completed: demo.onboardingCompleted ?? true,
     live_onboarding_dismissed: demo.liveOnboardingDismissed ?? false,
+    sex: demo.sex ?? null,
+    auto_start_timer: demo.autoStartTimer ?? true,
+    default_rest_seconds: demo.defaultRestSeconds ?? 120,
   }, { onConflict: 'id' })
   if (error) throw new Error(`Unable to seed profile for ${demo.email}: ${error.message}`)
+}
+
+/**
+ * ~12 weekly bodyweight entries (canonical kg) ending on the persona's most recent
+ * seeded session date, so the DOTS / relative-strength insight has a believable
+ * trend out of the box: a gentle upward walk into bodyweightKg plus a small
+ * deterministic wobble (no Math.random — reseeding stays reproducible). Upsert on
+ * (user_id, recorded_on) keeps repeated seeds idempotent.
+ */
+async function seedBodyweight(client, userId, demo, lastSessionDate) {
+  if (!demo.bodyweightKg) return
+  const weeks = 12
+  const endDate = lastSessionDate ?? todayIsoDate()
+  const rows = []
+  for (let index = 0; index < weeks; index += 1) {
+    const weeksBack = weeks - 1 - index
+    // Slow drift up to bodyweightKg (~0.05 kg/week) + ±0.3 kg wobble from index math.
+    const wobble = (((index * 3) % 7) - 3) * 0.1
+    const weightKg = Math.round((demo.bodyweightKg - weeksBack * 0.05 + wobble) * 10) / 10
+    rows.push({
+      user_id: userId,
+      recorded_on: isoDateDaysBefore(endDate, weeksBack * 7),
+      weight_kg: weightKg,
+    })
+  }
+  const { error } = await client
+    .from('bodyweight_entries')
+    .upsert(rows, { onConflict: 'user_id,recorded_on' })
+  if (error) throw new Error(`Unable to seed bodyweight for ${demo.email}: ${error.message}`)
 }
 
 async function seedProgram(client, userId, demo) {
@@ -537,6 +576,7 @@ async function seedProgram(client, userId, demo) {
   await insertStateValues(client, userId, program)
   await insertAccessoryAdditions(client, userId, program)
 
+  let latestSessionDate = null
   for (let sessionIndex = 0; sessionIndex < demo.completedSessions; sessionIndex += 1) {
     const sessionProgram = {
       ...program,
@@ -547,15 +587,19 @@ async function seedProgram(client, userId, demo) {
     const scheduledDate = daysAgo((demo.completedSessions - sessionIndex) * spacing + (demo.activeSession ? 1 : 0))
     const plannedSession = expandPlannedSession(sessionProgram, definition, scheduledDate)
     await insertWorkoutSession(client, userId, program.id, plannedSession, demo, sessionIndex, 'completed')
+    latestSessionDate = scheduledDate
   }
 
   if (demo.activeSession) {
-    const plannedSession = expandPlannedSession(program, definition, todayIsoDate())
+    const scheduledDate = todayIsoDate()
+    const plannedSession = expandPlannedSession(program, definition, scheduledDate)
     await insertWorkoutSession(client, userId, program.id, plannedSession, demo, demo.completedSessions, 'in_progress')
+    latestSessionDate = scheduledDate
   }
 
   await insertProgressionDecisions(client, userId, program.id, demo)
   console.log(`Seeded ${demo.displayName}: ${demo.email}`)
+  return latestSessionDate
 }
 
 async function getTemplate(client, templateId) {
@@ -1269,6 +1313,12 @@ function todayIsoDate() {
 function daysAgo(days) {
   const date = new Date()
   date.setDate(date.getDate() - days)
+  return date.toISOString().slice(0, 10)
+}
+
+function isoDateDaysBefore(isoDate, days) {
+  const date = new Date(`${isoDate}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() - days)
   return date.toISOString().slice(0, 10)
 }
 

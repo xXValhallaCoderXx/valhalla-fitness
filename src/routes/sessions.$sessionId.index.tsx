@@ -10,6 +10,6 @@ export const Route = createFileRoute('/sessions/$sessionId/')({
 
 function SessionRoute() {
   const { sessionId } = Route.useParams()
-  const user = (Route.useRouteContext() as any).user
+  const { user } = Route.useRouteContext()
   return <SessionPage sessionId={sessionId} user={user} />
 }

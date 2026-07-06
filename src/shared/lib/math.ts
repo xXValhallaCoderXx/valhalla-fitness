@@ -1,3 +1,12 @@
+import type { Unit } from '~/shared/types'
+
+export const LB_PER_KG = 2.20462262185
+
+export function convertWeight(value: number, sourceUnits: Unit, targetUnits: Unit) {
+  if (sourceUnits === targetUnits) return value
+  return sourceUnits === 'lb' ? value / LB_PER_KG : value * LB_PER_KG
+}
+
 export function mround(value: number, increment: number) {
   if (!Number.isFinite(value) || !Number.isFinite(increment) || increment <= 0) {
     return value

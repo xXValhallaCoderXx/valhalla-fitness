@@ -6,27 +6,14 @@ import {
   type TimelineWeek,
   type TemplateDefinition,
 } from '~/domains/program/lib/template-engine'
-import { getFallbackTemplateDefinition } from '~/domains/program/lib/template-definitions'
 
 export type { ProgramTimelineModel, TimelineSession, TimelineWeek }
 
+// `definition` is required: falling back to the built-in catalogue here would drag the full
+// template DSL data into the client bundle, and it throws for custom template ids anyway.
 export function buildProgramTimeline(
   program: Pick<ProgramInstance, 'templateId' | 'currentWeekIndex'>,
-  definition: TemplateDefinition = getFallbackTemplateDefinition(program.templateId),
+  definition: TemplateDefinition,
 ) {
   return buildProgramTimelineFromDefinition(program, definition)
-}
-
-export function buildOldSchoolWaveTimeline(currentSessionIndex: number) {
-  return buildProgramTimeline(
-    { templateId: 'bromley-bullmastiff', currentWeekIndex: currentSessionIndex },
-    getFallbackTemplateDefinition('bromley-bullmastiff'),
-  )
-}
-
-export function buildTrainingMaxWaveTimeline(currentSessionIndex: number) {
-  return buildProgramTimeline(
-    { templateId: 'healthy-531-fsl', currentWeekIndex: currentSessionIndex },
-    getFallbackTemplateDefinition('healthy-531-fsl'),
-  )
 }

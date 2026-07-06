@@ -15,6 +15,7 @@ import type {
 import { calculateBodyLoad, type BodyLoadWork } from '~/domains/history/lib/body-load'
 import { getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
 import { e1rm, mround } from '~/domains/program/lib/progression'
+import { convertWeight } from '~/shared/lib/math'
 
 export type HistorySetInput = MovementHistorySet & {
   actualRpe?: number | null
@@ -118,7 +119,7 @@ export function calculateCompletedVolumeInUnits(
 ) {
   return sets.reduce((total, set) => {
     if (!set.completed || !hasNumber(set.actualLoad) || !hasNumber(set.actualReps)) return total
-    return total + convertLoad(set.actualLoad, sourceUnits, targetUnits) * set.actualReps
+    return total + convertWeight(set.actualLoad, sourceUnits, targetUnits) * set.actualReps
   }, 0)
 }
 
@@ -225,7 +226,9 @@ export function buildMovementSummaries(
 export function buildWeeklyVolumeBuckets(
   sessions: HistorySessionInput[],
   displayUnits: Unit | null = sessions.find((session) => session.units)?.units ?? null,
+  options: { maxWeeks?: number | null } = {},
 ): HistoryWeeklyVolume[] {
+  const { maxWeeks = 8 } = options
   const buckets = new Map<string, HistoryWeeklyVolume>()
 
   for (const session of sessions) {
@@ -237,11 +240,13 @@ export function buildWeeklyVolumeBuckets(
     const volume = displayUnits
       ? calculateCompletedVolumeInUnits(completedSets, exerciseUnits(session, displayUnits), displayUnits)
       : calculateCompletedVolume(completedSets)
+    const isDeload = session.hardness === 'Deload'
     const existing = buckets.get(key)
     if (existing) {
       existing.volume += volume
       existing.completedSets += completedSets.length
       existing.sessionCount += 1
+      if (isDeload) existing.isDeload = true
     } else {
       buckets.set(key, {
         weekStart: key,
@@ -249,13 +254,13 @@ export function buildWeeklyVolumeBuckets(
         volume,
         completedSets: completedSets.length,
         sessionCount: 1,
+        isDeload,
       })
     }
   }
 
-  return Array.from(buckets.values())
-    .sort((left, right) => left.weekStart.localeCompare(right.weekStart))
-    .slice(-8)
+  const sorted = Array.from(buckets.values()).sort((left, right) => left.weekStart.localeCompare(right.weekStart))
+  return maxWeeks == null ? sorted : sorted.slice(-maxWeeks)
 }
 
 export function buildSubstitutionSummaries(
@@ -364,18 +369,13 @@ function exerciseUnits(session: HistorySessionInput, fallback: Unit): Unit {
   return session.units ?? fallback
 }
 
-function convertLoad(value: number, sourceUnits: Unit, targetUnits: Unit) {
-  if (sourceUnits === targetUnits) return value
-  return sourceUnits === 'lb' ? value / 2.20462262185 : value * 2.20462262185
-}
-
-function parseDate(value?: string | null) {
+export function parseDate(value?: string | null) {
   if (!value) return null
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-function startOfWeek(date: Date) {
+export function startOfWeek(date: Date) {
   const copy = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
   const day = copy.getUTCDay()
   const delta = day === 0 ? -6 : 1 - day
@@ -383,11 +383,11 @@ function startOfWeek(date: Date) {
   return copy
 }
 
-function formatDateKey(date: Date) {
+export function formatDateKey(date: Date) {
   return date.toISOString().slice(0, 10)
 }
 
-function formatWeekLabel(date: Date) {
+export function formatWeekLabel(date: Date) {
   const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getUTCMonth()]
   return `${month} ${date.getUTCDate()}`
 }

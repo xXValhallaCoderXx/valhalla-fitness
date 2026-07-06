@@ -60,6 +60,8 @@ export const listFavoriteWorkoutsFn = createServerFn({ method: 'GET' }).handler(
       .eq('status', 'completed')
       .order('completed_at', { ascending: false })
     if (error) throw new Error(error.message)
-    return (data ?? []).map(favoriteWorkoutFromRow)
+    return (data ?? []).map((row) =>
+      favoriteWorkoutFromRow({ ...row, prescription_snapshot: row.prescription_snapshot as PlannedSession | null }),
+    )
   },
 )

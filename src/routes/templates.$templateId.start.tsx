@@ -12,7 +12,7 @@ export const Route = createFileRoute('/templates/$templateId/start')({
   loaderDeps: ({ search: { variant } }) => ({ variant }),
   loader: async ({ context, params, deps }) => {
     await loadRouteQuery(context.queryClient, templatesQueryOptions())
-    if ((context as any).user) {
+    if (context.user) {
       await loadRouteQueries(context.queryClient, [
         meQueryOptions(),
         todayQueryOptions(),
@@ -27,6 +27,6 @@ export const Route = createFileRoute('/templates/$templateId/start')({
 function TemplateStartRoute() {
   const { templateId } = Route.useParams()
   const { variant } = Route.useSearch()
-  const user = (Route.useRouteContext() as any).user
+  const { user } = Route.useRouteContext()
   return <TemplateStartPage templateId={templateId} variant={variant} user={user} />
 }

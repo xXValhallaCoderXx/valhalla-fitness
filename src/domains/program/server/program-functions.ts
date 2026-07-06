@@ -17,12 +17,8 @@ import type {
 } from '~/shared/types'
 import { defaultStateValues, getFallbackTemplateDefinition, templateCatalog } from '~/domains/program/lib/templates'
 import { applyFamilyMeta } from '~/domains/program/lib/template-families'
-import {
-  parseTemplateDefinition,
-  validateRequiredState,
-  validateTemplateDefinition,
-  type TemplateDefinition,
-} from '~/domains/program/lib/template-engine'
+import { validateRequiredState, type TemplateDefinition } from '~/domains/program/lib/template-engine'
+import { parseTemplateDefinition, validateTemplateDefinition } from '~/domains/program/lib/template-engine-schema'
 import {
   buildCustomProgramTemplateDefinition,
   type CustomProgramBuilderInput,
@@ -31,6 +27,8 @@ import { buildMovementSwapOptions, defaultMovementReplacementRules, getMovementN
 import { buildProgramStartPreview } from '~/domains/program/lib/program-start-preview'
 import { ensureProfile, normalizeProgramStateDefaults } from '~/domains/account/server/profile-functions'
 import { getMovementCatalogForSwap, getReplacementRulesForSwap } from '~/domains/movement/server/movement-functions'
+import type { Tables } from '~/shared/types/database'
+import type { SupabaseServerClient } from '~/shared/server/supabase'
 
 async function requireUser() {
   const { requireUser } = await import('~/shared/server/require-user')
@@ -63,7 +61,7 @@ function validProgramStateValues(
   })
 }
 
-function normalizeTemplateSource(row: any): ProgramTemplateSummary['source'] {
+function normalizeTemplateSource(row: Pick<Tables<'program_templates'>, 'id' | 'source'>): ProgramTemplateSummary['source'] {
   if (row.source === 'custom_import') return 'custom_program'
   if (row.source === 'healthy_531') return 'training_max_wave'
   if (row.source === 'bromley_base_strength') {
@@ -91,13 +89,13 @@ function sourceLabelFor(source: ProgramTemplateSummary['source']) {
   return 'Volume Strength'
 }
 
-function normalizeTemplateOrigin(row: any, source: ProgramTemplateSummary['source']): ProgramTemplateOrigin {
+function normalizeTemplateOrigin(row: Pick<Tables<'program_templates'>, 'origin'>, source: ProgramTemplateSummary['source']): ProgramTemplateOrigin {
   if (row.origin === 'user_created' || source === 'custom_program') return 'user_created'
   if (row.origin === 'licensed_partner') return 'licensed_partner'
   return 'system_default'
 }
 
-function mapTemplateRow(row: any, available = true, definition?: TemplateDefinition | null): ProgramTemplateSummary {
+function mapTemplateRow(row: Tables<'program_templates'>, available = true, definition?: TemplateDefinition | null): ProgramTemplateSummary {
   const source = normalizeTemplateSource(row)
   const origin = normalizeTemplateOrigin(row, source)
   return applyFamilyMeta({
@@ -109,20 +107,20 @@ function mapTemplateRow(row: any, available = true, definition?: TemplateDefinit
     description: row.description,
     daysPerWeek: row.days_per_week,
     progressionLabel: row.progression_label,
-    complexity: row.complexity,
+    complexity: row.complexity as ProgramTemplateSummary['complexity'],
     tags: row.tags ?? [],
     requiredState: definition?.requiredState ?? [],
     available,
   })
 }
 
-function templateVersionIdFromRows(rows: any[]) {
+function templateVersionIdFromRows(rows: Array<Pick<Tables<'program_template_versions'>, 'id'>>) {
   const version = rows[0]
   if (!version?.id) throw new Error('Template version missing')
-  return version.id as string
+  return version.id
 }
 
-function templateDefinitionFromRows(rows: any[]) {
+function templateDefinitionFromRows(rows: Array<Pick<Tables<'program_template_versions'>, 'definition' | 'template_id'>>) {
   const version = rows[0]
   if (!version?.definition) throw new Error('Template definition missing')
   try {
@@ -134,7 +132,7 @@ function templateDefinitionFromRows(rows: any[]) {
 }
 
 async function getPinnedTemplateDefinition(
-  supabase: any,
+  supabase: SupabaseServerClient,
   templateVersionId: string,
   templateId: string,
 ): Promise<TemplateDefinition> {
@@ -153,7 +151,7 @@ async function getPinnedTemplateDefinition(
 }
 
 async function getLatestTemplateVersion(
-  supabase: any,
+  supabase: SupabaseServerClient,
   templateId: string,
 ): Promise<{ id: string; definition: TemplateDefinition }> {
   const { data, error } = await supabase
@@ -169,13 +167,13 @@ async function getLatestTemplateVersion(
   }
 }
 
-function mapProgramMovementOverride(row: any): ProgramMovementOverride {
+function mapProgramMovementOverride(row: Tables<'program_movement_overrides'>): ProgramMovementOverride {
   return {
     id: row.id,
     programInstanceId: row.program_instance_id,
     slotId: row.slot_id,
     phaseKey: row.phase_key,
-    role: row.role,
+    role: row.role as ProgramMovementOverride['role'],
     originalMovementId: row.original_movement_id,
     replacementMovementId: row.replacement_movement_id,
     effectiveFromWeekIndex: row.effective_from_week_index,
@@ -198,7 +196,7 @@ export function normalizeCustomizationSummary(input: unknown): ProgramCustomizat
   }
 }
 
-function mapProgramAccessoryAddition(row: any): ProgramAccessoryAddition {
+function mapProgramAccessoryAddition(row: Tables<'program_accessory_additions'>): ProgramAccessoryAddition {
   return {
     id: row.id,
     programInstanceId: row.program_instance_id,
@@ -209,9 +207,9 @@ function mapProgramAccessoryAddition(row: any): ProgramAccessoryAddition {
     prescriptionId: row.prescription_id,
     sourceSlotId: row.source_slot_id,
     targetSummary: row.target_summary,
-    sets: Array.isArray(row.sets) ? row.sets : [],
+    sets: Array.isArray(row.sets) ? (row.sets as unknown as ProgramAccessoryAddition['sets']) : [],
     note: row.note,
-    progressionMethod: row.progression_method ?? 'history_only',
+    progressionMethod: (row.progression_method ?? 'history_only') as ProgramAccessoryAddition['progressionMethod'],
     effectiveFromWeekIndex: Number(row.effective_from_week_index),
     orderIndex: Number(row.order_index),
   }
@@ -396,20 +394,20 @@ export async function getActiveProgramInternal(): Promise<ProgramInstance | null
     templateId: instance.template_id,
     templateVersionId: instance.template_version_id,
     title: instance.title,
-    status: instance.status,
+    status: instance.status as ProgramInstance['status'],
     startDate: instance.start_date,
-    units: instance.units,
+    units: instance.units as Unit,
     rounding: Number(instance.rounding),
     currentWeekIndex: instance.current_week_index,
-    customizationStatus: instance.customization_status ?? 'default',
+    customizationStatus: (instance.customization_status ?? 'default') as ProgramInstance['customizationStatus'],
     customizationSummary: normalizeCustomizationSummary(instance.customization_summary),
-    stateValues: (stateRows ?? []).map((state: any) => ({
+    stateValues: (stateRows ?? []).map((state) => ({
       key: state.key,
       movementId: state.movement_id,
-      type: state.state_type,
-      label: state.label,
+      type: state.state_type as ProgramStateInput['type'],
+      label: state.label ?? undefined,
       value: Number(state.value),
-      unit: state.unit ?? instance.units,
+      unit: (state.unit ?? instance.units) as Unit,
       updatedAt: state.updated_at ?? null,
     })),
     movementOverrides: (movementOverrides ?? []).map(mapProgramMovementOverride),
@@ -432,16 +430,16 @@ export async function getPendingDecisionsInternal(programInstanceId?: string) {
   return (data ?? []).map(mapProgressionDecision)
 }
 
-export function mapProgressionDecision(row: any): ProgressionDecision {
+export function mapProgressionDecision(row: Tables<'progression_decisions'>): ProgressionDecision {
   return {
     id: row.id,
     movementId: row.movement_id,
     movementName: getMovementName(row.movement_id),
     stateKey: row.state_key,
-    stateType: row.state_type,
+    stateType: row.state_type as ProgressionDecision['stateType'],
     ruleId: row.rule_id,
-    scope: row.scope,
-    status: row.status,
+    scope: row.scope as ProgressionDecision['scope'],
+    status: row.status as ProgressionDecision['status'],
     inputSummary: row.input_summary,
     recommendation: row.recommendation,
     previousValue: row.previous_value === null ? null : Number(row.previous_value),
@@ -450,7 +448,7 @@ export function mapProgressionDecision(row: any): ProgressionDecision {
   }
 }
 
-export async function updateProgramCurrentWeekIndex(supabase: any, userId: string, program: ProgramInstance) {
+export async function updateProgramCurrentWeekIndex(supabase: SupabaseServerClient, userId: string, program: ProgramInstance) {
   const { error } = await supabase
     .from('program_instances')
     .update({ current_week_index: program.currentWeekIndex })
@@ -477,12 +475,12 @@ export const listTemplatesFn = createServerFn({ method: 'GET' }).handler(async (
     .order('created_at', { ascending: false })
   if (versionError) throw new Error(versionError.message)
 
-  const latestByTemplateId = new Map<string, any>()
+  const latestByTemplateId = new Map<string, Pick<Tables<'program_template_versions'>, 'template_id' | 'definition' | 'created_at'>>()
   for (const version of versions ?? []) {
     if (!latestByTemplateId.has(version.template_id)) latestByTemplateId.set(version.template_id, version)
   }
 
-  const seeded = data.map((row: any) => {
+  const seeded = data.map((row) => {
     const latestDefinition = latestByTemplateId.get(row.id)?.definition
     const validation = validateTemplateDefinition(latestDefinition)
     if (validation.ok) return mapTemplateRow(row, true, validation.definition)
@@ -718,8 +716,8 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       .eq('status', 'in_progress')
     if (activeSessionError) throw new Error(activeSessionError.message)
 
-    const activeProgramIds = (activePrograms ?? []).map((program: any) => program.id as string)
-    const activeSessionIds = (activeSessions ?? []).map((session: any) => session.id as string)
+    const activeProgramIds = (activePrograms ?? []).map((program) => program.id)
+    const activeSessionIds = (activeSessions ?? []).map((session) => session.id)
     if ((activeProgramIds.length || activeSessionIds.length) && !data.replaceActiveProgram) {
       throw new Error('Active program in progress')
     }

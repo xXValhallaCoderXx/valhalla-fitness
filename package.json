@@ -16,12 +16,14 @@
     "db:migrate:local": "supabase db push --local --yes",
     "db:migrate": "supabase db push --db-url \"$SUPABASE_DB_URL\" --yes",
     "db:migrate:dry-run": "supabase db push --db-url \"$SUPABASE_DB_URL\" --dry-run",
+    "db:types": "supabase gen types typescript --local --schema public > src/shared/types/database.ts",
     "demo:seed": "node scripts/demo-data.mjs seed",
     "demo:reset": "node scripts/demo-data.mjs reset",
     "demo:refresh": "node scripts/demo-data.mjs refresh",
     "demo:verify": "node scripts/demo-data.mjs verify",
     "demo:list": "node scripts/demo-data.mjs list",
     "provision:allowed": "node scripts/provision-allowed-users.mjs",
+    "feedback:report": "node scripts/feedback-report.mjs",
     "typecheck": "tsc --noEmit",
     "pwa:verify": "node scripts/verify-pwa.mjs",
     "test": "vitest run",
@@ -36,6 +38,7 @@
     "shot": "node scripts/shot.mjs"
   },
   "dependencies": {
+    "@mantine/charts": "9.3.2",
     "@mantine/core": "^9.3.2",
     "@mantine/hooks": "^9.3.2",
     "@mantine/notifications": "9.3.2",
@@ -55,6 +58,7 @@
     "nitro": "3.0.260610-beta",
     "react": "19.2.7",
     "react-dom": "19.2.7",
+    "recharts": "^3.9.2",
     "tailwind-merge": "3.6.0",
     "workbox-window": "^7.4.1",
     "zod": "4.4.3"

@@ -1,5 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { getCookies, setCookie } from '@tanstack/react-start/server'
+import type { Database } from '~/shared/types/database'
+
+/** The typed server-side Supabase client used by all domain server functions. */
+export type SupabaseServerClient = ReturnType<typeof getSupabaseServerClient>
 
 function getEnvValue(name: string) {
   const value = process.env[name]?.trim()
@@ -46,7 +50,7 @@ export function getSupabaseServerClient() {
     throw new Error('Supabase anon key is missing. Set SUPABASE_ANON_KEY.')
   }
 
-  return createServerClient(url, anonKey, {
+  return createServerClient<Database>(url, anonKey, {
     cookies: {
       getAll() {
         return Object.entries(getCookies()).map(([name, value]) => ({

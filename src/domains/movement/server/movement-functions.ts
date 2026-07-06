@@ -1,5 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import type { AccessoryMovementOption, Movement, MovementReplacementRule } from '~/shared/types'
+import type { Tables } from '~/shared/types/database'
+import type { SupabaseServerClient } from '~/shared/server/supabase'
 import { defaultMovementReplacementRules, movementCatalog } from '~/domains/movement/lib/movements'
 
 async function requireUser() {
@@ -12,12 +14,12 @@ async function hasSupabaseEnv() {
   return hasSupabaseEnv()
 }
 
-function mapMovementReplacementRule(row: any): MovementReplacementRule {
+function mapMovementReplacementRule(row: Tables<'movement_replacement_rules'>): MovementReplacementRule {
   return {
     id: row.id,
     sourceMovementId: row.source_movement_id,
     replacementMovementId: row.replacement_movement_id,
-    role: row.role,
+    role: row.role as MovementReplacementRule['role'],
     templateId: row.template_id,
     phaseKey: row.phase_key,
     slotId: row.slot_id,
@@ -27,26 +29,26 @@ function mapMovementReplacementRule(row: any): MovementReplacementRule {
   }
 }
 
-function mapMovementRow(row: any): Movement {
+function mapMovementRow(row: Tables<'movements'>): Movement {
   return {
     id: row.id,
     name: row.name,
-    category: row.category,
+    category: row.category as Movement['category'],
     equipment: row.equipment ?? [],
     variationOf: row.variation_of,
-    defaultUnit: row.default_unit,
+    defaultUnit: row.default_unit as Movement['defaultUnit'],
     isCompetition: row.is_competition,
   }
 }
 
-export async function getMovementCatalogForSwap(supabase: any): Promise<Record<string, Movement>> {
+export async function getMovementCatalogForSwap(supabase: SupabaseServerClient): Promise<Record<string, Movement>> {
   const { data, error } = await supabase.from('movements').select('*')
   if (error) throw new Error(error.message)
-  const catalog = Object.fromEntries((data ?? []).map((row: any) => [row.id, mapMovementRow(row)]))
+  const catalog = Object.fromEntries((data ?? []).map((row) => [row.id, mapMovementRow(row)]))
   return Object.keys(catalog).length ? catalog : movementCatalog
 }
 
-export async function getReplacementRulesForSwap(supabase: any): Promise<MovementReplacementRule[]> {
+export async function getReplacementRulesForSwap(supabase: SupabaseServerClient): Promise<MovementReplacementRule[]> {
   const { data, error } = await supabase
     .from('movement_replacement_rules')
     .select('*')

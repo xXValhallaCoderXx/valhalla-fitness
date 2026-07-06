@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { patchSetInSession, type SetPatch } from '~/domains/session/lib/session-cache'
+import { useRestTimerControls } from '~/domains/session/lib/rest-timer-context'
 import { upsertSetLogFn } from '~/domains/session/server/session-functions'
 import type { MovementSlot, WorkoutSession } from '~/shared/types'
 
@@ -14,6 +15,7 @@ import type { MovementSlot, WorkoutSession } from '~/shared/types'
  */
 export function useSetLogMutation(session: WorkoutSession, movement: MovementSlot, setIndex: number) {
   const queryClient = useQueryClient()
+  const rest = useRestTimerControls()
   return useMutation({
     mutationKey: ['setLog', session.sessionId, movement.id, setIndex],
     mutationFn: (patch: SetPatch) =>
@@ -31,6 +33,8 @@ export function useSetLogMutation(session: WorkoutSession, movement: MovementSlo
         },
       }),
     onMutate: async (patch) => {
+      // Unlock the audio cue inside the tap gesture (before any await) so the beep can fire later.
+      if (patch.completed) rest.prime()
       await queryClient.cancelQueries({ queryKey: ['session', session.sessionId] })
       const previous = queryClient.getQueryData<WorkoutSession>(['session', session.sessionId])
       if (previous) {
@@ -64,11 +68,18 @@ export function useSetLogMutation(session: WorkoutSession, movement: MovementSlo
         message: getApiErrorMessage(error, 'Unable to save this set. Retry when your connection is stable.'),
       })
     },
-    onSuccess: (nextSession) => {
+    onSuccess: (nextSession, patch, context) => {
       queryClient.setQueryData(['session', session.sessionId], nextSession)
       queryClient.setQueryData(['today'], (current: any) =>
         current ? { ...current, activeSession: nextSession } : current,
       )
+      // Auto-start rest only on a genuine incomplete -> complete transition (not edits/retries).
+      if (patch.completed === true) {
+        const priorSet = context?.previous?.movements
+          .find((item) => item.id === movement.id)
+          ?.sets.find((set) => set.setIndex === setIndex)
+        if (priorSet?.completed === false) rest.startForSlot(movement)
+      }
     },
   })
 }

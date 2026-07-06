@@ -20,6 +20,8 @@ export type ReceiptEntry = {
   change: string
   why: string
   tone: ReceiptTone
+  /** Present on decision-backed entries so the UI can attach per-decision feedback. */
+  decision?: ProgressionDecision
 }
 
 export type MovementPerformance = {
@@ -117,6 +119,7 @@ export function buildSessionReceipt(session: WorkoutSession, summary?: SessionSu
       change: describeDecisionChange(decision, units),
       why: decision.rationale ?? '',
       tone: decisionTone(decision),
+      decision,
     })
   }
 

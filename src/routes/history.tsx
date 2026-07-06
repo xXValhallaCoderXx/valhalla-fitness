@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { HISTORY_TAB_VALUES, HistoryPage, type HistoryTab } from '~/domains/history/components/HistoryPage'
-import { activeProgramQueryOptions } from '~/domains/program/queries'
+import { programOverviewQueryOptions } from '~/domains/program/queries'
 import { historyDashboardQueryOptions } from '~/domains/history/queries'
 import { loadRouteQueries } from '~/shared/lib/route-loading'
 
@@ -9,15 +9,15 @@ export const Route = createFileRoute('/history')({
     tab: HISTORY_TAB_VALUES.includes(search.tab as HistoryTab) ? (search.tab as HistoryTab) : undefined,
   }),
   loader: async ({ context }) => {
-    if ((context as any).user) {
-      await loadRouteQueries(context.queryClient, [historyDashboardQueryOptions(), activeProgramQueryOptions()])
+    if (context.user) {
+      await loadRouteQueries(context.queryClient, [historyDashboardQueryOptions(), programOverviewQueryOptions()])
     }
   },
   component: HistoryRoute,
 })
 
 function HistoryRoute() {
-  const user = (Route.useRouteContext() as any).user
+  const { user } = Route.useRouteContext()
   const { tab } = Route.useSearch()
   return <HistoryPage user={user} initialTab={tab} />
 }

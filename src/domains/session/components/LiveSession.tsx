@@ -276,7 +276,7 @@ function MovementRail({
       bg="var(--vf-bg-elevated)"
       style={{ borderColor: 'var(--mantine-color-default-border)' }}
     >
-      <SectionLabel className="mb-2 px-2">Movements</SectionLabel>
+      <SectionLabel className="mb-4 px-2">Movements</SectionLabel>
       <div className="space-y-0.5">
         {session.movements.map((movement) => {
           const complete = isMovementComplete(movement)
