@@ -8,8 +8,9 @@ import { finishSessionFn } from '~/domains/session/server/session-functions'
 import { buildFocusSessionSteps, buildLiveSessionSteps } from '~/domains/onboarding/onboarding-tour'
 import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
 import type { WorkoutSession } from '~/shared/types'
-import { ConfirmDialog, EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
+import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
 import { cn } from '~/shared/lib/cn'
+import { FinishSessionModal, type FinishReflection } from './FinishSessionModal'
 import { LiveSessionFrame } from './LiveSession'
 import { LiveFocusView } from './LiveFocusView'
 import { RestTimerProvider } from './RestTimerProvider'
@@ -44,7 +45,7 @@ function LoadedSessionRoute({
   const router = useRouter()
   const [notes, setNotes] = useState(session.notes ?? '')
   const [finishError, setFinishError] = useState<string | null>(null)
-  const [showFinishConfirm, setShowFinishConfirm] = useState(false)
+  const [showFinishModal, setShowFinishModal] = useState(false)
   const defaultOpenMovementId =
     session.movements.find((movement) => movement.sets.some((set) => !set.completed))?.id ??
     session.movements[0]?.id
@@ -92,7 +93,8 @@ function LoadedSessionRoute({
     : null
 
   const finishMutation = useMutation({
-    mutationFn: () => finishSessionFn({ data: { sessionId, notes } }),
+    mutationFn: (reflection: FinishReflection) =>
+      finishSessionFn({ data: { sessionId, notes, ...reflection } }),
     onMutate: () => {
       setFinishError(null)
     },
@@ -125,16 +127,12 @@ function LoadedSessionRoute({
   const requestFinish = () => {
     setFinishError(null)
     if (finishBlocked) return
-    if (incompleteSetCount) {
-      setShowFinishConfirm(true)
-      return
-    }
-    finishMutation.mutate()
+    setShowFinishModal(true)
   }
 
-  const confirmFinish = () => {
-    setShowFinishConfirm(false)
-    finishMutation.mutate()
+  const confirmFinish = (reflection: FinishReflection) => {
+    if (finishMutation.isPending) return
+    finishMutation.mutate(reflection, { onSuccess: () => setShowFinishModal(false) })
   }
 
   return (
@@ -166,19 +164,13 @@ function LoadedSessionRoute({
             onEnterFocus={() => setMobileView('focus')}
           />
         </div>
-        <ConfirmDialog
-          open={showFinishConfirm}
-          title="Finish here?"
-          confirmLabel="Finish anyway"
-          cancelLabel="Keep going"
-          tone="warning"
+        <FinishSessionModal
+          open={showFinishModal}
+          incompleteSetCount={incompleteSetCount}
           isPending={finishMutation.isPending}
-          onCancel={() => setShowFinishConfirm(false)}
-          onConfirm={confirmFinish}
-        >
-          You have {incompleteSetCount} set{incompleteSetCount === 1 ? '' : 's'} left to log. Finishing now is fine — Sheetless
-          only uses the sets you&apos;ve logged and won&apos;t make aggressive changes.
-        </ConfirmDialog>
+          onCancel={() => setShowFinishModal(false)}
+          onFinish={confirmFinish}
+        />
       </Page>
     </RestTimerProvider>
   )

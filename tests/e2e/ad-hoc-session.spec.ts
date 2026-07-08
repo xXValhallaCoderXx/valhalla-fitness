@@ -40,16 +40,12 @@ async function finishAnyActiveSession(page: Page) {
 }
 
 async function finishCurrentSession(page: Page) {
+  const finishModal = page.getByTestId('finish-session-modal')
   await expect(async () => {
     await page.locator('[data-tour="live-finish"]').click()
-    await expect(
-      page.getByRole('button', { name: 'Finish anyway' }).or(page.getByText(/\/summary|Session finished/)),
-    ).toBeVisible({ timeout: 2000 })
-  })
-    .toPass({ timeout: 20000 })
-    .catch(() => {})
-  const finishAnyway = page.getByRole('button', { name: 'Finish anyway' })
-  if (await finishAnyway.isVisible().catch(() => false)) await finishAnyway.click()
+    await expect(finishModal).toBeVisible({ timeout: 2000 })
+  }).toPass({ timeout: 20000 })
+  await finishModal.getByRole('button', { name: 'Finish workout' }).click()
   await expect(page).toHaveURL(/\/summary$/, { timeout: 30000 })
 }
 

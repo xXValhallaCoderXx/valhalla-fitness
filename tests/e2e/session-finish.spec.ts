@@ -66,8 +66,22 @@ test('finishing a session and applying all load updates succeeds', async ({ page
   const railButtons = page.locator('aside button')
   await expect(railButtons.first()).toBeVisible({ timeout: 15000 })
 
-  // The first incomplete movement (the main lift) opens expanded — complete it at the
-  // prescribed weights/reps so a main progression decision is generated.
+  // The first incomplete movement (the main lift) opens expanded. Bump set 1 to
+  // 20 kg over the prescription first — a guaranteed heaviest-weight PR for the
+  // summary celebration, independent of seeded history — then complete the rest
+  // at the prescribed weights/reps so a main progression decision is generated.
+  const mainSet1 = setRow(page, 1)
+  const mainWeight = mainSet1.locator('input[type="number"]').first()
+  const mainReps = mainSet1.locator('input[type="number"]').nth(1)
+  await expect(mainWeight).toBeVisible({ timeout: 15000 })
+  await expect(mainWeight).not.toHaveValue('', { timeout: 15000 })
+  const prBumpValue = String(Number(await mainWeight.inputValue()) + 20)
+  await expect(async () => {
+    await mainReps.click() // park focus elsewhere so the next click re-triggers select-on-focus
+    await mainWeight.click()
+    await mainWeight.pressSequentially(prBumpValue)
+    await expect(mainWeight).toHaveValue(prBumpValue, { timeout: 1000 })
+  }).toPass({ timeout: 15000 })
   await completeVisibleSets(page)
 
   // Open the first accessory: collapsed cards expose the role chip in their accessible name
@@ -108,13 +122,28 @@ test('finishing a session and applying all load updates succeeds', async ({ page
     await expect(page.getByRole('button', { name: `Edit set ${setIndex}`, exact: true })).toBeVisible({ timeout: 10000 })
   }
 
-  // Finish — the variation/second accessory are unlogged, so confirm the partial finish.
-  await page.locator('[data-tour="live-finish"]').click()
-  const finishAnyway = page.getByRole('button', { name: 'Finish anyway' })
-  await finishAnyway.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {})
-  if (await finishAnyway.isVisible()) await finishAnyway.click()
+  // Finish — the modal shows the partial-session warning (variation/second
+  // accessory are unlogged); rate the effort and log a win on the way out.
+  const finishModal = page.getByTestId('finish-session-modal')
+  await expect(async () => {
+    await page.locator('[data-tour="live-finish"]').click()
+    await expect(finishModal).toBeVisible({ timeout: 2000 })
+  }).toPass({ timeout: 20000 })
+  await expect(finishModal.getByText(/left to log/)).toBeVisible()
+  await finishModal.getByRole('button', { name: 'Effort 8 of 10' }).click()
+  await finishModal.getByPlaceholder('Optional').first().fill('e2e: top set moved well')
+  await finishModal.getByRole('button', { name: 'Finish workout' }).click()
 
   await expect(page).toHaveURL(/\/summary$/, { timeout: 30000 })
+
+  // The +20 bump broke the heaviest-weight record — the summary celebrates it.
+  const prBanner = page.getByTestId('pr-banner')
+  await expect(prBanner).toBeVisible({ timeout: 15000 })
+  await expect(prBanner.getByText('Heaviest weight yet').first()).toBeVisible()
+  // The reflection card carries the effort rating and the win.
+  await expect(page.getByText('8/10')).toBeVisible()
+  await expect(page.getByText('e2e: top set moved well')).toBeVisible()
+
   await expect(page.getByText(/load updates? ready/i)).toBeVisible({ timeout: 15000 })
   // The accessory suggestion is numeric: heaviest logged weight + the 2.5 kg increment.
   const suggested = Math.max(...loggedLoads) + 2.5
