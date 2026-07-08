@@ -100,8 +100,9 @@ with Google" button is always shown; whether Google works is decided by the Supa
 - [ ] Magic-Link emails not landing in spam (from the Resend step).
 
 ## Post-launch / operate
-- [ ] **Feedback channel** ready (no in-product form yet) — e.g. a mailto/link in the UI or an external
-      form — since collecting feedback is the point of this launch.
+- [ ] **Feedback channel** ready — the in-product Beta feedback form ships in the avatar menu
+      (`feedback_events` + `pnpm feedback:report` to read submissions); decide who checks it and how
+      often, since collecting feedback is the point of this launch.
 - [ ] **Abuse watch:** open sign-up invites junk/bot accounts — watch Supabase Auth users + email send
       volume the first days; keep the invite-only fallback ready.
 - [ ] **Backups:** confirm the hosted Supabase project's backup/retention for your plan.
@@ -109,6 +110,15 @@ with Google" button is always shown; whether Google works is decided by the Supa
       error tracker before wider sharing.
 - [ ] **Basic privacy note:** you're now collecting real user emails/accounts — a short privacy/terms
       line is worth adding.
+
+## Known beta limitations (disclose to testers)
+
+- **Offline mid-session reload loses unsynced sets.** Set logging is optimistic and survives a flaky
+  connection while the tab stays open, but the app is server-rendered with no offline navigation
+  fallback and no persisted query cache: reloading (or reopening) mid-session without a connection
+  fails to load, and any sets that hadn't synced ("Set not saved" state) are gone. Decision for this
+  beta: disclose, don't fix — verify the exact behaviour once in airplane mode before sharing, and
+  tell testers to keep the tab open until they're back online.
 
 ---
 
