@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MovementSlot, PreviousComparable, SetLog } from '../src/shared/types'
-import { formatPreviousShort, resolveSetRir, seedLoadForSet, seedRepsForSet } from '../src/domains/session/components/live-session-utils'
+import { formatPreviousShort, previousSetShort, resolveSetRir, seedLoadForSet, seedRepsForSet } from '../src/domains/session/components/live-session-utils'
 
 function previous(extra: Partial<PreviousComparable> = {}): PreviousComparable {
   return { movementId: 'm1', label: 'Last comparable: 90 kg × 5 @ RIR 3 · e1RM 111 kg - 2026-06-29', ...extra }
@@ -21,6 +21,37 @@ describe('formatPreviousShort', () => {
 
   it('falls back to an em dash when reps are missing', () => {
     expect(formatPreviousShort(previous({ load: 60, reps: null }), 'kg')).toBe('60 kg × —')
+  })
+})
+
+describe('previousSetShort', () => {
+  const withSets = previous({
+    sets: [
+      { setIndex: 1, load: 80, reps: 8, rir: 2 },
+      { setIndex: 2, load: 82.5, reps: 6, rir: 1 },
+      { setIndex: 3, load: null, reps: 12, rir: null },
+      { setIndex: 4, load: 60, reps: null, rir: null },
+    ],
+  })
+
+  it('renders the matching set position without units', () => {
+    expect(previousSetShort(withSets, 1)).toBe('last 80 × 8')
+    expect(previousSetShort(withSets, 2)).toBe('last 82.5 × 6')
+  })
+
+  it('shows BW for loadless sets', () => {
+    expect(previousSetShort(withSets, 3)).toBe('last BW × 12')
+  })
+
+  it('returns null when the position has no usable reps or does not exist', () => {
+    expect(previousSetShort(withSets, 4)).toBeNull()
+    expect(previousSetShort(withSets, 9)).toBeNull()
+  })
+
+  it('returns null for older snapshots without per-set data, or no previous at all', () => {
+    expect(previousSetShort(previous(), 1)).toBeNull()
+    expect(previousSetShort(null, 1)).toBeNull()
+    expect(previousSetShort(undefined, 1)).toBeNull()
   })
 })
 

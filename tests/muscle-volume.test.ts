@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ADEQUACY_HIGH_SETS,
+  ADEQUACY_LOW_SETS,
+  ADEQUACY_WINDOW_WEEKS,
   BALANCE_MIN_SETS,
   BALANCE_SKEW_FACTOR,
   CORE_REGIONS,
   LEG_REGIONS,
   PULL_REGIONS,
   PUSH_REGIONS,
+  adequacyTierForSets,
   balanceSignalLabels,
   buildMovementBalance,
+  buildRegionAdequacy,
   buildWeeklyRegionSets,
 } from '../src/domains/history/lib/muscle-volume'
 import type {
@@ -280,6 +285,87 @@ describe('buildMovementBalance', () => {
     expect(all.signal).toBe('push_heavy')
   })
 })
+
+describe('adequacyTierForSets', () => {
+  it('buckets against the 10-20 sets/week heuristic, inclusive at both ends', () => {
+    expect(adequacyTierForSets(9.9)).toBe('below')
+    expect(adequacyTierForSets(ADEQUACY_LOW_SETS)).toBe('in_range')
+    expect(adequacyTierForSets(ADEQUACY_HIGH_SETS)).toBe('in_range')
+    expect(adequacyTierForSets(20.1)).toBe('high')
+    expect(adequacyTierForSets(0)).toBe('below')
+  })
+})
+
+describe('buildRegionAdequacy', () => {
+  it('averages sets over the window and tiers each region', () => {
+    const weekly = [
+      weekBucket({ weekStart: '2026-06-08', regionSets: { chest: 12, quads: 4 }, totalSets: 16 }),
+      weekBucket({ weekStart: '2026-06-15', regionSets: { chest: 14, quads: 6 }, totalSets: 20 }),
+    ]
+    const summary = buildRegionAdequacy(weekly, '2026-06-17')
+    expect(summary.weeks).toBe(2)
+    expect(summary.totalSets).toBe(36)
+    expect(summary.insufficient).toBe(false)
+
+    const chest = summary.regions.find((region) => region.regionId === 'chest')
+    expect(chest?.weeklySets).toBe(13)
+    expect(chest?.tier).toBe('in_range')
+
+    const quads = summary.regions.find((region) => region.regionId === 'quads')
+    expect(quads?.weeklySets).toBe(5)
+    expect(quads?.tier).toBe('below')
+
+    // Untrained regions still appear, at zero, so the gap is visible.
+    const biceps = summary.regions.find((region) => region.regionId === 'biceps')
+    expect(biceps?.weeklySets).toBe(0)
+    expect(summary.regions[0]?.regionId).toBe('chest')
+  })
+
+  it('only averages over the last calendar weeks of the window', () => {
+    const heavyOldWeek = weekBucket({ weekStart: '2026-05-04', regionSets: { chest: 100 }, totalSets: 100 })
+    const recent = Array.from({ length: ADEQUACY_WINDOW_WEEKS }, (_, index) =>
+      weekBucket({ weekStart: formatMonday(index), regionSets: { chest: 12 }, totalSets: 12 }),
+    )
+    const summary = buildRegionAdequacy([heavyOldWeek, ...recent], '2026-06-24')
+    expect(summary.weeks).toBe(ADEQUACY_WINDOW_WEEKS)
+    expect(summary.regions.find((region) => region.regionId === 'chest')?.weeklySets).toBe(12)
+  })
+
+  it('counts untrained calendar weeks in the window as zeros for a returning user', () => {
+    // Trained hard, then three weeks off: 20 sets ÷ 4-week window = 5/week, not 20/week.
+    const weekly = [weekBucket({ weekStart: '2026-06-01', regionSets: { chest: 20 }, totalSets: 20 })]
+    const summary = buildRegionAdequacy(weekly, '2026-06-24')
+    expect(summary.weeks).toBe(ADEQUACY_WINDOW_WEEKS)
+    expect(summary.regions.find((region) => region.regionId === 'chest')?.weeklySets).toBe(5)
+  })
+
+  it('does not punish a history shorter than the window', () => {
+    // Two weeks of training ever: average over 2 weeks, not 4.
+    const weekly = [
+      weekBucket({ weekStart: '2026-06-08', regionSets: { chest: 12 }, totalSets: 12 }),
+      weekBucket({ weekStart: '2026-06-15', regionSets: { chest: 12 }, totalSets: 12 }),
+    ]
+    const summary = buildRegionAdequacy(weekly, '2026-06-16')
+    expect(summary.weeks).toBe(2)
+    expect(summary.regions.find((region) => region.regionId === 'chest')?.weeklySets).toBe(12)
+  })
+
+  it('flags an insufficient window and handles empty input', () => {
+    const sparse = buildRegionAdequacy([weekBucket({ regionSets: { chest: 5 }, totalSets: 5 })], '2026-06-16')
+    expect(sparse.insufficient).toBe(true)
+
+    const empty = buildRegionAdequacy([], '2026-06-16')
+    expect(empty.weeks).toBe(0)
+    expect(empty.insufficient).toBe(true)
+    expect(empty.regions.every((region) => region.weeklySets === 0)).toBe(true)
+  })
+})
+
+/** Monday week-starts counting back from 2026-06-22 (a Monday), oldest first. */
+function formatMonday(index: number) {
+  const monday = new Date(Date.UTC(2026, 5, 22 - (ADEQUACY_WINDOW_WEEKS - 1 - index) * 7))
+  return monday.toISOString().slice(0, 10)
+}
 
 describe('region groups and labels', () => {
   it('partitions the taxonomy into push/pull/legs/core groups', () => {

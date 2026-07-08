@@ -5,7 +5,7 @@ import { Caption, Text } from '~/components'
 import { useSetLogMutation } from '~/domains/session/lib/useSetLogMutation'
 import { cn } from '~/shared/lib/cn'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
-import { formatSetTarget, resolveSetRir, RIR_OPTIONS, roundToStep, seedLoadForSet, seedRepsForSet, selectAllOnFocus, SET_GRID_CLASS } from './live-session-utils'
+import { formatSetTarget, previousSetShort, resolveSetRir, RIR_OPTIONS, roundToStep, seedLoadForSet, seedRepsForSet, selectAllOnFocus, SET_GRID_CLASS } from './live-session-utils'
 
 function rirLabel(value: number) {
   return value >= 3 ? '3+' : String(value)
@@ -57,6 +57,7 @@ export function LiveSetRow({
   // suggestion on an open set shows as a muted hint until it's committed.
   const rirConfirmed = draft.actualRir != null || typeof set.actualRir === 'number'
   const rirChipLabel = effectiveActualRir == null ? 'RIR' : rirLabel(effectiveActualRir)
+  const previousGhost = previousSetShort(movement.previous, set.setIndex)
 
   const complete = () => {
     if (isSaving) return
@@ -141,15 +142,22 @@ export function LiveSetRow({
           {set.setIndex}
         </Text>
 
-        <Caption component="div" className="min-w-0 truncate" size="0.625rem">
-          {set.isTopSet || set.isAmrap ? (
-            <Badge color="accent">Top</Badge>
-          ) : set.isBackoff ? (
-            'Back-off'
-          ) : (
-            formatSetTarget(set, session.units, false)
-          )}
-        </Caption>
+        <div className="min-w-0">
+          <Caption component="div" className="truncate" size="0.625rem">
+            {set.isTopSet || set.isAmrap ? (
+              <Badge color="accent">Top</Badge>
+            ) : set.isBackoff ? (
+              'Back-off'
+            ) : (
+              formatSetTarget(set, session.units, false)
+            )}
+          </Caption>
+          {previousGhost ? (
+            <Caption component="div" className="truncate" size="0.5625rem" style={{ opacity: 0.75 }}>
+              {previousGhost}
+            </Caption>
+          ) : null}
+        </div>
 
         <StepCell
           value={loadValue}

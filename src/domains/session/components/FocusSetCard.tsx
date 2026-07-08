@@ -6,7 +6,7 @@ import { useSetLogMutation } from '~/domains/session/lib/useSetLogMutation'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
 import { FocusRirRow } from './FocusRirRow'
 import { FocusStepper } from './FocusStepper'
-import { formatSetTarget, roundToStep, seedLoadForSet, seedRepsForSet } from './live-session-utils'
+import { formatSetTarget, previousSetShort, roundToStep, seedLoadForSet, seedRepsForSet } from './live-session-utils'
 
 /**
  * The current-set logging card: target chip, weight + reps steppers, RIR row, and the
@@ -79,7 +79,10 @@ export function FocusSetCard({
         <SectionLabel>
           Current · Set {setNumber} of {setTotal}
         </SectionLabel>
-        <Caption>Target {formatSetTarget(set, session.units)}</Caption>
+        <Caption>
+          Target {formatSetTarget(set, session.units)}
+          {previousSetShort(movement.previous, set.setIndex) ? ` · ${previousSetShort(movement.previous, set.setIndex)}` : ''}
+        </Caption>
       </div>
 
       <div className="mt-3 space-y-3">

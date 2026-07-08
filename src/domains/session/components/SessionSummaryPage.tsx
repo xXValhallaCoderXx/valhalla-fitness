@@ -5,10 +5,12 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight, Check, Dumbbell, ListChecks, NotebookText, Sparkles, Trophy } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { sessionQueryOptions } from '~/domains/session/queries'
-import type { SessionSummary, WorkoutSession } from '~/shared/types'
+import type { SessionPr, SessionSummary, Unit, WorkoutSession } from '~/shared/types'
 import { Caption, EmptyState, Heading, Page, PageLoadError, PageSkeleton, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { cn } from '~/shared/lib/cn'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { formatWeight } from '~/shared/lib/set-notation'
+import { prBannerTitle, prKindLabels } from '~/domains/session/lib/session-prs'
 import { buildSessionReceipt, type ReceiptEntry, type ReceiptTone } from '~/domains/session/lib/session-receipt'
 import { buildWorkoutSummary, type SummaryExercise } from '~/domains/history/lib/workout-summary'
 import { summaryHeadline, updatesStat } from '~/domains/session/lib/summary-decisions'
@@ -91,6 +93,10 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
   const headline = summaryHeadline(recap.completion.completed, recap.completion.planned)
   const updates = updatesStat(pendingDecisions.length, appliedCount)
   const notes = session.notes?.trim()
+  const effort = session.sessionRpe ?? null
+  const reflectionWin = session.reflectionWin?.trim()
+  const reflectionImprove = session.reflectionImprove?.trim()
+  const hasReflection = effort !== null || Boolean(reflectionWin) || Boolean(reflectionImprove) || Boolean(notes)
 
   const handleApplyAll = () => applyAllMutation.mutate(pendingDecisions.map((decision) => decision.id))
 
@@ -123,6 +129,8 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
         </div>
       </div>
 
+      {session.prs?.length ? <PrBanner prs={session.prs} units={session.units} /> : null}
+
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
         {/* Hero — leads on mobile (order-first), sticky right rail on desktop. */}
         <div className="order-first flex flex-col gap-3 lg:order-2 lg:sticky lg:top-4">
@@ -154,13 +162,23 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
             </div>
           </Card>
 
-          {notes ? (
+          {hasReflection ? (
             <Card>
               <div className="flex items-center gap-2">
                 <NotebookText size={14} style={{ color: 'var(--mantine-color-dimmed)' }} />
-                <SectionLabel>Notes</SectionLabel>
+                <SectionLabel>Your reflection</SectionLabel>
               </div>
-              <Text component="p" mt="xs" size="sm" tone="dimmed" lh={1.4}>{notes}</Text>
+              <div className="mt-2 space-y-2">
+                {effort !== null ? (
+                  <div className="flex items-baseline gap-2">
+                    <Caption fw={800} tt="uppercase">Effort</Caption>
+                    <Text size="sm" fw={800}>{effort}/10</Text>
+                  </div>
+                ) : null}
+                {reflectionWin ? <ReflectionRow label="Went well" value={reflectionWin} /> : null}
+                {reflectionImprove ? <ReflectionRow label="Work on" value={reflectionImprove} /> : null}
+                {notes ? <ReflectionRow label="Notes" value={notes} /> : null}
+              </div>
             </Card>
           ) : null}
 
@@ -211,6 +229,53 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
         onResolved={(decisionId, action) => setDecided((current) => new Map(current).set(decisionId, action === 'accepted' ? 'applied' : 'kept'))}
       />
     </Page>
+  )
+}
+
+/** Finish-time celebration: the records this session broke, frozen server-side. */
+function PrBanner({ prs, units }: { prs: SessionPr[]; units: Unit }) {
+  return (
+    <Card
+      data-testid="pr-banner"
+      className="vf-pr-pop mb-4"
+      style={{ borderColor: 'var(--vf-success-border)', backgroundColor: 'var(--vf-success-soft)' }}
+    >
+      <div className="flex items-center gap-2">
+        <Trophy size={16} color="var(--vf-success-text)" />
+        <Heading order={2} size="h4">{prBannerTitle}</Heading>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {prs.map((pr) => (
+          <div
+            key={pr.movementId}
+            className="rounded-lg border p-3"
+            style={{ borderColor: 'var(--vf-success-border)', backgroundColor: 'var(--mantine-color-default)' }}
+          >
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <Text size="sm" fw={800} truncate>{pr.movementName}</Text>
+              <Text size="sm" fw={900} style={{ color: 'var(--vf-success-text)' }}>
+                {formatWeight(pr.load, units)} × {pr.reps}
+              </Text>
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {pr.kinds.map((kind) => (
+                <Badge key={kind} color="success" variant="light" size="xs">{prKindLabels[kind]}</Badge>
+              ))}
+            </div>
+            {pr.previousLabel ? <Caption component="p" mt={6}>{pr.previousLabel}</Caption> : null}
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+function ReflectionRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <Caption fw={800} tt="uppercase">{label}</Caption>
+      <Text component="p" size="sm" tone="dimmed" lh={1.4}>{value}</Text>
+    </div>
   )
 }
 

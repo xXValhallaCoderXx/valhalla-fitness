@@ -23,6 +23,9 @@ export const strengthScoreKindLabels: Record<StrengthScoreKind, string> = {
   insufficient: 'Not enough data',
 }
 
+export const strengthScoreExplanation =
+  'Your squat + bench + deadlift total, adjusted for bodyweight (a DOTS score) so different-sized lifters compare fairly. Higher means stronger for your size.'
+
 export function dotsScore(totalKg: number, bodyweightKg: number, sex: Sex): number {
   if (totalKg <= 0 || bodyweightKg <= 0) return 0
   const [min, max] = DOTS_BW_CLAMP_KG[sex]

@@ -3,8 +3,8 @@ import { Badge } from '@mantine/core'
 import { formatCompactDate } from '~/shared/lib/dates'
 import type { E1rmPoint, E1rmTrendSignal, HistoryInsights, InsightGating, LiftE1rmSeries, RepMaxBest } from '~/shared/types'
 import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
-import { classifyE1rmTrend, computeVelocity, detectStall, e1rmTrendLabels } from '~/domains/history/lib/strength'
-import { Caption, Heading, Panel, SectionLabel, StatValue, Text } from '~/components'
+import { classifyE1rmTrend, computeVelocity, detectStall, e1rmTrendLabels, estimatedMaxExplanation } from '~/domains/history/lib/strength'
+import { Caption, Heading, InfoHint, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { formatLoad, formatNumber } from '../insight-format'
 
 const TREND_BADGE_COLOR: Record<E1rmTrendSignal, string> = {
@@ -98,7 +98,10 @@ export function LiftTrendCard({
 
       <div className="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div>
-          <SectionLabel>{gating.staleWelcomeBack ? 'Best e1RM' : 'Current e1RM'}</SectionLabel>
+          <span className="inline-flex items-center gap-1">
+            <SectionLabel>{gating.staleWelcomeBack ? 'Best e1RM' : 'Current e1RM'}</SectionLabel>
+            <InfoHint label="About this metric">{estimatedMaxExplanation}</InfoHint>
+          </span>
           <StatValue size="xl" mt={2}>
             {headlinePoint ? formatLoad(headlinePoint.e1rm, units) : '—'}
           </StatValue>

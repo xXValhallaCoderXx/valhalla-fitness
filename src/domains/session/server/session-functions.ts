@@ -7,6 +7,7 @@ import type {
   PlannedSession,
   ProgramInstance,
   ProgressionDecision,
+  SessionPr,
   SessionSummary,
   SetLog,
   SetTarget,
@@ -32,6 +33,8 @@ import {
   seedMovementsFromSource,
   sessionLineageKey,
 } from '~/domains/session/lib/ad-hoc'
+import { buildPriorBests, detectSessionPrs, type PriorBests, type PriorSetSample } from '~/domains/session/lib/session-prs'
+import { normalizeReflection, normalizeSessionRpe } from '~/domains/session/lib/session-reflection'
 import { ensureProfile } from '~/domains/account/server/profile-functions'
 import { expandPlannedSession, programForNextUncompletedSession } from '~/domains/program/lib/templates'
 import { e1rm, mround } from '~/domains/program/lib/progression'
@@ -248,9 +251,16 @@ async function getPreviousComparablesBySlotId(
         if (right.score !== left.score) return right.score - left.score
         return comparableDate(right.candidate).localeCompare(comparableDate(left.candidate))
       })
-    const best = ranked[0]?.candidate
-    const comparable = best ? comparableFromCandidate(movement, best, plannedSession.units) : null
-    if (comparable) result[slotId] = comparable
+    // Fall through the ranking when a candidate has no completed sets (e.g. a
+    // workout finished without logging anything) — a dead top candidate would
+    // otherwise erase "last time" and the per-set ghosts entirely.
+    for (const { candidate } of ranked) {
+      const comparable = comparableFromCandidate(movement, candidate, plannedSession.units)
+      if (comparable) {
+        result[slotId] = comparable
+        break
+      }
+    }
   }
   return result
 }
@@ -297,6 +307,13 @@ function comparableFromCandidate(
     performedAt: candidate.completedAt ?? candidate.scheduledDate,
     e1rm: estimatedMax,
     setType: set.isAmrap ? 'amrap' : set.isTopSet ? 'top_set' : set.isBackoff ? 'backoff' : movement.role === 'accessory' ? 'accessory' : 'best_set',
+    // Per-set actuals power the per-row "last time" ghosts in the logger.
+    sets: completedSets.map((completedSet) => ({
+      setIndex: completedSet.setIndex,
+      load: completedSet.actualLoad ?? completedSet.targetLoad ?? null,
+      reps: completedSet.actualReps ?? null,
+      rir: completedSet.actualRir ?? null,
+    })),
   }
 }
 
@@ -390,6 +407,10 @@ export async function getSessionInternal(sessionId: string): Promise<WorkoutSess
     startedAt: sessionRow.started_at,
     completedAt: sessionRow.completed_at,
     notes: sessionRow.notes,
+    sessionRpe: sessionRow.session_rpe === null ? null : Number(sessionRow.session_rpe),
+    reflectionWin: sessionRow.reflection_win,
+    reflectionImprove: sessionRow.reflection_improve,
+    prs: (sessionRow.prs as SessionPr[] | null) ?? null,
     isAdHoc,
     isFavorite,
     sourceSessionId: sessionRow.source_session_id ?? null,
@@ -1409,13 +1430,123 @@ function hasNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
+/**
+ * Prior working-set bests per movement across all other completed sessions,
+ * for finish-time PR detection. Excludes the finishing session explicitly on
+ * top of the completed-status filter, so it is safe to call at any point of
+ * the finish flow.
+ */
+async function getPriorBestsByMovement(
+  supabase: SupabaseServerClient,
+  userId: string,
+  movementIds: string[],
+  excludeSessionId: string,
+): Promise<Record<string, PriorBests>> {
+  if (!movementIds.length) return {}
+
+  const { data: exerciseRows, error: exerciseError } = await supabase
+    .from('exercise_logs')
+    .select('id, session_id, performed_movement_id')
+    .eq('user_id', userId)
+    .in('performed_movement_id', movementIds)
+    .neq('session_id', excludeSessionId)
+    .order('created_at', { ascending: false })
+    .limit(400)
+  if (exerciseError) throw new Error(exerciseError.message)
+  if (!exerciseRows?.length) return {}
+
+  const sessionIds = Array.from(new Set(exerciseRows.map((exercise) => exercise.session_id)))
+  const { data: sessionRows, error: sessionError } = await supabase
+    .from('workout_sessions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .in('id', sessionIds)
+  if (sessionError) throw new Error(sessionError.message)
+
+  const completedSessionIds = new Set((sessionRows ?? []).map((session) => session.id))
+  const completedExerciseRows = exerciseRows.filter((exercise) => completedSessionIds.has(exercise.session_id))
+  if (!completedExerciseRows.length) return {}
+
+  // Chunked: hundreds of exercises × their sets can exceed PostgREST's
+  // 1000-row cap (max_rows in config.toml), which truncates silently — and a
+  // truncated baseline mints false PRs. Completed-only server-side keeps each
+  // chunk's row count far below the cap even for high-volume users.
+  const setRows: Array<{
+    exercise_log_id: string
+    actual_load: number | string | null
+    actual_reps: number | null
+    actual_rir: number | string | null
+    completed: boolean
+  }> = []
+  const exerciseIds = completedExerciseRows.map((exercise) => exercise.id)
+  const SET_QUERY_CHUNK = 100
+  for (let start = 0; start < exerciseIds.length; start += SET_QUERY_CHUNK) {
+    const { data: chunk, error: setError } = await supabase
+      .from('set_logs')
+      .select('exercise_log_id, actual_load, actual_reps, actual_rir, completed')
+      .eq('user_id', userId)
+      .eq('completed', true)
+      .in('exercise_log_id', exerciseIds.slice(start, start + SET_QUERY_CHUNK))
+    if (setError) throw new Error(setError.message)
+    setRows.push(...(chunk ?? []))
+  }
+
+  const movementByExerciseId = new Map(
+    completedExerciseRows.map((exercise) => [exercise.id, exercise.performed_movement_id]),
+  )
+  const samplesByMovement: Record<string, PriorSetSample[]> = {}
+  for (const row of setRows) {
+    if (!row.completed) continue
+    const load = row.actual_load === null ? null : Number(row.actual_load)
+    const reps = row.actual_reps
+    if (load === null || load <= 0 || reps === null || reps <= 0) continue
+    const movementId = movementByExerciseId.get(row.exercise_log_id)
+    if (!movementId) continue
+    ;(samplesByMovement[movementId] ??= []).push({
+      load,
+      reps,
+      rir: row.actual_rir === null ? null : Number(row.actual_rir),
+    })
+  }
+  return Object.fromEntries(
+    Object.entries(samplesByMovement).map(([movementId, samples]) => [movementId, buildPriorBests(samples)]),
+  )
+}
+
 export const finishSessionFn = createServerFn({ method: 'POST' })
-  .validator((data: { sessionId: string; notes?: string | null }) => data)
+  .validator(
+    (data: {
+      sessionId: string
+      notes?: string | null
+      sessionRpe?: number | null
+      reflectionWin?: string | null
+      reflectionImprove?: string | null
+    }) => data,
+  )
   .handler(async ({ data }): Promise<SessionSummary> => {
     const session = await getSessionInternal(data.sessionId)
     if (session.status === 'completed') throw new Error('Session is already finished')
     if (session.status !== 'in_progress') throw new Error('Only in-progress sessions can be finished')
     const { supabase, user } = await requireUser()
+
+    // PR detection runs before the status flip so the completed-sessions filter
+    // naturally excludes this session — and must never block finishing.
+    let prs: SessionPr[] = []
+    try {
+      const movementIds = Array.from(
+        new Set(
+          session.movements
+            .filter((movement) => movement.sets.some((set) => set.completed))
+            .map((movement) => movement.performedMovementId ?? movement.movementId),
+        ),
+      )
+      const priorBests = await getPriorBestsByMovement(supabase, user.id, movementIds, data.sessionId)
+      prs = detectSessionPrs(session, priorBests)
+    } catch (error) {
+      console.error('PR detection failed; finishing without records', error)
+      prs = []
+    }
 
     // Ad-hoc sessions live outside the programme: no progression decisions, no week advance.
     let activeProgram: ProgramInstance | null = null
@@ -1432,6 +1563,10 @@ export const finishSessionFn = createServerFn({ method: 'POST' })
         status: 'completed',
         completed_at: new Date().toISOString(),
         notes: data.notes,
+        session_rpe: normalizeSessionRpe(data.sessionRpe),
+        reflection_win: normalizeReflection(data.reflectionWin),
+        reflection_improve: normalizeReflection(data.reflectionImprove),
+        prs: prs.length ? prs : null,
       })
       .eq('id', data.sessionId)
       .eq('user_id', user.id)

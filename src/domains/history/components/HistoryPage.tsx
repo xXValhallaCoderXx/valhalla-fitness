@@ -145,7 +145,7 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
           <StrengthTab insights={data.insights} gating={gating} range={range} />
         </Tabs.Panel>
         <Tabs.Panel value="body-load">
-          <BodyLoadTab data={data} />
+          <BodyLoadTab data={data} gating={gating} />
         </Tabs.Panel>
         <Tabs.Panel value="movements">
           <MovementsTab

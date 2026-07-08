@@ -121,6 +121,23 @@ html {
   }
 }
 
+/* One-shot celebratory entrance for the PR banner on the session summary. */
+.vf-pr-pop {
+  animation: vf-pr-pop 0.35s ease-out;
+}
+
+@keyframes vf-pr-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* Soft radial spotlight derived from the action token, no raw hexes. */
 .vf-radial-glow {
   background: radial-gradient(
@@ -149,6 +166,10 @@ html {
   }
 
   .vf-floaty {
+    animation: none;
+  }
+
+  .vf-pr-pop {
     animation: none;
   }
 }

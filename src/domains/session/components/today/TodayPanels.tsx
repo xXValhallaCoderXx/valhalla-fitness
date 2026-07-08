@@ -3,7 +3,19 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
 import { Caption, CollapsiblePanel, Panel, SectionLabel, Text } from '~/components'
 import { bodyLoadTierLabels, recoverySummaryLine, worstBodyLoadTier } from '~/domains/history/lib/body-load'
-import type { BodyLoadTier, HistoryDashboard, ProgramOverview, Unit } from '~/shared/types'
+import { streakBadgeLabel } from '~/domains/history/lib/consistency'
+import type { BodyLoadTier, HistoryDashboard, HistoryDashboardWithInsights, ProgramOverview, Unit } from '~/shared/types'
+
+/** Habit-loop chip for the Today heroes; renders nothing until a streak is worth celebrating. */
+export function StreakBadge({ history }: { history?: HistoryDashboardWithInsights }) {
+  const label = streakBadgeLabel(history?.insights.consistency)
+  if (!label) return null
+  return (
+    <Badge color="warning" variant="light" data-testid="streak-badge">
+      {label}
+    </Badge>
+  )
+}
 
 export function ProgramProgressPanel({
   overview,

@@ -8,8 +8,9 @@ import { finishSessionFn } from '~/domains/session/server/session-functions'
 import { buildFocusSessionSteps, buildLiveSessionSteps } from '~/domains/onboarding/onboarding-tour'
 import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
 import type { WorkoutSession } from '~/shared/types'
-import { ConfirmDialog, EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
+import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
 import { cn } from '~/shared/lib/cn'
+import { FinishSessionModal, type FinishReflection } from './FinishSessionModal'
 import { LiveSessionFrame } from './LiveSession'
 import { LiveFocusView } from './LiveFocusView'
 import { RestTimerProvider } from './RestTimerProvider'
@@ -44,7 +45,7 @@ function LoadedSessionRoute({
   const router = useRouter()
   const [notes, setNotes] = useState(session.notes ?? '')
   const [finishError, setFinishError] = useState<string | null>(null)
-  const [showFinishConfirm, setShowFinishConfirm] = useState(false)
+  const [showFinishModal, setShowFinishModal] = useState(false)
   const defaultOpenMovementId =
     session.movements.find((movement) => movement.sets.some((set) => !set.completed))?.id ??
     session.movements[0]?.id
@@ -92,7 +93,8 @@ function LoadedSessionRoute({
     : null
 
   const finishMutation = useMutation({
-    mutationFn: () => finishSessionFn({ data: { sessionId, notes } }),
+    mutationFn: (reflection: FinishReflection) =>
+      finishSessionFn({ data: { sessionId, notes, ...reflection } }),
     onMutate: () => {
       setFinishError(null)
     },
@@ -107,16 +109,29 @@ function LoadedSessionRoute({
       })
       queryClient.setQueryData(['summary', sessionId], summary)
       queryClient.setQueryData(['session', sessionId], summary.session)
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['today'] }),
-        queryClient.invalidateQueries({ queryKey: ['history'] }),
-        queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
-      ])
-      await queryClient.fetchQuery(todayQueryOptions())
+      // Cache refreshes are best-effort: the session is already finished on the
+      // server, so a failed refetch must never strand the user in the finish
+      // modal — always reach the summary.
+      try {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['today'] }),
+          queryClient.invalidateQueries({ queryKey: ['history'] }),
+          queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
+        ])
+        await queryClient.fetchQuery(todayQueryOptions())
+      } catch {
+        void queryClient.invalidateQueries({ queryKey: ['today'] })
+      }
       await router.navigate({ to: '/sessions/$sessionId/summary', params: { sessionId } })
     },
     onError: (error) => {
       const message = getApiErrorMessage(error, 'Unable to finish this session')
+      // A retry after a lost response lands here even though the finish
+      // committed — treat it as success and get the user to their summary.
+      if (message.includes('already finished')) {
+        void router.navigate({ to: '/sessions/$sessionId/summary', params: { sessionId } })
+        return
+      }
       setFinishError(message)
       notifications.show({ color: 'danger', title: 'Could not finish session', message })
     },
@@ -125,16 +140,12 @@ function LoadedSessionRoute({
   const requestFinish = () => {
     setFinishError(null)
     if (finishBlocked) return
-    if (incompleteSetCount) {
-      setShowFinishConfirm(true)
-      return
-    }
-    finishMutation.mutate()
+    setShowFinishModal(true)
   }
 
-  const confirmFinish = () => {
-    setShowFinishConfirm(false)
-    finishMutation.mutate()
+  const confirmFinish = (reflection: FinishReflection) => {
+    if (finishMutation.isPending) return
+    finishMutation.mutate(reflection, { onSuccess: () => setShowFinishModal(false) })
   }
 
   return (
@@ -166,19 +177,13 @@ function LoadedSessionRoute({
             onEnterFocus={() => setMobileView('focus')}
           />
         </div>
-        <ConfirmDialog
-          open={showFinishConfirm}
-          title="Finish here?"
-          confirmLabel="Finish anyway"
-          cancelLabel="Keep going"
-          tone="warning"
+        <FinishSessionModal
+          open={showFinishModal}
+          incompleteSetCount={incompleteSetCount}
           isPending={finishMutation.isPending}
-          onCancel={() => setShowFinishConfirm(false)}
-          onConfirm={confirmFinish}
-        >
-          You have {incompleteSetCount} set{incompleteSetCount === 1 ? '' : 's'} left to log. Finishing now is fine — Sheetless
-          only uses the sets you&apos;ve logged and won&apos;t make aggressive changes.
-        </ConfirmDialog>
+          onCancel={() => setShowFinishModal(false)}
+          onFinish={confirmFinish}
+        />
       </Page>
     </RestTimerProvider>
   )

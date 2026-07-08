@@ -1,8 +1,9 @@
-import { Badge, Modal, NumberInput, SegmentedControl } from '@mantine/core'
+import { Modal, NumberInput, SegmentedControl } from '@mantine/core'
 import { useState } from 'react'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
 import type { Unit } from '~/shared/types'
 import { computePlateStack, DEFAULT_BAR_WEIGHT } from '~/domains/session/lib/plate-math'
+import { BarbellPlates } from '~/domains/session/components/BarbellPlates'
 
 const BAR_OPTIONS: Record<Unit, number[]> = {
   kg: [20, 15, 10],
@@ -59,16 +60,15 @@ export function PlateCalculatorModal({
 
         <Panel surface="inset" p="sm">
           <SectionLabel>Per side ({units})</SectionLabel>
+          <div className="mt-2">
+            <BarbellPlates perSide={stack.perSide} units={units} />
+          </div>
           {stack.perSide.length ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {stack.perSide.map((plate, index) => (
-                <Badge key={`${plate}-${index}`} variant="light" color="action" radius="sm" size="lg">
-                  {plate}
-                </Badge>
-              ))}
-            </div>
+            <Text size="sm" fw={600} ta="center" mt={6}>
+              {stack.perSide.join(' · ')}
+            </Text>
           ) : (
-            <Text size="sm" tone="dimmed" mt={4}>
+            <Text size="sm" tone="dimmed" ta="center" mt={6}>
               Just the bar — no plates needed.
             </Text>
           )}
