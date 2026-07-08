@@ -1024,7 +1024,11 @@ export type Database = {
           planned_session_id: string | null
           prescription_snapshot: Json
           program_instance_id: string | null
+          prs: Json | null
+          reflection_improve: string | null
+          reflection_win: string | null
           scheduled_date: string
+          session_rpe: number | null
           source_session_id: string | null
           started_at: string | null
           status: string
@@ -1041,7 +1045,11 @@ export type Database = {
           planned_session_id?: string | null
           prescription_snapshot: Json
           program_instance_id?: string | null
+          prs?: Json | null
+          reflection_improve?: string | null
+          reflection_win?: string | null
           scheduled_date?: string
+          session_rpe?: number | null
           source_session_id?: string | null
           started_at?: string | null
           status?: string
@@ -1058,7 +1066,11 @@ export type Database = {
           planned_session_id?: string | null
           prescription_snapshot?: Json
           program_instance_id?: string | null
+          prs?: Json | null
+          reflection_improve?: string | null
+          reflection_win?: string | null
           scheduled_date?: string
+          session_rpe?: number | null
           source_session_id?: string | null
           started_at?: string | null
           status?: string
