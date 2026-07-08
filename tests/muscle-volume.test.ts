@@ -302,7 +302,7 @@ describe('buildRegionAdequacy', () => {
       weekBucket({ weekStart: '2026-06-08', regionSets: { chest: 12, quads: 4 }, totalSets: 16 }),
       weekBucket({ weekStart: '2026-06-15', regionSets: { chest: 14, quads: 6 }, totalSets: 20 }),
     ]
-    const summary = buildRegionAdequacy(weekly)
+    const summary = buildRegionAdequacy(weekly, '2026-06-17')
     expect(summary.weeks).toBe(2)
     expect(summary.totalSets).toBe(36)
     expect(summary.insufficient).toBe(false)
@@ -321,26 +321,51 @@ describe('buildRegionAdequacy', () => {
     expect(summary.regions[0]?.regionId).toBe('chest')
   })
 
-  it('only averages over the last window of weeks', () => {
+  it('only averages over the last calendar weeks of the window', () => {
     const heavyOldWeek = weekBucket({ weekStart: '2026-05-04', regionSets: { chest: 100 }, totalSets: 100 })
     const recent = Array.from({ length: ADEQUACY_WINDOW_WEEKS }, (_, index) =>
-      weekBucket({ weekStart: `2026-06-0${index + 1}`, regionSets: { chest: 12 }, totalSets: 12 }),
+      weekBucket({ weekStart: formatMonday(index), regionSets: { chest: 12 }, totalSets: 12 }),
     )
-    const summary = buildRegionAdequacy([heavyOldWeek, ...recent])
+    const summary = buildRegionAdequacy([heavyOldWeek, ...recent], '2026-06-24')
     expect(summary.weeks).toBe(ADEQUACY_WINDOW_WEEKS)
     expect(summary.regions.find((region) => region.regionId === 'chest')?.weeklySets).toBe(12)
   })
 
+  it('counts untrained calendar weeks in the window as zeros for a returning user', () => {
+    // Trained hard, then three weeks off: 20 sets ÷ 4-week window = 5/week, not 20/week.
+    const weekly = [weekBucket({ weekStart: '2026-06-01', regionSets: { chest: 20 }, totalSets: 20 })]
+    const summary = buildRegionAdequacy(weekly, '2026-06-24')
+    expect(summary.weeks).toBe(ADEQUACY_WINDOW_WEEKS)
+    expect(summary.regions.find((region) => region.regionId === 'chest')?.weeklySets).toBe(5)
+  })
+
+  it('does not punish a history shorter than the window', () => {
+    // Two weeks of training ever: average over 2 weeks, not 4.
+    const weekly = [
+      weekBucket({ weekStart: '2026-06-08', regionSets: { chest: 12 }, totalSets: 12 }),
+      weekBucket({ weekStart: '2026-06-15', regionSets: { chest: 12 }, totalSets: 12 }),
+    ]
+    const summary = buildRegionAdequacy(weekly, '2026-06-16')
+    expect(summary.weeks).toBe(2)
+    expect(summary.regions.find((region) => region.regionId === 'chest')?.weeklySets).toBe(12)
+  })
+
   it('flags an insufficient window and handles empty input', () => {
-    const sparse = buildRegionAdequacy([weekBucket({ regionSets: { chest: 5 }, totalSets: 5 })])
+    const sparse = buildRegionAdequacy([weekBucket({ regionSets: { chest: 5 }, totalSets: 5 })], '2026-06-16')
     expect(sparse.insufficient).toBe(true)
 
-    const empty = buildRegionAdequacy([])
+    const empty = buildRegionAdequacy([], '2026-06-16')
     expect(empty.weeks).toBe(0)
     expect(empty.insufficient).toBe(true)
     expect(empty.regions.every((region) => region.weeklySets === 0)).toBe(true)
   })
 })
+
+/** Monday week-starts counting back from 2026-06-22 (a Monday), oldest first. */
+function formatMonday(index: number) {
+  const monday = new Date(Date.UTC(2026, 5, 22 - (ADEQUACY_WINDOW_WEEKS - 1 - index) * 7))
+  return monday.toISOString().slice(0, 10)
+}
 
 describe('region groups and labels', () => {
   it('partitions the taxonomy into push/pull/legs/core groups', () => {

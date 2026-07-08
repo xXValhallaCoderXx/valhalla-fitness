@@ -83,8 +83,9 @@ test('ad-hoc workout: start, log, rename, finish, find, favourite, restart', asy
   await page.getByTestId('confirm-add-exercise').click()
 
   // The card opens with the main-lift role and a "Last time" chip fed by plan history.
+  // The hidden Focus view renders its own "Last time" copy, so filter to the visible one.
   await expect(page.getByRole('heading', { name: 'Bench Press' })).toBeVisible({ timeout: 15000 })
-  await expect(page.locator('main').getByText('Last time')).toBeVisible({ timeout: 15000 })
+  await expect(page.locator('main').getByText('Last time').filter({ visible: true })).toBeVisible({ timeout: 15000 })
 
   // Weight is pre-seeded from the comparable; log set 1 at a distinctive load.
   const set1 = setRow(page, 1)
@@ -153,7 +154,7 @@ test('ad-hoc workout: start, log, rename, finish, find, favourite, restart', asy
 
   await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 15000 })
   await expect(page.getByRole('heading', { name: 'Bench Press' })).toBeVisible({ timeout: 15000 })
-  await expect(page.locator('main').getByText('Last time')).toBeVisible({ timeout: 15000 })
+  await expect(page.locator('main').getByText('Last time').filter({ visible: true })).toBeVisible({ timeout: 15000 })
   const repeatWeight = setRow(page, 1).locator('input[type="number"]').first()
   await expect(repeatWeight).toHaveValue('33', { timeout: 15000 })
 

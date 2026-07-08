@@ -20,7 +20,7 @@ export function BodyLoadTab({ data, gating }: { data: HistoryDashboardWithInsigh
   const fatigueRegions = data.bodyLoad.regions
     .filter((region) => region.impactPercent > 0)
     .sort((left, right) => right.impactPercent - left.impactPercent)
-  const adequacy = buildRegionAdequacy(data.insights.weeklyRegionSets)
+  const adequacy = buildRegionAdequacy(data.insights.weeklyRegionSets, data.insights.generatedAt)
   // The 10–20 coloring is misleading on a near-empty history — hold it back
   // until the window has enough sets (mirrors the muscle-balance card's gate).
   const setsGated = adequacy.insufficient || gating.lifecycle === 'empty' || gating.lifecycle === 'cold_start'

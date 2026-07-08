@@ -251,9 +251,16 @@ async function getPreviousComparablesBySlotId(
         if (right.score !== left.score) return right.score - left.score
         return comparableDate(right.candidate).localeCompare(comparableDate(left.candidate))
       })
-    const best = ranked[0]?.candidate
-    const comparable = best ? comparableFromCandidate(movement, best, plannedSession.units) : null
-    if (comparable) result[slotId] = comparable
+    // Fall through the ranking when a candidate has no completed sets (e.g. a
+    // workout finished without logging anything) — a dead top candidate would
+    // otherwise erase "last time" and the per-set ghosts entirely.
+    for (const { candidate } of ranked) {
+      const comparable = comparableFromCandidate(movement, candidate, plannedSession.units)
+      if (comparable) {
+        result[slotId] = comparable
+        break
+      }
+    }
   }
   return result
 }
@@ -1461,18 +1468,35 @@ async function getPriorBestsByMovement(
   const completedExerciseRows = exerciseRows.filter((exercise) => completedSessionIds.has(exercise.session_id))
   if (!completedExerciseRows.length) return {}
 
-  const { data: setRows, error: setError } = await supabase
-    .from('set_logs')
-    .select('exercise_log_id, actual_load, actual_reps, actual_rir, completed')
-    .eq('user_id', userId)
-    .in('exercise_log_id', completedExerciseRows.map((exercise) => exercise.id))
-  if (setError) throw new Error(setError.message)
+  // Chunked: hundreds of exercises × their sets can exceed PostgREST's
+  // 1000-row cap (max_rows in config.toml), which truncates silently — and a
+  // truncated baseline mints false PRs. Completed-only server-side keeps each
+  // chunk's row count far below the cap even for high-volume users.
+  const setRows: Array<{
+    exercise_log_id: string
+    actual_load: number | string | null
+    actual_reps: number | null
+    actual_rir: number | string | null
+    completed: boolean
+  }> = []
+  const exerciseIds = completedExerciseRows.map((exercise) => exercise.id)
+  const SET_QUERY_CHUNK = 100
+  for (let start = 0; start < exerciseIds.length; start += SET_QUERY_CHUNK) {
+    const { data: chunk, error: setError } = await supabase
+      .from('set_logs')
+      .select('exercise_log_id, actual_load, actual_reps, actual_rir, completed')
+      .eq('user_id', userId)
+      .eq('completed', true)
+      .in('exercise_log_id', exerciseIds.slice(start, start + SET_QUERY_CHUNK))
+    if (setError) throw new Error(setError.message)
+    setRows.push(...(chunk ?? []))
+  }
 
   const movementByExerciseId = new Map(
     completedExerciseRows.map((exercise) => [exercise.id, exercise.performed_movement_id]),
   )
   const samplesByMovement: Record<string, PriorSetSample[]> = {}
-  for (const row of setRows ?? []) {
+  for (const row of setRows) {
     if (!row.completed) continue
     const load = row.actual_load === null ? null : Number(row.actual_load)
     const reps = row.actual_reps

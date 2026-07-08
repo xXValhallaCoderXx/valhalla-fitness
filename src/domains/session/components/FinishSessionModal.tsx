@@ -53,7 +53,6 @@ export function FinishSessionModal({
       }}
       title="Nice work — how did it go?"
       size="sm"
-      data-testid="finish-session-modal"
       styles={{
         content: {
           border: '1px solid var(--mantine-color-default-border)',
@@ -71,12 +70,18 @@ export function FinishSessionModal({
         close: { color: 'var(--mantine-color-dimmed)' },
       }}
     >
-      <div className="space-y-4">
+      {/* The testid lives on the content, not the Modal root — the root has no
+          bounding box, so Playwright would report it hidden even when open. */}
+      <div className="space-y-4" data-testid="finish-session-modal">
         {incompleteSetCount > 0 ? (
-          <StatusPanel tone="warning">
-            You have {incompleteSetCount} set{incompleteSetCount === 1 ? '' : 's'} left to log. Finishing now is fine —
-            Sheetless only uses the sets you&apos;ve logged and won&apos;t make aggressive changes.
-          </StatusPanel>
+          // Plain div wrapper: space-y-4 puts its margin on the child, and
+          // Mantine's unlayered Text reset would zero it on the panel itself.
+          <div>
+            <StatusPanel tone="warning">
+              You have {incompleteSetCount} set{incompleteSetCount === 1 ? '' : 's'} left to log. Finishing now is fine —
+              Sheetless only uses the sets you&apos;ve logged and won&apos;t make aggressive changes.
+            </StatusPanel>
+          </div>
         ) : null}
 
         <div>

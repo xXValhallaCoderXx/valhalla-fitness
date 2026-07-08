@@ -136,14 +136,42 @@ export function adequacyTierForSets(weeklySets: number): AdequacyTier {
   return 'in_range'
 }
 
-export function buildRegionAdequacy(weekly: WeeklyRegionSets[]): AdequacySummary {
-  const buckets = weekly.slice(-ADEQUACY_WINDOW_WEEKS)
-  const weeks = buckets.length
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * `now` anchors the window to CALENDAR weeks: the weekly buckets only contain
+ * trained weeks, so slicing the array would silently average a returning
+ * user's months-old training as if it were current. Untrained weeks inside
+ * the window count as zeros; a history shorter than the window is averaged
+ * over the weeks the user has actually been around for.
+ */
+export function buildRegionAdequacy(weekly: WeeklyRegionSets[], now: string): AdequacySummary {
+  const nowDate = parseDate(now)
+  const firstEver = weekly.length ? parseDate(weekly[0].weekStart) : null
+  if (!nowDate || !firstEver) {
+    const regions = (Object.keys(bodyRegionLabels) as BodyRegionId[]).map((regionId) => ({
+      regionId,
+      label: bodyRegionLabels[regionId],
+      weeklySets: 0,
+      tier: 'below' as AdequacyTier,
+    }))
+    return { regions, weeks: 0, totalSets: 0, insufficient: true }
+  }
+
+  const currentWeekStart = startOfWeek(nowDate).getTime()
+  const windowStart = currentWeekStart - (ADEQUACY_WINDOW_WEEKS - 1) * WEEK_MS
+  const buckets = weekly.filter((bucket) => {
+    const date = parseDate(bucket.weekStart)
+    return date !== null && date.getTime() >= windowStart
+  })
+  const weeksSinceFirst = Math.floor((currentWeekStart - startOfWeek(firstEver).getTime()) / WEEK_MS) + 1
+  const weeks = Math.max(1, Math.min(ADEQUACY_WINDOW_WEEKS, weeksSinceFirst))
+
   const totalSets = buckets.reduce((sum, bucket) => sum + bucket.totalSets, 0)
   const regions = (Object.keys(bodyRegionLabels) as BodyRegionId[])
     .map((regionId) => {
       const regionSum = buckets.reduce((sum, bucket) => sum + (bucket.regionSets[regionId] ?? 0), 0)
-      const weeklySets = weeks ? roundOne(regionSum / weeks) : 0
+      const weeklySets = roundOne(regionSum / weeks)
       return { regionId, label: bodyRegionLabels[regionId], weeklySets, tier: adequacyTierForSets(weeklySets) }
     })
     .sort((left, right) => right.weeklySets - left.weeklySets)

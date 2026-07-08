@@ -109,16 +109,29 @@ function LoadedSessionRoute({
       })
       queryClient.setQueryData(['summary', sessionId], summary)
       queryClient.setQueryData(['session', sessionId], summary.session)
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['today'] }),
-        queryClient.invalidateQueries({ queryKey: ['history'] }),
-        queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
-      ])
-      await queryClient.fetchQuery(todayQueryOptions())
+      // Cache refreshes are best-effort: the session is already finished on the
+      // server, so a failed refetch must never strand the user in the finish
+      // modal — always reach the summary.
+      try {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['today'] }),
+          queryClient.invalidateQueries({ queryKey: ['history'] }),
+          queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
+        ])
+        await queryClient.fetchQuery(todayQueryOptions())
+      } catch {
+        void queryClient.invalidateQueries({ queryKey: ['today'] })
+      }
       await router.navigate({ to: '/sessions/$sessionId/summary', params: { sessionId } })
     },
     onError: (error) => {
       const message = getApiErrorMessage(error, 'Unable to finish this session')
+      // A retry after a lost response lands here even though the finish
+      // committed — treat it as success and get the user to their summary.
+      if (message.includes('already finished')) {
+        void router.navigate({ to: '/sessions/$sessionId/summary', params: { sessionId } })
+        return
+      }
       setFinishError(message)
       notifications.show({ color: 'danger', title: 'Could not finish session', message })
     },

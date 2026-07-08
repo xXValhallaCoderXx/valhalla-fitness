@@ -144,6 +144,30 @@ describe('detectSessionPrs', () => {
     expect(prs[0].previousLabel).toBe('Old best at 82.5 kg: 4 reps')
   })
 
+  it('freezes the best rep record of the session, not the first logged', () => {
+    // Prior 120×1 keeps both weight and e1RM records out of reach; the 10-rep
+    // set must win over the earlier 8-rep set.
+    const session = makeSession([
+      makeMovement({
+        sets: [
+          makeSet({ actualLoad: 80, actualReps: 8, actualRir: 0 }),
+          makeSet({ id: 'set-2', setIndex: 2, actualLoad: 80, actualReps: 10, actualRir: 0 }),
+        ],
+      }),
+    ])
+    const prs = detectSessionPrs(
+      session,
+      priorFrom([
+        { load: 120, reps: 1, rir: 0 },
+        { load: 80, reps: 7, rir: 0 },
+      ]),
+    )
+    expect(prs).toHaveLength(1)
+    expect(prs[0].kinds).toEqual(['rep_record'])
+    expect(prs[0].reps).toBe(10)
+    expect(prs[0].previousLabel).toBe('Old best at 80 kg: 7 reps')
+  })
+
   it('suppresses the rep record when the weight itself is a record', () => {
     const session = makeSession([
       makeMovement({ sets: [makeSet({ actualLoad: 105, actualReps: 5, actualRir: 0 })] }),
@@ -171,6 +195,34 @@ describe('detectSessionPrs', () => {
       }),
     ])
     expect(detectSessionPrs(session, priorFrom([{ load: 100, reps: 5, rir: 0 }]))).toHaveLength(0)
+  })
+
+  it('merges duplicate slots of the same movement into one entry', () => {
+    const session = makeSession([
+      makeMovement({ id: 'exercise-1', sets: [makeSet({ actualLoad: 105, actualReps: 3 })] }),
+      makeMovement({ id: 'exercise-2', sets: [makeSet({ id: 'set-2', actualLoad: 102.5, actualReps: 3 })] }),
+    ])
+    const prs = detectSessionPrs(session, priorFrom([{ load: 100, reps: 3, rir: 1 }]))
+    expect(prs).toHaveLength(1)
+    expect(prs[0].load).toBe(105)
+  })
+
+  it('freezes the session-best e1RM even when the heaviest set is a different set', () => {
+    // Heaviest single 105×1@0 (e1rm ≈ 108.5) + rep work 100×5@0 (e1rm ≈ 116.7):
+    // the banner shows the heaviest set, but the frozen estimate must be the best one.
+    const session = makeSession([
+      makeMovement({
+        sets: [
+          makeSet({ actualLoad: 105, actualReps: 1, actualRir: 0 }),
+          makeSet({ id: 'set-2', setIndex: 2, actualLoad: 100, actualReps: 5, actualRir: 0 }),
+        ],
+      }),
+    ])
+    const prs = detectSessionPrs(session, priorFrom([{ load: 100, reps: 3, rir: 0 }]))
+    expect(prs).toHaveLength(1)
+    expect(prs[0].load).toBe(105)
+    expect(prs[0].reps).toBe(1)
+    expect(prs[0].e1rm).toBe(116.5)
   })
 
   it('reports one entry per movement with combined kinds', () => {

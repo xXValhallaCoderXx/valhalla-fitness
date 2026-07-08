@@ -61,14 +61,26 @@ function candidateE1rm(set: PrCandidateSet) {
  * Compare this session's completed sets against each movement's prior bests
  * (which must already exclude the current session). Movements never trained
  * before fire no PR — "first time" records are noise, not celebration.
+ * Slots performing the same movement are merged so a repeated exercise can't
+ * celebrate the same record twice.
  */
 export function detectSessionPrs(
   session: WorkoutSession,
   priorByMovement: Record<string, PriorBests>,
 ): SessionPr[] {
-  const prs: SessionPr[] = []
+  const byMovement = new Map<string, { movementName: string; sets: SetLog[] }>()
   for (const movement of session.movements) {
     const movementId = movement.performedMovementId ?? movement.movementId
+    const entry = byMovement.get(movementId) ?? {
+      movementName: movement.performedMovementName ?? movement.movementName,
+      sets: [],
+    }
+    entry.sets.push(...movement.sets)
+    byMovement.set(movementId, entry)
+  }
+
+  const prs: SessionPr[] = []
+  for (const [movementId, movement] of byMovement) {
     const prior = priorByMovement[movementId]
     if (!prior || prior.sampleCount === 0) continue
 
@@ -88,13 +100,17 @@ export function detectSessionPrs(
     if (candidateE1rm(headline) > prior.maxE1rm) kinds.push('best_e1rm')
 
     // A rep record at a brand-new weight is just the weight PR — only count
-    // rep records when the weight itself isn't already a record.
-    const repRecord = kinds.includes('heaviest_weight')
-      ? null
-      : (candidates.find((set) => {
+    // rep records when the weight itself isn't already a record. Of the sets
+    // that broke a record, freeze the best one, not the first logged.
+    const repRecordCandidates = kinds.includes('heaviest_weight')
+      ? []
+      : candidates.filter((set) => {
           const priorReps = prior.repsAtLoad[loadKey(set.actualLoad)]
           return priorReps !== undefined && set.actualReps > priorReps
-        }) ?? null)
+        })
+    const repRecord = repRecordCandidates.length
+      ? repRecordCandidates.reduce((best, set) => (set.actualReps > best.actualReps ? set : best))
+      : null
     if (repRecord) kinds.push('rep_record')
 
     if (!kinds.length) continue
@@ -103,11 +119,14 @@ export function detectSessionPrs(
     const displaySet = kinds[0] === 'heaviest_weight' ? heaviest : kinds[0] === 'best_e1rm' ? headline : repRecord!
     prs.push({
       movementId,
-      movementName: movement.performedMovementName ?? movement.movementName,
+      movementName: movement.movementName,
       kinds,
       load: displaySet.actualLoad,
       reps: displaySet.actualReps,
-      e1rm: mround(candidateE1rm(displaySet), 0.5),
+      // Always the session's best estimate for this movement — the display set
+      // can be a different (heavier, lower-e1RM) set than the one that broke
+      // the estimated-max record.
+      e1rm: mround(candidateE1rm(headline), 0.5),
       previousLabel: previousBestLabel(kinds[0], displaySet, prior, session.units),
     })
   }
