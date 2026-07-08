@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildConsistency, buildWeeklySessionCounts } from '../src/domains/history/lib/consistency'
+import { buildConsistency, buildWeeklySessionCounts, streakBadgeLabel } from '../src/domains/history/lib/consistency'
 import type { HistorySessionInput } from '../src/domains/history/lib/history'
 import type { WeeklyCount } from '../src/shared/types'
 
@@ -123,5 +123,24 @@ describe('buildConsistency', () => {
     const summary = buildConsistency(makeWeekly([3, 2, 2]))
 
     expect(summary.avgSessionsPerWeek).toBe(2.3)
+  })
+})
+
+describe('streakBadgeLabel', () => {
+  it('hides sub-two-week streaks instead of shaming a fresh start', () => {
+    expect(streakBadgeLabel(buildConsistency(makeWeekly([])))).toBeNull()
+    expect(streakBadgeLabel(buildConsistency(makeWeekly([2])))).toBeNull()
+    expect(streakBadgeLabel(buildConsistency(makeWeekly([2, 0, 3])))).toBeNull()
+    expect(streakBadgeLabel(null)).toBeNull()
+    expect(streakBadgeLabel(undefined)).toBeNull()
+  })
+
+  it('celebrates streaks of two weeks and up', () => {
+    expect(streakBadgeLabel(buildConsistency(makeWeekly([1, 2])))).toBe('2-week streak 🔥')
+    expect(streakBadgeLabel(buildConsistency(makeWeekly([2, 1, 3])))).toBe('3-week streak 🔥')
+  })
+
+  it('does not let an empty in-progress week break the celebrated streak', () => {
+    expect(streakBadgeLabel(buildConsistency(makeWeekly([2, 3, 0])))).toBe('2-week streak 🔥')
   })
 })

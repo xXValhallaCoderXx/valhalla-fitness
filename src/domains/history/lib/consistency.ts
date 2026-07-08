@@ -77,3 +77,17 @@ export function buildConsistency(weekly: WeeklyCount[]): ConsistencySummary {
     percentWeeksTrained,
   }
 }
+
+/** A one-week "streak" is just last week; only celebrate from two weeks up. */
+export const STREAK_BADGE_MIN_WEEKS = 2
+
+/**
+ * Habit-loop badge copy for surfaces outside Insights (Today hero), e.g.
+ * "3-week streak 🔥". Null when there is nothing worth shouting about —
+ * hide the badge rather than shame a fresh or returning user.
+ */
+export function streakBadgeLabel(consistency: ConsistencySummary | null | undefined): string | null {
+  const weeks = consistency?.currentStreakWeeks ?? 0
+  if (weeks < STREAK_BADGE_MIN_WEEKS) return null
+  return `${weeks}-week streak 🔥`
+}

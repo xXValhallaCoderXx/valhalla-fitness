@@ -7,9 +7,9 @@ import { PendingProgressionReviewModal, PendingReviewAlert } from '~/domains/pro
 import { AD_HOC_BADGE_LABEL, DEFAULT_AD_HOC_TITLE } from '~/domains/session/lib/ad-hoc'
 import { countCompletedSets, isMeaningfulSyncState, nextIncompleteSetLabel } from '~/domains/session/lib/today-page'
 import { countPlannedSets } from '~/domains/session/lib/today-numbers'
-import type { HistoryDashboard, ProgramOverview, ProgressionDecision, TodayPayload, WorkoutSession } from '~/shared/types'
+import type { HistoryDashboardWithInsights, ProgramOverview, ProgressionDecision, TodayPayload, WorkoutSession } from '~/shared/types'
 import { SessionProgress, SyncPill } from '../Session'
-import { ProgramProgressPanel, WeeklyVolumePanel } from './TodayPanels'
+import { ProgramProgressPanel, StreakBadge, WeeklyVolumePanel } from './TodayPanels'
 
 /** Today view while a workout is live — resume card, progress stats, and side panels. */
 export function TodayActiveSession({
@@ -26,7 +26,7 @@ export function TodayActiveSession({
   data: TodayPayload
   session: WorkoutSession
   overview?: ProgramOverview
-  history?: HistoryDashboard
+  history?: HistoryDashboardWithInsights
   pendingDecisions: ProgressionDecision[]
   reviewOpen: boolean
   onReviewOpen: () => void
@@ -71,6 +71,7 @@ export function TodayActiveSession({
                 ) : (
                   <Badge color="warning">{session.hardness}</Badge>
                 )}
+                <StreakBadge history={history} />
               </div>
               <Heading order={2} size="h3" lh={1.15} className="truncate">
                 {session.title}
