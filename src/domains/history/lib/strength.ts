@@ -41,6 +41,9 @@ export const e1rmTrendLabels: Record<E1rmTrendSignal, string> = {
   insufficient: 'Building baseline',
 }
 
+export const estimatedMaxExplanation =
+  'e1RM is the heaviest single rep we estimate you could lift right now, worked out from the weights and reps you actually log. A rising line means you are getting stronger.'
+
 export const stallSignalLabels: Record<StallSignal, string> = {
   progressing: 'Progressing',
   watch: 'Watch',

@@ -1,5 +1,6 @@
 import type { ConsistencySummary } from '~/shared/types'
-import { Caption, Panel, SectionLabel, StatValue, Text } from '~/components'
+import { consistencyExplanation } from '~/domains/history/lib/consistency'
+import { Caption, InfoHint, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { formatNumber } from '../insight-format'
 
 export function ConsistencyCard({ consistency }: { consistency: ConsistencySummary }) {
@@ -7,7 +8,10 @@ export function ConsistencyCard({ consistency }: { consistency: ConsistencySumma
 
   return (
     <Panel p="md">
-      <SectionLabel>Consistency</SectionLabel>
+      <span className="inline-flex items-center gap-1">
+        <SectionLabel>Consistency</SectionLabel>
+        <InfoHint label="About this metric">{consistencyExplanation}</InfoHint>
+      </span>
       <div className="mt-1 flex items-end gap-2">
         <StatValue size="xl">
           {consistency.avgSessionsPerWeek === null ? '—' : formatNumber(consistency.avgSessionsPerWeek)}

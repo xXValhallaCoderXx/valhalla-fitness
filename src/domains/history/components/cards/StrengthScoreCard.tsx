@@ -2,11 +2,11 @@ import { LineChart } from '@mantine/charts'
 import { Badge } from '@mantine/core'
 import { ArrowRight } from 'lucide-react'
 import { formatCompactDate } from '~/shared/lib/dates'
-import { strengthScoreKindLabels } from '~/domains/history/lib/dots'
+import { strengthScoreExplanation, strengthScoreKindLabels } from '~/domains/history/lib/dots'
 import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
 import { formatTotalMetricValue, totalMetricFor, totalMetricLabel, totalMetricValue } from '~/domains/history/lib/total-metric'
 import type { HistoryInsights, StrengthScoreKind } from '~/shared/types'
-import { Caption, Panel, SectionLabel, StatValue, Text } from '~/components'
+import { Caption, InfoHint, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { BodyweightPromptCard } from '../BodyweightPromptCard'
 import { formatLoad, formatNumber, type HistoryTab } from '../insight-format'
 
@@ -49,7 +49,10 @@ export function StrengthScoreCard({
     <Panel p="md">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <SectionLabel>Strength score</SectionLabel>
+          <span className="inline-flex items-center gap-1">
+            <SectionLabel>Strength score</SectionLabel>
+            <InfoHint label="About this metric">{strengthScoreExplanation}</InfoHint>
+          </span>
           <StatValue size="xl" mt={4}>
             {formatScore(score.kind, score.value, insights.units)}
           </StatValue>

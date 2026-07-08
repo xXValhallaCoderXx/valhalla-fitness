@@ -1,9 +1,9 @@
 import { AreaChart } from '@mantine/charts'
 import { Badge } from '@mantine/core'
 import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
-import { resolveVolumeTrendSignal, volumeTrendLabels } from '~/domains/history/lib/insight-state'
+import { resolveVolumeTrendSignal, volumeTrendExplanation, volumeTrendLabels } from '~/domains/history/lib/insight-state'
 import type { HistoryInsights, InsightGating, VolumeTrendSignal } from '~/shared/types'
-import { Caption, Panel, SectionLabel, Text } from '~/components'
+import { Caption, InfoHint, Panel, SectionLabel, Text } from '~/components'
 import { formatLoad, formatNumber } from '../insight-format'
 
 const TREND_BADGE_COLOR: Record<VolumeTrendSignal, string> = {
@@ -37,7 +37,10 @@ export function VolumeTrendCard({
     <Panel p="md">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <SectionLabel>Weekly volume</SectionLabel>
+          <span className="inline-flex items-center gap-1">
+            <SectionLabel>Weekly volume</SectionLabel>
+            <InfoHint label="About this metric">{volumeTrendExplanation}</InfoHint>
+          </span>
           <Text mt={4} size="sm" fw={900}>
             {formatLoad(rangeTotal, insights.units)} in range
           </Text>

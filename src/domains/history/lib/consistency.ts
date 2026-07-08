@@ -78,6 +78,9 @@ export function buildConsistency(weekly: WeeklyCount[]): ConsistencySummary {
   }
 }
 
+export const consistencyExplanation =
+  'How regularly you train: average sessions per week, and streaks of weeks in a row with at least one workout. Showing up is what drives every other number here.'
+
 /** A one-week "streak" is just last week; only celebrate from two weeks up. */
 export const STREAK_BADGE_MIN_WEEKS = 2
 
