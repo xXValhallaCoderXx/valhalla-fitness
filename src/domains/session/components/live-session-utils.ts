@@ -71,6 +71,18 @@ export function formatPreviousShort(previous: PreviousComparable, units?: string
   return `${loadText} × ${repsText}`
 }
 
+/**
+ * Per-row "last time" ghost, e.g. "last 80 × 8" — what this exact set position got last
+ * session. Unitless on purpose (the movement header's chip carries units); null when the
+ * comparable has no matching set (older snapshots, added sets, or no history at all).
+ */
+export function previousSetShort(previous: PreviousComparable | null | undefined, setIndex: number): string | null {
+  const match = previous?.sets?.find((set) => set.setIndex === setIndex)
+  if (!match || typeof match.reps !== 'number' || match.reps <= 0) return null
+  const loadText = typeof match.load === 'number' && match.load > 0 ? formatNumber(match.load) : 'BW'
+  return `last ${loadText} × ${match.reps}`
+}
+
 export function roundToStep(value: number, step: number) {
   if (!Number.isFinite(value)) return 0
   if (!step) return value

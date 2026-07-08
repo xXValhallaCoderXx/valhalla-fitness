@@ -148,6 +148,7 @@ export function LiveFocusView({
         <FocusSessionOnboarding />
         <FocusExerciseHeader
           movement={activeMovement}
+          units={session.units}
           hasPrev={hasPrev}
           hasNext={hasNext}
           onPrev={() => prevId && onSelectMovement(prevId)}

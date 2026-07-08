@@ -300,6 +300,13 @@ function comparableFromCandidate(
     performedAt: candidate.completedAt ?? candidate.scheduledDate,
     e1rm: estimatedMax,
     setType: set.isAmrap ? 'amrap' : set.isTopSet ? 'top_set' : set.isBackoff ? 'backoff' : movement.role === 'accessory' ? 'accessory' : 'best_set',
+    // Per-set actuals power the per-row "last time" ghosts in the logger.
+    sets: completedSets.map((completedSet) => ({
+      setIndex: completedSet.setIndex,
+      load: completedSet.actualLoad ?? completedSet.targetLoad ?? null,
+      reps: completedSet.actualReps ?? null,
+      rir: completedSet.actualRir ?? null,
+    })),
   }
 }
 

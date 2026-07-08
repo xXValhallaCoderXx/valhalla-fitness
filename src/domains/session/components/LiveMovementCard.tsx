@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
-import { ActionIcon, Button, Tooltip } from '@mantine/core'
+import { Button } from '@mantine/core'
 import {
   Calculator,
   ChevronDown,
@@ -11,7 +11,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
-import { Caption, ConfirmDialog, Panel, SectionLabel, Text } from '~/components'
+import { Caption, ConfirmDialog, InfoHint, Panel, SectionLabel, Text } from '~/components'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { cn } from '~/shared/lib/cn'
 import { addExerciseSetFn, removeAdHocExerciseFn } from '~/domains/session/server/session-functions'
@@ -187,7 +187,7 @@ export function LiveMovementCard({
               <Text component="span" size="xs" fw={700}>
                 {formatPreviousShort(movement.previous, session.units)}
               </Text>
-              <InfoHint label="Last session details">{movement.previous.label}</InfoHint>
+              <InfoHint label="Last session details" width={260}>{movement.previous.label}</InfoHint>
             </span>
           ) : (
             <Caption component="span">No previous session yet</Caption>
@@ -344,21 +344,3 @@ function CollapsedMovementCard({
   )
 }
 
-/** Small ⓘ that reveals the full "last time" detail. Tap-friendly on mobile (touch event). */
-function InfoHint({ label, children }: { label: string; children: string }) {
-  return (
-    <Tooltip
-      label={children}
-      multiline
-      withArrow
-      withinPortal
-      position="top"
-      w={260}
-      events={{ hover: true, focus: true, touch: true }}
-    >
-      <ActionIcon aria-label={label} size="sm" radius="xl" variant="subtle" color="neutral">
-        <Info size={13} />
-      </ActionIcon>
-    </Tooltip>
-  )
-}

@@ -1,11 +1,13 @@
 import { Calculator, ChevronLeft, ChevronRight, History } from 'lucide-react'
-import { Caption, Heading } from '~/components'
-import type { MovementSlot } from '~/shared/types'
+import { Caption, Heading, InfoHint, Text } from '~/components'
+import type { MovementSlot, Unit } from '~/shared/types'
 import { RolePill, ToolButton } from './LiveSessionControls'
+import { formatPreviousShort } from './live-session-utils'
 
 /** Big exercise title flanked by prev/next-exercise chevrons, with plate calculator + history tools. */
 export function FocusExerciseHeader({
   movement,
+  units,
   hasPrev,
   hasNext,
   onPrev,
@@ -14,6 +16,7 @@ export function FocusExerciseHeader({
   onOpenPlates,
 }: {
   movement: MovementSlot
+  units: Unit
   hasPrev: boolean
   hasNext: boolean
   onPrev: () => void
@@ -42,6 +45,16 @@ export function FocusExerciseHeader({
         <Caption component="p" ta="center" mt={6} fw={700} c="var(--vf-warning-text)">
           Performed as {movement.performedMovementName}
         </Caption>
+      ) : null}
+
+      {movement.previous ? (
+        <div className="mt-1.5 flex items-center justify-center gap-1">
+          <Caption component="span">Last time</Caption>
+          <Text component="span" size="xs" fw={700}>
+            {formatPreviousShort(movement.previous, units)}
+          </Text>
+          <InfoHint label="Last session details" width={260}>{movement.previous.label}</InfoHint>
+        </div>
       ) : null}
 
       <div className="mt-3 flex items-center justify-center gap-2">

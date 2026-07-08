@@ -124,6 +124,7 @@ export function FocusModeDemo() {
             <div className="relative z-30 space-y-4">
               <FocusExerciseHeader
                 movement={movement}
+                units="kg"
                 hasPrev={false}
                 hasNext={false}
                 onPrev={() => {}}

@@ -1,6 +1,7 @@
 export { CollapsiblePanel, type CollapsiblePanelProps } from './CollapsiblePanel'
 export { ConfirmDialog } from './ConfirmDialog'
 export { EmptyState } from './EmptyState'
+export { InfoHint } from './InfoHint'
 export { Page } from './Page'
 export { PageLoadError, PageSkeleton } from './PageFeedback'
 export { PageHeader } from './PageHeader'
