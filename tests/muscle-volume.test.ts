@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ADEQUACY_HIGH_SETS,
+  ADEQUACY_LOW_SETS,
+  ADEQUACY_WINDOW_WEEKS,
   BALANCE_MIN_SETS,
   BALANCE_SKEW_FACTOR,
   CORE_REGIONS,
   LEG_REGIONS,
   PULL_REGIONS,
   PUSH_REGIONS,
+  adequacyTierForSets,
   balanceSignalLabels,
   buildMovementBalance,
+  buildRegionAdequacy,
   buildWeeklyRegionSets,
 } from '../src/domains/history/lib/muscle-volume'
 import type {
@@ -278,6 +283,62 @@ describe('buildMovementBalance', () => {
     expect(all.weeks).toBe(3)
     expect(all.totalSets).toBe(49)
     expect(all.signal).toBe('push_heavy')
+  })
+})
+
+describe('adequacyTierForSets', () => {
+  it('buckets against the 10-20 sets/week heuristic, inclusive at both ends', () => {
+    expect(adequacyTierForSets(9.9)).toBe('below')
+    expect(adequacyTierForSets(ADEQUACY_LOW_SETS)).toBe('in_range')
+    expect(adequacyTierForSets(ADEQUACY_HIGH_SETS)).toBe('in_range')
+    expect(adequacyTierForSets(20.1)).toBe('high')
+    expect(adequacyTierForSets(0)).toBe('below')
+  })
+})
+
+describe('buildRegionAdequacy', () => {
+  it('averages sets over the window and tiers each region', () => {
+    const weekly = [
+      weekBucket({ weekStart: '2026-06-08', regionSets: { chest: 12, quads: 4 }, totalSets: 16 }),
+      weekBucket({ weekStart: '2026-06-15', regionSets: { chest: 14, quads: 6 }, totalSets: 20 }),
+    ]
+    const summary = buildRegionAdequacy(weekly)
+    expect(summary.weeks).toBe(2)
+    expect(summary.totalSets).toBe(36)
+    expect(summary.insufficient).toBe(false)
+
+    const chest = summary.regions.find((region) => region.regionId === 'chest')
+    expect(chest?.weeklySets).toBe(13)
+    expect(chest?.tier).toBe('in_range')
+
+    const quads = summary.regions.find((region) => region.regionId === 'quads')
+    expect(quads?.weeklySets).toBe(5)
+    expect(quads?.tier).toBe('below')
+
+    // Untrained regions still appear, at zero, so the gap is visible.
+    const biceps = summary.regions.find((region) => region.regionId === 'biceps')
+    expect(biceps?.weeklySets).toBe(0)
+    expect(summary.regions[0]?.regionId).toBe('chest')
+  })
+
+  it('only averages over the last window of weeks', () => {
+    const heavyOldWeek = weekBucket({ weekStart: '2026-05-04', regionSets: { chest: 100 }, totalSets: 100 })
+    const recent = Array.from({ length: ADEQUACY_WINDOW_WEEKS }, (_, index) =>
+      weekBucket({ weekStart: `2026-06-0${index + 1}`, regionSets: { chest: 12 }, totalSets: 12 }),
+    )
+    const summary = buildRegionAdequacy([heavyOldWeek, ...recent])
+    expect(summary.weeks).toBe(ADEQUACY_WINDOW_WEEKS)
+    expect(summary.regions.find((region) => region.regionId === 'chest')?.weeklySets).toBe(12)
+  })
+
+  it('flags an insufficient window and handles empty input', () => {
+    const sparse = buildRegionAdequacy([weekBucket({ regionSets: { chest: 5 }, totalSets: 5 })])
+    expect(sparse.insufficient).toBe(true)
+
+    const empty = buildRegionAdequacy([])
+    expect(empty.weeks).toBe(0)
+    expect(empty.insufficient).toBe(true)
+    expect(empty.regions.every((region) => region.weeklySets === 0)).toBe(true)
   })
 })
 

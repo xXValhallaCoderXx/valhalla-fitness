@@ -1,42 +1,133 @@
-import { Badge } from '@mantine/core'
+import { Badge, SegmentedControl } from '@mantine/core'
+import { useState } from 'react'
 import { bodyLoadExplanation, bodyLoadTierLabels } from '~/domains/history/lib/body-load'
-import type { BodyLoadRegion, BodyRegionId, HistoryDashboard } from '~/shared/types'
+import {
+  ADEQUACY_HIGH_SETS,
+  adequacyExplanation,
+  adequacyTierLabels,
+  buildRegionAdequacy,
+  type AdequacyTier,
+  type RegionAdequacy,
+} from '~/domains/history/lib/muscle-volume'
+import type { BodyLoadRegion, BodyRegionId, HistoryDashboardWithInsights, InsightGating } from '~/shared/types'
 import { Caption, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { bodyLoadColor, toneForTier } from '../insight-format'
 
-export function BodyLoadTab({ data }: { data: HistoryDashboard }) {
-  const regions = data.bodyLoad.regions
+type BodyMapView = 'fatigue' | 'sets'
+
+export function BodyLoadTab({ data, gating }: { data: HistoryDashboardWithInsights; gating: InsightGating }) {
+  const [view, setView] = useState<BodyMapView>('fatigue')
+  const fatigueRegions = data.bodyLoad.regions
     .filter((region) => region.impactPercent > 0)
     .sort((left, right) => right.impactPercent - left.impactPercent)
+  const adequacy = buildRegionAdequacy(data.insights.weeklyRegionSets)
+  // The 10–20 coloring is misleading on a near-empty history — hold it back
+  // until the window has enough sets (mirrors the muscle-balance card's gate).
+  const setsGated = adequacy.insufficient || gating.lifecycle === 'empty' || gating.lifecycle === 'cold_start'
+
+  const fatigueById = new Map(data.bodyLoad.regions.map((region) => [region.regionId, region]))
+  const adequacyById = new Map(adequacy.regions.map((region) => [region.regionId, region]))
+  const fatigueStyle = (regionId: BodyRegionId) => {
+    const region = fatigueById.get(regionId)
+    return {
+      fill: bodyLoadFill(region?.tier ?? 'fresh'),
+      opacity: 0.35 + ((region?.impactPercent ?? 0) / 100) * 0.65,
+    }
+  }
+  const adequacyStyle = (regionId: BodyRegionId) => {
+    const region = adequacyById.get(regionId)
+    return {
+      fill: adequacyFill(region?.tier ?? 'below'),
+      opacity: 0.35 + Math.min((region?.weeklySets ?? 0) / ADEQUACY_HIGH_SETS, 1) * 0.65,
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[24rem_minmax(0,1fr)]">
       <Panel p="md">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <SectionLabel>Muscle fatigue</SectionLabel>
-            <Text mt={4} size="sm" fw={900}>Last {data.bodyLoad.windowDays} days</Text>
+            <SectionLabel>{view === 'fatigue' ? 'Muscle fatigue' : 'Weekly sets'}</SectionLabel>
+            <Text mt={4} size="sm" fw={900}>
+              {view === 'fatigue' ? `Last ${data.bodyLoad.windowDays} days` : `Last ${adequacy.weeks || 4} weeks`}
+            </Text>
           </div>
-          <Badge color="success">{data.bodyLoad.freshRegionCount} of {data.bodyLoad.regions.length} fresh</Badge>
+          {view === 'fatigue' ? (
+            <Badge color="success">{data.bodyLoad.freshRegionCount} of {data.bodyLoad.regions.length} fresh</Badge>
+          ) : null}
         </div>
-        <BodyLoadMap regions={data.bodyLoad.regions} />
-        <div className="mt-3 flex flex-wrap justify-center gap-4">
-          <LegendSwatch color="var(--vf-danger-text)" label="Worked hard" />
-          <LegendSwatch color="var(--vf-action-text)" label="Light" />
-          <LegendSwatch color="var(--mantine-color-dimmed)" label="Fresh" />
-        </div>
+        <SegmentedControl
+          size="xs"
+          radius="md"
+          fullWidth
+          value={view}
+          onChange={(next) => setView(next as BodyMapView)}
+          data={[
+            { value: 'fatigue', label: 'Fatigue' },
+            { value: 'sets', label: 'Weekly sets' },
+          ]}
+          styles={{
+            root: { backgroundColor: 'var(--vf-surface-2)', border: '1px solid var(--mantine-color-default-border)' },
+            label: { fontWeight: 700 },
+          }}
+          className="mb-3"
+        />
+        {view === 'sets' && setsGated ? (
+          <Caption component="p" ta="center" className="py-10">
+            Your weekly-sets picture appears after about 20 logged sets in the last few weeks. Keep training — it&apos;s
+            on its way.
+          </Caption>
+        ) : (
+          <>
+            <BodyLoadMap
+              ariaLabel={view === 'fatigue' ? 'Muscle fatigue map' : 'Weekly sets per muscle map'}
+              styleFor={view === 'fatigue' ? fatigueStyle : adequacyStyle}
+            />
+            <div className="mt-3 flex flex-wrap justify-center gap-4">
+              {view === 'fatigue' ? (
+                <>
+                  <LegendSwatch color="var(--vf-danger-text)" label="Worked hard" />
+                  <LegendSwatch color="var(--vf-action-text)" label="Light" />
+                  <LegendSwatch color="var(--mantine-color-dimmed)" label="Fresh" />
+                </>
+              ) : (
+                <>
+                  <LegendSwatch color="var(--vf-success-text)" label={adequacyTierLabels.in_range} />
+                  <LegendSwatch color="var(--vf-warning-text)" label={adequacyTierLabels.high} />
+                  <LegendSwatch color="var(--mantine-color-dimmed)" label={adequacyTierLabels.below} />
+                </>
+              )}
+            </div>
+          </>
+        )}
       </Panel>
 
       <Panel p="md">
-        <SectionLabel>Affected regions · most to least</SectionLabel>
-        <Caption mt={4}>{bodyLoadExplanation}</Caption>
-        <div className="mt-2 flex flex-col">
-          {regions.length ? (
-            regions.map((region) => <FatigueRow key={region.regionId} region={region} />)
-          ) : (
-            <Text size="sm" tone="dimmed" mt="sm">No completed sets in the recent window.</Text>
-          )}
-        </div>
+        {view === 'fatigue' ? (
+          <>
+            <SectionLabel>Affected regions · most to least</SectionLabel>
+            <Caption mt={4}>{bodyLoadExplanation}</Caption>
+            <div className="mt-2 flex flex-col">
+              {fatigueRegions.length ? (
+                fatigueRegions.map((region) => <FatigueRow key={region.regionId} region={region} />)
+              ) : (
+                <Text size="sm" tone="dimmed" mt="sm">No completed sets in the recent window.</Text>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <SectionLabel>Sets per week · most to least</SectionLabel>
+            <Caption mt={4}>{adequacyExplanation}</Caption>
+            <div className="mt-2 flex flex-col">
+              {setsGated ? (
+                <Text size="sm" tone="dimmed" mt="sm">Not enough recent sets to judge weekly volume fairly yet.</Text>
+              ) : (
+                adequacy.regions.map((region) => <AdequacyRow key={region.regionId} region={region} />)
+              )}
+            </div>
+          </>
+        )}
       </Panel>
     </div>
   )
@@ -72,17 +163,42 @@ function FatigueRow({ region }: { region: BodyLoadRegion }) {
   )
 }
 
-function BodyLoadMap({ regions }: { regions: BodyLoadRegion[] }) {
-  const byId = new Map(regions.map((region) => [region.regionId, region]))
-  const fill = (regionId: BodyRegionId) => bodyLoadFill(byId.get(regionId)?.tier ?? 'fresh')
-  const opacity = (regionId: BodyRegionId) => 0.35 + ((byId.get(regionId)?.impactPercent ?? 0) / 100) * 0.65
+function AdequacyRow({ region }: { region: RegionAdequacy }) {
+  const barPercent = Math.min((region.weeklySets / ADEQUACY_HIGH_SETS) * 100, 100)
+  return (
+    <div className="flex items-center gap-4 border-t py-3 first:border-t-0" style={{ borderColor: 'var(--mantine-color-default-border)' }}>
+      <div className="w-28 shrink-0 sm:w-40">
+        <Text fw={700} truncate>{region.label}</Text>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="h-2 overflow-hidden rounded-full" style={{ backgroundColor: 'var(--vf-surface-inset)' }}>
+          <div className="h-full rounded-full" style={{ width: `${barPercent}%`, backgroundColor: adequacyFill(region.tier) }} />
+        </div>
+      </div>
+      <div className="w-24 shrink-0 text-right">
+        <StatValue size="sm" tone={adequacyTone(region.tier)}>{region.weeklySets}</StatValue>
+        <Caption size="0.625rem" fw={800} tone={adequacyTone(region.tier)}>{adequacyTierLabels[region.tier]}</Caption>
+      </div>
+    </div>
+  )
+}
+
+function BodyLoadMap({
+  styleFor,
+  ariaLabel,
+}: {
+  styleFor: (regionId: BodyRegionId) => { fill: string; opacity: number }
+  ariaLabel: string
+}) {
+  const fill = (regionId: BodyRegionId) => styleFor(regionId).fill
+  const opacity = (regionId: BodyRegionId) => styleFor(regionId).opacity
 
   return (
     <div className="flex justify-center">
       <svg
         viewBox="0 0 300 420"
         role="img"
-        aria-label="Muscle fatigue map"
+        aria-label={ariaLabel}
         className="vf-body-load-map"
       >
         <g stroke="var(--mantine-color-default-border)" strokeWidth="3">
@@ -114,4 +230,16 @@ function bodyLoadFill(tier: BodyLoadRegion['tier']) {
   if (tier === 'moderate') return 'var(--vf-warning-text)'
   if (tier === 'low') return 'var(--vf-action-text)'
   return 'var(--mantine-color-dimmed)'
+}
+
+function adequacyFill(tier: AdequacyTier) {
+  if (tier === 'in_range') return 'var(--vf-success-text)'
+  if (tier === 'high') return 'var(--vf-warning-text)'
+  return 'var(--mantine-color-dimmed)'
+}
+
+function adequacyTone(tier: AdequacyTier): 'success' | 'warning' | 'dimmed' {
+  if (tier === 'in_range') return 'success'
+  if (tier === 'high') return 'warning'
+  return 'dimmed'
 }

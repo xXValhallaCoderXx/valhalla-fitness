@@ -1,6 +1,6 @@
 import type { BalanceSignal, BalanceSummary, BodyRegionId, Movement, WeeklyRegionSets } from '~/shared/types'
 import { movementCatalog } from '~/domains/movement/lib/movements'
-import { resolveRegionWeights } from '~/domains/history/lib/body-load'
+import { bodyRegionLabels, resolveRegionWeights } from '~/domains/history/lib/body-load'
 import {
   formatDateKey,
   formatWeekLabel,
@@ -103,6 +103,61 @@ export function buildMovementBalance(weekly: WeeklyRegionSets[], rangeWeeks: num
 
   return { signal, pushSets, pullSets, legSets, coreSets, totalSets, weeks: buckets.length }
 }
+
+// Weekly-sets adequacy: the widely-taught ~10–20 hard sets per muscle per week
+// heuristic, averaged over a recent window so one light week doesn't flip colors.
+export const ADEQUACY_LOW_SETS = 10
+export const ADEQUACY_HIGH_SETS = 20
+export const ADEQUACY_WINDOW_WEEKS = 4
+
+export type AdequacyTier = 'below' | 'in_range' | 'high'
+
+export type RegionAdequacy = {
+  regionId: BodyRegionId
+  label: string
+  /** Average sets per week over the window, one decimal. */
+  weeklySets: number
+  tier: AdequacyTier
+}
+
+export type AdequacySummary = {
+  /** Every body region, most to least weekly sets. */
+  regions: RegionAdequacy[]
+  /** Weekly buckets the average was taken over (≤ ADEQUACY_WINDOW_WEEKS). */
+  weeks: number
+  totalSets: number
+  /** Too little data in the window for the coloring to be fair. */
+  insufficient: boolean
+}
+
+export function adequacyTierForSets(weeklySets: number): AdequacyTier {
+  if (weeklySets < ADEQUACY_LOW_SETS) return 'below'
+  if (weeklySets > ADEQUACY_HIGH_SETS) return 'high'
+  return 'in_range'
+}
+
+export function buildRegionAdequacy(weekly: WeeklyRegionSets[]): AdequacySummary {
+  const buckets = weekly.slice(-ADEQUACY_WINDOW_WEEKS)
+  const weeks = buckets.length
+  const totalSets = buckets.reduce((sum, bucket) => sum + bucket.totalSets, 0)
+  const regions = (Object.keys(bodyRegionLabels) as BodyRegionId[])
+    .map((regionId) => {
+      const regionSum = buckets.reduce((sum, bucket) => sum + (bucket.regionSets[regionId] ?? 0), 0)
+      const weeklySets = weeks ? roundOne(regionSum / weeks) : 0
+      return { regionId, label: bodyRegionLabels[regionId], weeklySets, tier: adequacyTierForSets(weeklySets) }
+    })
+    .sort((left, right) => right.weeklySets - left.weeklySets)
+  return { regions, weeks, totalSets, insufficient: totalSets < BALANCE_MIN_SETS }
+}
+
+export const adequacyTierLabels: Record<AdequacyTier, string> = {
+  below: 'Could use more',
+  in_range: 'On track',
+  high: 'High',
+}
+
+export const adequacyExplanation =
+  'Average sets each muscle group gets per week, over the last 4 weeks. Around 10–20 is a solid range for most people.'
 
 function sumRegions(buckets: WeeklyRegionSets[], regions: BodyRegionId[]) {
   return buckets.reduce(
