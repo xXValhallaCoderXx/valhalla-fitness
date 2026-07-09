@@ -172,7 +172,9 @@ export function MovementSwapModal({
         },
       }}
     >
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+      {/* minmax(0,1fr): an auto track would size to the widest row's intrinsic
+          width and overflow narrow screens. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
         <div className="min-h-0 space-y-3">
           <Panel surface="inset" p="sm">
             <SectionLabel>Planned</SectionLabel>

@@ -178,7 +178,9 @@ export function AddAccessoryModal({
         },
       }}
     >
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+      {/* minmax(0,1fr): an auto track would size to the category strip's intrinsic
+          width (all chips side by side) and overflow narrow screens. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
         <AccessoryMovementPicker
           search={search}
           categoryFilter={categoryFilter}
