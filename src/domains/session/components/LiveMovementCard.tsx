@@ -3,21 +3,21 @@ import { notifications } from '@mantine/notifications'
 import { Button } from '@mantine/core'
 import {
   Calculator,
-  ChevronDown,
   History,
   Info,
   Plus,
   Repeat2,
   Trash2,
 } from 'lucide-react'
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { Caption, ConfirmDialog, InfoHint, Panel, SectionLabel, Text } from '~/components'
+import { useAddExerciseSet } from '~/domains/session/lib/useAddExerciseSet'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { cn } from '~/shared/lib/cn'
-import { addExerciseSetFn, removeAdHocExerciseFn } from '~/domains/session/server/session-functions'
+import { removeAdHocExerciseFn } from '~/domains/session/server/session-functions'
 import type { MovementSlot, WorkoutSession } from '~/shared/types'
+import { CollapsedMovementCard } from './CollapsedMovementCard'
 import {
-  MovementNumberBadge,
   RolePill,
   ToolButton,
 } from './LiveSessionControls'
@@ -29,7 +29,6 @@ import {
   formatPreviousShort,
   formatSetTarget,
   getTopSet,
-  isMovementComplete,
   seedLoadForSet,
   SET_GRID_CLASS,
 } from './live-session-utils'
@@ -40,12 +39,18 @@ export function LiveMovementCard({
   isActive,
   movementNumber,
   onSelect,
+  sortHandle,
+  onRemoveAdded,
+  managementPending = false,
 }: {
   session: WorkoutSession
   movement: MovementSlot
   isActive: boolean
   movementNumber: number
   onSelect: () => void
+  sortHandle?: ReactNode
+  onRemoveAdded?: () => void
+  managementPending?: boolean
 }) {
   const queryClient = useQueryClient()
   const topSet = getTopSet(movement)
@@ -61,33 +66,7 @@ export function LiveMovementCard({
   const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<Record<number, number | undefined>>({})
   const isAdHoc = Boolean(session.isAdHoc)
   const canAddSet = movement.role === 'accessory' || isAdHoc
-  const addSetMutation = useMutation({
-    mutationKey: ['addExerciseSet', session.sessionId, movement.id],
-    mutationFn: () =>
-      addExerciseSetFn({
-        data: {
-          sessionId: session.sessionId,
-          exerciseLogId: movement.id,
-          clientMutationId: crypto.randomUUID(),
-        },
-      }),
-    onError: (error) => {
-      notifications.show({
-        color: 'danger',
-        title: 'Set not added',
-        message: getApiErrorMessage(error, 'Unable to add another set.'),
-      })
-    },
-    onSuccess: (nextSession) => {
-      const nextMovement = nextSession.movements.find((item) => item.id === movement.id)
-      queryClient.setQueryData(['session', session.sessionId], nextSession)
-      queryClient.setQueryData(['today'], (current: any) =>
-        current ? { ...current, activeSession: nextSession } : current,
-      )
-      const nextSetIndex = nextMovement?.sets.at(-1)?.setIndex
-      if (nextSetIndex) setSelectedSetIndex(nextSetIndex)
-    },
-  })
+  const addSetMutation = useAddExerciseSet(session, movement)
 
   const removeMutation = useMutation({
     mutationKey: ['removeAdHocExercise', session.sessionId, movement.id],
@@ -124,6 +103,9 @@ export function LiveMovementCard({
         movementNumber={movementNumber}
         units={session.units}
         onSelect={onSelect}
+        sortHandle={sortHandle}
+        onRemoveAdded={onRemoveAdded}
+        managementPending={managementPending}
       />
     )
   }
@@ -160,21 +142,23 @@ export function LiveMovementCard({
             ) : null}
           </div>
           <div className="flex gap-1.5 md:pt-0.5">
+            {sortHandle}
             <ToolButton title="Plate math" icon={<Calculator size={13} />} label="Plates" onClick={() => setPlateOpen(true)} />
             <ToolButton
               title={movement.role === 'main' ? 'Main lifts cannot be swapped' : 'Swap movement'}
               icon={<Repeat2 size={13} />}
               label="Swap"
-              disabled={movement.role === 'main'}
+              disabled={movement.role === 'main' || managementPending}
               onClick={() => setSwapOpen(true)}
             />
             <ToolButton title="Movement history" icon={<History size={13} />} label="History" onClick={() => setHistoryOpen(true)} />
-            {isAdHoc ? (
+            {isAdHoc || movement.isAdded ? (
               <ToolButton
                 title="Remove exercise"
                 icon={<Trash2 size={13} />}
                 label="Remove"
-                onClick={() => setRemoveOpen(true)}
+                disabled={managementPending}
+                onClick={isAdHoc ? () => setRemoveOpen(true) : onRemoveAdded}
               />
             ) : null}
           </div>
@@ -239,6 +223,7 @@ export function LiveMovementCard({
             set={set}
             isSelected={set.setIndex === selectedSetIndex}
             suggestedRir={suggestedRirBySetIndex[set.setIndex]}
+            disabled={managementPending}
             onSelect={() => setSelectedSetIndex(set.setIndex)}
             onRirSelected={carryRirToNextSet}
           />
@@ -279,8 +264,16 @@ export function LiveMovementCard({
         className="mx-3 mb-3 w-[calc(100%-1.5rem)] md:mx-0 md:mb-0 md:mt-3 md:w-full"
         variant="default"
         title={canAddSet ? 'Add another set' : 'Extra sets can only be added to accessories'}
-        disabled={!canAddSet || addSetMutation.isPending}
-        onClick={() => addSetMutation.mutate()}
+        disabled={!canAddSet || addSetMutation.isPending || managementPending}
+        onClick={() =>
+          addSetMutation.mutate(undefined, {
+            onSuccess: (nextSession) => {
+              const nextMovement = nextSession.movements.find((item) => item.id === movement.id)
+              const nextSetIndex = nextMovement?.sets.at(-1)?.setIndex
+              if (nextSetIndex) setSelectedSetIndex(nextSetIndex)
+            },
+          })
+        }
       >
         <Plus size={12} />
         {addSetMutation.isPending ? 'Adding set...' : 'Add set'}
@@ -288,59 +281,3 @@ export function LiveMovementCard({
     </article>
   )
 }
-
-function CollapsedMovementCard({
-  movement,
-  movementNumber,
-  units,
-  onSelect,
-}: {
-  movement: MovementSlot
-  movementNumber: number
-  units: string
-  onSelect: () => void
-}) {
-  const complete = isMovementComplete(movement)
-  const completedSets = movement.sets.filter((set) => set.completed).length
-  const totalSets = movement.sets.length
-
-  return (
-    <button
-      type="button"
-      className={cn(
-        'flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition',
-        complete && 'opacity-55',
-      )}
-      style={{
-        borderColor: 'var(--vf-card-border)',
-        backgroundColor: 'var(--mantine-color-default)',
-        color: 'var(--mantine-color-text)',
-        boxShadow: 'var(--vf-shadow-card)',
-      }}
-      onClick={onSelect}
-    >
-      <div className="min-w-0">
-        <div className="mb-0.5 flex flex-wrap items-center gap-2">
-          <MovementNumberBadge number={movementNumber} complete={complete} />
-          <Text component="h3" size="sm" fw={900} truncate className={cn(complete && 'line-through')}>
-            {movement.movementName}
-          </Text>
-          <RolePill role={movement.role} subtle />
-        </div>
-        <Caption component="p" className="pl-7" size="xs">
-          {totalSets} sets · {movement.targetSummary}
-          {movement.previous ? (
-            <span className="hidden sm:inline"> · last {formatPreviousShort(movement.previous, units)}</span>
-          ) : null}
-        </Caption>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <Caption component="span" fw={700}>
-          {completedSets}/{totalSets}
-        </Caption>
-        <ChevronDown className="-rotate-90" style={{ color: 'var(--mantine-color-dimmed)' }} size={14} />
-      </div>
-    </button>
-  )
-}
-

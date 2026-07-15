@@ -39,7 +39,7 @@ export function AccessoryMovementPicker({
   onClearFilters,
 }: AccessoryMovementPickerProps) {
   return (
-    <div className="min-h-0 space-y-2">
+    <div className="min-h-0 min-w-0 max-w-full space-y-2">
       <TextInput
         value={search}
         onChange={(event) => onSearchChange(event.target.value)}
@@ -149,7 +149,7 @@ function AccessoryCategoryFilters({
   if (!options.length) return null
 
   return (
-    <div className="-mx-1 overflow-x-auto px-1 pb-1">
+    <div className="min-w-0 max-w-full overflow-x-auto px-1 pb-1">
       <div className="flex w-max gap-1.5 sm:w-full sm:flex-wrap">
         <AccessoryCategoryFilterButton
           active={value === 'all'}

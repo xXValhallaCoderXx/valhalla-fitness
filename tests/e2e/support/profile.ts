@@ -32,6 +32,82 @@ export async function getUserId(credentials: Credentials): Promise<string> {
   return userId
 }
 
+export async function getAccessoryCustomizationState(credentials: Credentials) {
+  const { client, userId } = await signInClient(credentials)
+  const { data: program, error: programError } = await client
+    .from('program_instances')
+    .select('id, customization_status, customization_summary')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .single()
+  if (programError) throw new Error(`Unable to read ${credentials.email} programme: ${programError.message}`)
+
+  const { data: additions, error: additionsError } = await client
+    .from('program_accessory_additions')
+    .select('movement_id, order_index')
+    .eq('user_id', userId)
+    .eq('program_instance_id', program.id)
+    .order('order_index')
+  if (additionsError) {
+    throw new Error(`Unable to read ${credentials.email} accessory additions: ${additionsError.message}`)
+  }
+
+  const summary = program.customization_summary
+  const accessoryAdditionCount = summary && typeof summary === 'object' && !Array.isArray(summary)
+    ? Number(summary.accessoryAdditionCount ?? 0)
+    : 0
+  return {
+    movementIds: (additions ?? []).map((addition) => addition.movement_id),
+    customizationStatus: program.customization_status,
+    accessoryAdditionCount,
+  }
+}
+
+export async function resetAccessoryCustomizationState(credentials: Credentials) {
+  const { client, userId } = await signInClient(credentials)
+  const { data: program, error: programError } = await client
+    .from('program_instances')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .single()
+  if (programError) throw new Error(`Unable to read ${credentials.email} programme: ${programError.message}`)
+
+  const { error: additionsError } = await client
+    .from('program_accessory_additions')
+    .delete()
+    .eq('user_id', userId)
+    .eq('program_instance_id', program.id)
+  if (additionsError) {
+    throw new Error(`Unable to reset ${credentials.email} accessory additions: ${additionsError.message}`)
+  }
+
+  const { count: movementOverrideCount, error: overridesError } = await client
+    .from('program_movement_overrides')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('program_instance_id', program.id)
+  if (overridesError) {
+    throw new Error(`Unable to read ${credentials.email} movement overrides: ${overridesError.message}`)
+  }
+
+  const overrideCount = movementOverrideCount ?? 0
+  const { error: summaryError } = await client
+    .from('program_instances')
+    .update({
+      customization_status: overrideCount ? 'customized' : 'default',
+      customization_summary: {
+        movementOverrideCount: overrideCount,
+        accessoryAdditionCount: 0,
+      },
+    })
+    .eq('id', program.id)
+    .eq('user_id', userId)
+  if (summaryError) {
+    throw new Error(`Unable to reset ${credentials.email} customization summary: ${summaryError.message}`)
+  }
+}
+
 async function updateProfile(credentials: Credentials, patch: Record<string, unknown>): Promise<string> {
   const { client, userId } = await signInClient(credentials)
   const { error } = await client.from('profiles').update(patch).eq('id', userId)

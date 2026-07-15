@@ -156,6 +156,54 @@ const DEMO_USERS = [
     acceptedDecisions: ['squat', 'deadlift'],
     pendingDecisions: ['bench_press'],
   },
+  {
+    // Dedicated to the stateful accessory-management e2e. It owns an active
+    // programmed session and is not shared with any other spec.
+    email: `demo.accessories@${DEMO_EMAIL_DOMAIN}`,
+    displayName: 'Morgan Accessories',
+    title: 'Morgan - Accessory Management',
+    templateId: 'generic_alternating_5x5_lp',
+    units: 'kg',
+    rounding: 2.5,
+    sex: 'female',
+    bodyweightKg: 68,
+    completedSessions: 2,
+    activeSession: true,
+    equipmentProfile: ['barbell', 'plates', 'rack', 'bench', 'dumbbells', 'machine', 'cable'],
+    stateKind: 'working_load',
+    startValues: {
+      squat: 60,
+      bench_press: 37.5,
+      overhead_press: 25,
+      deadlift: 80,
+      barbell_row: 40,
+    },
+    currentValues: {
+      squat: 62.5,
+      bench_press: 40,
+      overhead_press: 27.5,
+      deadlift: 85,
+      barbell_row: 42.5,
+    },
+    oneRepMaxes: {
+      squat: 90,
+      bench_press: 60,
+      deadlift: 120,
+      overhead_press: 40,
+      barbell_row: 62.5,
+    },
+    baseAccessories: {
+      leg_press: 100,
+      lat_pulldown: 42.5,
+      seated_cable_row: 45,
+      hamstring_curl: 30,
+      cable_crunch: 30,
+    },
+    acceptedDecisions: [],
+    pendingDecisions: [],
+    liveOnboardingDismissed: true,
+    seedAccessoryAdditions: false,
+  },
 
   // ---- Onboarding test accounts (onboarding_completed = false) ----
   {
@@ -1103,6 +1151,7 @@ function profileDefaultsForDemo(demo) {
 }
 
 function accessoryAdditionsForDemo(demo) {
+  if (demo.seedAccessoryAdditions === false) return []
   if (demo.templateId === 'generic_alternating_5x5_lp') {
     return [
       accessoryAddition('day-1', 'added-face-pull', 'face_pull', '12-20 reps - history only', 0, 4),
