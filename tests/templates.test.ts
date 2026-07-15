@@ -423,6 +423,42 @@ describe('planned session progression', () => {
     })
   })
 
+  it('expands persistent accessories in their stored order', () => {
+    const session = expandPlannedSession(
+      {
+        ...program,
+        accessoryAdditions: [
+          {
+            sessionId: 'wave-squat',
+            slotId: 'added-accessory-2-face_pull',
+            phaseKey: 'base',
+            movementId: 'face_pull',
+            prescriptionId: 'accessory-1',
+            sourceSlotId: 'accessory-1',
+            effectiveFromWeekIndex: 0,
+            orderIndex: 2,
+          },
+          {
+            sessionId: 'wave-squat',
+            slotId: 'added-accessory-1-lat_pulldown',
+            phaseKey: 'base',
+            movementId: 'lat_pulldown',
+            prescriptionId: 'accessory-1',
+            sourceSlotId: 'accessory-1',
+            effectiveFromWeekIndex: 0,
+            orderIndex: 1,
+          },
+        ],
+      },
+      '2026-06-21',
+    )
+
+    expect(session.movements.slice(-2).map((movement) => movement.movementName)).toEqual([
+      'Lat Pulldown',
+      'Face Pull',
+    ])
+  })
+
   it('generates classic volume strength first-week base work from DSL data', () => {
     const session = expandPlannedSession(
       { ...program, templateId: 'bromley-70s-powerlifter', title: 'Classic Volume Strength', currentWeekIndex: 0 },

@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useQuery } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
@@ -46,6 +46,14 @@ function LoadedSessionRoute({
   const [notes, setNotes] = useState(session.notes ?? '')
   const [finishError, setFinishError] = useState<string | null>(null)
   const [showFinishModal, setShowFinishModal] = useState(false)
+  const accessoryManagementPending = useIsMutating({
+    predicate: (mutation) => {
+      const key = mutation.options.mutationKey
+      return Array.isArray(key)
+        && key[1] === sessionId
+        && ['reorderSessionAccessories', 'removeSessionAccessory'].includes(String(key[0]))
+    },
+  }) > 0
   const defaultOpenMovementId =
     session.movements.find((movement) => movement.sets.some((set) => !set.completed))?.id ??
     session.movements[0]?.id
@@ -139,7 +147,7 @@ function LoadedSessionRoute({
 
   const requestFinish = () => {
     setFinishError(null)
-    if (finishBlocked) return
+    if (finishBlocked || accessoryManagementPending) return
     setShowFinishModal(true)
   }
 
@@ -159,7 +167,7 @@ function LoadedSessionRoute({
             onExitToOverview={() => setMobileView('overview')}
             onFinish={requestFinish}
             finishLabel={finishMutation.isPending ? 'Finishing...' : 'Finish'}
-            finishDisabled={finishMutation.isPending || finishBlocked}
+            finishDisabled={finishMutation.isPending || finishBlocked || accessoryManagementPending}
           />
         </div>
         <div className={cn(mobileView !== 'overview' && 'hidden md:block')}>
@@ -171,10 +179,11 @@ function LoadedSessionRoute({
             onNotesChange={setNotes}
             onFinish={requestFinish}
             finishLabel={finishMutation.isPending ? 'Finishing...' : 'Finish'}
-            finishDisabled={finishMutation.isPending || finishBlocked}
+            finishDisabled={finishMutation.isPending || finishBlocked || accessoryManagementPending}
             finishBlockedReason={finishBlockedReason}
             finishError={finishError}
             onEnterFocus={() => setMobileView('focus')}
+            managementPending={accessoryManagementPending}
           />
         </div>
         <FinishSessionModal

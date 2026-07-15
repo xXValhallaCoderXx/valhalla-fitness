@@ -23,6 +23,8 @@ import {
   buildAccessoryInitialSets,
   isAccessoryProgressionMethod,
   parseAccessoryRepTarget,
+  removeAddedAccessory,
+  reorderAddedAccessories,
 } from '~/domains/session/lib/accessories'
 import {
   AD_HOC_DEFAULT_SET_COUNT,
@@ -833,8 +835,23 @@ export const addSessionAccessoryFn = createServerFn({ method: 'POST' })
     const snapshot = sessionRow.prescription_snapshot as PlannedSession
     const phaseKey = phaseKeyForSnapshot(snapshot)
     const templateSessionId = templateSessionIdForSnapshot(snapshot, sessionRow)
+    const { data: persistedAdditionRows, error: persistedAdditionError } = sessionRow.program_instance_id
+      ? await supabase
+          .from('program_accessory_additions')
+          .select('slot_id')
+          .eq('user_id', user.id)
+          .eq('program_instance_id', sessionRow.program_instance_id)
+          .eq('session_id', templateSessionId)
+      : { data: [], error: null }
+    if (persistedAdditionError) throw new Error(persistedAdditionError.message)
+
     const usedSlotIds = new Set((exerciseRows ?? []).map((row) => row.slot_id))
     for (const snapshotSlot of snapshot.movements) usedSlotIds.add(snapshotSlot.slotId ?? snapshotSlot.id)
+    // A current-session removal can leave the future programme addition intact.
+    // Reserve those hidden slots so a later add cannot collide with them.
+    for (const row of persistedAdditionRows ?? []) {
+      usedSlotIds.add(`slot-${templateSessionId}-${row.slot_id}`)
+    }
     const { additionSlotId, sessionSlotId } = nextAccessorySlotIds(templateSessionId, usedSlotIds, movement.id)
     const maxOrderIndex = Math.max(
       0,
@@ -945,6 +962,306 @@ export const addSessionAccessoryFn = createServerFn({ method: 'POST' })
         .eq('id', programInstanceId)
         .eq('user_id', user.id)
       if (summaryError) throw new Error(summaryError.message)
+    }
+
+    return getSessionInternal(data.sessionId)
+  })
+
+type ProgramAccessoryAdditionOrderRow = Pick<
+  Tables<'program_accessory_additions'>,
+  'id' | 'session_id' | 'slot_id' | 'phase_key' | 'order_index'
+>
+
+function matchingProgramAccessoryAddition(
+  rows: ProgramAccessoryAdditionOrderRow[],
+  movement: MovementSlot,
+  snapshot: PlannedSession,
+) {
+  const slotId = movement.slotId ?? movement.id
+  const phaseKey = phaseKeyForSnapshot(snapshot, movement)
+  const matches = rows.filter(
+    (row) =>
+      `slot-${row.session_id}-${row.slot_id}` === slotId &&
+      (row.phase_key === '*' || row.phase_key === phaseKey),
+  )
+  if (matches.length !== 1) {
+    throw new Error('Future accessory settings are stale. Refresh and try again.')
+  }
+  return matches[0]!
+}
+
+async function updateProgramCustomizationSummary(
+  supabase: SupabaseServerClient,
+  userId: string,
+  programInstanceId: string,
+) {
+  const { count: movementOverrideCount, error: overrideError } = await supabase
+    .from('program_movement_overrides')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('program_instance_id', programInstanceId)
+  if (overrideError) throw new Error(overrideError.message)
+
+  const { count: accessoryAdditionCount, error: additionError } = await supabase
+    .from('program_accessory_additions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('program_instance_id', programInstanceId)
+  if (additionError) throw new Error(additionError.message)
+
+  const summary = {
+    movementOverrideCount: movementOverrideCount ?? 0,
+    accessoryAdditionCount: accessoryAdditionCount ?? 0,
+  }
+  const { error: programError } = await supabase
+    .from('program_instances')
+    .update({
+      customization_status:
+        summary.movementOverrideCount || summary.accessoryAdditionCount ? 'customized' : 'default',
+      customization_summary: summary,
+    })
+    .eq('id', programInstanceId)
+    .eq('user_id', userId)
+  if (programError) throw new Error(programError.message)
+}
+
+export const reorderSessionAccessoriesFn = createServerFn({ method: 'POST' })
+  .validator((data: { sessionId: string; orderedSlotIds: string[] }) => data)
+  .handler(async ({ data }): Promise<WorkoutSession> => {
+    if (!Array.isArray(data.orderedSlotIds) || data.orderedSlotIds.some((slotId) => typeof slotId !== 'string')) {
+      throw new Error('Invalid accessory order.')
+    }
+
+    const { supabase, user } = await requireUser()
+    const { data: sessionRow, error: sessionError } = await supabase
+      .from('workout_sessions')
+      .select('*')
+      .eq('id', data.sessionId)
+      .eq('user_id', user.id)
+      .single()
+    if (sessionError) throw new Error(sessionError.message)
+    if (sessionRow.status === 'completed') {
+      throw new Error('This session is already finished. Completed sessions cannot be edited.')
+    }
+    if (sessionRow.status !== 'in_progress') {
+      throw new Error('Only in-progress sessions can be edited.')
+    }
+    const programInstanceId = sessionRow.program_instance_id
+    if (!programInstanceId) throw new Error('Only program sessions can reorder added accessories.')
+
+    const snapshot = sessionRow.prescription_snapshot as PlannedSession
+    const movements = reorderAddedAccessories(snapshot.movements, data.orderedSlotIds)
+    const addedMovements = movements.filter((movement) => movement.isAdded)
+    const { data: exerciseRows, error: exerciseError } = await supabase
+      .from('exercise_logs')
+      .select('id, slot_id, order_index')
+      .eq('session_id', data.sessionId)
+      .eq('user_id', user.id)
+    if (exerciseError) throw new Error(exerciseError.message)
+
+    const exerciseRowsBySlotId = new Map((exerciseRows ?? []).map((row) => [row.slot_id, row]))
+    for (const movement of addedMovements) {
+      const slotId = movement.slotId ?? movement.id
+      if (!exerciseRowsBySlotId.has(slotId)) {
+        throw new Error('Accessory order is stale. Refresh and try again.')
+      }
+    }
+
+    const templateSessionId = templateSessionIdForSnapshot(snapshot, sessionRow)
+    const phaseMovements = addedMovements.filter((movement) => movement.addedScope === 'phase_slot')
+    const { data: additionRows, error: additionError } = phaseMovements.length
+      ? await supabase
+          .from('program_accessory_additions')
+          .select('id, session_id, slot_id, phase_key, order_index')
+          .eq('user_id', user.id)
+          .eq('program_instance_id', programInstanceId)
+          .eq('session_id', templateSessionId)
+      : { data: [], error: null }
+    if (additionError) throw new Error(additionError.message)
+
+    const matchedAdditionRows = phaseMovements.map((movement) =>
+      matchingProgramAccessoryAddition(additionRows ?? [], movement, snapshot),
+    )
+    if (new Set(matchedAdditionRows.map((row) => row.id)).size !== matchedAdditionRows.length) {
+      throw new Error('Future accessory settings are stale. Refresh and try again.')
+    }
+    // Unmatched rows can be future additions removed from only this session. Reuse the visible
+    // rows' occupied positions so those hidden rows keep their order and are never overwritten.
+    const futureOrderIndexes = matchedAdditionRows
+      .map((row) => Number(row.order_index))
+      .sort((left, right) => left - right)
+
+    const nextSnapshot: PlannedSession = {
+      ...snapshot,
+      templateSessionId,
+      movements,
+    }
+    const { data: updatedSession, error: snapshotError } = await supabase
+      .from('workout_sessions')
+      .update({ prescription_snapshot: nextSnapshot })
+      .eq('id', data.sessionId)
+      .eq('user_id', user.id)
+      .eq('status', 'in_progress')
+      .select('id')
+      .maybeSingle()
+    if (snapshotError) throw new Error(snapshotError.message)
+    if (!updatedSession) throw new Error('Only in-progress sessions can be edited.')
+
+    for (const movement of addedMovements) {
+      const slotId = movement.slotId ?? movement.id
+      const exerciseRow = exerciseRowsBySlotId.get(slotId)!
+      if (Number(exerciseRow.order_index) === movement.orderIndex) continue
+      const { error: orderError } = await supabase
+        .from('exercise_logs')
+        .update({ order_index: movement.orderIndex })
+        .eq('id', exerciseRow.id)
+        .eq('session_id', data.sessionId)
+        .eq('user_id', user.id)
+      if (orderError) throw new Error(orderError.message)
+    }
+
+    for (const [index, row] of matchedAdditionRows.entries()) {
+      const orderIndex = futureOrderIndexes[index]!
+      if (Number(row.order_index) === orderIndex) continue
+      const { error: orderError } = await supabase
+        .from('program_accessory_additions')
+        .update({ order_index: orderIndex })
+        .eq('id', row.id)
+        .eq('user_id', user.id)
+        .eq('program_instance_id', programInstanceId)
+      if (orderError) throw new Error(orderError.message)
+    }
+
+    return getSessionInternal(data.sessionId)
+  })
+
+export const removeSessionAccessoryFn = createServerFn({ method: 'POST' })
+  .validator((data: { sessionId: string; exerciseLogId: string; scope: SwapScope }) => data)
+  .handler(async ({ data }): Promise<WorkoutSession> => {
+    if (data.scope !== 'session' && data.scope !== 'phase_slot') throw new Error('Invalid accessory scope.')
+
+    const { supabase, user } = await requireUser()
+    const { data: sessionRow, error: sessionError } = await supabase
+      .from('workout_sessions')
+      .select('*')
+      .eq('id', data.sessionId)
+      .eq('user_id', user.id)
+      .single()
+    if (sessionError) throw new Error(sessionError.message)
+    if (sessionRow.status === 'completed') {
+      throw new Error('This session is already finished. Completed sessions cannot be edited.')
+    }
+    if (sessionRow.status !== 'in_progress') {
+      throw new Error('Only in-progress sessions can be edited.')
+    }
+    const programInstanceId = sessionRow.program_instance_id
+    if (!programInstanceId) throw new Error('Only program sessions can remove added accessories.')
+
+    const { data: exerciseRow, error: exerciseError } = await supabase
+      .from('exercise_logs')
+      .select('*')
+      .eq('id', data.exerciseLogId)
+      .eq('session_id', data.sessionId)
+      .eq('user_id', user.id)
+      .single()
+    if (exerciseError) throw new Error(exerciseError.message)
+
+    const snapshot = sessionRow.prescription_snapshot as PlannedSession
+    const movement = snapshot.movements.find((item) => (item.slotId ?? item.id) === exerciseRow.slot_id)
+    if (!movement) throw new Error('Accessory is no longer part of this session.')
+    if (!movement.isAdded) throw new Error('Only added accessories can be removed.')
+    if (data.scope === 'phase_slot' && movement.addedScope !== 'phase_slot') {
+      throw new Error('This accessory was only added to the current session.')
+    }
+
+    const templateSessionId = templateSessionIdForSnapshot(snapshot, sessionRow)
+    let futureAddition: ProgramAccessoryAdditionOrderRow | null = null
+    let remainingAdditions: ProgramAccessoryAdditionOrderRow[] = []
+    if (data.scope === 'phase_slot') {
+      const { data: additionRows, error: additionError } = await supabase
+        .from('program_accessory_additions')
+        .select('id, session_id, slot_id, phase_key, order_index')
+        .eq('user_id', user.id)
+        .eq('program_instance_id', programInstanceId)
+        .eq('session_id', templateSessionId)
+      if (additionError) throw new Error(additionError.message)
+      futureAddition = matchingProgramAccessoryAddition(additionRows ?? [], movement, snapshot)
+      remainingAdditions = (additionRows ?? [])
+        .filter((row) => row.id !== futureAddition?.id)
+        .sort((left, right) => Number(left.order_index) - Number(right.order_index) || left.id.localeCompare(right.id))
+    }
+
+    const nextMovements = removeAddedAccessory(snapshot.movements, exerciseRow.slot_id)
+    const nextSnapshot: PlannedSession = {
+      ...snapshot,
+      templateSessionId,
+      movements: nextMovements,
+    }
+    const { data: updatedSession, error: snapshotError } = await supabase
+      .from('workout_sessions')
+      .update({ prescription_snapshot: nextSnapshot })
+      .eq('id', data.sessionId)
+      .eq('user_id', user.id)
+      .eq('status', 'in_progress')
+      .select('id')
+      .maybeSingle()
+    if (snapshotError) throw new Error(snapshotError.message)
+    if (!updatedSession) throw new Error('Only in-progress sessions can be edited.')
+
+    const { error: deleteExerciseError } = await supabase
+      .from('exercise_logs')
+      .delete()
+      .eq('id', data.exerciseLogId)
+      .eq('session_id', data.sessionId)
+      .eq('user_id', user.id)
+    if (deleteExerciseError) throw new Error(deleteExerciseError.message)
+
+    const remainingAddedMovements = nextMovements.filter((item) => item.isAdded)
+    if (remainingAddedMovements.length) {
+      const { data: remainingExerciseRows, error: remainingExerciseError } = await supabase
+        .from('exercise_logs')
+        .select('id, slot_id, order_index')
+        .eq('session_id', data.sessionId)
+        .eq('user_id', user.id)
+      if (remainingExerciseError) throw new Error(remainingExerciseError.message)
+      const rowsBySlotId = new Map((remainingExerciseRows ?? []).map((row) => [row.slot_id, row]))
+      for (const remainingMovement of remainingAddedMovements) {
+        const slotId = remainingMovement.slotId ?? remainingMovement.id
+        const remainingRow = rowsBySlotId.get(slotId)
+        if (!remainingRow) throw new Error('Accessory order is stale. Refresh and try again.')
+        if (Number(remainingRow.order_index) === remainingMovement.orderIndex) continue
+        const { error: orderError } = await supabase
+          .from('exercise_logs')
+          .update({ order_index: remainingMovement.orderIndex })
+          .eq('id', remainingRow.id)
+          .eq('session_id', data.sessionId)
+          .eq('user_id', user.id)
+        if (orderError) throw new Error(orderError.message)
+      }
+    }
+
+    if (futureAddition) {
+      const { error: deleteAdditionError } = await supabase
+        .from('program_accessory_additions')
+        .delete()
+        .eq('id', futureAddition.id)
+        .eq('user_id', user.id)
+        .eq('program_instance_id', programInstanceId)
+      if (deleteAdditionError) throw new Error(deleteAdditionError.message)
+
+      for (const [index, row] of remainingAdditions.entries()) {
+        const orderIndex = index + 1
+        if (Number(row.order_index) === orderIndex) continue
+        const { error: orderError } = await supabase
+          .from('program_accessory_additions')
+          .update({ order_index: orderIndex })
+          .eq('id', row.id)
+          .eq('user_id', user.id)
+          .eq('program_instance_id', programInstanceId)
+        if (orderError) throw new Error(orderError.message)
+      }
+
+      await updateProgramCustomizationSummary(supabase, user.id, programInstanceId)
     }
 
     return getSessionInternal(data.sessionId)
