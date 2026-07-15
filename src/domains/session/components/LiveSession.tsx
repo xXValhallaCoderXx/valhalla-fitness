@@ -1,25 +1,20 @@
-import { ActionIcon, Box, Button, Modal, TextInput } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus } from 'lucide-react'
+import { Box, Button, TextInput } from '@mantine/core'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
-import { Caption, EmptyState, SectionLabel, Text } from '~/components'
-import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { EmptyState, SectionLabel, Text } from '~/components'
 import { cn } from '~/shared/lib/cn'
-import { AD_HOC_BADGE_LABEL, AD_HOC_TITLE_MAX_LENGTH } from '~/domains/session/lib/ad-hoc'
 import { sessionCompletion } from '~/domains/session/lib/session-cache'
-import { renameSessionFn } from '~/domains/session/server/session-functions'
 import type { WorkoutSession } from '~/shared/types'
-import { SyncPill } from './Session'
 import { AddAccessoryModal } from './AddAccessoryModal'
 import { AddAdHocExerciseModal } from './AddAdHocExerciseModal'
 import { LiveMovementList } from './LiveMovementList'
 import { LiveSessionOnboarding } from './LiveSessionOnboarding'
 import {
-  MetaPill,
   MovementNumberBadge,
   StatusPanel,
 } from './LiveSessionControls'
+import { LiveSessionHeader } from './LiveSessionHeader'
+import { RenameSessionModal } from './RenameSessionModal'
 import { insetFieldStyles } from './form-styles'
 import { isMovementComplete } from './live-session-utils'
 
@@ -36,6 +31,8 @@ type LiveSessionFrameProps = {
   finishError?: string | null
   onEnterFocus?: () => void
   managementPending: boolean
+  onDiscard: () => void
+  discardDisabled: boolean
 }
 
 export function LiveSessionFrame({
@@ -51,6 +48,8 @@ export function LiveSessionFrame({
   finishError,
   onEnterFocus,
   managementPending,
+  onDiscard,
+  discardDisabled,
 }: LiveSessionFrameProps) {
   const progress = sessionCompletion(session)
   const selectedMovement = session.movements.find((movement) => movement.id === activeMovementId) ?? session.movements[0]
@@ -70,7 +69,7 @@ export function LiveSessionFrame({
         boxShadow: 'var(--vf-shadow-panel)',
       }}
     >
-      <SessionContextBar
+      <LiveSessionHeader
         session={session}
         progress={progress}
         completedMovements={completedMovements}
@@ -80,6 +79,8 @@ export function LiveSessionFrame({
         onEnterFocus={onEnterFocus}
         focusDisabled={managementPending}
         onRename={isAdHoc && session.status === 'in_progress' ? () => setRenameOpen(true) : undefined}
+        onDiscard={onDiscard}
+        discardDisabled={discardDisabled || managementPending}
       />
 
       <Box className="h-1" bg="var(--vf-surface-2)" aria-hidden="true">
@@ -159,105 +160,6 @@ export function LiveSessionFrame({
   )
 }
 
-function SessionContextBar({
-  session,
-  progress,
-  completedMovements,
-  finishLabel,
-  finishDisabled,
-  onFinish,
-  onEnterFocus,
-  focusDisabled,
-  onRename,
-}: {
-  session: WorkoutSession
-  progress: ReturnType<typeof sessionCompletion>
-  completedMovements: number
-  finishLabel: string
-  finishDisabled: boolean
-  onFinish: () => void
-  onEnterFocus?: () => void
-  focusDisabled: boolean
-  onRename?: () => void
-}) {
-  return (
-    <Box
-      className="sticky top-0 z-20 border-b px-4 py-2.5 backdrop-blur md:static md:px-5"
-      style={{
-        borderColor: 'var(--mantine-color-default-border)',
-        backgroundColor: 'color-mix(in srgb, var(--mantine-color-default) 95%, transparent)',
-      }}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <div>
-              <span className="flex items-center gap-1.5">
-                <Text component="h1" size="sm" fw={900} lh={1.1} truncate>
-                  {session.title}
-                </Text>
-                {onRename ? (
-                  <ActionIcon
-                    aria-label="Rename workout"
-                    size="sm"
-                    radius="xl"
-                    variant="subtle"
-                    color="neutral"
-                    onClick={onRename}
-                  >
-                    <Pencil size={12} />
-                  </ActionIcon>
-                ) : null}
-              </span>
-              <Caption component="p" mt={2} size="xs">
-                {completedMovements} of {session.movements.length} movements · {progress.completed} of {progress.total} sets
-              </Caption>
-            </div>
-            <div className="hidden flex-wrap gap-1.5 md:flex">
-              {session.isAdHoc ? (
-                <MetaPill>{AD_HOC_BADGE_LABEL}</MetaPill>
-              ) : (
-                <>
-                  <MetaPill tone={session.hardness === 'Hard' ? 'danger' : 'neutral'}>{session.hardness}</MetaPill>
-                  <MetaPill>{session.weekLabel}</MetaPill>
-                  <MetaPill>{session.programTitle}</MetaPill>
-                </>
-              )}
-              <SyncPill state={session.syncState} />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-2">
-          {onEnterFocus ? (
-            <span className="md:hidden">
-              <Button
-                type="button"
-                variant="default"
-                size="compact-sm"
-                disabled={focusDisabled}
-                onClick={onEnterFocus}
-                data-testid="enter-focus"
-              >
-                Focus
-              </Button>
-            </span>
-          ) : null}
-          <Button
-            type="button"
-            data-tour="live-finish"
-            size="compact-sm"
-            disabled={finishDisabled}
-            onClick={onFinish}
-          >
-            {finishLabel}
-          </Button>
-        </div>
-      </div>
-    </Box>
-  )
-}
-
 function MovementRail({
   session,
   activeMovementId,
@@ -307,88 +209,6 @@ function MovementRail({
         })}
       </div>
     </Box>
-  )
-}
-
-function RenameSessionModal({
-  open,
-  session,
-  onClose,
-}: {
-  open: boolean
-  session: WorkoutSession
-  onClose: () => void
-}) {
-  const queryClient = useQueryClient()
-  const [title, setTitle] = useState(session.title)
-  const mutation = useMutation({
-    mutationFn: (nextTitle: string) =>
-      renameSessionFn({ data: { sessionId: session.sessionId, title: nextTitle } }),
-    onError: (error) => {
-      notifications.show({
-        color: 'danger',
-        title: 'Could not rename workout',
-        message: getApiErrorMessage(error, 'Unable to rename this workout.'),
-      })
-    },
-    onSuccess: async (nextSession) => {
-      queryClient.setQueryData(['session', session.sessionId], nextSession)
-      await queryClient.invalidateQueries({ queryKey: ['today'] })
-      onClose()
-    },
-  })
-  const trimmed = title.trim()
-
-  return (
-    <Modal
-      opened={open}
-      onClose={() => {
-        if (!mutation.isPending) onClose()
-      }}
-      title="Name this workout"
-      size="sm"
-      styles={{
-        content: {
-          border: '1px solid var(--mantine-color-default-border)',
-          backgroundColor: 'var(--mantine-color-default)',
-          color: 'var(--mantine-color-text)',
-        },
-        header: {
-          backgroundColor: 'var(--mantine-color-default)',
-          color: 'var(--mantine-color-text)',
-        },
-        title: {
-          color: 'var(--mantine-color-text)',
-          fontWeight: 700,
-        },
-        close: { color: 'var(--mantine-color-dimmed)' },
-      }}
-    >
-      <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          if (trimmed && !mutation.isPending) mutation.mutate(trimmed)
-        }}
-        className="space-y-3"
-      >
-        <TextInput
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          maxLength={AD_HOC_TITLE_MAX_LENGTH}
-          placeholder="e.g. Push day"
-          data-autofocus
-          styles={insetFieldStyles}
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <Button type="button" variant="default" disabled={mutation.isPending} onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={!trimmed || mutation.isPending}>
-            {mutation.isPending ? 'Saving...' : 'Save name'}
-          </Button>
-        </div>
-      </form>
-    </Modal>
   )
 }
 

@@ -8,7 +8,7 @@ import { DEMO_USER, type Credentials } from './auth'
  * Sign in a throwaway Supabase client as a demo account (never signed out — that would
  * revoke the session the browser under test is using) and resolve its auth user id.
  */
-async function signInClient(credentials: Credentials) {
+export async function signInClient(credentials: Credentials) {
   const { supabaseUrl, anonKey } = getSupabaseTestEnv()
   const client = createClient(supabaseUrl, anonKey, {
     auth: {

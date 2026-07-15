@@ -48,7 +48,6 @@ import type { SupabaseServerClient } from '~/shared/server/supabase'
 import {
   getActiveProgramInternal,
   getPendingDecisionsInternal,
-  normalizeCustomizationSummary,
   updateProgramCurrentWeekIndex,
 } from '~/domains/program/server/program-functions'
 
@@ -647,6 +646,18 @@ export const getSessionFn = createServerFn({ method: 'GET' })
   .validator((data: { sessionId: string }) => data)
   .handler(async ({ data }) => getSessionInternal(data.sessionId))
 
+export const discardSessionFn = createServerFn({ method: 'POST' })
+  .validator((data: { sessionId: string }) => data)
+  .handler(async ({ data }): Promise<{ sessionId: string }> => {
+    const { supabase } = await requireUser()
+    const { data: discardedSessionId, error } = await supabase.rpc('discard_workout_session', {
+      p_session_id: data.sessionId,
+    })
+    if (error) throw new Error(error.message)
+    if (discardedSessionId !== data.sessionId) throw new Error('Workout could not be discarded.')
+    return { sessionId: discardedSessionId }
+  })
+
 export const upsertSetLogFn = createServerFn({ method: 'POST' })
   .validator(
     (data: {
@@ -915,53 +926,20 @@ export const addSessionAccessoryFn = createServerFn({ method: 'POST' })
     if (data.scope === 'phase_slot') {
       const programInstanceId = sessionRow.program_instance_id
       if (!programInstanceId) throw new Error('Only program sessions can apply accessories to future weeks.')
-      const { data: additionRows, error: additionRowsError } = await supabase
-        .from('program_accessory_additions')
-        .select('order_index')
-        .eq('user_id', user.id)
-        .eq('program_instance_id', programInstanceId)
-        .eq('session_id', templateSessionId)
-      if (additionRowsError) throw new Error(additionRowsError.message)
-      const additionOrderIndex = Math.max(0, ...(additionRows ?? []).map((row) => Number(row.order_index) || 0)) + 1
-
-      const { error: additionError } = await supabase.from('program_accessory_additions').insert({
-        user_id: user.id,
-        program_instance_id: programInstanceId,
-        session_id: templateSessionId,
-        slot_id: additionSlotId,
-        phase_key: phaseKey,
-        movement_id: movement.id,
-        prescription_id: `manual-${data.progressionMethod}`,
-        source_slot_id: null,
-        target_summary: targetSummary,
-        sets: targetSets,
-        note,
-        progression_method: data.progressionMethod,
-        effective_from_week_index: Number(snapshot.weekIndex) + 1,
-        order_index: additionOrderIndex,
+      const { error: additionError } = await supabase.rpc('session_insert_program_accessory_addition', {
+        p_session_id: data.sessionId,
+        p_template_session_id: templateSessionId,
+        p_slot_id: additionSlotId,
+        p_phase_key: phaseKey,
+        p_movement_id: movement.id,
+        p_prescription_id: `manual-${data.progressionMethod}`,
+        p_target_summary: targetSummary,
+        p_sets: targetSets,
+        p_note: note,
+        p_progression_method: data.progressionMethod,
+        p_effective_from_week_index: Number(snapshot.weekIndex) + 1,
       })
       if (additionError) throw new Error(additionError.message)
-
-      const { data: programRow, error: programError } = await supabase
-        .from('program_instances')
-        .select('customization_summary')
-        .eq('id', programInstanceId)
-        .eq('user_id', user.id)
-        .single()
-      if (programError) throw new Error(programError.message)
-      const summary = normalizeCustomizationSummary(programRow.customization_summary)
-      const { error: summaryError } = await supabase
-        .from('program_instances')
-        .update({
-          customization_status: 'customized',
-          customization_summary: {
-            ...summary,
-            accessoryAdditionCount: summary.accessoryAdditionCount + 1,
-          },
-        })
-        .eq('id', programInstanceId)
-        .eq('user_id', user.id)
-      if (summaryError) throw new Error(summaryError.message)
     }
 
     return getSessionInternal(data.sessionId)
@@ -988,41 +966,6 @@ function matchingProgramAccessoryAddition(
     throw new Error('Future accessory settings are stale. Refresh and try again.')
   }
   return matches[0]!
-}
-
-async function updateProgramCustomizationSummary(
-  supabase: SupabaseServerClient,
-  userId: string,
-  programInstanceId: string,
-) {
-  const { count: movementOverrideCount, error: overrideError } = await supabase
-    .from('program_movement_overrides')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('program_instance_id', programInstanceId)
-  if (overrideError) throw new Error(overrideError.message)
-
-  const { count: accessoryAdditionCount, error: additionError } = await supabase
-    .from('program_accessory_additions')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('program_instance_id', programInstanceId)
-  if (additionError) throw new Error(additionError.message)
-
-  const summary = {
-    movementOverrideCount: movementOverrideCount ?? 0,
-    accessoryAdditionCount: accessoryAdditionCount ?? 0,
-  }
-  const { error: programError } = await supabase
-    .from('program_instances')
-    .update({
-      customization_status:
-        summary.movementOverrideCount || summary.accessoryAdditionCount ? 'customized' : 'default',
-      customization_summary: summary,
-    })
-    .eq('id', programInstanceId)
-    .eq('user_id', userId)
-  if (programError) throw new Error(programError.message)
 }
 
 export const reorderSessionAccessoriesFn = createServerFn({ method: 'POST' })
@@ -1120,15 +1063,12 @@ export const reorderSessionAccessoriesFn = createServerFn({ method: 'POST' })
       if (orderError) throw new Error(orderError.message)
     }
 
-    for (const [index, row] of matchedAdditionRows.entries()) {
-      const orderIndex = futureOrderIndexes[index]!
-      if (Number(row.order_index) === orderIndex) continue
-      const { error: orderError } = await supabase
-        .from('program_accessory_additions')
-        .update({ order_index: orderIndex })
-        .eq('id', row.id)
-        .eq('user_id', user.id)
-        .eq('program_instance_id', programInstanceId)
+    if (matchedAdditionRows.length) {
+      const { error: orderError } = await supabase.rpc('session_reorder_program_accessory_additions', {
+        p_session_id: data.sessionId,
+        p_addition_ids: matchedAdditionRows.map((row) => row.id),
+        p_order_indexes: futureOrderIndexes,
+      })
       if (orderError) throw new Error(orderError.message)
     }
 
@@ -1241,27 +1181,12 @@ export const removeSessionAccessoryFn = createServerFn({ method: 'POST' })
     }
 
     if (futureAddition) {
-      const { error: deleteAdditionError } = await supabase
-        .from('program_accessory_additions')
-        .delete()
-        .eq('id', futureAddition.id)
-        .eq('user_id', user.id)
-        .eq('program_instance_id', programInstanceId)
+      const { error: deleteAdditionError } = await supabase.rpc('session_remove_program_accessory_addition', {
+        p_session_id: data.sessionId,
+        p_addition_id: futureAddition.id,
+        p_remaining_ids: remainingAdditions.map((row) => row.id),
+      })
       if (deleteAdditionError) throw new Error(deleteAdditionError.message)
-
-      for (const [index, row] of remainingAdditions.entries()) {
-        const orderIndex = index + 1
-        if (Number(row.order_index) === orderIndex) continue
-        const { error: orderError } = await supabase
-          .from('program_accessory_additions')
-          .update({ order_index: orderIndex })
-          .eq('id', row.id)
-          .eq('user_id', user.id)
-          .eq('program_instance_id', programInstanceId)
-        if (orderError) throw new Error(orderError.message)
-      }
-
-      await updateProgramCustomizationSummary(supabase, user.id, programInstanceId)
     }
 
     return getSessionInternal(data.sessionId)
@@ -1702,41 +1627,17 @@ export const substituteMovementFn = createServerFn({ method: 'POST' })
     if (scope === 'phase_slot') {
       const programInstanceId = context.sessionRow.program_instance_id
       if (!programInstanceId) throw new Error('Only program sessions can swap movements for future weeks.')
-      const { data: programRow, error: programError } = await supabase
-        .from('program_instances')
-        .select('id, current_week_index')
-        .eq('id', programInstanceId)
-        .eq('user_id', user.id)
-        .single()
-      if (programError) throw new Error(programError.message)
-
       const isRestoringDefault = data.performedMovementId === context.exerciseRow.planned_movement_id
-      const { error: overrideError } = isRestoringDefault
-        ? await supabase
-            .from('program_movement_overrides')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('program_instance_id', programRow.id)
-            .eq('slot_id', context.slotId)
-            .eq('phase_key', context.phaseKey)
-            .eq('role', context.role)
-        : await supabase
-            .from('program_movement_overrides')
-            .upsert(
-              {
-                user_id: user.id,
-                program_instance_id: programRow.id,
-                slot_id: context.slotId,
-                phase_key: context.phaseKey,
-                role: context.role,
-                original_movement_id: context.exerciseRow.planned_movement_id,
-                replacement_movement_id: data.performedMovementId,
-                effective_from_week_index: Number(programRow.current_week_index) + 1,
-                source_session_id: data.sessionId,
-                source_exercise_log_id: data.exerciseLogId,
-              },
-              { onConflict: 'program_instance_id,slot_id,phase_key,role' },
-            )
+      const { error: overrideError } = await supabase.rpc('session_set_program_movement_override', {
+        p_session_id: data.sessionId,
+        p_slot_id: context.slotId,
+        p_phase_key: context.phaseKey,
+        p_role: context.role,
+        p_original_movement_id: context.exerciseRow.planned_movement_id,
+        p_replacement_movement_id: data.performedMovementId,
+        p_source_exercise_log_id: data.exerciseLogId,
+        p_restore_default: isRestoringDefault,
+      })
       if (overrideError) throw new Error(overrideError.message)
     }
 
