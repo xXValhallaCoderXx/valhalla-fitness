@@ -1,4 +1,4 @@
-import type { AccessoryProgressionMethod, SetTarget } from '~/shared/types'
+import type { AccessoryProgressionMethod, MovementSlot, SetTarget } from '~/shared/types'
 
 export const accessoryProgressionOptions: Array<{ value: AccessoryProgressionMethod; label: string }> = [
   { value: 'history_only', label: 'None (history only)' },
@@ -78,6 +78,62 @@ export function buildAccessoryInitialSets(repTarget: AccessoryRepTarget): SetTar
       label: repTarget.label,
     },
   ]
+}
+
+function movementSlotId(movement: MovementSlot) {
+  return movement.slotId ?? movement.id
+}
+
+export function reorderAddedAccessories(
+  movements: readonly MovementSlot[],
+  orderedSlotIds: readonly string[],
+): MovementSlot[] {
+  const uniqueSlotIds = new Set(orderedSlotIds)
+  if (uniqueSlotIds.size !== orderedSlotIds.length) {
+    throw new Error('Accessory order contains duplicate slot IDs.')
+  }
+
+  const movementsBySlotId = new Map(movements.map((movement) => [movementSlotId(movement), movement]))
+  const addedMovements = movements.filter((movement) => movement.isAdded)
+
+  for (const slotId of orderedSlotIds) {
+    const movement = movementsBySlotId.get(slotId)
+    if (!movement) throw new Error('Accessory order is stale. Refresh and try again.')
+    if (!movement.isAdded) throw new Error('Only added accessories can be reordered.')
+  }
+
+  if (
+    orderedSlotIds.length !== addedMovements.length ||
+    addedMovements.some((movement) => !uniqueSlotIds.has(movementSlotId(movement)))
+  ) {
+    throw new Error('Accessory order must include every added accessory.')
+  }
+
+  const reordered = orderedSlotIds.map((slotId) => movementsBySlotId.get(slotId)!)
+  let addedIndex = 0
+  return movements.map((movement) => {
+    if (!movement.isAdded) return movement
+    const nextMovement = reordered[addedIndex++]!
+    return {
+      ...nextMovement,
+      orderIndex: movement.orderIndex,
+    }
+  })
+}
+
+export function removeAddedAccessory(movements: readonly MovementSlot[], slotId: string): MovementSlot[] {
+  const movement = movements.find((item) => movementSlotId(item) === slotId)
+  if (!movement) throw new Error('Accessory is no longer part of this session.')
+  if (!movement.isAdded) throw new Error('Only added accessories can be removed.')
+  const remaining = movements.filter((item) => movementSlotId(item) !== slotId)
+  const maxFixedOrderIndex = Math.max(
+    0,
+    ...remaining.filter((item) => !item.isAdded).map((item) => item.orderIndex),
+  )
+  let nextAddedOrderIndex = maxFixedOrderIndex + 1
+  return remaining.map((item) =>
+    item.isAdded ? { ...item, orderIndex: nextAddedOrderIndex++ } : item,
+  )
 }
 
 function validAccessoryRepCount(value: number) {

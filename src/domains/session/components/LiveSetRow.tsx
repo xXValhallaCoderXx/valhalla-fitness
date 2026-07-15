@@ -17,6 +17,7 @@ export function LiveSetRow({
   set,
   isSelected,
   suggestedRir,
+  disabled,
   onSelect,
   onRirSelected,
 }: {
@@ -25,6 +26,7 @@ export function LiveSetRow({
   set: SetLog
   isSelected: boolean
   suggestedRir?: number
+  disabled: boolean
   onSelect: () => void
   onRirSelected: (setIndex: number, value: number) => void
 }) {
@@ -47,7 +49,7 @@ export function LiveSetRow({
 
   const isSaving = mutation.isPending || set.syncState === 'saving'
   const saveFailed = set.syncState === 'syncFailed'
-  const isEditingDisabled = set.completed || isSaving
+  const isEditingDisabled = disabled || set.completed || isSaving
   const isFuture = !set.completed && !isSelected
   // A completed set always reads as 'complete' (blue), even while it's still the selected row —
   // otherwise the set you just completed stays white until the selection moves to the next one.
@@ -60,7 +62,7 @@ export function LiveSetRow({
   const previousGhost = previousSetShort(movement.previous, set.setIndex)
 
   const complete = () => {
-    if (isSaving) return
+    if (disabled || isSaving) return
     const completed = saveFailed ? set.completed : !set.completed
     const actualRir = effectiveActualRir
     mutation.mutate({
@@ -224,7 +226,7 @@ export function LiveSetRow({
                 : 'var(--mantine-color-default)',
             color: set.completed ? 'white' : saveFailed ? 'var(--vf-danger-text)' : 'var(--mantine-color-dimmed)',
           }}
-          disabled={isSaving}
+          disabled={disabled || isSaving}
           onClick={() => {
             onSelect()
             complete()

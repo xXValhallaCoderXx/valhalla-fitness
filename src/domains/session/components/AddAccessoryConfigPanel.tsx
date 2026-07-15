@@ -51,7 +51,7 @@ export function AddAccessoryConfigPanel({
   onSubmit,
 }: AddAccessoryConfigPanelProps) {
   return (
-    <Panel surface="inset" className="space-y-2.5" p="sm">
+    <Panel surface="inset" className="min-w-0 max-w-full space-y-2.5" p="sm">
       <div>
         <div className="flex items-center justify-between gap-2">
           <SectionLabel>Progression</SectionLabel>

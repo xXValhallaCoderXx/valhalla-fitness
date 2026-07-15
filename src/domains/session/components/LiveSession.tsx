@@ -13,7 +13,7 @@ import type { WorkoutSession } from '~/shared/types'
 import { SyncPill } from './Session'
 import { AddAccessoryModal } from './AddAccessoryModal'
 import { AddAdHocExerciseModal } from './AddAdHocExerciseModal'
-import { LiveMovementCard } from './LiveMovementCard'
+import { LiveMovementList } from './LiveMovementList'
 import { LiveSessionOnboarding } from './LiveSessionOnboarding'
 import {
   MetaPill,
@@ -35,6 +35,7 @@ type LiveSessionFrameProps = {
   finishBlockedReason?: string | null
   finishError?: string | null
   onEnterFocus?: () => void
+  managementPending: boolean
 }
 
 export function LiveSessionFrame({
@@ -49,6 +50,7 @@ export function LiveSessionFrame({
   finishBlockedReason,
   finishError,
   onEnterFocus,
+  managementPending,
 }: LiveSessionFrameProps) {
   const progress = sessionCompletion(session)
   const selectedMovement = session.movements.find((movement) => movement.id === activeMovementId) ?? session.movements[0]
@@ -73,9 +75,10 @@ export function LiveSessionFrame({
         progress={progress}
         completedMovements={completedMovements}
         finishLabel={finishLabel}
-        finishDisabled={finishDisabled}
+        finishDisabled={finishDisabled || managementPending}
         onFinish={onFinish}
         onEnterFocus={onEnterFocus}
+        focusDisabled={managementPending}
         onRename={isAdHoc && session.status === 'in_progress' ? () => setRenameOpen(true) : undefined}
       />
 
@@ -106,20 +109,11 @@ export function LiveSessionFrame({
           ) : null}
           {finishError ? <StatusPanel tone="danger">{finishError}</StatusPanel> : null}
 
-          {session.movements.map((movement) => {
-            const isSelected = movement.id === selectedMovementId
-            return (
-              <div key={movement.id}>
-                <LiveMovementCard
-                  session={session}
-                  movement={movement}
-                  isActive={isSelected}
-                  movementNumber={movement.orderIndex + 1}
-                  onSelect={() => onSelectMovement(movement.id)}
-                />
-              </div>
-            )
-          })}
+          <LiveMovementList
+            session={session}
+            activeMovementId={selectedMovementId}
+            onSelectMovement={onSelectMovement}
+          />
 
           {session.movements.length === 0 ? (
             <EmptyState title="No exercises yet" centered>
@@ -133,6 +127,7 @@ export function LiveSessionFrame({
             variant="default"
             className="border-dashed"
             data-testid="add-exercise"
+            disabled={managementPending}
             onClick={() => setAddExerciseOpen(true)}
           >
             <Plus size={16} />
@@ -172,6 +167,7 @@ function SessionContextBar({
   finishDisabled,
   onFinish,
   onEnterFocus,
+  focusDisabled,
   onRename,
 }: {
   session: WorkoutSession
@@ -181,6 +177,7 @@ function SessionContextBar({
   finishDisabled: boolean
   onFinish: () => void
   onEnterFocus?: () => void
+  focusDisabled: boolean
   onRename?: () => void
 }) {
   return (
@@ -238,6 +235,7 @@ function SessionContextBar({
                 type="button"
                 variant="default"
                 size="compact-sm"
+                disabled={focusDisabled}
                 onClick={onEnterFocus}
                 data-testid="enter-focus"
               >
