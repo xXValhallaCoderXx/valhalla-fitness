@@ -1,5 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
-import { getCookies, setCookie } from '@tanstack/react-start/server'
+import { getCookies, setCookie, setResponseHeader } from '@tanstack/react-start/server'
 import type { Database } from '~/shared/types/database'
 
 /** The typed server-side Supabase client used by all domain server functions. */
@@ -58,13 +58,18 @@ export function getSupabaseServerClient() {
           value,
         }))
       },
-      setAll(cookies) {
+      setAll(cookies, headers) {
         cookies.forEach((cookie) => {
           setCookie(cookie.name, cookie.value, {
-            path: '/',
-            sameSite: 'lax',
-            secure: process.env.NODE_ENV === 'production',
+            ...cookie.options,
+            path: cookie.options.path ?? '/',
+            sameSite: cookie.options.sameSite ?? 'lax',
+            secure: cookie.options.secure || process.env.NODE_ENV === 'production',
           })
+        })
+
+        Object.entries(headers).forEach(([name, value]) => {
+          setResponseHeader(name as Parameters<typeof setResponseHeader>[0], value)
         })
       },
     },
