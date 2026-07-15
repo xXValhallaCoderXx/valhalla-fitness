@@ -25,6 +25,8 @@ type LiveFocusViewProps = {
   onFinish: () => void
   finishLabel: string
   finishDisabled: boolean
+  onDiscard: () => void
+  discardDisabled: boolean
 }
 
 /** Mobile-only single-exercise/single-set logger. Desktop and the list "Overview" are unaffected. */
@@ -36,6 +38,8 @@ export function LiveFocusView({
   onFinish,
   finishLabel,
   finishDisabled,
+  onDiscard,
+  discardDisabled,
 }: LiveFocusViewProps) {
   const activeMovement = session.movements.find((movement) => movement.id === activeMovementId) ?? session.movements[0]
   const [selectedSetIndex, setSelectedSetIndex] = useState(() =>
@@ -88,6 +92,8 @@ export function LiveFocusView({
           finishLabel={finishLabel}
           finishDisabled={finishDisabled}
           onFinish={onFinish}
+          discardDisabled={discardDisabled}
+          onDiscard={onDiscard}
         />
         <div className="space-y-4 p-8 text-center">
           <Text tone="dimmed">
@@ -135,6 +141,8 @@ export function LiveFocusView({
         finishLabel={finishLabel}
         finishDisabled={finishDisabled}
         onFinish={onFinish}
+        discardDisabled={discardDisabled}
+        onDiscard={onDiscard}
       />
 
       <Box className="h-1" bg="var(--vf-surface-2)" aria-hidden="true">

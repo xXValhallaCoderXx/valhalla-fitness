@@ -21,6 +21,7 @@ import { useIsMutating, useMutation, useQueryClient, type QueryClient } from '@t
 import { useEffect, useMemo, useState } from 'react'
 import { ConfirmDialog, Text } from '~/components'
 import { reorderAddedAccessories } from '~/domains/session/lib/accessories'
+import { isSessionMutationKey } from '~/domains/session/lib/session-mutations'
 import {
   removeSessionAccessoryFn,
   reorderSessionAccessoriesFn,
@@ -43,12 +44,7 @@ export function LiveMovementList({
 }: LiveMovementListProps) {
   const queryClient = useQueryClient()
   const conflictingMutationCount = useIsMutating({
-    predicate: (mutation) => {
-      const key = mutation.options.mutationKey
-      return Array.isArray(key)
-        && key[1] === session.sessionId
-        && ['setLog', 'addExerciseSet', 'substituteMovement', 'addSessionAccessory'].includes(String(key[0]))
-    },
+    predicate: (mutation) => isSessionMutationKey(mutation.options.mutationKey, session.sessionId),
   })
   const currentAddedSlotIds = useMemo(
     () => session.isAdHoc
@@ -172,6 +168,7 @@ export function LiveMovementList({
   return (
     <>
       <DndContext
+        id={`session-accessories-${session.sessionId}`}
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}

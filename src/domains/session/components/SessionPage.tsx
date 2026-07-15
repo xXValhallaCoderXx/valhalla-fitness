@@ -5,12 +5,14 @@ import { useEffect, useRef, useState } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { sessionQueryOptions, todayQueryOptions } from '~/domains/session/queries'
 import { finishSessionFn } from '~/domains/session/server/session-functions'
+import { isSessionMutationKey } from '~/domains/session/lib/session-mutations'
 import { buildFocusSessionSteps, buildLiveSessionSteps } from '~/domains/onboarding/onboarding-tour'
 import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
 import type { WorkoutSession } from '~/shared/types'
 import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
 import { cn } from '~/shared/lib/cn'
 import { FinishSessionModal, type FinishReflection } from './FinishSessionModal'
+import { DiscardWorkoutDialog } from './DiscardWorkoutDialog'
 import { LiveSessionFrame } from './LiveSession'
 import { LiveFocusView } from './LiveFocusView'
 import { RestTimerProvider } from './RestTimerProvider'
@@ -46,13 +48,9 @@ function LoadedSessionRoute({
   const [notes, setNotes] = useState(session.notes ?? '')
   const [finishError, setFinishError] = useState<string | null>(null)
   const [showFinishModal, setShowFinishModal] = useState(false)
-  const accessoryManagementPending = useIsMutating({
-    predicate: (mutation) => {
-      const key = mutation.options.mutationKey
-      return Array.isArray(key)
-        && key[1] === sessionId
-        && ['reorderSessionAccessories', 'removeSessionAccessory'].includes(String(key[0]))
-    },
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false)
+  const sessionMutationPending = useIsMutating({
+    predicate: (mutation) => isSessionMutationKey(mutation.options.mutationKey, sessionId),
   }) > 0
   const defaultOpenMovementId =
     session.movements.find((movement) => movement.sets.some((set) => !set.completed))?.id ??
@@ -101,6 +99,7 @@ function LoadedSessionRoute({
     : null
 
   const finishMutation = useMutation({
+    mutationKey: ['finishSession', sessionId],
     mutationFn: (reflection: FinishReflection) =>
       finishSessionFn({ data: { sessionId, notes, ...reflection } }),
     onMutate: () => {
@@ -147,8 +146,13 @@ function LoadedSessionRoute({
 
   const requestFinish = () => {
     setFinishError(null)
-    if (finishBlocked || accessoryManagementPending) return
+    if (finishBlocked || sessionMutationPending) return
     setShowFinishModal(true)
+  }
+
+  const requestDiscard = () => {
+    if (sessionMutationPending) return
+    setShowDiscardDialog(true)
   }
 
   const confirmFinish = (reflection: FinishReflection) => {
@@ -167,7 +171,9 @@ function LoadedSessionRoute({
             onExitToOverview={() => setMobileView('overview')}
             onFinish={requestFinish}
             finishLabel={finishMutation.isPending ? 'Finishing...' : 'Finish'}
-            finishDisabled={finishMutation.isPending || finishBlocked || accessoryManagementPending}
+            finishDisabled={finishMutation.isPending || finishBlocked || sessionMutationPending}
+            onDiscard={requestDiscard}
+            discardDisabled={sessionMutationPending}
           />
         </div>
         <div className={cn(mobileView !== 'overview' && 'hidden md:block')}>
@@ -179,11 +185,13 @@ function LoadedSessionRoute({
             onNotesChange={setNotes}
             onFinish={requestFinish}
             finishLabel={finishMutation.isPending ? 'Finishing...' : 'Finish'}
-            finishDisabled={finishMutation.isPending || finishBlocked || accessoryManagementPending}
+            finishDisabled={finishMutation.isPending || finishBlocked || sessionMutationPending}
             finishBlockedReason={finishBlockedReason}
             finishError={finishError}
             onEnterFocus={() => setMobileView('focus')}
-            managementPending={accessoryManagementPending}
+            managementPending={sessionMutationPending}
+            onDiscard={requestDiscard}
+            discardDisabled={sessionMutationPending}
           />
         </div>
         <FinishSessionModal
@@ -192,6 +200,11 @@ function LoadedSessionRoute({
           isPending={finishMutation.isPending}
           onCancel={() => setShowFinishModal(false)}
           onFinish={confirmFinish}
+        />
+        <DiscardWorkoutDialog
+          open={showDiscardDialog}
+          session={session}
+          onClose={() => setShowDiscardDialog(false)}
         />
       </Page>
     </RestTimerProvider>

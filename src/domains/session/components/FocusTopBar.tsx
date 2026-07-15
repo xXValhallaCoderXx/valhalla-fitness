@@ -1,5 +1,5 @@
-import { Button } from '@mantine/core'
-import { ChevronLeft } from 'lucide-react'
+import { ActionIcon, Button, Tooltip } from '@mantine/core'
+import { ChevronLeft, Trash2 } from 'lucide-react'
 import { Caption, Text } from '~/components'
 
 /** Focus-mode top bar: ‹ Overview · centre context · Finish. */
@@ -10,6 +10,8 @@ export function FocusTopBar({
   finishLabel,
   finishDisabled,
   onFinish,
+  discardDisabled,
+  onDiscard,
 }: {
   onBack: () => void
   centerPrimary: string
@@ -17,6 +19,8 @@ export function FocusTopBar({
   finishLabel: string
   finishDisabled: boolean
   onFinish: () => void
+  discardDisabled: boolean
+  onDiscard: () => void
 }) {
   return (
     <div
@@ -46,16 +50,31 @@ export function FocusTopBar({
         </Caption>
       </div>
 
-      <Button
-        variant="subtle"
-        color="action"
-        size="compact-sm"
-        disabled={finishDisabled}
-        onClick={onFinish}
-        data-testid="focus-finish"
-      >
-        {finishLabel}
-      </Button>
+      <div className="flex shrink-0 items-center gap-1">
+        <Tooltip label="Discard workout">
+          <ActionIcon
+            type="button"
+            aria-label="Discard workout"
+            variant="subtle"
+            color="danger"
+            size="sm"
+            disabled={discardDisabled}
+            onClick={onDiscard}
+          >
+            <Trash2 size={15} />
+          </ActionIcon>
+        </Tooltip>
+        <Button
+          variant="subtle"
+          color="action"
+          size="compact-sm"
+          disabled={finishDisabled}
+          onClick={onFinish}
+          data-testid="focus-finish"
+        >
+          {finishLabel}
+        </Button>
+      </div>
     </div>
   )
 }

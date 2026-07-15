@@ -35,6 +35,13 @@ export async function getActiveSession(sessionId: string) {
   return workoutDb.activeSessions.get(sessionId)
 }
 
+export async function clearLocalSession(sessionId: string) {
+  await workoutDb.transaction('rw', workoutDb.activeSessions, workoutDb.queuedMutations, async () => {
+    await workoutDb.activeSessions.delete(sessionId)
+    await workoutDb.queuedMutations.where('sessionId').equals(sessionId).delete()
+  })
+}
+
 export async function queueSetPatch(sessionId: string, payload: SetPatch) {
   const clientMutationId = payload.clientMutationId ?? crypto.randomUUID()
   await workoutDb.queuedMutations.put({

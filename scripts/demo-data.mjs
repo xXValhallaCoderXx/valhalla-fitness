@@ -204,6 +204,53 @@ const DEMO_USERS = [
     liveOnboardingDismissed: true,
     seedAccessoryAdditions: false,
   },
+  {
+    // Dedicated to discard rollback e2e. The spec starts and discards every
+    // workout it creates, so successful reruns always return this account here.
+    email: `demo.discard@${DEMO_EMAIL_DOMAIN}`,
+    displayName: 'Taylor Discard',
+    title: 'Taylor - Discard Regression',
+    templateId: 'generic_alternating_5x5_lp',
+    units: 'kg',
+    rounding: 2.5,
+    sex: 'female',
+    bodyweightKg: 65,
+    completedSessions: 0,
+    activeSession: false,
+    equipmentProfile: ['barbell', 'plates', 'rack', 'bench', 'dumbbells', 'machine', 'cable'],
+    stateKind: 'working_load',
+    startValues: {
+      squat: 60,
+      bench_press: 37.5,
+      overhead_press: 25,
+      deadlift: 80,
+      barbell_row: 40,
+    },
+    currentValues: {
+      squat: 60,
+      bench_press: 37.5,
+      overhead_press: 25,
+      deadlift: 80,
+      barbell_row: 40,
+    },
+    oneRepMaxes: {
+      squat: 90,
+      bench_press: 57.5,
+      deadlift: 120,
+      overhead_press: 40,
+      barbell_row: 62.5,
+    },
+    baseAccessories: {
+      lat_pulldown: 42.5,
+      seated_cable_row: 45,
+      hamstring_curl: 30,
+      cable_crunch: 30,
+    },
+    acceptedDecisions: [],
+    pendingDecisions: [],
+    liveOnboardingDismissed: true,
+    seedAccessoryAdditions: true,
+  },
 
   // ---- Onboarding test accounts (onboarding_completed = false) ----
   {

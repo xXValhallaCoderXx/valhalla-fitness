@@ -1,14 +1,18 @@
 import { Badge, Button } from '@mantine/core'
+import { useIsMutating } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
-import { Activity, ListChecks, RotateCw } from 'lucide-react'
+import { Activity, ListChecks, RotateCw, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { Heading, Page, PageHeader, Panel, SectionLabel, StatCard, Text } from '~/components'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { PendingProgressionReviewModal, PendingReviewAlert } from '~/domains/program/components/PendingReview'
 import { AD_HOC_BADGE_LABEL, DEFAULT_AD_HOC_TITLE } from '~/domains/session/lib/ad-hoc'
+import { isSessionMutationKey } from '~/domains/session/lib/session-mutations'
 import { countCompletedSets, isMeaningfulSyncState, nextIncompleteSetLabel } from '~/domains/session/lib/today-page'
 import { countPlannedSets } from '~/domains/session/lib/today-numbers'
 import type { HistoryDashboardWithInsights, ProgramOverview, ProgressionDecision, TodayPayload, WorkoutSession } from '~/shared/types'
 import { SessionProgress, SyncPill } from '../Session'
+import { DiscardWorkoutDialog } from '../DiscardWorkoutDialog'
 import { ProgramProgressPanel, StreakBadge, WeeklyVolumePanel } from './TodayPanels'
 
 /** Today view while a workout is live — resume card, progress stats, and side panels. */
@@ -34,6 +38,10 @@ export function TodayActiveSession({
   onDecisionResolved: (decisionId: string) => void
 }) {
   const router = useRouter()
+  const [discardOpen, setDiscardOpen] = useState(false)
+  const sessionMutationPending = useIsMutating({
+    predicate: (mutation) => isSessionMutationKey(mutation.options.mutationKey, session.sessionId),
+  }) > 0
   const isAdHoc = Boolean(session.isAdHoc)
   const nextIncompleteLabel = nextIncompleteSetLabel(session)
   const syncAction = isMeaningfulSyncState(session.syncState)
@@ -81,10 +89,24 @@ export function TodayActiveSession({
                 {session.estimatedMinutes ? ` · ${session.estimatedMinutes} min` : ''}
               </Text>
             </div>
-            <Button className="w-full sm:w-auto" onClick={() => router.navigate({ to: '/sessions/$sessionId', params: { sessionId: session.sessionId } })}>
-              <RotateCw size={16} />
-              Resume workout
-            </Button>
+            <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
+              <Button
+                variant="light"
+                color="danger"
+                disabled={sessionMutationPending}
+                onClick={() => setDiscardOpen(true)}
+              >
+                <Trash2 size={16} />
+                Discard workout
+              </Button>
+              <Button
+                disabled={sessionMutationPending}
+                onClick={() => router.navigate({ to: '/sessions/$sessionId', params: { sessionId: session.sessionId } })}
+              >
+                <RotateCw size={16} />
+                Resume workout
+              </Button>
+            </div>
           </div>
           {nextIncompleteLabel ? (
             <Panel surface="inset" px="sm" py="xs">
@@ -111,6 +133,11 @@ export function TodayActiveSession({
         decisions={pendingDecisions}
         onClose={onReviewClose}
         onResolved={onDecisionResolved}
+      />
+      <DiscardWorkoutDialog
+        open={discardOpen}
+        session={session}
+        onClose={() => setDiscardOpen(false)}
       />
     </Page>
   )
