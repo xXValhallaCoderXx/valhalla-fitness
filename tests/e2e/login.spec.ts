@@ -1,14 +1,49 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { DEMO_USER, login } from './support/auth'
 
 // Exercises the real login flow, so it must start logged-out (ignore the
 // shared authenticated session).
 test.use({ storageState: { cookies: [], origins: [] } })
 
-test('demo user can log in with email + password', async ({ page }) => {
+function sessionCookies(page: Page) {
+  return page
+    .context()
+    .cookies()
+    .then((items) => items.filter((cookie) => /sb-.*-auth-token/.test(cookie.name)))
+}
+
+test('demo user can log in and reopen with a persistent session', async ({ browser, page }) => {
   await login(page, DEMO_USER)
   await expect(page.getByText('Sheetless').first()).toBeVisible()
+
+  const authCookies = await sessionCookies(page)
+  expect(authCookies.length).toBeGreaterThan(0)
+  for (const cookie of authCookies) {
+    expect(cookie.expires).toBeGreaterThan(Date.now() / 1000 + 24 * 60 * 60)
+  }
+
+  const storageState = await page.context().storageState()
+  const reopenedContext = await browser.newContext({ baseURL: 'http://localhost:3000', storageState })
+  try {
+    const reopenedPage = await reopenedContext.newPage()
+    await reopenedPage.goto('/today')
+    await expect(reopenedPage).toHaveURL(/\/today/)
+    await expect(reopenedPage.getByRole('button', { name: 'Account menu' })).toBeVisible()
+  } finally {
+    await reopenedContext.close()
+  }
+
   await page.screenshot({ path: 'test-results/demo-login.png' })
+})
+
+test('explicit log out removes the persistent session', async ({ page }) => {
+  await login(page, DEMO_USER)
+  await page.getByRole('button', { name: 'Account menu' }).click()
+  await page.getByRole('menuitem', { name: 'Log out' }).click()
+
+  await expect(page).toHaveURL(/\/auth/)
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+  expect(await sessionCookies(page)).toHaveLength(0)
 })
 
 test('magic-link option shows the sent confirmation, then returns to the form', async ({ page }, testInfo) => {

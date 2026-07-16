@@ -858,6 +858,64 @@ export type Database = {
           },
         ]
       }
+      session_program_change_journal: {
+        Row: {
+          before_row: Json | null
+          created_at: string
+          entity_id: string
+          entity_key: string
+          entity_type: string
+          id: string
+          program_instance_id: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          before_row?: Json | null
+          created_at?: string
+          entity_id: string
+          entity_key: string
+          entity_type: string
+          id?: string
+          program_instance_id: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          before_row?: Json | null
+          created_at?: string
+          entity_id?: string
+          entity_key?: string
+          entity_type?: string
+          id?: string
+          program_instance_id?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_program_change_journal_program_instance_id_fkey"
+            columns: ["program_instance_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_program_change_journal_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_program_change_journal_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       set_logs: {
         Row: {
           actual_load: number | null
@@ -1106,7 +1164,60 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      discard_workout_session: {
+        Args: { p_session_id: string }
+        Returns: string
+      }
       is_email_allowed: { Args: { check_email: string }; Returns: boolean }
+      refresh_program_customization_summary: {
+        Args: { p_program_instance_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      session_insert_program_accessory_addition: {
+        Args: {
+          p_effective_from_week_index: number
+          p_movement_id: string
+          p_note: string | null
+          p_phase_key: string
+          p_prescription_id: string
+          p_progression_method: string
+          p_session_id: string
+          p_sets: Json
+          p_slot_id: string
+          p_target_summary: string | null
+          p_template_session_id: string
+        }
+        Returns: string
+      }
+      session_remove_program_accessory_addition: {
+        Args: {
+          p_addition_id: string
+          p_remaining_ids: string[]
+          p_session_id: string
+        }
+        Returns: undefined
+      }
+      session_reorder_program_accessory_additions: {
+        Args: {
+          p_addition_ids: string[]
+          p_order_indexes: number[]
+          p_session_id: string
+        }
+        Returns: undefined
+      }
+      session_set_program_movement_override: {
+        Args: {
+          p_original_movement_id: string
+          p_phase_key: string
+          p_replacement_movement_id: string
+          p_restore_default: boolean
+          p_role: string
+          p_session_id: string
+          p_slot_id: string
+          p_source_exercise_log_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
@@ -1239,4 +1350,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

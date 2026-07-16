@@ -20,6 +20,8 @@ environment**. Deploy steps: `RAILWAY.md`.
   service, one Supabase project). Local Supabase covers dev + migrations. No staging.
 - **Deploy:** Railway auto-deploys `main`; all dev is local; merge to `main` to release.
 - **Invite-only** remains available as a fallback (see the bottom of this file).
+- **Session lifetime:** stay signed in until explicit logout or Supabase revocation; keep the
+  one-hour access-token expiry and let the refresh-token cookie rotate silently.
 
 ## Environment topology
 | | Local/dev | Production |
@@ -62,6 +64,8 @@ with Google" button is always shown; whether Google works is decided by the Supa
 - [ ] Auth → Providers → **Google**: enable + paste the client ID + secret from Google Cloud.
 - [ ] Auth → URL Configuration: Site URL `https://sheetless.fitness`; add redirect
       `https://sheetless.fitness/auth/callback`.
+- [ ] Auth → Sessions: leave time-boxing, inactivity timeout, and single-session enforcement
+      disabled so trusted devices remain signed in until logout.
 - [ ] Auth → Rate limits: review the email + sign-up limits (open sign-up widens the abuse surface).
 - [ ] Confirm **no demo/seed users** in prod (demo accounts are local-only — never run `pnpm demo:seed`
       against production).
@@ -89,6 +93,10 @@ with Google" button is always shown; whether Google works is decided by the Supa
       `/auth/callback?code=…` → lands signed-in on `/today`; `profiles.display_name` is set from Google.
 - [ ] **Magic Link** with a brand-new email → link arrives → clicking creates the account and lands
       signed-in on `/today`.
+- [ ] Close the installed PWA completely, reopen it, and confirm `/today` loads without another
+      login; inspect the `sb-*-auth-token*` cookies and confirm they have a future expiry.
+- [ ] Leave the PWA signed in past the one-hour access-token lifetime and confirm the next app request
+      refreshes silently; then use **Log out** and confirm reopening requires authentication.
 - [ ] No password UI is shown (prod is Magic Link + Google only).
 
 **Smooth-release basics:**
