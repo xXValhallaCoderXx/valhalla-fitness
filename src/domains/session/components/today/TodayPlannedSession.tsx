@@ -14,6 +14,8 @@ export function TodayPlannedSession({
   data,
   plannedSession,
   history,
+  historyPending,
+  historyError,
   pendingDecisions,
   reviewOpen,
   onReviewOpen,
@@ -27,6 +29,8 @@ export function TodayPlannedSession({
   data: TodayPayload
   plannedSession: PlannedSession
   history?: HistoryDashboardWithInsights
+  historyPending: boolean
+  historyError: boolean
   pendingDecisions: ProgressionDecision[]
   reviewOpen: boolean
   onReviewOpen: () => void
@@ -62,7 +66,7 @@ export function TodayPlannedSession({
               {plannedSession.hardness ? (
                 <Badge color={intensityColor(plannedSession.hardness)}>{plannedSession.hardness}</Badge>
               ) : null}
-              <StreakBadge history={history} />
+              <StreakBadge history={history} isPending={historyPending} isError={historyError} />
             </div>
             <Heading mt="xs" order={2} size="h3" lh={1.15}>{plannedSession.title}</Heading>
             <Text mt={4} size="sm" tone="dimmed">
@@ -109,7 +113,7 @@ export function TodayPlannedSession({
         </Panel>
 
         <TodayWorkoutLedger session={plannedSession} />
-        <RecoveryCheckPanel history={history} />
+        <RecoveryCheckPanel history={history} isPending={historyPending} isError={historyError} />
       </div>
       <PendingProgressionReviewModal
         opened={reviewOpen}

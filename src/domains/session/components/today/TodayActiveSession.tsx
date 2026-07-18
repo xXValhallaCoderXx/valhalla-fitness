@@ -20,7 +20,11 @@ export function TodayActiveSession({
   data,
   session,
   overview,
+  overviewPending,
+  overviewError,
   history,
+  historyPending,
+  historyError,
   pendingDecisions,
   reviewOpen,
   onReviewOpen,
@@ -30,7 +34,11 @@ export function TodayActiveSession({
   data: TodayPayload
   session: WorkoutSession
   overview?: ProgramOverview
+  overviewPending: boolean
+  overviewError: boolean
   history?: HistoryDashboardWithInsights
+  historyPending: boolean
+  historyError: boolean
   pendingDecisions: ProgressionDecision[]
   reviewOpen: boolean
   onReviewOpen: () => void
@@ -79,7 +87,7 @@ export function TodayActiveSession({
                 ) : (
                   <Badge color="warning">{session.hardness}</Badge>
                 )}
-                <StreakBadge history={history} />
+                <StreakBadge history={history} isPending={historyPending} isError={historyError} />
               </div>
               <Heading order={2} size="h3" lh={1.15} className="truncate">
                 {session.title}
@@ -122,8 +130,12 @@ export function TodayActiveSession({
           <StatCard label="Session progress" value={`${completionPercent}%`} icon={<Activity size={15} />} />
           {data.activeProgram ? (
             <>
-              <ProgramProgressPanel overview={overview} />
-              <WeeklyVolumePanel history={history} />
+              <ProgramProgressPanel
+                overview={overview}
+                isPending={overviewPending}
+                isError={overviewError}
+              />
+              <WeeklyVolumePanel history={history} isPending={historyPending} isError={historyError} />
             </>
           ) : null}
         </div>

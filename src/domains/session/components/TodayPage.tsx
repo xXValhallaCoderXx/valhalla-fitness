@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, useRouter } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
-import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
+import { EmptyState, Page, PageLoadError } from '~/components'
 import { historyDashboardQueryOptions } from '~/domains/history/queries'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { useOnboardingActive } from '~/domains/onboarding/useOnboardingActive'
@@ -13,6 +13,7 @@ import { todayQueryOptions } from '~/domains/session/queries'
 import { startAdHocSessionFn, startSessionFn } from '~/domains/session/server/session-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { TodayActiveSession } from './today/TodayActiveSession'
+import { TodayPageSkeleton } from './today/TodayPageSkeleton'
 import { TodayPlannedSession } from './today/TodayPlannedSession'
 
 export function TodayPage({ user }: { user: unknown }) {
@@ -42,10 +43,7 @@ function AuthedToday() {
     ...programOverviewQueryOptions(),
     enabled: Boolean(todayQuery.data?.activeProgram),
   })
-  const historyQuery = useQuery({
-    ...historyDashboardQueryOptions(),
-    enabled: Boolean(todayQuery.data?.activeProgram),
-  })
+  const historyQuery = useQuery(historyDashboardQueryOptions())
   const [reviewOpen, setReviewOpen] = useState(false)
   const [resolvedDecisionIds, setResolvedDecisionIds] = useState<Set<string>>(() => new Set())
   const pendingDecisions = (todayQuery.data?.pendingDecisions ?? []).filter((decision) => !resolvedDecisionIds.has(decision.id))
@@ -80,7 +78,7 @@ function AuthedToday() {
     },
   })
 
-  if (todayQuery.isPending) return <PageSkeleton />
+  if (todayQuery.isPending) return <TodayPageSkeleton />
   if (todayQuery.isError) return <PageLoadError error={todayQuery.error} onRetry={() => void todayQuery.refetch()} />
 
   const data = todayQuery.data
@@ -101,7 +99,11 @@ function AuthedToday() {
         data={data}
         session={data.activeSession}
         overview={overviewQuery.data}
+        overviewPending={overviewQuery.isPending}
+        overviewError={overviewQuery.isError}
         history={historyQuery.data}
+        historyPending={historyQuery.isPending}
+        historyError={historyQuery.isError}
         {...reviewProps}
       />
     )
@@ -143,6 +145,8 @@ function AuthedToday() {
       data={data}
       plannedSession={data.plannedSession}
       history={historyQuery.data}
+      historyPending={historyQuery.isPending}
+      historyError={historyQuery.isError}
       onStart={() => startMutation.mutate()}
       startPending={startMutation.isPending}
       onStartAdHoc={() => adHocMutation.mutate()}

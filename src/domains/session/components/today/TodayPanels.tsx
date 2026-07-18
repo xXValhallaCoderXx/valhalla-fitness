@@ -1,13 +1,40 @@
-import { Badge } from '@mantine/core'
+import { Badge, Skeleton, VisuallyHidden } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
 import { Caption, CollapsiblePanel, Panel, SectionLabel, Text } from '~/components'
 import { bodyLoadTierLabels, recoverySummaryLine, worstBodyLoadTier } from '~/domains/history/lib/body-load'
 import { streakBadgeLabel } from '~/domains/history/lib/consistency'
 import type { BodyLoadTier, HistoryDashboard, HistoryDashboardWithInsights, ProgramOverview, Unit } from '~/shared/types'
+import {
+  ProgramProgressSkeleton,
+  RecoveryCheckSkeleton,
+  UnavailablePanel,
+  WeeklyVolumeSkeleton,
+} from './TodayPanelFeedback'
+
+type AsyncPanelProps = {
+  isPending?: boolean
+  isError?: boolean
+}
 
 /** Habit-loop chip for the Today heroes; renders nothing until a streak is worth celebrating. */
-export function StreakBadge({ history }: { history?: HistoryDashboardWithInsights }) {
+export function StreakBadge({
+  history,
+  isPending = false,
+  isError = false,
+}: {
+  history?: HistoryDashboardWithInsights
+} & AsyncPanelProps) {
+  if (!history && isPending) {
+    return (
+      <span className="inline-flex" aria-busy="true" data-testid="streak-badge-loading">
+        <Skeleton width={86} height={22} radius="xl" aria-hidden="true" />
+        <VisuallyHidden>Loading workout streak</VisuallyHidden>
+      </span>
+    )
+  }
+  if (!history && isError) return null
+
   const label = streakBadgeLabel(history?.insights.consistency)
   if (!label) return null
   return (
@@ -20,10 +47,23 @@ export function StreakBadge({ history }: { history?: HistoryDashboardWithInsight
 export function ProgramProgressPanel({
   overview,
   fallbackWeekLabel,
+  isPending = false,
+  isError = false,
 }: {
   overview?: ProgramOverview
   fallbackWeekLabel?: string
-}) {
+} & AsyncPanelProps) {
+  if (!overview && isPending) return <ProgramProgressSkeleton />
+  if (!overview && isError) {
+    return (
+      <UnavailablePanel
+        testId="program-progress-unavailable"
+        title="Program progress"
+        message="Program progress is unavailable right now."
+      />
+    )
+  }
+
   const progress = overview?.position?.progressPercent ?? null
   return (
     <Panel p="sm">
@@ -43,7 +83,24 @@ export function ProgramProgressPanel({
   )
 }
 
-export function WeeklyVolumePanel({ history }: { history?: HistoryDashboard }) {
+export function WeeklyVolumePanel({
+  history,
+  isPending = false,
+  isError = false,
+}: {
+  history?: HistoryDashboard
+} & AsyncPanelProps) {
+  if (!history && isPending) return <WeeklyVolumeSkeleton />
+  if (!history && isError) {
+    return (
+      <UnavailablePanel
+        testId="weekly-volume-unavailable"
+        title="Weekly volume"
+        message="Weekly volume is unavailable right now."
+      />
+    )
+  }
+
   const weeks = history?.weeklyVolume.slice(-5) ?? []
   return (
     <Panel p="sm">
@@ -72,8 +129,25 @@ const recoveryDotColors: Record<BodyLoadTier, string> = {
   high: 'var(--vf-danger-text)',
 }
 
-export function RecoveryCheckPanel({ history }: { history?: HistoryDashboard }) {
+export function RecoveryCheckPanel({
+  history,
+  isPending = false,
+  isError = false,
+}: {
+  history?: HistoryDashboard
+} & AsyncPanelProps) {
+  if (!history && isPending) return <RecoveryCheckSkeleton />
+  if (!history && isError) {
+    return (
+      <UnavailablePanel
+        testId="recovery-check-unavailable"
+        title="Recovery check"
+        message="Recovery data is unavailable right now."
+      />
+    )
+  }
   if (!history) return null
+
   const regions = history.bodyLoad.topRegions
   return (
     <CollapsiblePanel
