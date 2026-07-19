@@ -195,7 +195,7 @@ Close three table-stakes in-session conveniences so the logger matches Hevy/Stro
 
 ## Release Ops (P0 — gates launch regardless of code)
 
-The entire `release-checklist.md` / `RAILWAY.md` sequence is unchecked. None of it is optional for beta:
+The entire `release-checklist.md` / `RENDER.md` sequence is unchecked. None of it is optional for beta:
 
 - **Resend email end-to-end** — Magic Link is the only prod email path, so a verified Resend domain + inbox-not-spam delivery is the hardest external dependency. Test a real magic-link sign-in on the prod domain before anything else.
 - **Prod migration** — dry-run first, then merge `develop → main` and run the migration against prod Supabase (`xbvjxkfsvxskboqynxih`). Mind the `supabase db push` collision gotchas (same-version history row = silent skip; out-of-order files need `--include-all`) — the renumbered sequential block above is designed to avoid exactly this.

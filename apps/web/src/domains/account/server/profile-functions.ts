@@ -1,0 +1,150 @@
+import { createServerFn } from '@tanstack/react-start'
+import type { ProgramStateDefaults, Sex, ThemePreference, Unit, UserProfile } from '~/shared/types'
+import { defaultProgramStateDefaults } from '~/domains/program/lib/program-state-defaults'
+import type { AuthenticatedServiceContext } from '~/shared/server/service-context'
+
+async function requireUser(context?: AuthenticatedServiceContext) {
+  const { resolveServiceContext } = await import('~/shared/server/service-context')
+  return resolveServiceContext(context)
+}
+
+async function hasSupabaseEnv() {
+  const { hasSupabaseEnv } = await import('~/shared/server/supabase')
+  return hasSupabaseEnv()
+}
+
+export async function ensureProfile(context?: AuthenticatedServiceContext) {
+  const { supabase, user } = await requireUser(context)
+  const email = user.email ?? null
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+  if (profile) return profile
+  // OAuth providers (Google) put a name in user metadata — capture it so the profile has a display
+  // name from the start. Magic-link users have none, so this stays null.
+  const metadata = user.user_metadata ?? {}
+  const displayName =
+    typeof metadata.full_name === 'string'
+      ? metadata.full_name
+      : typeof metadata.name === 'string'
+        ? metadata.name
+        : null
+  const { data, error } = await supabase
+    .from('profiles')
+    .insert({ id: user.id, email, display_name: displayName, units: 'kg', rounding: 2.5, theme_preference: 'system' })
+    .select('*')
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export function normalizeProgramStateDefaults(input: unknown, units: Unit): ProgramStateDefaults {
+  const fallback = defaultProgramStateDefaults(units)
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return fallback
+  const values = input as Record<string, unknown>
+  const normalized: ProgramStateDefaults = { ...fallback }
+  for (const [key, rawValue] of Object.entries(values)) {
+    normalized[key] = normalizeNullableLoadDefault(rawValue)
+  }
+  return normalized
+}
+
+function normalizeNullableLoadDefault(value: unknown) {
+  if (value === null || value === undefined || value === '') return null
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null
+}
+
+export async function getProfile(context: AuthenticatedServiceContext): Promise<UserProfile> {
+  const profile = await ensureProfile(context)
+  return {
+    id: profile.id,
+    email: profile.email,
+    displayName: profile.display_name,
+    units: profile.units as Unit,
+    rounding: Number(profile.rounding),
+    equipmentProfile: profile.equipment_profile ?? [],
+    themePreference: (profile.theme_preference ?? 'system') as ThemePreference,
+    programStateDefaults: normalizeProgramStateDefaults(profile.program_state_defaults, profile.units as Unit),
+    onboardingCompleted: Boolean(profile.onboarding_completed),
+    liveOnboardingDismissed: Boolean(profile.live_onboarding_dismissed),
+    postWorkoutFeedbackDismissed: Boolean(profile.post_workout_feedback_dismissed),
+    sex: (profile.sex ?? null) as Sex | null,
+    autoStartTimer: profile.auto_start_timer ?? true,
+    defaultRestSeconds: Number(profile.default_rest_seconds ?? 120),
+  }
+}
+
+export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promise<UserProfile | null> => {
+  if (!(await hasSupabaseEnv())) return null
+  try {
+    const context = await requireUser()
+    return getProfile(context)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Not authenticated') return null
+    throw error
+  }
+})
+
+export const completeOnboardingFn = createServerFn({ method: 'POST' }).handler(async () => {
+  const { supabase, user } = await requireUser()
+  const { error } = await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', user.id)
+  if (error) throw new Error(error.message)
+  return getMeFn()
+})
+
+export const dismissLiveOnboardingFn = createServerFn({ method: 'POST' }).handler(async () => {
+  const { supabase, user } = await requireUser()
+  const { error } = await supabase.from('profiles').update({ live_onboarding_dismissed: true }).eq('id', user.id)
+  if (error) throw new Error(error.message)
+  return getMeFn()
+})
+
+export const dismissPostWorkoutFeedbackFn = createServerFn({ method: 'POST' }).handler(async () => {
+  const { supabase, user } = await requireUser()
+  const { error } = await supabase.from('profiles').update({ post_workout_feedback_dismissed: true }).eq('id', user.id)
+  if (error) throw new Error(error.message)
+  return getMeFn()
+})
+
+export const updateSettingsFn = createServerFn({ method: 'POST' })
+  .validator(
+    (data: {
+      units: Unit
+      rounding: number
+      equipmentProfile: string[]
+      themePreference: ThemePreference
+      programStateDefaults: ProgramStateDefaults
+      /** Omitted = leave unchanged (partial callers like UserMenu); null = explicitly cleared. */
+      sex?: Sex | null
+      /** Omitted = leave unchanged (partial callers don't touch rest-timer prefs). */
+      autoStartTimer?: boolean
+      defaultRestSeconds?: number
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { supabase, user } = await requireUser()
+    const programStateDefaults = normalizeProgramStateDefaults(data.programStateDefaults, data.units)
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        units: data.units,
+        rounding: data.rounding,
+        equipment_profile: data.equipmentProfile,
+        theme_preference: data.themePreference,
+        program_state_defaults: programStateDefaults,
+        ...(data.sex !== undefined ? { sex: data.sex } : {}),
+        ...(data.autoStartTimer !== undefined ? { auto_start_timer: data.autoStartTimer } : {}),
+        ...(data.defaultRestSeconds !== undefined ? { default_rest_seconds: data.defaultRestSeconds } : {}),
+      })
+      .eq('id', user.id)
+    if (error) throw new Error(error.message)
+    return getMeFn()
+  })
+
+export const updateSexFn = createServerFn({ method: 'POST' })
+  .validator((data: { sex: Sex | null }) => data)
+  .handler(async ({ data }) => {
+    const { supabase, user } = await requireUser()
+    const { error } = await supabase.from('profiles').update({ sex: data.sex }).eq('id', user.id)
+    if (error) throw new Error(error.message)
+    return getMeFn()
+  })

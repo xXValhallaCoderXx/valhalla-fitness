@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Sheetless",
+    "slug": "sheetless",
+    "version": "0.1.0",
+    "scheme": "sheetless",
+    "platforms": ["ios", "android"],
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "fitness.sheetless.app",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "fitness.sheetless.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#081114"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#081114",
+          "image": "./assets/icon.png",
+          "imageWidth": 96
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

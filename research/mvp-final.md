@@ -477,8 +477,8 @@ Target files:
 - `mvp-plan.md`
 - `final-app-spec.md`
 - `design-spec.md`, only if timer/setup references need correction.
-- `src/features/README.md`, if needed.
-- Deployment docs such as `RAILWAY.md`, if needed.
+- `apps/web/src/features/README.md`, if needed.
+- Deployment docs such as `RENDER.md`, if needed.
 
 Required doc changes:
 

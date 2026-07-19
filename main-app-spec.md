@@ -313,7 +313,7 @@ Implemented:
 
 - PWA registration and app icons.
 - Offline-ready and update prompt events.
-- Railway deployment docs.
+- Render deployment docs.
 - Build/start scripts for Nitro output.
 - Supabase migration scripts for local and remote workflows.
 

@@ -4,7 +4,16 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['.output', 'dist', 'node_modules', 'src/routeTree.gen.ts'],
+    ignores: [
+      '**/.output/**',
+      '**/dist/**',
+      '**/coverage/**',
+      'node_modules',
+      'apps/web/src/routeTree.gen.ts',
+      'apps/mobile/.expo/**',
+      'apps/mobile/android/**',
+      'apps/mobile/ios/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

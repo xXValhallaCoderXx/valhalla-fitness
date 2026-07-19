@@ -2,21 +2,27 @@
 
 ## Project Structure & Module Organization
 
-This is `sheetless`, a TanStack Start/Vite React 19 + TypeScript app backed by Supabase. Code is organized **by domain**, not by file type.
+This is the `sheetless` pnpm workspace: a TanStack Start/Vite React 19 web app, an Expo native app,
+shared TypeScript packages, and Supabase. Web code is organized **by domain**, not by file type.
 
-- `src/domains/{account,program,session,history,movement,onboarding}/` — each domain owns its slice end to end:
+- `apps/web/src/domains/{account,program,session,history,movement,onboarding}/` — each web domain owns its slice end to end:
   - `components/` — domain UI (organisms), PascalCase files.
   - `server/` — `createServerFn` handlers + Supabase data access (kebab-case files).
   - `lib/` — pure domain logic (kebab-case files).
   - `types.ts` — domain types shared by that domain's server and client.
   - `queries.ts` — React Query `queryOptions` for the domain.
   - `index.ts` — public barrel (types, queries, components). Never re-export server-only modules here so the client never bundles server code.
-- `src/components/atoms` + `src/components/molecules` — shared, non-domain UI (PascalCase).
-- `src/shared/{lib,server,types}` — cross-cutting helpers used by 3+ domains (e.g. `cn`, `dates`, `api-error`, `math`, `supabase`, `require-user`).
-- `src/routes/` — thin TanStack file-route wrappers over domain components (this is the one folder that stays file-type based; required by the router). Never edit `src/routeTree.gen.ts`.
-- `src/styles/` — Mantine theme + global base CSS. Tests in `tests/` (unit) and `tests/e2e/` (Playwright); migrations in `supabase/migrations/`.
+- `apps/web/src/components/atoms` + `apps/web/src/components/molecules` — shared, non-domain web UI (PascalCase).
+- `apps/web/src/shared/{lib,server,types}` — web cross-cutting helpers used by 3+ domains.
+- `apps/web/src/routes/` — thin TanStack file-route wrappers over domain components. Never edit `apps/web/src/routeTree.gen.ts`.
+- `apps/mobile/` — Expo Router routes, native features, and Jest tests.
+- `packages/{api,core,tokens}/` — platform-neutral contracts, logic, and semantic design tokens.
+- `apps/web/src/styles/` — Mantine theme + global CSS. Web tests are in `apps/web/tests/`; migrations stay in `supabase/migrations/`.
 
-Where to add new code: put it in the owning domain. Promote to `src/shared/*` only when 3+ domains need it. New shared UI primitives go in `atoms`/`molecules`; domain-specific UI goes in that domain's `components/`.
+Where to add new web code: put it in the owning domain. Promote to `apps/web/src/shared/*` only when
+3+ web domains need it. Promote platform-neutral code to `packages/*` only when web and native both
+consume it. New shared web UI primitives go in `atoms`/`molecules`; domain-specific UI goes in that
+domain's `components/`.
 
 ### Component size & ownership gates
 
@@ -32,13 +38,15 @@ Where to add new code: put it in the owning domain. Promote to `src/shared/*` on
 - `pnpm typecheck` runs strict TypeScript checks without building.
 - `pnpm lint` runs ESLint across the repository.
 - `pnpm test` runs Vitest once; `pnpm test:watch` runs it interactively.
-- `pnpm playwright` runs Playwright tests in `tests/e2e/`.
+- `pnpm playwright` runs Playwright tests in `apps/web/tests/e2e/`.
+- `pnpm dev:mobile`, `pnpm typecheck:mobile`, and `pnpm test:mobile` operate on the Expo app.
+- `pnpm typecheck:shared` and `pnpm test:shared` validate the platform-neutral packages.
 - `pnpm db:migrate:local` applies Supabase migrations to the local stack.
 - `pnpm db:migrate:dry-run` previews remote migration changes using `SUPABASE_DB_URL`.
 
 ## Coding Style & Naming Conventions
 
-Use strict TypeScript, ES modules, React JSX, two-space indentation, single quotes, and the existing semicolon-free style. Prefer the `~/` alias for imports from `src/`. Do not edit `src/routeTree.gen.ts` manually. Follow existing React Query and `createServerFn` patterns.
+Use strict TypeScript, ES modules, React JSX, two-space indentation, single quotes, and the existing semicolon-free style. In the web package, prefer the `~/` alias for imports from `apps/web/src/`. Do not edit `apps/web/src/routeTree.gen.ts` manually. Follow existing React Query and `createServerFn` patterns.
 
 Naming: React components use PascalCase for both the file and the export (`PendingReview.tsx`). Utility, server, lib, query, and type files use kebab-case (`program-overview.ts`, `require-user.ts`). Hooks are `useThing.ts`. Routes keep TanStack file-route names.
 
@@ -58,14 +66,14 @@ Mantine is the only styling system. Use Mantine components, theme tokens, and th
 
 ## Testing Guidelines
 
-Use Vitest with `jsdom` for unit and domain tests. Name tests `*.test.ts` and keep e2e specs under `tests/e2e/*.spec.ts`. Add tests near the changed behavior, especially for template generation, progression, history, session cache, and server APIs. Run narrow checks first, then broaden to `pnpm test`, `pnpm lint`, and `pnpm build` for shared changes.
+Use Vitest with `jsdom` for web unit and domain tests. Name tests `*.test.ts` and keep e2e specs under `apps/web/tests/e2e/*.spec.ts`. Native tests use Jest Expo under `apps/mobile/tests/`; shared packages use their package-local Vitest configs. Add tests near changed behavior, then broaden to the root validation commands.
 
 ### Onboarding and walkthroughs
 
 - First-run Today onboarding is controlled by `profiles.onboarding_completed`; the live-session onboarding card is controlled separately by `profiles.live_onboarding_dismissed`.
 - The live workout walkthrough is optional. Do not auto-run it from localStorage or on fresh sessions; launch it from `LiveSessionOnboarding` or force replay with `/sessions/$sessionId?tour=live`.
 - Keep live-session onboarding non-blocking: the user must be able to ignore the card and log the workout normally.
-- Cover live walkthrough changes with Playwright. `tests/e2e/live-coach-marks.spec.ts` resets `live_onboarding_dismissed` before asserting card show, tour start, dismiss persistence, and `?tour=live` replay.
+- Cover live walkthrough changes with Playwright. `apps/web/tests/e2e/live-coach-marks.spec.ts` resets `live_onboarding_dismissed` before asserting card show, tour start, dismiss persistence, and `?tour=live` replay.
 
 ## Commit & Pull Request Guidelines
 

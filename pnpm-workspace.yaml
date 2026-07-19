@@ -1,3 +1,14 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# @mantine/hooks imports react-dom from use-collapse but does not declare it.
+# Extend the published metadata so strict workspace resolution works in Vitest.
+packageExtensions:
+  '@mantine/hooks@9.3.2':
+    peerDependencies:
+      react-dom: '^19.2.0'
+
 allowBuilds:
   esbuild: true
 onlyBuiltDependencies:

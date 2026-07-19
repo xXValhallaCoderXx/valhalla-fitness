@@ -4,20 +4,21 @@ Use these instructions for all work in this repository. For the detailed file-sc
 
 ## Project shape
 
-- This is `sheetless`, a TanStack Start/Vite React 19 + TypeScript app backed by Supabase.
+- This is the `sheetless` pnpm workspace: a TanStack Start web app, Expo native app, shared packages, and Supabase.
 - Code is organized by domain:
-  - `src/domains/{account,program,session,history,movement}/components` for domain UI.
-  - `src/domains/*/server` for `createServerFn` handlers and domain data access.
-  - `src/domains/*/lib` for pure domain logic.
-  - `src/domains/*/queries.ts` for React Query options.
-  - `src/shared/{lib,server,types}` for cross-domain helpers.
-- `src/routes/` must stay as thin TanStack file-route wrappers. Never edit `src/routeTree.gen.ts`.
+  - `apps/web/src/domains/{account,program,session,history,movement}/components` for domain UI.
+  - `apps/web/src/domains/*/server` for `createServerFn` handlers and domain data access.
+  - `apps/web/src/domains/*/lib` for pure domain logic.
+  - `apps/web/src/domains/*/queries.ts` for React Query options.
+  - `apps/web/src/shared/{lib,server,types}` for web cross-domain helpers.
+- `apps/web/src/routes/` must stay as thin TanStack file-route wrappers. Never edit `apps/web/src/routeTree.gen.ts`.
+- Put web/native shared contracts and pure logic in `packages/{api,core,tokens}`.
 
 ## UI architecture
 
 - Mantine is the only styling system. Tailwind is for layout only.
-- Shared atomic UI primitives live in `src/components/atoms`; shared compositions live in `src/components/molecules`.
-- Import shared UI from `~/components`. Do not use old `~/components/ui`, `~/components/workout`, or `src/features/*` patterns.
+- Shared atomic UI primitives live in `apps/web/src/components/atoms`; shared compositions live in `apps/web/src/components/molecules`.
+- Import shared UI from `~/components`. Do not use old `~/components/ui`, `~/components/workout`, or `apps/web/src/features/*` patterns.
 - Use atoms/molecules for text and surfaces: `Text`, `Heading`, `SectionLabel`, `Caption`, `StatValue`, `Panel`, `StatCard`, `Page`, `PageHeader`, `EmptyState`, and `ConfirmDialog`.
 - Raw Mantine components are appropriate for controls and layout primitives, but do not use ad-hoc `<p>`, `<h*>`, or `<span>` plus Tailwind typography/color in touched code.
 - Tailwind classes may express structure only: flex/grid, gap, spacing, sizing, position, overflow, alignment.
@@ -28,14 +29,14 @@ Use these instructions for all work in this repository. For the detailed file-sc
 - Route files should normally be 40 lines or less: route declaration, loader, params/context extraction, and one domain component render.
 - Domain page components should orchestrate state and compose smaller components. Do not keep cards, lists, modals, timeline rows, and helper renderers in one file.
 - If a touched component is approaching 250-300 lines, split by concern before adding more code.
-- Do not simply move an oversized route file into `src/domains/*/components`; split it as part of the same change.
+- Do not simply move an oversized route file into `apps/web/src/domains/*/components`; split it as part of the same change.
 - Do not place `createServerFn` implementations inside presentational components.
 - Public barrels must not re-export server-only modules.
 
 ## Routing and data
 
-- Keep route files in `src/routes/` using TanStack Router file-route naming.
-- Never edit `src/routeTree.gen.ts` manually.
+- Keep route files in `apps/web/src/routes/` using TanStack Router file-route naming.
+- Never edit `apps/web/src/routeTree.gen.ts` manually.
 - Follow existing React Query and server-function patterns for data fetching and mutations.
 - Keep Dexie/offline/session-cache details in domain or shared lib modules, not scattered through route components.
 
