@@ -1,4 +1,4 @@
-import type { Movement } from '~/shared/types'
+import type { Movement } from '~/domains/movement'
 import { getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
 import {
   anchorMovementIdFor,

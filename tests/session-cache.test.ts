@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { patchMovementInSession, patchSetInSession, sessionCompletion } from '../src/domains/session/lib/session-cache'
-import type { WorkoutSession } from '../src/shared/types'
+import type { WorkoutSession } from '~/domains/session'
 
 const session: WorkoutSession = {
   sessionId: 'session-1',
+  stateVersion: 0,
   id: 'planned-1',
   title: 'Deadlift',
   programTitle: 'Training Max Wave',

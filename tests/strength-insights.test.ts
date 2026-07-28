@@ -13,7 +13,7 @@ import type {
   HistorySessionInput,
   HistorySetInput,
 } from '../src/domains/history/lib/history'
-import type { E1rmPoint, LiftE1rmSeries } from '../src/shared/types'
+import type { E1rmPoint, LiftE1rmSeries } from '~/domains/history'
 
 const NOW = '2026-07-05T00:00:00.000Z'
 

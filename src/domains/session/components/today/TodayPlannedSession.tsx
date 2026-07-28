@@ -2,10 +2,12 @@ import { ActionIcon, Badge, Button, Tooltip, VisuallyHidden } from '@mantine/cor
 import { ArrowRight, Dumbbell, Lock, Play, Plus } from 'lucide-react'
 import { Caption, Heading, Page, Panel, Text } from '~/components'
 import { intensityColor } from '~/domains/history/lib/insights'
+import type { TodayHistorySupport } from '~/domains/history'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { PendingProgressionReviewModal, PendingReviewAlert, PendingReviewGate } from '~/domains/program/components/PendingReview'
 import { formatPreviousHero } from '~/domains/session/lib/today-numbers'
-import type { HistoryDashboardWithInsights, PlannedSession, ProgressionDecision, TodayPayload } from '~/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
+import type { PlannedSession, TodayPayload } from '~/domains/session'
 import { TodayWorkoutLedger } from '../TodayWorkoutLedger'
 import { RecoveryCheckPanel, StreakBadge } from './TodayPanels'
 
@@ -14,6 +16,8 @@ export function TodayPlannedSession({
   data,
   plannedSession,
   history,
+  historyPending,
+  historyError,
   pendingDecisions,
   reviewOpen,
   onReviewOpen,
@@ -26,7 +30,9 @@ export function TodayPlannedSession({
 }: {
   data: TodayPayload
   plannedSession: PlannedSession
-  history?: HistoryDashboardWithInsights
+  history?: TodayHistorySupport
+  historyPending: boolean
+  historyError: boolean
   pendingDecisions: ProgressionDecision[]
   reviewOpen: boolean
   onReviewOpen: () => void
@@ -62,7 +68,7 @@ export function TodayPlannedSession({
               {plannedSession.hardness ? (
                 <Badge color={intensityColor(plannedSession.hardness)}>{plannedSession.hardness}</Badge>
               ) : null}
-              <StreakBadge history={history} />
+              <StreakBadge history={history} isPending={historyPending} isError={historyError} />
             </div>
             <Heading mt="xs" order={2} size="h3" lh={1.15}>{plannedSession.title}</Heading>
             <Text mt={4} size="sm" tone="dimmed">
@@ -109,7 +115,7 @@ export function TodayPlannedSession({
         </Panel>
 
         <TodayWorkoutLedger session={plannedSession} />
-        <RecoveryCheckPanel history={history} />
+        <RecoveryCheckPanel history={history} isPending={historyPending} isError={historyError} />
       </div>
       <PendingProgressionReviewModal
         opened={reviewOpen}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ProgressionDecision } from '../src/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
 import {
   FEEDBACK_ANSWERS,
   FEEDBACK_CATEGORIES,

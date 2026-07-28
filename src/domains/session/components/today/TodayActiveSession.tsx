@@ -6,11 +6,13 @@ import { useState } from 'react'
 import { Heading, Page, PageHeader, Panel, SectionLabel, StatCard, Text } from '~/components'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { PendingProgressionReviewModal, PendingReviewAlert } from '~/domains/program/components/PendingReview'
+import type { TodayHistorySupport } from '~/domains/history'
 import { AD_HOC_BADGE_LABEL, DEFAULT_AD_HOC_TITLE } from '~/domains/session/lib/ad-hoc'
 import { isSessionMutationKey } from '~/domains/session/lib/session-mutations'
 import { countCompletedSets, isMeaningfulSyncState, nextIncompleteSetLabel } from '~/domains/session/lib/today-page'
 import { countPlannedSets } from '~/domains/session/lib/today-numbers'
-import type { HistoryDashboardWithInsights, ProgramOverview, ProgressionDecision, TodayPayload, WorkoutSession } from '~/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
+import type { TodayPayload, WorkoutSession } from '~/domains/session'
 import { SessionProgress, SyncPill } from '../Session'
 import { DiscardWorkoutDialog } from '../DiscardWorkoutDialog'
 import { ProgramProgressPanel, StreakBadge, WeeklyVolumePanel } from './TodayPanels'
@@ -19,8 +21,9 @@ import { ProgramProgressPanel, StreakBadge, WeeklyVolumePanel } from './TodayPan
 export function TodayActiveSession({
   data,
   session,
-  overview,
   history,
+  historyPending,
+  historyError,
   pendingDecisions,
   reviewOpen,
   onReviewOpen,
@@ -29,8 +32,9 @@ export function TodayActiveSession({
 }: {
   data: TodayPayload
   session: WorkoutSession
-  overview?: ProgramOverview
-  history?: HistoryDashboardWithInsights
+  history?: TodayHistorySupport
+  historyPending: boolean
+  historyError: boolean
   pendingDecisions: ProgressionDecision[]
   reviewOpen: boolean
   onReviewOpen: () => void
@@ -79,7 +83,7 @@ export function TodayActiveSession({
                 ) : (
                   <Badge color="warning">{session.hardness}</Badge>
                 )}
-                <StreakBadge history={history} />
+                <StreakBadge history={history} isPending={historyPending} isError={historyError} />
               </div>
               <Heading order={2} size="h3" lh={1.15} className="truncate">
                 {session.title}
@@ -122,8 +126,11 @@ export function TodayActiveSession({
           <StatCard label="Session progress" value={`${completionPercent}%`} icon={<Activity size={15} />} />
           {data.activeProgram ? (
             <>
-              <ProgramProgressPanel overview={overview} />
-              <WeeklyVolumePanel history={history} />
+              <ProgramProgressPanel
+                program={data.activeProgram}
+                plannedSession={data.plannedSession}
+              />
+              <WeeklyVolumePanel history={history} isPending={historyPending} isError={historyError} />
             </>
           ) : null}
         </div>

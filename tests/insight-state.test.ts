@@ -9,7 +9,7 @@ import {
   volumeTrendLabels,
   type InsightGatingInput,
 } from '../src/domains/history/lib/insight-state'
-import type { HistoryWeeklyVolume, InsightGating } from '../src/shared/types'
+import type { HistoryWeeklyVolume, InsightGating } from '~/domains/history'
 
 const NOW = '2026-07-05T00:00:00Z'
 

@@ -1,4 +1,4 @@
-import type { SetLog, WorkoutSession } from '~/shared/types'
+import type { SetLog, WorkoutSession } from '~/domains/session'
 
 export type SetPatch = Partial<
   Pick<

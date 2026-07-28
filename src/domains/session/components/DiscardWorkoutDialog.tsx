@@ -1,5 +1,5 @@
 import { ConfirmDialog } from '~/components'
-import type { WorkoutSession } from '~/shared/types'
+import type { WorkoutSession } from '~/domains/session'
 import { useDiscardWorkout } from './useDiscardWorkout'
 
 export function DiscardWorkoutDialog({

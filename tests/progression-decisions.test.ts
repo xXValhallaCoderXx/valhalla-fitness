@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { MovementSlot, ProgramInstance, SetLog, WorkoutSession } from '../src/shared/types'
+import type { ProgramInstance } from '~/domains/program'
+import type { MovementSlot, SetLog, WorkoutSession } from '~/domains/session'
 import { buildProgressionDecisionsForSession } from '../src/domains/program/lib/progression-decisions'
 
 function set(partial: Partial<SetLog>): SetLog {

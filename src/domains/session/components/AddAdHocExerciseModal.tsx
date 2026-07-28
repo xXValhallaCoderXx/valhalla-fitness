@@ -2,10 +2,13 @@ import { Button, Modal } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { movementOptionsQueryOptions } from '~/domains/session/queries'
 import { addAdHocExerciseFn } from '~/domains/session/server/session-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import type { WorkoutSession } from '~/shared/types'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
+import { useStableMutationRequest } from '~/domains/session/lib/useStableMutationRequest'
+import type { WorkoutSession } from '~/domains/session'
 import { AccessoryMovementPicker } from './AccessoryMovementPicker'
 import { buildAccessoryCategoryFilters } from './live-session-utils'
 
@@ -24,13 +27,15 @@ export function AddAdHocExerciseModal({
   onClose: () => void
   onAdded: (movementId: string) => void
 }) {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
+  const { requestIdFor, clearRequest } = useStableMutationRequest()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null)
 
   const optionsQuery = useQuery({
-    ...movementOptionsQueryOptions(),
+    ...movementOptionsQueryOptions(userId),
     enabled: open,
   })
   const options = useMemo(() => optionsQuery.data ?? [], [optionsQuery.data])
@@ -59,12 +64,14 @@ export function AddAdHocExerciseModal({
 
   const mutation = useMutation({
     mutationKey: ['addAdHocExercise', session.sessionId],
+    scope: { id: `session:${session.sessionId}` },
     mutationFn: (input: { movementId: string; clientMutationId: string }) =>
       addAdHocExerciseFn({
         data: {
           sessionId: session.sessionId,
           movementId: input.movementId,
           clientMutationId: input.clientMutationId,
+          expectedStateVersion: session.stateVersion,
         },
       }),
     onError: (error) => {
@@ -75,12 +82,16 @@ export function AddAdHocExerciseModal({
       })
     },
     onSuccess: (nextSession) => {
+      clearRequest()
       const previousIds = new Set(session.movements.map((movement) => movement.id))
       const addedMovement =
         nextSession.movements.find((movement) => movement.isAdded && !previousIds.has(movement.id)) ??
         nextSession.movements.at(-1)
-      queryClient.setQueryData(['session', session.sessionId], nextSession)
-      queryClient.setQueryData(['today'], (current: any) =>
+      queryClient.setQueryData(
+        accountQueryKeys.session(userId, session.sessionId),
+        nextSession,
+      )
+      queryClient.setQueryData(accountQueryKeys.today(userId), (current: any) =>
         current ? { ...current, activeSession: nextSession } : current,
       )
       if (addedMovement) onAdded(addedMovement.id)
@@ -90,7 +101,10 @@ export function AddAdHocExerciseModal({
 
   const submit = () => {
     if (!selectedOption || mutation.isPending) return
-    mutation.mutate({ movementId: selectedOption.movementId, clientMutationId: crypto.randomUUID() })
+    mutation.mutate({
+      movementId: selectedOption.movementId,
+      clientMutationId: requestIdFor({ movementId: selectedOption.movementId }),
+    })
   }
 
   return (

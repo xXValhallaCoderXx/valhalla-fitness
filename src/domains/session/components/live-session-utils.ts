@@ -1,12 +1,12 @@
+import type { MovementHistorySet } from '~/domains/history'
+import type { AccessoryMovementOption } from '~/domains/movement'
 import type {
-  AccessoryMovementOption,
-  MovementHistorySet,
   MovementSlot,
   PreviousComparable,
   SetLog,
   SubstitutionReason,
   WorkoutSession,
-} from '~/shared/types'
+} from '~/domains/session'
 import { describeSet } from '~/shared/lib/set-notation'
 
 // Overview-only set table: SET · TARGET · KG · REPS · RIR · ✓ (Target is shown on mobile too,

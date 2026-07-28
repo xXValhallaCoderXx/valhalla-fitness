@@ -3,6 +3,7 @@ import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { useState, useSyncExternalStore } from 'react'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { meQueryOptions } from '~/domains/account/queries'
 import { dismissPostWorkoutFeedbackFn } from '~/domains/account/server/profile-functions'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
@@ -17,7 +18,9 @@ import {
 import { useSubmitFeedback } from '~/domains/feedback/useSubmitFeedback'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { track } from '~/shared/lib/analytics'
-import type { ProgressionDecision, UserProfile, WorkoutSession } from '~/shared/types'
+import type { UserProfile } from '~/domains/account'
+import type { ProgressionDecision } from '~/domains/program'
+import type { WorkoutSession } from '~/domains/session'
 import { FeedbackChipGroup } from './FeedbackChips'
 import { feedbackFieldStyles } from './field-styles'
 
@@ -37,8 +40,10 @@ export function PostWorkoutFeedbackPrompt({
   session: WorkoutSession
   decisions: ProgressionDecision[]
 }) {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
-  const meQuery = useQuery(meQueryOptions())
+  const profileOptions = meQueryOptions(userId)
+  const meQuery = useQuery(profileOptions)
   const sessionId = session.sessionId
   const storageKey = sessionFeedbackStorageKey(sessionId)
 
@@ -70,17 +75,20 @@ export function PostWorkoutFeedbackPrompt({
   const optOutMutation = useMutation({
     mutationFn: () => dismissPostWorkoutFeedbackFn(),
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['me'] })
-      const previous = queryClient.getQueryData<UserProfile | null>(['me'])
+      await queryClient.cancelQueries({ queryKey: profileOptions.queryKey })
+      const previous = queryClient.getQueryData<UserProfile | null>(profileOptions.queryKey)
       if (previous) {
-        queryClient.setQueryData<UserProfile | null>(['me'], (current) =>
+        queryClient.setQueryData<UserProfile | null>(profileOptions.queryKey, (current) =>
           current ? { ...current, postWorkoutFeedbackDismissed: true } : current,
         )
       }
       return { previous }
     },
     onError: (error, _variables, context) => {
-      queryClient.setQueryData<UserProfile | null>(['me'], context?.previous ?? null)
+      queryClient.setQueryData<UserProfile | null>(
+        profileOptions.queryKey,
+        context?.previous ?? null,
+      )
       notifications.show({
         color: 'danger',
         title: 'Could not turn this off',
@@ -88,7 +96,7 @@ export function PostWorkoutFeedbackPrompt({
       })
     },
     onSuccess: (profile) => {
-      queryClient.setQueryData<UserProfile | null>(['me'], profile ?? null)
+      queryClient.setQueryData<UserProfile | null>(profileOptions.queryKey, profile ?? null)
     },
   })
 

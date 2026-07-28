@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { MovementSlot, ProgressionDecision, SessionSummary, SetLog, WorkoutSession } from '../src/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
+import type { MovementSlot, SessionSummary, SetLog, WorkoutSession } from '~/domains/session'
 import { buildSessionReceipt, summarizeMovementPerformance } from '../src/domains/session/lib/session-receipt'
 
 function set(partial: Partial<SetLog>): SetLog {

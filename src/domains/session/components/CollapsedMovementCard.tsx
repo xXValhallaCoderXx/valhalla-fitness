@@ -2,7 +2,7 @@ import { ChevronDown, Trash2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Caption, Text } from '~/components'
 import { cn } from '~/shared/lib/cn'
-import type { MovementSlot } from '~/shared/types'
+import type { MovementSlot } from '~/domains/session'
 import { MovementNumberBadge, RolePill, ToolButton } from './LiveSessionControls'
 import { formatPreviousShort, isMovementComplete } from './live-session-utils'
 

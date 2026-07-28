@@ -1,26 +1,29 @@
 import { Badge, Tabs } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Activity, BarChart3, Dumbbell, History, TrendingUp, Trophy } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { lazy, Suspense, useState, type ReactNode } from 'react'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
+import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
 import { historyDashboardQueryOptions } from '~/domains/history/queries'
 import type { MovementSortKey, SessionFilter, SortDir } from '~/domains/history/lib/insights'
+import type { HistoryTab } from '~/domains/history/lib/history-tabs'
 import type { InsightRange } from '~/domains/history/lib/insight-ranges'
 import { resolveInsightGating } from '~/domains/history/lib/insight-state'
 import { sessionQueryOptions } from '~/domains/session/queries'
 import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
 import { WorkoutSummaryModal } from './WorkoutSummaryModal'
 import { InsightRangeSwitch } from './InsightRangeSwitch'
-import { type HistoryTab } from './insight-format'
-import { BodyLoadTab } from './tabs/BodyLoadTab'
-import { MovementsTab } from './tabs/MovementsTab'
-import { OverviewTab } from './tabs/OverviewTab'
-import { RecordsTab } from './tabs/RecordsTab'
-import { SessionsTab } from './tabs/SessionsTab'
-import { StrengthTab } from './tabs/StrengthTab'
 
-export { HISTORY_TAB_VALUES } from './insight-format'
-export type { HistoryTab } from './insight-format'
+const BodyLoadTab = lazy(() => import('./tabs/BodyLoadTab').then((module) => ({ default: module.BodyLoadTab })))
+const MovementsTab = lazy(() => import('./tabs/MovementsTab').then((module) => ({ default: module.MovementsTab })))
+const OverviewTab = lazy(() => import('./tabs/OverviewTab').then((module) => ({ default: module.OverviewTab })))
+const RecordsTab = lazy(() => import('./tabs/RecordsTab').then((module) => ({ default: module.RecordsTab })))
+const SessionsTab = lazy(() => import('./tabs/SessionsTab').then((module) => ({ default: module.SessionsTab })))
+const StrengthTab = lazy(() => import('./tabs/StrengthTab').then((module) => ({ default: module.StrengthTab })))
+
+export { HISTORY_TAB_VALUES } from '~/domains/history/lib/history-tabs'
+export type { HistoryTab } from '~/domains/history/lib/history-tabs'
 
 const HISTORY_TABS: Array<{ value: HistoryTab; label: string; icon: ReactNode }> = [
   { value: 'overview', label: 'Overview', icon: <BarChart3 size={14} /> },
@@ -34,7 +37,13 @@ const HISTORY_TABS: Array<{ value: HistoryTab; label: string; icon: ReactNode }>
 /** Tabs whose trend cards respond to the global range switch. */
 const RANGED_TABS: HistoryTab[] = ['overview', 'strength']
 
-export function HistoryPage({ user, initialTab }: { user: unknown; initialTab?: HistoryTab }) {
+export function HistoryPage({
+  user,
+  initialTab,
+}: {
+  user: AuthUser | null
+  initialTab?: HistoryTab
+}) {
   if (!user) {
     return (
       <Page>
@@ -46,8 +55,9 @@ export function HistoryPage({ user, initialTab }: { user: unknown; initialTab?: 
 }
 
 function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
-  const historyQuery = useQuery(historyDashboardQueryOptions())
-  const programOverviewQuery = useQuery(programOverviewQueryOptions())
+  const userId = useRequiredAccountId()
+  const historyQuery = useQuery(historyDashboardQueryOptions(userId))
+  const programOverviewQuery = useQuery(programOverviewQueryOptions(userId))
   const [activeTab, setActiveTab] = useState<HistoryTab>(initialTab ?? 'overview')
   const [range, setRange] = useState<InsightRange>('8w')
   const [movementQuery, setMovementQuery] = useState('')
@@ -57,7 +67,7 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
   const [sessionSearch, setSessionSearch] = useState('')
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const selectedSessionQuery = useQuery({
-    ...sessionQueryOptions(selectedSessionId ?? ''),
+    ...sessionQueryOptions(userId, selectedSessionId ?? ''),
     enabled: Boolean(selectedSessionId),
   })
 
@@ -131,46 +141,58 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
         </Tabs.List>
 
         <Tabs.Panel value="overview">
-          <OverviewTab
-            data={data}
-            gating={gating}
-            range={range}
-            programOverview={programOverview}
-            activeProgramTitle={activeProgramTitle}
-            onOpenSession={setSelectedSessionId}
-            onNavigate={setActiveTab}
-          />
+          <HistoryTabBoundary>
+            <OverviewTab
+              data={data}
+              gating={gating}
+              range={range}
+              programOverview={programOverview}
+              activeProgramTitle={activeProgramTitle}
+              onOpenSession={setSelectedSessionId}
+              onNavigate={setActiveTab}
+            />
+          </HistoryTabBoundary>
         </Tabs.Panel>
         <Tabs.Panel value="strength">
-          <StrengthTab insights={data.insights} gating={gating} range={range} />
+          <HistoryTabBoundary>
+            <StrengthTab insights={data.insights} gating={gating} range={range} />
+          </HistoryTabBoundary>
         </Tabs.Panel>
         <Tabs.Panel value="body-load">
-          <BodyLoadTab data={data} gating={gating} />
+          <HistoryTabBoundary>
+            <BodyLoadTab data={data} gating={gating} />
+          </HistoryTabBoundary>
         </Tabs.Panel>
         <Tabs.Panel value="movements">
-          <MovementsTab
-            data={data}
-            query={movementQuery}
-            onQueryChange={setMovementQuery}
-            category={movementCategory}
-            onCategoryChange={setMovementCategory}
-            sort={movementSort}
-            onSortChange={setMovementSort}
-          />
+          <HistoryTabBoundary>
+            <MovementsTab
+              data={data}
+              query={movementQuery}
+              onQueryChange={setMovementQuery}
+              category={movementCategory}
+              onCategoryChange={setMovementCategory}
+              sort={movementSort}
+              onSortChange={setMovementSort}
+            />
+          </HistoryTabBoundary>
         </Tabs.Panel>
         <Tabs.Panel value="records">
-          <RecordsTab data={data} />
+          <HistoryTabBoundary>
+            <RecordsTab data={data} />
+          </HistoryTabBoundary>
         </Tabs.Panel>
         <Tabs.Panel value="sessions">
-          <SessionsTab
-            sessions={data.recentSessions}
-            activeProgramTitle={activeProgramTitle}
-            onOpenSession={setSelectedSessionId}
-            filter={sessionFilter}
-            onFilterChange={setSessionFilter}
-            search={sessionSearch}
-            onSearchChange={setSessionSearch}
-          />
+          <HistoryTabBoundary>
+            <SessionsTab
+              sessions={data.recentSessions}
+              activeProgramTitle={activeProgramTitle}
+              onOpenSession={setSelectedSessionId}
+              filter={sessionFilter}
+              onFilterChange={setSessionFilter}
+              search={sessionSearch}
+              onSearchChange={setSessionSearch}
+            />
+          </HistoryTabBoundary>
         </Tabs.Panel>
       </Tabs>
 
@@ -183,6 +205,14 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
         onClose={() => setSelectedSessionId(null)}
       />
     </Page>
+  )
+}
+
+function HistoryTabBoundary({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<div className="min-h-40" aria-label="Loading insights" />}>
+      {children}
+    </Suspense>
   )
 }
 

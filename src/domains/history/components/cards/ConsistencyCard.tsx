@@ -1,4 +1,4 @@
-import type { ConsistencySummary } from '~/shared/types'
+import type { ConsistencySummary } from '~/domains/history'
 import { consistencyExplanation } from '~/domains/history/lib/consistency'
 import { Caption, InfoHint, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { formatNumber } from '../insight-format'

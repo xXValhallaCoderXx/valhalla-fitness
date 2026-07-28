@@ -4,22 +4,27 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Caption, SectionLabel, Text } from '~/components'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { bodyweightEntriesQueryOptions } from '~/domains/account/queries'
 import { deleteBodyweightEntryFn, logBodyweightFn } from '~/domains/account/server/bodyweight-functions'
 import { formatNumber } from '~/domains/history/components/insight-format'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { formatCompactDate } from '~/shared/lib/dates'
 import { convertWeight } from '~/shared/lib/math'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
 import type { Unit } from '~/shared/types'
 
 export function BodyweightLogger({ units }: { units: Unit }) {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
-  const entriesQuery = useQuery(bodyweightEntriesQueryOptions())
+  const entriesQuery = useQuery(bodyweightEntriesQueryOptions(userId))
   const [weight, setWeight] = useState<number | string>('')
 
   const invalidateBodyweightConsumers = () => {
-    void queryClient.invalidateQueries({ queryKey: ['bodyweight'] })
-    void queryClient.invalidateQueries({ queryKey: ['history', 'dashboard'] })
+    void queryClient.invalidateQueries({ queryKey: accountQueryKeys.bodyweight(userId) })
+    void queryClient.invalidateQueries({
+      queryKey: accountQueryKeys.historyDashboard(userId),
+    })
   }
 
   const logMutation = useMutation({

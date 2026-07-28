@@ -7,7 +7,7 @@ import {
   type PriorSetSample,
 } from '../src/domains/session/lib/session-prs'
 import { e1rm } from '../src/shared/lib/math'
-import type { MovementSlot, SetLog, WorkoutSession } from '../src/shared/types'
+import type { MovementSlot, SetLog, WorkoutSession } from '~/domains/session'
 
 function makeSet(overrides: Partial<SetLog> = {}): SetLog {
   return {
@@ -42,6 +42,7 @@ function makeSession(movements: MovementSlot[]): WorkoutSession {
   return {
     id: 'planned-1',
     sessionId: 'session-1',
+    stateVersion: 0,
     status: 'in_progress',
     title: 'Day A',
     programTitle: 'Program',

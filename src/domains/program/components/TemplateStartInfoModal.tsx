@@ -2,7 +2,7 @@ import { Badge, Modal } from '@mantine/core'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
 import { weekOptionHeading, type WeekPreviewOption } from '~/domains/program/lib/template-start-utils'
 import type { TemplatePhase } from '~/domains/program/lib/template-start-phases'
-import type { ProgramSetupOptions, ProgramTemplateSummary } from '~/shared/types'
+import type { ProgramSetupOptions, ProgramTemplateSummary } from '~/domains/program'
 import { StartInfoMetric } from './TemplateStartMetric'
 
 const REGULATES = [

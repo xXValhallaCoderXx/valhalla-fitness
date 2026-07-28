@@ -3,7 +3,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { Caption, Text } from '~/components'
 import { AD_HOC_BADGE_LABEL } from '~/domains/session/lib/ad-hoc'
 import { sessionCompletion } from '~/domains/session/lib/session-cache'
-import type { WorkoutSession } from '~/shared/types'
+import type { WorkoutSession } from '~/domains/session'
 import { SyncPill } from './Session'
 import { MetaPill } from './LiveSessionControls'
 

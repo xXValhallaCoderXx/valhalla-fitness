@@ -3,26 +3,27 @@ import { fetchUserFn, getAuthPolicyFn } from '~/domains/account/server/auth-func
 import { getBodyweightEntriesFn } from '~/domains/account/server/bodyweight-functions'
 import { getMeFn } from '~/domains/account/server/profile-functions'
 import { queryStaleTimes } from '~/shared/lib/query-stale-times'
+import { accountQueryKeys, authQueryKeys, publicQueryKeys } from '~/shared/lib/query-keys'
 
 export const authUserQueryOptions = () =>
   queryOptions({
-    queryKey: ['auth', 'user'],
+    queryKey: authQueryKeys.user(),
     queryFn: () => fetchUserFn(),
     staleTime: queryStaleTimes.auth,
     gcTime: 30 * 60_000,
   })
 
-export const meQueryOptions = () =>
+export const meQueryOptions = (userId: string) =>
   queryOptions({
-    queryKey: ['me'],
+    queryKey: accountQueryKeys.profile(userId),
     queryFn: () => getMeFn(),
     staleTime: queryStaleTimes.profile,
     gcTime: 30 * 60_000,
   })
 
-export const bodyweightEntriesQueryOptions = () =>
+export const bodyweightEntriesQueryOptions = (userId: string) =>
   queryOptions({
-    queryKey: ['bodyweight'],
+    queryKey: accountQueryKeys.bodyweight(userId),
     queryFn: () => getBodyweightEntriesFn(),
     staleTime: queryStaleTimes.profile,
     gcTime: 30 * 60_000,
@@ -30,7 +31,7 @@ export const bodyweightEntriesQueryOptions = () =>
 
 export const authPolicyQueryOptions = () =>
   queryOptions({
-    queryKey: ['auth', 'policy'],
+    queryKey: publicQueryKeys.authPolicy(),
     queryFn: () => getAuthPolicyFn(),
     // Environment-level constant for the deployment; fetch once and keep.
     staleTime: Infinity,

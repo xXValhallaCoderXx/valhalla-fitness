@@ -205,6 +205,13 @@ export const footerNav = [
       { label: 'Find My Plan quiz', to: '/auth' },
     ],
   },
+  {
+    title: 'Legal',
+    links: [
+      { label: 'Privacy policy', to: '/privacy' },
+      { label: 'Terms of use', to: '/terms' },
+    ],
+  },
 ] as const
 
 export const footerLegal = {

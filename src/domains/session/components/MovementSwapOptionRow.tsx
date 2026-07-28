@@ -1,7 +1,7 @@
 import { Badge } from '@mantine/core'
 import { Caption, Text } from '~/components'
 import { cn } from '~/shared/lib/cn'
-import type { MovementSwapOption } from '~/shared/types'
+import type { MovementSwapOption } from '~/domains/movement'
 import { formatEquipmentLabel } from './live-session-utils'
 
 export function MovementSwapOptionRow({

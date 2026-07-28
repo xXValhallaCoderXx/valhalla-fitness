@@ -1,10 +1,13 @@
 import { Button, NumberInput, Select } from '@mantine/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import type { Sex, Unit } from '~/shared/types'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
+import type { Sex } from '~/domains/account'
+import type { Unit } from '~/shared/types'
 import { logBodyweightFn } from '~/domains/account/server/bodyweight-functions'
 import { updateSexFn } from '~/domains/account/server/profile-functions'
 import { Caption, Text } from '~/components'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
 
 /**
  * Inline capture for the DOTS inputs, hosted by the strength score card when
@@ -20,6 +23,7 @@ export function BodyweightPromptCard({
   hasBodyweight: boolean
   hasSex: boolean
 }) {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
   const displayUnits: Unit = units ?? 'kg'
   const [weight, setWeight] = useState<number | string>('')
@@ -35,9 +39,11 @@ export function BodyweightPromptCard({
       }
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['history', 'dashboard'] })
-      void queryClient.invalidateQueries({ queryKey: ['bodyweight'] })
-      void queryClient.invalidateQueries({ queryKey: ['me'] })
+      void queryClient.invalidateQueries({
+        queryKey: accountQueryKeys.historyDashboard(userId),
+      })
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.bodyweight(userId) })
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.profile(userId) })
     },
   })
 

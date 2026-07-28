@@ -1,7 +1,7 @@
 import { Badge } from '@mantine/core'
 import { formatCompactDate } from '~/shared/lib/dates'
 import { bestSetAccent, bestSetTagLabel, groupBestSets } from '~/domains/history/lib/insights'
-import type { HistoryBestSet, HistoryDashboard } from '~/shared/types'
+import type { HistoryBestSet, HistoryDashboard } from '~/domains/history'
 import { Caption, EmptyState, Panel, SectionLabel, Text } from '~/components'
 import { ACCENT_TEXT, formatBestSetPrimary, formatE1rm } from '../insight-format'
 

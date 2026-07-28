@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { decisionUpdate, summaryHeadline, updatesStat } from '../src/domains/session/lib/summary-decisions'
-import type { ProgressionDecision } from '../src/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
 
 function decision(over: Partial<ProgressionDecision>): ProgressionDecision {
   return {

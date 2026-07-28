@@ -1,4 +1,5 @@
-import type { ProgressionDecision, Unit } from '~/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
+import type { Unit } from '~/shared/types'
 import { formatWeight } from '~/shared/lib/set-notation'
 
 /**

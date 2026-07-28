@@ -1,4 +1,4 @@
-import type { HistoryInsights, StrengthScoreKind, TotalPoint } from '~/shared/types'
+import type { HistoryInsights, StrengthScoreKind, TotalPoint } from '~/domains/history'
 import { formatLoad, formatNumber } from '~/domains/history/components/insight-format'
 
 /** Which series of a TotalPoint the strength score is expressed in — mirrors StrengthScore.kind. */

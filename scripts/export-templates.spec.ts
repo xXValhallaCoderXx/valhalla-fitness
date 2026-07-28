@@ -8,16 +8,16 @@ import { listFallbackTemplateDefinitions } from '~/domains/program/lib/template-
 /**
  * Exports every built-in training plan to a single structured JSON file.
  *
- * Source of truth is the *code*, not the DB: `templateCatalog` (catalog/metadata) joined on `id` with
- * `listFallbackTemplateDefinitions()` (the full DSL — sessions/weeks/prescriptions/sets/loads). The DB's
- * `program_template_versions.definition` is stale for several templates (older `percent`/`anchor` shape the
- * current parser rejects), so the app falls back to this code — which is what we serialise here.
+ * This is a local inspection export of the built-in code catalogue: `templateCatalog`
+ * (catalogue/metadata) joined on `id` with `listFallbackTemplateDefinitions()` (the full DSL).
+ * Hosted runtime still validates and uses its pinned database version and fails closed when it is
+ * missing or invalid; this artifact is never a runtime fallback.
  *
  * Run with: `pnpm export:templates` (a standalone vitest config; not part of `pnpm test`).
  * Output is deterministic (no timestamp) so re-running only diffs when a plan actually changes.
  */
 const HERE = dirname(fileURLToPath(import.meta.url))
-const OUT = resolve(HERE, '../docs/templates/templates.export.json')
+const OUT = resolve(HERE, '../.artifacts/template-definitions.json')
 
 function buildTemplatesExport() {
   const definitions = listFallbackTemplateDefinitions()

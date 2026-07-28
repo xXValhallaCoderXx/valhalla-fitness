@@ -11,11 +11,14 @@ import {
 } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { Caption, ConfirmDialog, InfoHint, Panel, SectionLabel, Text } from '~/components'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { useAddExerciseSet } from '~/domains/session/lib/useAddExerciseSet'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { cn } from '~/shared/lib/cn'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
 import { removeAdHocExerciseFn } from '~/domains/session/server/session-functions'
-import type { MovementSlot, WorkoutSession } from '~/shared/types'
+import { useStableMutationRequest } from '~/domains/session/lib/useStableMutationRequest'
+import type { MovementSlot, WorkoutSession } from '~/domains/session'
 import { CollapsedMovementCard } from './CollapsedMovementCard'
 import {
   RolePill,
@@ -52,7 +55,9 @@ export function LiveMovementCard({
   onRemoveAdded?: () => void
   managementPending?: boolean
 }) {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
+  const removeRequest = useStableMutationRequest()
   const topSet = getTopSet(movement)
   const firstIncompleteIndex = movement.sets.find((set) => !set.completed)?.setIndex
   const [selectedSetIndex, setSelectedSetIndex] = useState(
@@ -70,9 +75,15 @@ export function LiveMovementCard({
 
   const removeMutation = useMutation({
     mutationKey: ['removeAdHocExercise', session.sessionId, movement.id],
+    scope: { id: `session:${session.sessionId}` },
     mutationFn: () =>
       removeAdHocExerciseFn({
-        data: { sessionId: session.sessionId, exerciseLogId: movement.id },
+        data: {
+          sessionId: session.sessionId,
+          exerciseLogId: movement.id,
+          requestId: removeRequest.requestIdFor({ exerciseLogId: movement.id }),
+          expectedStateVersion: session.stateVersion,
+        },
       }),
     onError: (error) => {
       notifications.show({
@@ -82,9 +93,13 @@ export function LiveMovementCard({
       })
     },
     onSuccess: (nextSession) => {
+      removeRequest.clearRequest()
       setRemoveOpen(false)
-      queryClient.setQueryData(['session', session.sessionId], nextSession)
-      queryClient.setQueryData(['today'], (current: any) =>
+      queryClient.setQueryData(
+        accountQueryKeys.session(userId, session.sessionId),
+        nextSession,
+      )
+      queryClient.setQueryData(accountQueryKeys.today(userId), (current: any) =>
         current ? { ...current, activeSession: nextSession } : current,
       )
     },

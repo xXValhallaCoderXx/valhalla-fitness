@@ -1,4 +1,4 @@
-import type { ConsistencySummary, WeeklyCount } from '~/shared/types'
+import type { ConsistencySummary, WeeklyCount } from '~/domains/history'
 import {
   formatDateKey,
   formatWeekLabel,

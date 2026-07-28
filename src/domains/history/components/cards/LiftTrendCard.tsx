@@ -1,7 +1,14 @@
 import { LineChart } from '@mantine/charts'
 import { Badge } from '@mantine/core'
 import { formatCompactDate } from '~/shared/lib/dates'
-import type { E1rmPoint, E1rmTrendSignal, HistoryInsights, InsightGating, LiftE1rmSeries, RepMaxBest } from '~/shared/types'
+import type {
+  E1rmPoint,
+  E1rmTrendSignal,
+  HistoryInsights,
+  InsightGating,
+  LiftE1rmSeries,
+  RepMaxBest,
+} from '~/domains/history'
 import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
 import { classifyE1rmTrend, computeVelocity, detectStall, e1rmTrendLabels, estimatedMaxExplanation } from '~/domains/history/lib/strength'
 import { Caption, Heading, InfoHint, Panel, SectionLabel, StatValue, Text } from '~/components'

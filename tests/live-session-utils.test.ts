@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { MovementSlot, PreviousComparable, SetLog } from '../src/shared/types'
+import type { MovementSlot, PreviousComparable, SetLog } from '~/domains/session'
 import { formatPreviousShort, previousSetShort, resolveSetRir, seedLoadForSet, seedRepsForSet } from '../src/domains/session/components/live-session-utils'
 
 function previous(extra: Partial<PreviousComparable> = {}): PreviousComparable {

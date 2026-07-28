@@ -3,19 +3,24 @@ import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { movementSwapOptionsQueryOptions } from '~/domains/session/queries'
 import { patchMovementInSession } from '~/domains/session/lib/session-cache'
 import { substituteMovementFn } from '~/domains/session/server/session-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import type {
-  MovementSlot,
-  MovementSwapOption,
-  SubstitutionReason,
-  SwapScope,
-  WorkoutSession,
-} from '~/shared/types'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
+import { useStableMutationRequest } from '~/domains/session/lib/useStableMutationRequest'
+import type { MovementSwapOption, SwapScope } from '~/domains/movement'
+import type { MovementSlot, SubstitutionReason, WorkoutSession } from '~/domains/session'
 import { HistoryStatus, RolePill } from './LiveSessionControls'
-import { defaultFieldStyles, defaultSelectStyles, insetFieldStyles } from './form-styles'
+import {
+  defaultFieldStyles,
+  defaultSelectStyles,
+  insetFieldStyles,
+  movementSwapModalClassNames,
+  movementSwapModalStyles,
+  movementSwapScopeCheckboxStyles,
+} from './form-styles'
 import { phaseScopeLabel, substitutionReasons } from './live-session-utils'
 import { MovementSwapOptionRow } from './MovementSwapOptionRow'
 
@@ -30,7 +35,10 @@ export function MovementSwapModal({
   movement: MovementSlot
   onClose: () => void
 }) {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
+  const swapRequest = useStableMutationRequest()
+  const sessionKey = accountQueryKeys.session(userId, session.sessionId)
   const [search, setSearch] = useState('')
   const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null)
   const [reason, setReason] = useState<SubstitutionReason>('equipment_missing')
@@ -38,7 +46,7 @@ export function MovementSwapModal({
   const [note, setNote] = useState('')
 
   const optionsQuery = useQuery({
-    ...movementSwapOptionsQueryOptions(session.sessionId, movement.id),
+    ...movementSwapOptionsQueryOptions(userId, session.sessionId, movement.id),
     enabled: open && movement.role !== 'main',
   })
   const options = useMemo(() => optionsQuery.data ?? [], [optionsQuery.data])
@@ -63,6 +71,7 @@ export function MovementSwapModal({
 
   const mutation = useMutation({
     mutationKey: ['substituteMovement', session.sessionId, movement.id],
+    scope: { id: `session:${session.sessionId}` },
     mutationFn: (input: {
       option: MovementSwapOption
       reason: SubstitutionReason
@@ -77,14 +86,22 @@ export function MovementSwapModal({
           reason: input.reason,
           note: input.note,
           scope: input.scope,
+          requestId: swapRequest.requestIdFor({
+            exerciseLogId: movement.id,
+            performedMovementId: input.option.movementId,
+            reason: input.reason,
+            note: input.note ?? null,
+            scope: input.scope,
+          }),
+          expectedStateVersion: session.stateVersion,
         },
       }),
     onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: ['session', session.sessionId] })
-      const previous = queryClient.getQueryData<WorkoutSession>(['session', session.sessionId])
+      await queryClient.cancelQueries({ queryKey: sessionKey })
+      const previous = queryClient.getQueryData<WorkoutSession>(sessionKey)
       if (previous) {
         queryClient.setQueryData(
-          ['session', session.sessionId],
+          sessionKey,
           patchMovementInSession(previous, {
             exerciseLogId: movement.id,
             performedMovementId: input.option.movementId,
@@ -95,7 +112,9 @@ export function MovementSwapModal({
       return { previous }
     },
     onError: (error, _input, context) => {
-      if (context?.previous) queryClient.setQueryData(['session', session.sessionId], context.previous)
+      if (context?.previous) {
+        queryClient.setQueryData(sessionKey, context.previous)
+      }
       notifications.show({
         color: 'danger',
         title: 'Movement not swapped',
@@ -103,15 +122,18 @@ export function MovementSwapModal({
       })
     },
     onSuccess: async (nextSession, input) => {
-      queryClient.setQueryData(['session', session.sessionId], nextSession)
-      queryClient.setQueryData(['today'], (current: any) =>
+      swapRequest.clearRequest()
+      queryClient.setQueryData(sessionKey, nextSession)
+      queryClient.setQueryData(accountQueryKeys.today(userId), (current: any) =>
         current ? { ...current, activeSession: nextSession } : current,
       )
-      await queryClient.invalidateQueries({ queryKey: ['movementSwapOptions', session.sessionId, movement.id] })
+      await queryClient.invalidateQueries({
+        queryKey: accountQueryKeys.movementSwapOptions(userId, session.sessionId, movement.id),
+      })
       if (input.scope === 'phase_slot') {
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['today'] }),
-          queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
+          queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) }),
+          queryClient.invalidateQueries({ queryKey: accountQueryKeys.activeProgram(userId) }),
         ])
       }
       notifications.show({
@@ -144,33 +166,8 @@ export function MovementSwapModal({
       closeOnClickOutside={!mutation.isPending}
       closeOnEscape={!mutation.isPending}
       withCloseButton={!mutation.isPending}
-      classNames={{
-        inner: '!items-end !p-0 sm:!items-center sm:!p-4',
-        content: '!mb-0 !max-h-[92dvh] !w-full !overflow-hidden !rounded-b-none sm:!mb-auto sm:!max-w-[60rem] sm:!rounded-2xl',
-        body: '!max-h-[calc(92dvh-4rem)] !overflow-y-auto',
-      }}
-      styles={{
-        content: {
-          border: '1px solid var(--mantine-color-default-border)',
-          backgroundColor: 'var(--mantine-color-default)',
-          color: 'var(--mantine-color-text)',
-        },
-        header: {
-          backgroundColor: 'var(--mantine-color-default)',
-          color: 'var(--mantine-color-text)',
-        },
-        title: {
-          color: 'var(--mantine-color-text)',
-          fontSize: 'var(--mantine-font-size-lg)',
-          fontWeight: 700,
-        },
-        body: {
-          color: 'var(--mantine-color-text)',
-        },
-        close: {
-          color: 'var(--mantine-color-dimmed)',
-        },
-      }}
+      classNames={movementSwapModalClassNames}
+      styles={movementSwapModalStyles}
     >
       {/* minmax(0,1fr): an auto track would size to the widest row's intrinsic
           width and overflow narrow screens. */}
@@ -247,16 +244,7 @@ export function MovementSwapModal({
               disabled={!canUsePhaseScope || mutation.isPending}
               onChange={(event) => setScope(event.currentTarget.checked ? 'phase_slot' : 'session')}
               label={`Use for this slot for ${phaseLabel.toLowerCase()}`}
-              styles={{
-                label: {
-                  color: 'var(--mantine-color-text)',
-                  fontSize: 'var(--mantine-font-size-sm)',
-                  fontWeight: 600,
-                },
-                input: {
-                  borderColor: 'var(--mantine-color-default-border)',
-                },
-              }}
+              styles={movementSwapScopeCheckboxStyles}
             />
           ) : null}
           <Panel p="sm">

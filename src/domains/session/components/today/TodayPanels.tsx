@@ -1,14 +1,45 @@
-import { Badge } from '@mantine/core'
+import { Badge, Skeleton, VisuallyHidden } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
 import { Caption, CollapsiblePanel, Panel, SectionLabel, Text } from '~/components'
 import { bodyLoadTierLabels, recoverySummaryLine, worstBodyLoadTier } from '~/domains/history/lib/body-load'
 import { streakBadgeLabel } from '~/domains/history/lib/consistency'
-import type { BodyLoadTier, HistoryDashboard, HistoryDashboardWithInsights, ProgramOverview, Unit } from '~/shared/types'
+import type { TodayHistorySupport } from '~/domains/history'
+import type { BodyLoadTier } from '~/domains/history'
+import type { ProgramInstance, ProgramOverview } from '~/domains/program'
+import type { PlannedSession } from '~/domains/session'
+import type { Unit } from '~/shared/types'
+import {
+  ProgramProgressSkeleton,
+  RecoveryCheckSkeleton,
+  UnavailablePanel,
+  WeeklyVolumeSkeleton,
+} from './TodayPanelFeedback'
+
+type AsyncPanelProps = {
+  isPending?: boolean
+  isError?: boolean
+}
 
 /** Habit-loop chip for the Today heroes; renders nothing until a streak is worth celebrating. */
-export function StreakBadge({ history }: { history?: HistoryDashboardWithInsights }) {
-  const label = streakBadgeLabel(history?.insights.consistency)
+export function StreakBadge({
+  history,
+  isPending = false,
+  isError = false,
+}: {
+  history?: TodayHistorySupport
+} & AsyncPanelProps) {
+  if (!history && isPending) {
+    return (
+      <span className="inline-flex" aria-busy="true" data-testid="streak-badge-loading">
+        <Skeleton width={86} height={22} radius="xl" aria-hidden="true" />
+        <VisuallyHidden>Loading workout streak</VisuallyHidden>
+      </span>
+    )
+  }
+  if (!history && isError) return null
+
+  const label = streakBadgeLabel(history?.consistency)
   if (!label) return null
   return (
     <Badge color="warning" variant="light" data-testid="streak-badge">
@@ -19,31 +50,83 @@ export function StreakBadge({ history }: { history?: HistoryDashboardWithInsight
 
 export function ProgramProgressPanel({
   overview,
+  program,
+  plannedSession,
   fallbackWeekLabel,
+  isPending = false,
+  isError = false,
 }: {
   overview?: ProgramOverview
+  program?: ProgramInstance | null
+  plannedSession?: PlannedSession | null
   fallbackWeekLabel?: string
-}) {
-  const progress = overview?.position?.progressPercent ?? null
+} & AsyncPanelProps) {
+  if (!overview && isPending) return <ProgramProgressSkeleton />
+  if (!overview && isError) {
+    return (
+      <UnavailablePanel
+        testId="program-progress-unavailable"
+        title="Program progress"
+        message="Program progress is unavailable right now."
+      />
+    )
+  }
+
+  const activeProgram = overview?.activeProgram ?? program ?? null
+  const definition = activeProgram?.templateDefinition
+  const totalSessions = definition
+    ? definition.durationWeeks * definition.daysPerWeek
+    : 0
+  const progress = overview?.position?.progressPercent ??
+    (activeProgram && totalSessions
+      ? Math.round(((activeProgram.currentWeekIndex + 1) / totalSessions) * 100)
+      : null)
+  const programmeWeekIndex = activeProgram && definition
+    ? ((Math.floor(activeProgram.currentWeekIndex / definition.daysPerWeek) % definition.durationWeeks) + definition.durationWeeks) %
+      definition.durationWeeks
+    : null
+  const phaseLabel = programmeWeekIndex === null
+    ? null
+    : definition?.weeks[programmeWeekIndex]?.phaseLabel ?? null
+  const positionLabel = overview?.position
+    ? `${overview.position.weekLabel} · ${overview.position.phaseLabel}`
+    : plannedSession
+      ? [plannedSession.weekLabel, phaseLabel].filter(Boolean).join(' · ')
+      : fallbackWeekLabel
+        ? `Queued from ${fallbackWeekLabel}.`
+        : null
   return (
     <Panel p="sm">
       <div className="flex items-center justify-between gap-3">
         <SectionLabel>Program</SectionLabel>
-        <Badge color="action">{overview?.activeProgram?.title ?? 'Active'}</Badge>
+        <Badge color="action">{activeProgram?.title ?? 'Active'}</Badge>
       </div>
       <ProgressBar value={progress ?? 0} className="mt-3" />
       <Caption mt="xs">
-        {overview?.position
-          ? `${overview.position.weekLabel} · ${overview.position.phaseLabel}`
-          : fallbackWeekLabel
-            ? `Queued from ${fallbackWeekLabel}.`
-            : 'Program position loads with your dashboard.'}
+        {positionLabel ?? 'Program position is unavailable.'}
       </Caption>
     </Panel>
   )
 }
 
-export function WeeklyVolumePanel({ history }: { history?: HistoryDashboard }) {
+export function WeeklyVolumePanel({
+  history,
+  isPending = false,
+  isError = false,
+}: {
+  history?: TodayHistorySupport
+} & AsyncPanelProps) {
+  if (!history && isPending) return <WeeklyVolumeSkeleton />
+  if (!history && isError) {
+    return (
+      <UnavailablePanel
+        testId="weekly-volume-unavailable"
+        title="Weekly volume"
+        message="Weekly volume is unavailable right now."
+      />
+    )
+  }
+
   const weeks = history?.weeklyVolume.slice(-5) ?? []
   return (
     <Panel p="sm">
@@ -56,7 +139,7 @@ export function WeeklyVolumePanel({ history }: { history?: HistoryDashboard }) {
           className="mt-3"
           values={weeks.map((week) => week.volume)}
           labels={weeks.map((week) => week.weekLabel)}
-          units={history?.overview.units}
+          units={history?.units}
         />
       ) : (
         <Caption mt="xs">Complete sessions to build a volume trend.</Caption>
@@ -72,8 +155,25 @@ const recoveryDotColors: Record<BodyLoadTier, string> = {
   high: 'var(--vf-danger-text)',
 }
 
-export function RecoveryCheckPanel({ history }: { history?: HistoryDashboard }) {
+export function RecoveryCheckPanel({
+  history,
+  isPending = false,
+  isError = false,
+}: {
+  history?: TodayHistorySupport
+} & AsyncPanelProps) {
+  if (!history && isPending) return <RecoveryCheckSkeleton />
+  if (!history && isError) {
+    return (
+      <UnavailablePanel
+        testId="recovery-check-unavailable"
+        title="Recovery check"
+        message="Recovery data is unavailable right now."
+      />
+    )
+  }
   if (!history) return null
+
   const regions = history.bodyLoad.topRegions
   return (
     <CollapsiblePanel

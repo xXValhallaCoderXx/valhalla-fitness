@@ -6,7 +6,7 @@ import { defaultProgramStateDefaults, defaultStateValues, expandPlannedSession, 
 import { getFallbackTemplateDefinition, listFallbackTemplateDefinitions } from '../src/domains/program/lib/template-definitions'
 import { findMissingTemplateMovementIds, validateRequiredState } from '../src/domains/program/lib/template-engine'
 import { validateTemplateDefinition } from '../src/domains/program/lib/template-engine-schema'
-import type { ProgramInstance } from '../src/shared/types'
+import type { ProgramInstance } from '~/domains/program'
 
 const program: ProgramInstance = {
   id: 'program-1',
@@ -18,6 +18,7 @@ const program: ProgramInstance = {
   units: 'kg',
   rounding: 2.5,
   currentWeekIndex: 0,
+  stateVersion: 0,
   customizationStatus: 'default',
   customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
   stateValues: [

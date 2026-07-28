@@ -10,7 +10,8 @@ import {
   type MovementSortKey,
   type SortDir,
 } from '~/domains/history/lib/insights'
-import type { HistoryDashboard, HistoryMovementSummary, Unit } from '~/shared/types'
+import type { HistoryDashboard, HistoryMovementSummary } from '~/domains/history'
+import type { Unit } from '~/shared/types'
 import { Caption, EmptyState, Panel, SectionLabel, Text } from '~/components'
 import { FilterChip, formatBestSetPrimary, formatLoad, formatNumber, historySearchInputStyles } from '../insight-format'
 

@@ -8,7 +8,7 @@ import {
   type FamilyRecommendation,
 } from '~/domains/program/lib/recommend-plan'
 import { cn } from '~/shared/lib/cn'
-import type { ProgramSetupOptions } from '~/shared/types'
+import type { ProgramSetupOptions } from '~/domains/program'
 import { ModalHeader } from './FindMyPlanControls'
 
 /** Result phase — the ranked recommendation with an editable recap and a "typical week" peek. */

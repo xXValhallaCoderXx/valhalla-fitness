@@ -4,7 +4,8 @@ import {
   createDefaultCustomProgramBuilderInput,
   type CustomProgramMethodology,
 } from '../src/domains/program/lib/custom-templates'
-import type { ProgramStateDefaults, Unit, UserProfile } from '../src/shared/types'
+import type { UserProfile } from '~/domains/account'
+import type { ProgramStateDefaults, Unit } from '~/shared/types'
 
 function draftFor(methodology: CustomProgramMethodology, daysPerWeek: number) {
   return createDefaultCustomProgramBuilderInput({ methodology, daysPerWeek })
@@ -18,6 +19,7 @@ function makeProfile(programStateDefaults: ProgramStateDefaults, units: Unit = '
     rounding,
     equipmentProfile: [],
     themePreference: 'system',
+    timezone: null,
     programStateDefaults,
     onboardingCompleted: true,
     liveOnboardingDismissed: true,

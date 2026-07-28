@@ -1,7 +1,7 @@
 import { Clock } from 'lucide-react'
 import { Caption, CollapsiblePanel, SectionLabel, Text } from '~/components'
 import { buildTodayLedgerCaption, buildTodayLedgerRows } from '~/domains/session/lib/today-numbers'
-import type { PlannedSession } from '~/shared/types'
+import type { PlannedSession } from '~/domains/session'
 
 // Sheet-ledger columns: exercise flexes, Sets/Target are fixed numeric columns the eye can run down.
 const LEDGER_GRID = 'grid grid-cols-[minmax(0,1fr)_72px_74px] items-baseline gap-x-2'

@@ -1,5 +1,5 @@
 import { Badge } from '@mantine/core'
-import type { MilestoneSummary } from '~/shared/types'
+import type { MilestoneSummary } from '~/domains/history'
 import { Caption, Panel, SectionLabel } from '~/components'
 
 const MAX_BADGES = 6

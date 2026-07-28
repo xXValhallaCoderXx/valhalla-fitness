@@ -1,5 +1,9 @@
 # Repository Guidelines
 
+This file contains machine-facing implementation instructions. `README.md` is the sole
+human-facing source for product scope, release state, architecture, the DSL, testing, and
+deployment.
+
 ## Project Structure & Module Organization
 
 This is `sheetless`, a TanStack Start/Vite React 19 + TypeScript app backed by Supabase. Code is organized **by domain**, not by file type.
@@ -34,7 +38,11 @@ Where to add new code: put it in the owning domain. Promote to `src/shared/*` on
 - `pnpm test` runs Vitest once; `pnpm test:watch` runs it interactively.
 - `pnpm playwright` runs Playwright tests in `tests/e2e/`.
 - `pnpm db:migrate:local` applies Supabase migrations to the local stack.
+- `pnpm db:test` runs pgTAP database contracts against the local stack.
+- `pnpm db:audit` runs the read-only release-integrity preflight against `SUPABASE_DB_URL`.
 - `pnpm db:migrate:dry-run` previews remote migration changes using `SUPABASE_DB_URL`.
+- `pnpm verify` runs the complete static, unit, build, PWA, bundle, architecture, documentation, and
+  database-contract suite.
 
 ## Coding Style & Naming Conventions
 
@@ -74,3 +82,7 @@ Recent history mixes imperative summaries with Conventional Commit prefixes, for
 ## Security & Configuration Tips
 
 Never commit real secrets. Keep local values in `.env` and mirror required keys in `.env.example`: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `APP_ORIGIN`, and `SUPABASE_DB_URL`. For schema changes, add a new timestamped SQL file under `supabase/migrations/`; do not rewrite applied migrations unless explicitly requested.
+
+Workout saving is online-only. Keep optimistic edits in the account-scoped React Query cache with
+explicit saving/failure/retry states. Do not add a durable local database or offline replay queue
+without an explicit product/architecture decision in `README.md`.

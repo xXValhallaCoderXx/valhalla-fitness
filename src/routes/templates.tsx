@@ -1,6 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { TemplatesPage } from '~/domains/program/components/TemplatesPage'
-import { programOverviewQueryOptions, templatesQueryOptions } from '~/domains/program/queries'
+import {
+  accountTemplatesQueryOptions,
+  programOverviewQueryOptions,
+  publicTemplatesQueryOptions,
+} from '~/domains/program/queries'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { loadRouteQueries, loadRouteQuery } from '~/shared/lib/route-loading'
 
@@ -11,9 +15,17 @@ export const Route = createFileRoute('/templates')({
     find: search.find === true || search.find === 'true' || search.find === 1 || search.find === '1' ? true : undefined,
   }),
   loader: async ({ context }) => {
-    await loadRouteQuery(context.queryClient, templatesQueryOptions())
+    await loadRouteQuery(
+      context.queryClient,
+      context.user
+        ? accountTemplatesQueryOptions(context.user.id)
+        : publicTemplatesQueryOptions(),
+    )
     if (context.user) {
-      await loadRouteQueries(context.queryClient, [todayQueryOptions(), programOverviewQueryOptions()])
+      await loadRouteQueries(context.queryClient, [
+        todayQueryOptions(context.user.id),
+        programOverviewQueryOptions(context.user.id),
+      ])
     }
   },
   component: TemplatesRoute,

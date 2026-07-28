@@ -3,7 +3,7 @@ import { Heading, SectionLabel, Text } from '~/components'
 import type { WorkoutSummaryModel } from '~/domains/history/lib/workout-summary'
 import { AD_HOC_BADGE_LABEL } from '~/domains/session/lib/ad-hoc'
 import { formatFullDate, formatRelativeTime } from '~/shared/lib/dates'
-import type { WorkoutSession } from '~/shared/types'
+import type { WorkoutSession } from '~/domains/session'
 
 export function WorkoutSummaryHero({ model, session }: { model: WorkoutSummaryModel; session: WorkoutSession }) {
   const date = session.completedAt ?? session.scheduledDate

@@ -1,4 +1,5 @@
-import type { MovementRole, MovementSlot } from '~/shared/types'
+import type { MovementSlot } from '~/domains/session'
+import type { MovementRole } from '~/shared/types'
 
 /**
  * Per-role scaling of the user's global default rest. Compounds rest longer than accessories, so

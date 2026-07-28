@@ -3,7 +3,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { ActionIcon } from '@mantine/core'
 import { GripVertical } from 'lucide-react'
 import { Caption, Panel, Text } from '~/components'
-import type { MovementSlot, WorkoutSession } from '~/shared/types'
+import type { MovementSlot, WorkoutSession } from '~/domains/session'
 import { LiveMovementCard } from './LiveMovementCard'
 
 export function SortableAddedMovement({

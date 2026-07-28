@@ -1,4 +1,4 @@
-import type { ProgressionDecision } from '~/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
 
 export type FeedbackSource = (typeof FEEDBACK_SOURCES)[number]
 export type FeedbackAnswer = (typeof FEEDBACK_ANSWERS)[number]

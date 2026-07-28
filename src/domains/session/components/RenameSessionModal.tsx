@@ -2,11 +2,14 @@ import { Button, Modal, TextInput } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { AD_HOC_TITLE_MAX_LENGTH } from '~/domains/session/lib/ad-hoc'
 import { renameSessionFn } from '~/domains/session/server/session-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import type { WorkoutSession } from '~/shared/types'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
+import type { WorkoutSession } from '~/domains/session'
 import { insetFieldStyles } from './form-styles'
+import { useStableMutationRequest } from '~/domains/session/lib/useStableMutationRequest'
 
 export function RenameSessionModal({
   open,
@@ -17,12 +20,22 @@ export function RenameSessionModal({
   session: WorkoutSession
   onClose: () => void
 }) {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
+  const renameRequest = useStableMutationRequest()
   const [title, setTitle] = useState(session.title)
   const mutation = useMutation({
     mutationKey: ['renameSession', session.sessionId],
+    scope: { id: `session:${session.sessionId}` },
     mutationFn: (nextTitle: string) =>
-      renameSessionFn({ data: { sessionId: session.sessionId, title: nextTitle } }),
+      renameSessionFn({
+        data: {
+          sessionId: session.sessionId,
+          title: nextTitle,
+          requestId: renameRequest.requestIdFor({ title: nextTitle.trim() }),
+          expectedStateVersion: session.stateVersion,
+        },
+      }),
     onError: (error) => {
       notifications.show({
         color: 'danger',
@@ -31,8 +44,12 @@ export function RenameSessionModal({
       })
     },
     onSuccess: async (nextSession) => {
-      queryClient.setQueryData(['session', session.sessionId], nextSession)
-      await queryClient.invalidateQueries({ queryKey: ['today'] })
+      renameRequest.clearRequest()
+      queryClient.setQueryData(
+        accountQueryKeys.session(userId, session.sessionId),
+        nextSession,
+      )
+      await queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) })
       onClose()
     },
   })

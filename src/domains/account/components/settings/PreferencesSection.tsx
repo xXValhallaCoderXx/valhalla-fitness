@@ -1,7 +1,8 @@
 import { SegmentedControl } from '@mantine/core'
 import { Monitor, Moon, SlidersHorizontal, Sun } from 'lucide-react'
 import { Caption, Panel, SectionLabel } from '~/components'
-import type { ThemePreference, Unit } from '~/shared/types'
+import type { ThemePreference } from '~/domains/account'
+import type { Unit } from '~/shared/types'
 import { SettingsSection } from './SettingsSection'
 
 const themeOptions: Array<{

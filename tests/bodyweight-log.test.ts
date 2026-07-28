@@ -24,6 +24,16 @@ describe('normalizeBodyweightLog', () => {
     expect(normalizeBodyweightLog({ weight: 80, unit: 'kg' }, '2026-07-05T23:59:59.000Z').recordedOn).toBe('2026-07-05')
   })
 
+  it('uses the stored profile timezone for the default calendar date', () => {
+    expect(
+      normalizeBodyweightLog(
+        { weight: 80, unit: 'kg' },
+        '2026-07-05T16:30:00.000Z',
+        'Asia/Singapore',
+      ).recordedOn,
+    ).toBe('2026-07-06')
+  })
+
   it('rejects weights at or below 20 kg', () => {
     expect(() => normalizeBodyweightLog({ weight: 20, unit: 'kg' }, now)).toThrow(/between 20 and 500 kg/)
     expect(() => normalizeBodyweightLog({ weight: 12, unit: 'kg' }, now)).toThrow(/between 20 and 500 kg/)
@@ -45,6 +55,9 @@ describe('normalizeBodyweightLog', () => {
       /YYYY-MM-DD/,
     )
     expect(() => normalizeBodyweightLog({ weight: 80, unit: 'kg', recordedOn: '2026-13-40' }, now)).toThrow(
+      /YYYY-MM-DD/,
+    )
+    expect(() => normalizeBodyweightLog({ weight: 80, unit: 'kg', recordedOn: '2026-02-29' }, now)).toThrow(
       /YYYY-MM-DD/,
     )
   })

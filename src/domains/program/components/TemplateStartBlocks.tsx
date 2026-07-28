@@ -6,7 +6,7 @@ import {
   type TemplatePhase,
   type TemplateStructureMode,
 } from '~/domains/program/lib/template-start-phases'
-import type { ProgramSetupPreviewWeek } from '~/shared/types'
+import type { ProgramSetupPreviewWeek } from '~/domains/program'
 
 /** "Base phase" → "Base". */
 function shortPhaseName(label: string) {

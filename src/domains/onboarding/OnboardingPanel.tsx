@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { ConfirmDialog } from '~/components'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { meQueryOptions } from '~/domains/account/queries'
 import { completeOnboardingFn } from '~/domains/account/server/profile-functions'
-import { historyDashboardQueryOptions } from '~/domains/history/queries'
+import { todayHistorySupportQueryOptions } from '~/domains/history/queries'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { track } from '~/shared/lib/analytics'
-import type { UserProfile } from '~/shared/types'
+import type { UserProfile } from '~/domains/account'
 import { buildOnboardingProgress } from './onboarding-progress'
 import { GettingStartedCard } from './GettingStartedCard'
 import { useOnboardingActive } from './useOnboardingActive'
@@ -21,19 +22,27 @@ const autorunKey = (userId: string) => `sheetless.onboardingTourAutorun.${userId
  * `?onboarding=force` / `?tour=1` (handy for QA, replay, and e2e).
  */
 export function OnboardingPanel() {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
-  const me = useQuery(meQueryOptions()).data
+  const profileOptions = meQueryOptions(userId)
+  const me = useQuery(profileOptions).data
   const { active, forced } = useOnboardingActive()
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const todayQuery = useQuery({ ...todayQueryOptions(), enabled: active })
-  const historyQuery = useQuery({ ...historyDashboardQueryOptions(), enabled: active })
+  const todayQuery = useQuery({ ...todayQueryOptions(userId), enabled: active })
+  const historyQuery = useQuery({
+    ...todayHistorySupportQueryOptions(userId),
+    enabled: active,
+  })
   const { start } = useOnboardingTour()
 
   const completeMutation = useMutation({
     mutationFn: () => completeOnboardingFn(),
     onSuccess: (profile) => {
-      queryClient.setQueryData<UserProfile | null>(['me'], profile ?? null)
+      queryClient.setQueryData<UserProfile | null>(
+        profileOptions.queryKey,
+        profile ?? null,
+      )
       // Under ?onboarding=force the panel stays mounted, so close the dialog explicitly.
       setConfirmOpen(false)
     },
@@ -42,22 +51,22 @@ export function OnboardingPanel() {
   // Auto-run the tour once per user+device for genuine new users (not when forced, so
   // tests/replay drive it explicitly).
   const autoRan = useRef(false)
-  const userId = me?.id
+  const profileId = me?.id
   useEffect(() => {
-    if (!active || forced || !userId || autoRan.current || typeof window === 'undefined') return
-    if (window.localStorage.getItem(autorunKey(userId))) return
+    if (!active || forced || !profileId || autoRan.current || typeof window === 'undefined') return
+    if (window.localStorage.getItem(autorunKey(profileId))) return
     autoRan.current = true
-    window.localStorage.setItem(autorunKey(userId), '1')
+    window.localStorage.setItem(autorunKey(profileId), '1')
     const timer = window.setTimeout(() => start(), 600)
     return () => window.clearTimeout(timer)
-  }, [active, forced, userId, start])
+  }, [active, forced, profileId, start])
 
   if (!active) return null
 
   const progress = buildOnboardingProgress({
     hasActiveProgram: Boolean(todayQuery.data?.activeProgram),
     programStateDefaults: me?.programStateDefaults ?? {},
-    completedSessions: historyQuery.data?.overview.completedSessions ?? 0,
+    completedSessions: historyQuery.data?.hasCompletedSessions ? 1 : 0,
   })
 
   // "Don't show again" asks for confirmation; "Done" (every step complete) dismisses directly.

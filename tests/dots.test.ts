@@ -9,7 +9,8 @@ import {
   resolveStrengthScore,
   strengthScoreKindLabels,
 } from '../src/domains/history/lib/dots'
-import type { BodyweightEntry, StrengthScoreKind, TotalPoint } from '../src/shared/types'
+import type { BodyweightEntry } from '~/domains/account'
+import type { StrengthScoreKind, TotalPoint } from '~/domains/history'
 
 function bwEntry(partial: Partial<BodyweightEntry> = {}): BodyweightEntry {
   return {

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRouterState } from '@tanstack/react-router'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { meQueryOptions } from '~/domains/account/queries'
-import { historyDashboardQueryOptions } from '~/domains/history/queries'
+import { todayHistorySupportQueryOptions } from '~/domains/history/queries'
 
 /**
  * Single source of truth for whether first-run onboarding should show — shared by the
@@ -12,16 +13,20 @@ import { historyDashboardQueryOptions } from '~/domains/history/queries'
  * `pending` covers the history-load window so consumers don't flash alternate UI.
  */
 export function useOnboardingActive(): { active: boolean; forced: boolean; pending: boolean } {
-  const me = useQuery(meQueryOptions()).data
+  const userId = useRequiredAccountId()
+  const me = useQuery(meQueryOptions(userId)).data
   const search = useRouterState({ select: (state) => state.location.search as Record<string, unknown> })
   // `String(...)` guards against TanStack coercing `?tour=1` to the number 1.
   const forced = search.onboarding === 'force' || String(search.tour) === '1'
   const notCompleted = me?.onboardingCompleted === false
   // Enabled by the flag, not by `active` (circular) — users who completed onboarding never fetch.
-  const historyQuery = useQuery({ ...historyDashboardQueryOptions(), enabled: Boolean(me) && notCompleted })
+  const historyQuery = useQuery({
+    ...todayHistorySupportQueryOptions(userId),
+    enabled: Boolean(me) && notCompleted,
+  })
 
   const neverTrained = historyQuery.isSuccess
-    ? historyQuery.data.overview.completedSessions === 0
+    ? !historyQuery.data.hasCompletedSessions
     : // If history can't load, fall back to the flag alone so onboarding can't vanish for new users.
       historyQuery.isError
 

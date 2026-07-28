@@ -2,7 +2,8 @@ import { ActionIcon, Button, Checkbox, Select, TextInput } from '@mantine/core'
 import { Info } from 'lucide-react'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
 import { accessoryProgressionOptions } from '~/domains/session/lib/accessories'
-import type { AccessoryProgressionMethod, SwapScope } from '~/shared/types'
+import type { SwapScope } from '~/domains/movement'
+import type { AccessoryProgressionMethod } from '~/domains/program'
 import { defaultFieldStyles, defaultSelectStyles } from './form-styles'
 
 type AddAccessoryConfigPanelProps = {

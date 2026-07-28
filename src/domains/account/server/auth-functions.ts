@@ -1,4 +1,11 @@
 import { createServerFn } from '@tanstack/react-start'
+import {
+  emailAuthInputSchema,
+  exchangeCodeInputSchema,
+  passwordAuthInputSchema,
+  setSessionFromTokensInputSchema,
+  verifyEmailOtpInputSchema,
+} from '~/domains/account/lib/schemas'
 import { type AuthPolicy, authDisabledResultMessage, getAuthPolicy } from '~/shared/lib/auth-config'
 import { isEmailAllowed, normalizeEmail, resolveMagicLinkDecision } from './allowlist'
 
@@ -146,7 +153,7 @@ export const startGoogleSignInFn = createServerFn({ method: 'POST' }).handler(
 )
 
 export const signInWithPasswordFn = createServerFn({ method: 'POST' })
-  .validator((data: { email: string; password: string }) => data)
+  .validator((data) => passwordAuthInputSchema.parse(data))
   .handler(async ({ data }) => {
     if (!resolveServerAuthPolicy().passwordSignInEnabled) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
@@ -158,7 +165,7 @@ export const signInWithPasswordFn = createServerFn({ method: 'POST' })
   })
 
 export const signUpWithPasswordFn = createServerFn({ method: 'POST' })
-  .validator((data: { email: string; password: string }) => data)
+  .validator((data) => passwordAuthInputSchema.parse(data))
   .handler(async ({ data }) => {
     if (!resolveServerAuthPolicy().passwordSignUpEnabled) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
@@ -176,7 +183,7 @@ export const signUpWithPasswordFn = createServerFn({ method: 'POST' })
   })
 
 export const sendMagicLinkFn = createServerFn({ method: 'POST' })
-  .validator((data: { email: string }) => data)
+  .validator((data) => emailAuthInputSchema.parse(data))
   .handler(async ({ data }): Promise<MagicLinkResult> => {
     const policy = resolveServerAuthPolicy()
     const origin = process.env.APP_ORIGIN ?? 'http://localhost:3000'
@@ -207,7 +214,7 @@ export const sendMagicLinkFn = createServerFn({ method: 'POST' })
   })
 
 export const resetPasswordFn = createServerFn({ method: 'POST' })
-  .validator((data: { email: string }) => data)
+  .validator((data) => emailAuthInputSchema.parse(data))
   .handler(async ({ data }) => {
     if (!resolveServerAuthPolicy().passwordResetEnabled) return AUTH_DISABLED_RESULT
     const supabase = await getSupabaseServerClient()
@@ -219,7 +226,7 @@ export const resetPasswordFn = createServerFn({ method: 'POST' })
   })
 
 export const exchangeCodeForSessionFn = createServerFn({ method: 'POST' })
-  .validator((data: { code: string }) => data)
+  .validator((data) => exchangeCodeInputSchema.parse(data))
   .handler(async ({ data }) => {
     const supabase = await getSupabaseServerClient()
     const { error } = await supabase.auth.exchangeCodeForSession(data.code)
@@ -227,7 +234,7 @@ export const exchangeCodeForSessionFn = createServerFn({ method: 'POST' })
   })
 
 export const verifyEmailOtpFn = createServerFn({ method: 'POST' })
-  .validator((data: { tokenHash: string; type: string }) => data)
+  .validator((data) => verifyEmailOtpInputSchema.parse(data))
   .handler(async ({ data }) => {
     const supabase = await getSupabaseServerClient()
     const { error } = await supabase.auth.verifyOtp({
@@ -238,7 +245,7 @@ export const verifyEmailOtpFn = createServerFn({ method: 'POST' })
   })
 
 export const setSessionFromTokensFn = createServerFn({ method: 'POST' })
-  .validator((data: { accessToken: string; refreshToken: string }) => data)
+  .validator((data) => setSessionFromTokensInputSchema.parse(data))
   .handler(async ({ data }) => {
     const supabase = await getSupabaseServerClient()
     const { error } = await supabase.auth.setSession({

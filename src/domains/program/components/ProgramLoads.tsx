@@ -1,6 +1,6 @@
 import { Badge, Card, Group, SimpleGrid } from '@mantine/core'
 import { Caption, Panel, SectionLabel, StatValue, Text } from '~/components'
-import type { ProgramInstance, ProgramOverview, ProgramStateOverview } from '~/shared/types'
+import type { ProgramInstance, ProgramOverview, ProgramStateOverview } from '~/domains/program'
 import { formatRelativeTime } from '~/shared/lib/dates'
 import { ProgramInfoHint } from './ProgramInfoHint'
 

@@ -1,4 +1,4 @@
-import type { MovementSlot, SetLog } from '~/shared/types'
+import type { MovementSlot, SetLog } from '~/domains/session'
 
 /**
  * Self-contained mock data for the marketing "Built for between sets" demo. The demo renders the

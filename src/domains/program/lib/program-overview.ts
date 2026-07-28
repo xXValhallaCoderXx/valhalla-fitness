@@ -1,5 +1,5 @@
+import type { BodyLoadSummary } from '~/domains/history'
 import type {
-  BodyLoadSummary,
   ProgramAccessoryPlan,
   ProgramInstance,
   ProgramOverview,
@@ -7,8 +7,8 @@ import type {
   ProgramSessionStamp,
   ProgramStateOverview,
   ProgressionDecision,
-  TodayPayload,
-} from '~/shared/types'
+} from '~/domains/program'
+import type { TodayPayload } from '~/domains/session'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { buildProgramTimeline } from '~/domains/program/lib/program-timeline'
 import { expandPlannedSession } from '~/domains/program/lib/templates'

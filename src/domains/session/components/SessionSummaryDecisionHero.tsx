@@ -3,7 +3,8 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight, Check, ChevronRight, Minus, TrendingUp } from 'lucide-react'
 import { Caption, Heading, Panel, Text } from '~/components'
 import { decisionUpdate, type DecisionUpdate } from '~/domains/session/lib/summary-decisions'
-import type { ProgressionDecision, Unit } from '~/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
+import type { Unit } from '~/shared/types'
 
 export type DecidedState = 'applied' | 'kept'
 

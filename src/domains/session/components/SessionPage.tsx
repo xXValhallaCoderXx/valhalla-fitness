@@ -2,24 +2,34 @@ import { useIsMutating, useMutation, useQuery } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
+import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { sessionQueryOptions, todayQueryOptions } from '~/domains/session/queries'
 import { finishSessionFn } from '~/domains/session/server/session-functions'
 import { isSessionMutationKey } from '~/domains/session/lib/session-mutations'
+import { useStableMutationRequest } from '~/domains/session/lib/useStableMutationRequest'
 import { buildFocusSessionSteps, buildLiveSessionSteps } from '~/domains/onboarding/onboarding-tour'
 import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
-import type { WorkoutSession } from '~/shared/types'
+import type { WorkoutSession } from '~/domains/session'
 import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
 import { cn } from '~/shared/lib/cn'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
 import { FinishSessionModal, type FinishReflection } from './FinishSessionModal'
 import { DiscardWorkoutDialog } from './DiscardWorkoutDialog'
 import { LiveSessionFrame } from './LiveSession'
 import { LiveFocusView } from './LiveFocusView'
 import { RestTimerProvider } from './RestTimerProvider'
 
-export function SessionPage({ sessionId, user }: { sessionId: string; user: unknown }) {
+export function SessionPage({
+  sessionId,
+  user,
+}: {
+  sessionId: string
+  user: AuthUser | null
+}) {
   const sessionQuery = useQuery({
-    ...sessionQueryOptions(sessionId),
+    ...sessionQueryOptions(user?.id ?? '', sessionId),
     enabled: Boolean(user),
   })
 
@@ -45,6 +55,8 @@ function LoadedSessionRoute({
   sessionId: string
 }) {
   const router = useRouter()
+  const userId = useRequiredAccountId()
+  const finishRequest = useStableMutationRequest()
   const [notes, setNotes] = useState(session.notes ?? '')
   const [finishError, setFinishError] = useState<string | null>(null)
   const [showFinishModal, setShowFinishModal] = useState(false)
@@ -100,12 +112,14 @@ function LoadedSessionRoute({
 
   const finishMutation = useMutation({
     mutationKey: ['finishSession', sessionId],
-    mutationFn: (reflection: FinishReflection) =>
-      finishSessionFn({ data: { sessionId, notes, ...reflection } }),
+    scope: { id: `session:${sessionId}` },
+    mutationFn: ({ reflection, requestId }: { reflection: FinishReflection; requestId: string }) =>
+      finishSessionFn({ data: { sessionId, requestId, notes, ...reflection } }),
     onMutate: () => {
       setFinishError(null)
     },
     onSuccess: async (summary) => {
+      finishRequest.clearRequest()
       const queryClient = router.options.context.queryClient
       notifications.show({
         color: 'success',
@@ -114,20 +128,23 @@ function LoadedSessionRoute({
           session.isAdHoc ? 'Logged to your history.' : 'Your next session is ready.'
         }`,
       })
-      queryClient.setQueryData(['summary', sessionId], summary)
-      queryClient.setQueryData(['session', sessionId], summary.session)
+      queryClient.setQueryData(accountQueryKeys.summary(userId, sessionId), summary)
+      queryClient.setQueryData(
+        accountQueryKeys.session(userId, sessionId),
+        summary.session,
+      )
       // Cache refreshes are best-effort: the session is already finished on the
       // server, so a failed refetch must never strand the user in the finish
       // modal — always reach the summary.
       try {
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['today'] }),
-          queryClient.invalidateQueries({ queryKey: ['history'] }),
-          queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
+          queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) }),
+          queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(userId) }),
+          queryClient.invalidateQueries({ queryKey: accountQueryKeys.program(userId) }),
         ])
-        await queryClient.fetchQuery(todayQueryOptions())
+        await queryClient.fetchQuery(todayQueryOptions(userId))
       } catch {
-        void queryClient.invalidateQueries({ queryKey: ['today'] })
+        void queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) })
       }
       await router.navigate({ to: '/sessions/$sessionId/summary', params: { sessionId } })
     },
@@ -157,7 +174,16 @@ function LoadedSessionRoute({
 
   const confirmFinish = (reflection: FinishReflection) => {
     if (finishMutation.isPending) return
-    finishMutation.mutate(reflection, { onSuccess: () => setShowFinishModal(false) })
+    finishMutation.mutate(
+      {
+        reflection,
+        requestId: finishRequest.requestIdFor({
+          notes: notes.trim() || null,
+          ...reflection,
+        }),
+      },
+      { onSuccess: () => setShowFinishModal(false) },
+    )
   }
 
   return (

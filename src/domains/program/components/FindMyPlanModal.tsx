@@ -1,8 +1,9 @@
 import { Modal } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
-import { programSetupOptionsQueryOptions } from '~/domains/program/queries'
-import type { ProgramTemplateSummary } from '~/shared/types'
+import { useAccountId } from '~/domains/account/components/AccountIdentityProvider'
+import { availableProgramSetupOptionsQueryOptions } from '~/domains/program/queries'
+import type { ProgramTemplateSummary } from '~/domains/program'
 import { type WizardAnswers } from '~/domains/program/lib/find-my-plan'
 import {
   FIND_MY_PLAN_QUESTIONS,
@@ -70,9 +71,10 @@ export function FindMyPlanModal({
   const activeIndex = Math.min(selected, Math.max(0, recs.length - 1))
   const activeRec = recs[activeIndex]
   const goodFits = recs.map((rec, index) => ({ rec, index })).filter((entry) => entry.index !== activeIndex).slice(0, 2)
+  const userId = useAccountId()
 
   const weekQuery = useQuery({
-    ...programSetupOptionsQueryOptions(activeRec?.template.id ?? ''),
+    ...availableProgramSetupOptionsQueryOptions(userId, activeRec?.template.id ?? ''),
     enabled: phase === 'result' && Boolean(activeRec),
   })
   const weekSessions = weekQuery.data?.previewWeeks?.[0]?.sessions ?? []

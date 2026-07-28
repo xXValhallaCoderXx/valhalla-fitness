@@ -2,7 +2,7 @@ import { Badge, Card, Group } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
 import { Caption, SectionLabel, Text } from '~/components'
-import type { ProgramOverview } from '~/shared/types'
+import type { ProgramOverview } from '~/domains/program'
 import { formatCompactDate, formatRelativeTime } from '~/shared/lib/dates'
 
 export function RecentProgramSessions({ overview }: { overview: ProgramOverview }) {

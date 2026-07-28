@@ -1,4 +1,5 @@
-import type { ProgressionDecision, SetLog, SetTarget } from '~/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
+import type { SetLog, SetTarget } from '~/domains/session'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { e1rm, mround } from '~/shared/lib/math'
 

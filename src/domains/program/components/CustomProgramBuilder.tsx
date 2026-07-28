@@ -4,12 +4,13 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Check, ChevronLeft, ChevronRight, Wand2, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Heading, Text } from '~/components'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { meQueryOptions } from '~/domains/account/queries'
 import { evaluateCustomProgramDraft, hasBlockingIssue } from '~/domains/program/lib/custom-builder-guidance'
 import { customBuilderStepsFor, type CustomBuilderStep } from '~/domains/program/lib/custom-builder-ui'
 import { createCustomProgramTemplateFn } from '~/domains/program/server/program-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import type { ProgramTemplateSummary } from '~/shared/types'
+import type { ProgramTemplateSummary } from '~/domains/program'
 import { issuesForChecks } from './custom-builder/CustomBuilderGuidance'
 import { BuilderStepNavigation, CurrentPlanSummary } from './custom-builder/CustomBuilderChrome'
 import { CustomAccessoriesStep } from './custom-builder/CustomAccessoriesStep'
@@ -28,6 +29,7 @@ export function CustomProgramBuilder({
   onClose: () => void
   onCreated: (template: ProgramTemplateSummary) => void | Promise<void>
 }) {
+  const userId = useRequiredAccountId()
   const [step, setStep] = useState<CustomBuilderStep>('methodology')
   const {
     draft,
@@ -64,7 +66,7 @@ export function CustomProgramBuilder({
     if (next) setStep(next.id)
   }
 
-  const meQuery = useQuery(meQueryOptions())
+  const meQuery = useQuery(meQueryOptions(userId))
   const issues = useMemo(() => evaluateCustomProgramDraft(draft), [draft])
   const canCreate = !hasBlockingIssue(issues)
 

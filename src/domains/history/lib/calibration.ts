@@ -3,7 +3,7 @@ import type {
   CalibrationSummary,
   RirFatigueSignal,
   WeeklyRirSample,
-} from '~/shared/types'
+} from '~/domains/history'
 import {
   formatDateKey,
   formatWeekLabel,

@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import type { AccessoryMovementOption, Movement, MovementReplacementRule } from '~/shared/types'
+import type { AccessoryMovementOption, Movement, MovementReplacementRule } from '~/domains/movement'
 import type { Tables } from '~/shared/types/database'
 import type { SupabaseServerClient } from '~/shared/server/supabase'
 import { defaultMovementReplacementRules, movementCatalog } from '~/domains/movement/lib/movements'

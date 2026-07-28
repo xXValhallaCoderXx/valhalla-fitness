@@ -1,4 +1,6 @@
-import type { BodyweightEntry, HistoryDashboard, HistoryInsights, Movement, Sex } from '~/shared/types'
+import type { BodyweightEntry, Sex } from '~/domains/account'
+import type { HistoryDashboard, HistoryInsights } from '~/domains/history'
+import type { Movement } from '~/domains/movement'
 import { buildWeeklyVolumeBuckets, type HistorySessionInput } from '~/domains/history/lib/history'
 import { buildLiftE1rmSeries, buildPowerliftingTotal } from '~/domains/history/lib/strength'
 import { decorateTotalPoints, nearestBodyweight, resolveStrengthScore } from '~/domains/history/lib/dots'

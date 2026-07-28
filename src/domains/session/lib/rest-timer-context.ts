@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { MovementSlot } from '~/shared/types'
+import type { MovementSlot } from '~/domains/session'
 
 export type RestTimerControls = {
   /** Start (or restart) the rest countdown for a just-completed set of this slot. */

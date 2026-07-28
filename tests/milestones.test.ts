@@ -5,7 +5,7 @@ import {
   MILESTONE_TONNAGE,
   buildMilestones,
 } from '../src/domains/history/lib/milestones'
-import type { Unit } from '../src/shared/types'
+import type { Unit } from '~/shared/types'
 
 type MilestoneInput = { tonnage: number; sessions: number; sets: number; units: Unit | null }
 

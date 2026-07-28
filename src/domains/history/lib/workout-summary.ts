@@ -1,4 +1,5 @@
-import type { MovementRole, SetLog, Unit, WorkoutSession } from '~/shared/types'
+import type { SetLog, WorkoutSession } from '~/domains/session'
+import type { MovementRole, Unit } from '~/shared/types'
 import { e1rm } from '~/shared/lib/math'
 import { formatWeight } from '~/shared/lib/set-notation'
 

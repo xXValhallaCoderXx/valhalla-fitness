@@ -3,7 +3,7 @@ import { Check, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { Caption, SectionLabel, Text } from '~/components'
 import { useSetLogMutation } from '~/domains/session/lib/useSetLogMutation'
-import type { MovementSlot, SetLog, WorkoutSession } from '~/shared/types'
+import type { MovementSlot, SetLog, WorkoutSession } from '~/domains/session'
 import { FocusRirRow } from './FocusRirRow'
 import { FocusStepper } from './FocusStepper'
 import { formatSetTarget, previousSetShort, roundToStep, seedLoadForSet, seedRepsForSet } from './live-session-utils'
@@ -58,7 +58,7 @@ export function FocusSetCard({
         actualReps: Number(draft.actualReps),
         actualRir: effectiveActualRir,
         completed,
-        clientMutationId: crypto.randomUUID(),
+        clientMutationId: saveFailed ? set.clientMutationId ?? crypto.randomUUID() : crypto.randomUUID(),
       },
       { onSuccess: (nextSession) => onLogged(nextSession, set.setIndex) },
     )

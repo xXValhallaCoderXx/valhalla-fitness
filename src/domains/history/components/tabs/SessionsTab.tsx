@@ -9,7 +9,7 @@ import {
   type SessionFilter,
 } from '~/domains/history/lib/insights'
 import { AD_HOC_BADGE_LABEL } from '~/domains/session/lib/ad-hoc'
-import type { RecentHistoryEntry } from '~/shared/types'
+import type { RecentHistoryEntry } from '~/domains/history'
 import { Caption, EmptyState, Panel, Text } from '~/components'
 import { ACCENT_SOFT, ACCENT_TEXT, FilterChip, historySearchInputStyles } from '../insight-format'
 

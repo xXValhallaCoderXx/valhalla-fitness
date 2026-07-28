@@ -5,7 +5,7 @@ import { loadRouteQuery } from '~/shared/lib/route-loading'
 export const Route = createFileRoute('/sessions/$sessionId')({
   loader: async ({ context, params }) => {
     if (context.user) {
-      await loadRouteQuery(context.queryClient, sessionQueryOptions(params.sessionId))
+      await loadRouteQuery(context.queryClient, sessionQueryOptions(context.user.id, params.sessionId))
     }
   },
   component: SessionLayout,

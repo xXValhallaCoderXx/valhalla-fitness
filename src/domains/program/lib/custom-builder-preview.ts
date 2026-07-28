@@ -1,4 +1,5 @@
-import type { Unit, UserProfile } from '~/shared/types'
+import type { UserProfile } from '~/domains/account'
+import type { Unit } from '~/shared/types'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { mround } from '~/domains/program/lib/progression'
 import { convertWeight } from '~/shared/lib/math'

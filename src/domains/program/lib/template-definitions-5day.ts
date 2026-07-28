@@ -1,7 +1,7 @@
 // AUTO-GENERATED from references/sheetless_new_5day_programmes.json.
 // Five 5-day built-in programmes, split into catalogue metadata + full DSL.
 // Kept as literals (already schema-valid) rather than re-expressed via builders.
-import type { ProgramTemplateSummary } from '~/shared/types'
+import type { ProgramTemplateSummary } from '~/domains/program'
 import type { TemplateDefinition } from '~/domains/program/lib/template-engine'
 
 export const fiveDayCatalog: ProgramTemplateSummary[] = [

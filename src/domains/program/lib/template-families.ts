@@ -1,4 +1,4 @@
-import type { ProgramTemplateSummary } from '~/shared/types'
+import type { ProgramTemplateSummary } from '~/domains/program'
 
 /**
  * Programme families are a purely presentational layer that groups the flat template catalogue into

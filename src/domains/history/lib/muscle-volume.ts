@@ -1,4 +1,5 @@
-import type { BalanceSignal, BalanceSummary, BodyRegionId, Movement, WeeklyRegionSets } from '~/shared/types'
+import type { BalanceSignal, BalanceSummary, BodyRegionId, WeeklyRegionSets } from '~/domains/history'
+import type { Movement } from '~/domains/movement'
 import { movementCatalog } from '~/domains/movement/lib/movements'
 import { bodyRegionLabels, resolveRegionWeights } from '~/domains/history/lib/body-load'
 import {

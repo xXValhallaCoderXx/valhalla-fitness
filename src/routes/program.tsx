@@ -6,7 +6,7 @@ import { loadRouteQuery } from '~/shared/lib/route-loading'
 export const Route = createFileRoute('/program')({
   loader: async ({ context }) => {
     if (context.user) {
-      await loadRouteQuery(context.queryClient, programOverviewQueryOptions())
+      await loadRouteQuery(context.queryClient, programOverviewQueryOptions(context.user.id))
     }
   },
   component: ProgramRoute,

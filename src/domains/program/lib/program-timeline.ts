@@ -1,4 +1,4 @@
-import type { ProgramInstance } from '~/shared/types'
+import type { ProgramInstance } from '~/domains/program'
 import {
   buildProgramTimelineFromDefinition,
   type ProgramTimelineModel,

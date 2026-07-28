@@ -1,23 +1,27 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { patchSetInSession, type SetPatch } from '~/domains/session/lib/session-cache'
 import { useRestTimerControls } from '~/domains/session/lib/rest-timer-context'
 import { upsertSetLogFn } from '~/domains/session/server/session-functions'
-import type { MovementSlot, WorkoutSession } from '~/shared/types'
+import type { MovementSlot, WorkoutSession } from '~/domains/session'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
 
 /**
  * Optimistic set-log mutation shared by the Overview row (`LiveSetRow`) and the
- * mobile Focus card (`FocusSetCard`). Patches the `['session', id]` cache immediately
- * (syncState `saving`), mirrors the result into `['today']`, and rolls back to
+ * mobile Focus card (`FocusSetCard`). Patches the account's session cache immediately
+ * (syncState `saving`), mirrors the result into Today, and rolls back to
  * `syncFailed` on error. Lifted verbatim from `LiveSetRow` so both call sites behave
  * identically.
  */
 export function useSetLogMutation(session: WorkoutSession, movement: MovementSlot, setIndex: number) {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
   const rest = useRestTimerControls()
   return useMutation({
     mutationKey: ['setLog', session.sessionId, movement.id, setIndex],
+    scope: { id: `session:${session.sessionId}` },
     mutationFn: (patch: SetPatch) =>
       upsertSetLogFn({
         data: {
@@ -30,16 +34,18 @@ export function useSetLogMutation(session: WorkoutSession, movement: MovementSlo
           completed: patch.completed,
           note: patch.note,
           clientMutationId: patch.clientMutationId ?? crypto.randomUUID(),
+          expectedStateVersion: session.stateVersion,
         },
       }),
     onMutate: async (patch) => {
       // Unlock the audio cue inside the tap gesture (before any await) so the beep can fire later.
       if (patch.completed) rest.prime()
-      await queryClient.cancelQueries({ queryKey: ['session', session.sessionId] })
-      const previous = queryClient.getQueryData<WorkoutSession>(['session', session.sessionId])
+      const sessionKey = accountQueryKeys.session(userId, session.sessionId)
+      await queryClient.cancelQueries({ queryKey: sessionKey })
+      const previous = queryClient.getQueryData<WorkoutSession>(sessionKey)
       if (previous) {
         queryClient.setQueryData(
-          ['session', session.sessionId],
+          sessionKey,
           patchSetInSession(previous, {
             ...patch,
             movementSlotId: movement.id,
@@ -53,7 +59,7 @@ export function useSetLogMutation(session: WorkoutSession, movement: MovementSlo
     onError: (error, patch, context) => {
       if (context?.previous) {
         queryClient.setQueryData(
-          ['session', session.sessionId],
+          accountQueryKeys.session(userId, session.sessionId),
           patchSetInSession(context.previous, {
             ...patch,
             movementSlotId: movement.id,
@@ -69,8 +75,11 @@ export function useSetLogMutation(session: WorkoutSession, movement: MovementSlo
       })
     },
     onSuccess: (nextSession, patch, context) => {
-      queryClient.setQueryData(['session', session.sessionId], nextSession)
-      queryClient.setQueryData(['today'], (current: any) =>
+      queryClient.setQueryData(
+        accountQueryKeys.session(userId, session.sessionId),
+        nextSession,
+      )
+      queryClient.setQueryData(accountQueryKeys.today(userId), (current: any) =>
         current ? { ...current, activeSession: nextSession } : current,
       )
       // Auto-start rest only on a genuine incomplete -> complete transition (not edits/retries).

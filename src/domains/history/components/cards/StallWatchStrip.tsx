@@ -1,7 +1,7 @@
 import { Badge } from '@mantine/core'
 import { detectStall, stallSignalLabels } from '~/domains/history/lib/strength'
 import { shortLiftLabel } from '~/domains/program/lib/program-trajectory'
-import type { HistoryInsights, StallSignal } from '~/shared/types'
+import type { HistoryInsights, StallSignal } from '~/domains/history'
 import { Caption, Panel, SectionLabel } from '~/components'
 
 const STALL_BADGE_COLOR: Record<StallSignal, string> = {

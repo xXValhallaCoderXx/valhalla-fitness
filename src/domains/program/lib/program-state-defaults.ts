@@ -1,9 +1,5 @@
-import type {
-  ProgramStateDefaults,
-  ProgramStateInput,
-  ProgramStateRequirement,
-  Unit,
-} from '~/shared/types'
+import type { ProgramStateInput, ProgramStateRequirement } from '~/domains/program'
+import type { ProgramStateDefaults, Unit } from '~/shared/types'
 
 /**
  * Programme-state default helpers, kept free of template-definition imports so

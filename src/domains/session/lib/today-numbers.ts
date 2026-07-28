@@ -1,6 +1,7 @@
 import { formatWeight } from '~/shared/lib/set-notation'
 import { formatCompactDate } from '~/shared/lib/dates'
-import type { MovementRole, PlannedSession, PreviousComparable, SetLog, Unit } from '~/shared/types'
+import type { PlannedSession, PreviousComparable, SetLog } from '~/domains/session'
+import type { MovementRole, Unit } from '~/shared/types'
 
 type PlannedMovements = Pick<PlannedSession, 'movements'>
 type PlannedNumbers = Pick<PlannedSession, 'movements' | 'units'>
