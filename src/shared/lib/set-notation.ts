@@ -1,4 +1,4 @@
-import type { SetLog, Unit } from '~/shared/types'
+import type { Unit } from '~/shared/types'
 import { e1rm } from '~/shared/lib/math'
 
 /**
@@ -76,11 +76,17 @@ export function describeLift(values: LiftValues): SetNotation {
   return { plain, technical, compact }
 }
 
-/** Structural subset shared by `SetLog` and `MovementHistorySet`. */
-type DescribableSet = Pick<
-  SetLog,
-  'actualLoad' | 'actualReps' | 'actualRir' | 'targetLoad' | 'targetReps' | 'targetRepMin' | 'targetRepMax' | 'isAmrap'
->
+/** Structural subset accepted from session logs and history read models. */
+type DescribableSet = {
+  actualLoad?: number | null
+  actualReps?: number | null
+  actualRir?: number | null
+  targetLoad?: number | null
+  targetReps?: number | null
+  targetRepMin?: number | null
+  targetRepMax?: number | null
+  isAmrap?: boolean
+}
 
 /** Describe a logged set, preferring actual values and falling back to targets. */
 export function describeSet(set: DescribableSet, units?: Unit | string | null): SetNotation {

@@ -7,7 +7,7 @@ import {
   removeAddedAccessory,
   reorderAddedAccessories,
 } from '../src/domains/session/lib/accessories'
-import type { MovementSlot } from '../src/shared/types'
+import type { MovementSlot } from '~/domains/session'
 
 function movement(
   id: string,

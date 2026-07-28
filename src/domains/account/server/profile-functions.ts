@@ -1,6 +1,13 @@
 import { createServerFn } from '@tanstack/react-start'
-import type { ProgramStateDefaults, Sex, ThemePreference, Unit, UserProfile } from '~/shared/types'
+import {
+  updateSettingsInputSchema,
+  updateSexInputSchema,
+  updateTimezoneInputSchema,
+} from '~/domains/account/lib/schemas'
 import { defaultProgramStateDefaults } from '~/domains/program/lib/program-state-defaults'
+import { normalizeIanaTimeZone } from '~/shared/lib/calendar-date'
+import type { Sex, ThemePreference, UserProfile } from '~/domains/account'
+import type { ProgramStateDefaults, Unit } from '~/shared/types'
 
 async function requireUser() {
   const { requireUser } = await import('~/shared/server/require-user')
@@ -69,6 +76,7 @@ export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promi
     rounding: Number(profile.rounding),
     equipmentProfile: profile.equipment_profile ?? [],
     themePreference: (profile.theme_preference ?? 'system') as ThemePreference,
+    timezone: normalizeIanaTimeZone(profile.timezone),
     programStateDefaults: normalizeProgramStateDefaults(profile.program_state_defaults, profile.units as Unit),
     onboardingCompleted: Boolean(profile.onboarding_completed),
     liveOnboardingDismissed: Boolean(profile.live_onboarding_dismissed),
@@ -101,20 +109,7 @@ export const dismissPostWorkoutFeedbackFn = createServerFn({ method: 'POST' }).h
 })
 
 export const updateSettingsFn = createServerFn({ method: 'POST' })
-  .validator(
-    (data: {
-      units: Unit
-      rounding: number
-      equipmentProfile: string[]
-      themePreference: ThemePreference
-      programStateDefaults: ProgramStateDefaults
-      /** Omitted = leave unchanged (partial callers like UserMenu); null = explicitly cleared. */
-      sex?: Sex | null
-      /** Omitted = leave unchanged (partial callers don't touch rest-timer prefs). */
-      autoStartTimer?: boolean
-      defaultRestSeconds?: number
-    }) => data,
-  )
+  .validator((data) => updateSettingsInputSchema.parse(data))
   .handler(async ({ data }) => {
     const { supabase, user } = await requireUser()
     const programStateDefaults = normalizeProgramStateDefaults(data.programStateDefaults, data.units)
@@ -136,10 +131,22 @@ export const updateSettingsFn = createServerFn({ method: 'POST' })
   })
 
 export const updateSexFn = createServerFn({ method: 'POST' })
-  .validator((data: { sex: Sex | null }) => data)
+  .validator((data) => updateSexInputSchema.parse(data))
   .handler(async ({ data }) => {
     const { supabase, user } = await requireUser()
     const { error } = await supabase.from('profiles').update({ sex: data.sex }).eq('id', user.id)
+    if (error) throw new Error(error.message)
+    return getMeFn()
+  })
+
+export const updateTimezoneFn = createServerFn({ method: 'POST' })
+  .validator((data) => updateTimezoneInputSchema.parse(data))
+  .handler(async ({ data }) => {
+    const { supabase, user } = await requireUser()
+    const { error } = await supabase
+      .from('profiles')
+      .update({ timezone: data.timezone })
+      .eq('id', user.id)
     if (error) throw new Error(error.message)
     return getMeFn()
   })

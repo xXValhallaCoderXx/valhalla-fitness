@@ -1,17 +1,20 @@
 import { Badge, Modal } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Caption, Panel, Text } from '~/components'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { formatCompactDate, formatRelativeTime } from '~/shared/lib/dates'
 import { movementHistoryQueryOptions } from '~/domains/history/queries'
-import type { MovementHistoryEntry, MovementSlot } from '~/shared/types'
+import type { MovementHistoryEntry } from '~/domains/history'
+import type { MovementSlot } from '~/domains/session'
 import { HistoryStatus } from './LiveSessionControls'
 import { formatHistorySet } from './live-session-utils'
 
 export function MovementHistoryModal({ open, movement, onClose }: { open: boolean; movement: MovementSlot; onClose: () => void }) {
+  const userId = useRequiredAccountId()
   const movementId = movement.performedMovementId ?? movement.movementId
   const historyQuery = useQuery({
-    ...movementHistoryQueryOptions(movementId),
+    ...movementHistoryQueryOptions(userId, movementId),
     enabled: open,
   })
   const entries = historyQuery.data ?? []

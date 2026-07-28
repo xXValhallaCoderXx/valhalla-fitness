@@ -5,9 +5,10 @@ import { QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { HeadContent, Scripts } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import { AccountIdentityProvider } from '~/domains/account/components/AccountIdentityProvider'
 import { meQueryOptions } from '~/domains/account/queries'
-import type { LoadedRootRouteContext } from '~/shared/lib/app-root-route'
-import type { ThemePreference, UserProfile } from '~/shared/types'
+import type { LoadedRootRouteContext } from '~/domains/account/lib/app-root-route'
+import type { ThemePreference, UserProfile } from '~/domains/account'
 import { mantineCssVariablesResolver, mantineTheme } from '~/styles/mantine-theme'
 import { AppShell } from './AppShell'
 import { PwaUpdatePrompt } from './PwaUpdatePrompt'
@@ -37,9 +38,11 @@ export function AppRootDocument({
       </head>
       <body>
         <QueryClientProvider client={routeContext.queryClient}>
-          <ThemedAppShell user={routeContext.user} initialMe={routeContext.me}>
-            {children}
-          </ThemedAppShell>
+          <AccountIdentityProvider userId={routeContext.user?.id ?? null}>
+            <ThemedAppShell user={routeContext.user} initialMe={routeContext.me}>
+              {children}
+            </ThemedAppShell>
+          </AccountIdentityProvider>
         </QueryClientProvider>
         <Scripts />
       </body>
@@ -54,7 +57,7 @@ function ThemedAppShell({
 }: Readonly<{ children: ReactNode; initialMe: UserProfile | null; user: LoadedRootRouteContext['user'] }>) {
   const [previewThemePreference, setPreviewThemePreference] = useState<ThemePreference | null>(null)
   const { data: me } = useQuery({
-    ...meQueryOptions(),
+    ...meQueryOptions(user?.id ?? ''),
     enabled: Boolean(user),
     initialData: initialMe ?? undefined,
   })

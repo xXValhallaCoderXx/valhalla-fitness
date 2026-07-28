@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { MovementSlot, SetLog, WorkoutSession } from '../src/shared/types'
+import type { MovementSlot, SetLog, WorkoutSession } from '~/domains/session'
 import {
   advanceAfterLog,
   exerciseNeighbors,
@@ -20,6 +20,7 @@ function movement(id: string, orderIndex: number, sets: SetLog[], extra: Partial
 function buildSession(movements: MovementSlot[]): WorkoutSession {
   return {
     sessionId: 'session-1',
+    stateVersion: 0,
     id: 'planned-1',
     title: 'Day 1',
     programTitle: 'Beginner 5x5',

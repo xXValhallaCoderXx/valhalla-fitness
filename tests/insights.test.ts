@@ -17,7 +17,7 @@ import type {
   HistoryMovementSummary,
   HistoryWeeklyVolume,
   RecentHistoryEntry,
-} from '../src/shared/types'
+} from '~/domains/history'
 
 function bestSet(partial: Partial<HistoryBestSet> & { type: HistoryBestSet['type'] }): HistoryBestSet {
   return {

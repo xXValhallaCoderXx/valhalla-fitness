@@ -1,4 +1,4 @@
-import type { MovementSlot, WorkoutSession } from '~/shared/types'
+import type { MovementSlot, WorkoutSession } from '~/domains/session'
 
 export type AdvanceResult =
   | { kind: 'set'; movementId: string; setIndex: number }

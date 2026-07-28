@@ -75,10 +75,10 @@ export function SettingsSidebar({ active }: { active: string }) {
         <Panel surface="inset" p="sm">
           <div className="flex items-center gap-2">
             <Cloud size={16} color="var(--vf-action-text)" />
-            <Text size="sm" fw={800}>Local-first</Text>
+            <Text size="sm" fw={800}>Online saving</Text>
           </div>
           <Caption mt={6} lh={1.45}>
-            Changes save on this device and sync to your Supabase account automatically.
+            Workout changes save to Supabase while connected. Failed set saves remain flagged to retry.
           </Caption>
         </Panel>
       </div>

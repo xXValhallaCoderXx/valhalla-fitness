@@ -1,0 +1,42 @@
+name: Release database
+
+# Production database credentials belong to this protected, manually approved
+# job only. The Railway web process must never receive migration privileges.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Audit and migrate production
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production-database
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Verify the exact release commit
+        run: pnpm verify
+
+      - name: Audit existing production data
+        run: pnpm db:audit
+
+      - name: Preview production migrations
+        run: pnpm db:migrate:dry-run
+
+      - name: Apply production migrations
+        run: pnpm db:migrate

@@ -1,4 +1,5 @@
-import type { ProgramSessionStamp, ProgramStateOverview, ProgressionDecision, Unit } from '~/shared/types'
+import type { ProgramSessionStamp, ProgramStateOverview, ProgressionDecision } from '~/domains/program'
+import type { Unit } from '~/shared/types'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { mround } from '~/shared/lib/math'
 import {

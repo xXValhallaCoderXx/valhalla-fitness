@@ -1,4 +1,5 @@
-import type { AccessoryProgressionMethod, MovementSlot, SetTarget } from '~/shared/types'
+import type { AccessoryProgressionMethod } from '~/domains/program'
+import type { MovementSlot, SetTarget } from '~/domains/session'
 
 export const accessoryProgressionOptions: Array<{ value: AccessoryProgressionMethod; label: string }> = [
   { value: 'history_only', label: 'None (history only)' },

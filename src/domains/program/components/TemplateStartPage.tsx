@@ -3,7 +3,11 @@ import { useQuery } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { Caption, EmptyState, Page, PageLoadError, PageSkeleton, SectionLabel } from '~/components'
 import { meQueryOptions } from '~/domains/account/queries'
-import { programSetupOptionsQueryOptions, templatesQueryOptions } from '~/domains/program/queries'
+import type { AuthUser } from '~/domains/account/server/auth-functions'
+import {
+  availableTemplatesQueryOptions,
+  programSetupOptionsQueryOptions,
+} from '~/domains/program/queries'
 import { familyMembersForTemplate } from '~/domains/program/lib/template-families'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { TemplateStartContent } from './TemplateStartContent'
@@ -15,10 +19,10 @@ export function TemplateStartPage({
 }: {
   templateId: string
   variant?: string
-  user: unknown
+  user: AuthUser | null
 }) {
   const router = useRouter()
-  const templatesQuery = useQuery(templatesQueryOptions())
+  const templatesQuery = useQuery(availableTemplatesQueryOptions(user?.id ?? null))
 
   // The full catalogue is client-side, so family members resolve without an extra request. When a
   // template belongs to a family, `?variant=` picks which concrete variant loads (default: the route
@@ -28,15 +32,15 @@ export function TemplateStartPage({
   const variantId = variant && members.some((member) => member.id === variant) ? variant : templateId
 
   const meQuery = useQuery({
-    ...meQueryOptions(),
+    ...meQueryOptions(user?.id ?? ''),
     enabled: Boolean(user),
   })
   const todayQuery = useQuery({
-    ...todayQueryOptions(),
+    ...todayQueryOptions(user?.id ?? ''),
     enabled: Boolean(user),
   })
   const setupQuery = useQuery({
-    ...programSetupOptionsQueryOptions(variantId),
+    ...programSetupOptionsQueryOptions(user?.id ?? '', variantId),
     enabled: Boolean(user),
   })
 

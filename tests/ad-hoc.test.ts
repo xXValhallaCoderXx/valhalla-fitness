@@ -12,7 +12,7 @@ import {
   seedMovementsFromSource,
   sessionLineageKey,
 } from '../src/domains/session/lib/ad-hoc'
-import type { MovementSlot, SetLog, WorkoutSession } from '../src/shared/types'
+import type { MovementSlot, SetLog, WorkoutSession } from '~/domains/session'
 
 function completedSet(setIndex: number, over: Partial<SetLog> = {}): SetLog {
   return { id: `set-${setIndex}`, setIndex, completed: true, actualLoad: 40, actualReps: 8, ...over }
@@ -22,6 +22,7 @@ function sourceSession(movements: MovementSlot[]): WorkoutSession {
   return {
     ...buildAdHocSnapshot({ scheduledDate: '2026-07-01', units: 'kg', rounding: 2.5, movements }),
     sessionId: 'source-1',
+    stateVersion: 0,
     status: 'completed',
     isAdHoc: true,
   }

@@ -1,7 +1,7 @@
 import { Badge, Card, Divider, Group } from '@mantine/core'
 import type { ReactNode } from 'react'
 import { Heading, SectionLabel, StatValue, Text } from '~/components'
-import type { ProgramInstance, ProgramOverview } from '~/shared/types'
+import type { ProgramInstance, ProgramOverview } from '~/domains/program'
 import type { ProgramPhaseMap as ProgramPhaseMapModel } from '~/domains/program/lib/program-phase-map'
 import { ProgramPhaseMap } from './ProgramPhaseMap'
 import { ProgramInfoHint } from './ProgramInfoHint'

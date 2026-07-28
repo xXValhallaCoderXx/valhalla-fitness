@@ -5,7 +5,8 @@ import {
   deriveTemplatePhases,
   templateStructureMode,
 } from '../src/domains/program/lib/template-start-phases'
-import type { MovementRole, ProgramSetupPreviewMovement, ProgramSetupPreviewWeek } from '../src/shared/types'
+import type { ProgramSetupPreviewMovement, ProgramSetupPreviewWeek } from '~/domains/program'
+import type { MovementRole } from '~/shared/types'
 
 function movement(
   partial: Partial<ProgramSetupPreviewMovement> & { slotId: string; role: MovementRole },

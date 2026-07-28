@@ -325,6 +325,7 @@ export type Database = {
           rounding: number
           sex: string | null
           theme_preference: string
+          timezone: string | null
           units: string
           updated_at: string
         }
@@ -344,6 +345,7 @@ export type Database = {
           rounding?: number
           sex?: string | null
           theme_preference?: string
+          timezone?: string | null
           units?: string
           updated_at?: string
         }
@@ -363,6 +365,7 @@ export type Database = {
           rounding?: number
           sex?: string | null
           theme_preference?: string
+          timezone?: string | null
           units?: string
           updated_at?: string
         }
@@ -452,6 +455,7 @@ export type Database = {
       }
       program_instances: {
         Row: {
+          client_mutation_id: string | null
           created_at: string
           current_block_id: string | null
           current_week_index: number
@@ -459,6 +463,7 @@ export type Database = {
           customization_summary: Json
           id: string
           rounding: number
+          state_version: number
           start_date: string
           status: string
           template_id: string
@@ -469,6 +474,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          client_mutation_id?: string | null
           created_at?: string
           current_block_id?: string | null
           current_week_index?: number
@@ -476,6 +482,7 @@ export type Database = {
           customization_summary?: Json
           id?: string
           rounding: number
+          state_version?: number
           start_date?: string
           status?: string
           template_id: string
@@ -486,6 +493,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          client_mutation_id?: string | null
           created_at?: string
           current_block_id?: string | null
           current_week_index?: number
@@ -493,6 +501,7 @@ export type Database = {
           customization_summary?: Json
           id?: string
           rounding?: number
+          state_version?: number
           start_date?: string
           status?: string
           template_id?: string
@@ -688,6 +697,7 @@ export type Database = {
         Row: {
           created_at: string
           definition: Json
+          definition_checksum: string
           id: string
           template_id: string
           version: string
@@ -695,6 +705,7 @@ export type Database = {
         Insert: {
           created_at?: string
           definition: Json
+          definition_checksum?: never
           id?: string
           template_id: string
           version: string
@@ -702,6 +713,7 @@ export type Database = {
         Update: {
           created_at?: string
           definition?: Json
+          definition_checksum?: never
           id?: string
           template_id?: string
           version?: string
@@ -792,6 +804,7 @@ export type Database = {
           program_instance_id: string
           recommendation: string
           recommended_value: number | null
+          resolution_request_id: string | null
           resolved_at: string | null
           rule_id: string
           scope: string
@@ -809,6 +822,7 @@ export type Database = {
           program_instance_id: string
           recommendation: string
           recommended_value?: number | null
+          resolution_request_id?: string | null
           resolved_at?: string | null
           rule_id: string
           scope: string
@@ -826,6 +840,7 @@ export type Database = {
           program_instance_id?: string
           recommendation?: string
           recommended_value?: number | null
+          resolution_request_id?: string | null
           resolved_at?: string | null
           rule_id?: string
           scope?: string
@@ -909,6 +924,51 @@ export type Database = {
           },
           {
             foreignKeyName: "session_program_change_journal_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_mutation_receipts: {
+        Row: {
+          created_at: string
+          mutation_kind: string
+          payload_hash: string
+          request_id: string
+          resulting_state_version: number
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          mutation_kind: string
+          payload_hash: string
+          request_id: string
+          resulting_state_version: number
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          mutation_kind?: string
+          payload_hash?: string
+          request_id?: string
+          resulting_state_version?: number
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_mutation_receipts_session_id_user_id_fkey"
+            columns: ["session_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "session_mutation_receipts_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1076,6 +1136,9 @@ export type Database = {
           client_mutation_id: string | null
           completed_at: string | null
           created_at: string
+          discard_journal_version: number | null
+          finish_payload_hash: string | null
+          finish_request_id: string | null
           id: string
           is_favorite: boolean
           notes: string | null
@@ -1089,6 +1152,7 @@ export type Database = {
           session_rpe: number | null
           source_session_id: string | null
           started_at: string | null
+          state_version: number
           status: string
           updated_at: string
           user_id: string
@@ -1097,6 +1161,9 @@ export type Database = {
           client_mutation_id?: string | null
           completed_at?: string | null
           created_at?: string
+          discard_journal_version?: number | null
+          finish_payload_hash?: string | null
+          finish_request_id?: string | null
           id?: string
           is_favorite?: boolean
           notes?: string | null
@@ -1110,6 +1177,7 @@ export type Database = {
           session_rpe?: number | null
           source_session_id?: string | null
           started_at?: string | null
+          state_version?: number
           status?: string
           updated_at?: string
           user_id: string
@@ -1118,6 +1186,9 @@ export type Database = {
           client_mutation_id?: string | null
           completed_at?: string | null
           created_at?: string
+          discard_journal_version?: number | null
+          finish_payload_hash?: string | null
+          finish_request_id?: string | null
           id?: string
           is_favorite?: boolean
           notes?: string | null
@@ -1131,6 +1202,7 @@ export type Database = {
           session_rpe?: number | null
           source_session_id?: string | null
           started_at?: string | null
+          state_version?: number
           status?: string
           updated_at?: string
           user_id?: string
@@ -1164,14 +1236,145 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_ad_hoc_exercise_v2: {
+        Args: {
+          p_expected_state_version: number
+          p_exercise: Json
+          p_intent: Json
+          p_next_snapshot: Json
+          p_request_id: string
+          p_session_id: string
+          p_sets: Json
+        }
+        Returns: Json
+      }
+      add_session_accessory_v2: {
+        Args: {
+          p_expected_state_version: number
+          p_exercise: Json
+          p_future_addition: Json | null
+          p_intent: Json
+          p_next_snapshot: Json
+          p_request_id: string
+          p_session_id: string
+          p_sets: Json
+        }
+        Returns: Json
+      }
+      add_session_set_v2: {
+        Args: {
+          p_expected_state_version: number
+          p_exercise_log_id: string
+          p_intent: Json
+          p_next_snapshot: Json
+          p_request_id: string
+          p_session_id: string
+          p_set: Json
+        }
+        Returns: Json
+      }
+      advance_program_position_v2: {
+        Args: {
+          p_current_week_index: number
+          p_expected_state_version: number
+          p_program_id: string
+        }
+        Returns: Json
+      }
+      create_custom_program_template_v2: {
+        Args: {
+          p_definition: Json
+          p_template: Json
+        }
+        Returns: string
+      }
+      delete_own_account: {
+        Args: { p_confirmation: string }
+        Returns: undefined
+      }
       discard_workout_session: {
         Args: { p_session_id: string }
+        Returns: string
+      }
+      discard_workout_session_unsafe_internal: {
+        Args: { p_session_id: string }
+        Returns: string
+      }
+      finish_session_v2: {
+        Args: {
+          p_decisions: Json
+          p_expected_program_version: number | null
+          p_expected_session_version: number
+          p_notes: string | null
+          p_prs: Json
+          p_reflection_improve: string | null
+          p_reflection_win: string | null
+          p_request_id: string
+          p_session_id: string
+          p_session_rpe: number | null
+        }
         Returns: string
       }
       is_email_allowed: { Args: { check_email: string }; Returns: boolean }
       refresh_program_customization_summary: {
         Args: { p_program_instance_id: string; p_user_id: string }
         Returns: undefined
+      }
+      resolve_progression_decisions_v2: {
+        Args: {
+          p_action: string
+          p_decision_ids: string[]
+          p_request_id: string
+        }
+        Returns: number
+      }
+      remove_ad_hoc_exercise_v2: {
+        Args: {
+          p_expected_state_version: number
+          p_exercise_log_id: string
+          p_exercise_orders: Json
+          p_intent: Json
+          p_next_snapshot: Json
+          p_request_id: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
+      remove_session_accessory_v2: {
+        Args: {
+          p_expected_state_version: number
+          p_exercise_log_id: string
+          p_exercise_orders: Json
+          p_future_addition_id: string | null
+          p_future_remaining_ids: string[] | null
+          p_intent: Json
+          p_next_snapshot: Json
+          p_request_id: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
+      rename_session_v2: {
+        Args: {
+          p_expected_state_version: number
+          p_request_id: string
+          p_session_id: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      reorder_session_accessories_v2: {
+        Args: {
+          p_expected_state_version: number
+          p_exercise_orders: Json
+          p_future_addition_ids: string[] | null
+          p_future_order_indexes: number[] | null
+          p_intent: Json
+          p_next_snapshot: Json
+          p_request_id: string
+          p_session_id: string
+        }
+        Returns: Json
       }
       session_insert_program_accessory_addition: {
         Args: {
@@ -1217,6 +1420,84 @@ export type Database = {
           p_source_exercise_log_id: string
         }
         Returns: undefined
+      }
+      set_session_favorite_v2: {
+        Args: {
+          p_favorite: boolean
+          p_session_id: string
+          p_title: string | null
+        }
+        Returns: string
+      }
+      start_ad_hoc_session_v2: {
+        Args: {
+          p_client_mutation_id: string
+          p_prescription_snapshot: Json
+          p_scheduled_date: string
+          p_source_session_id?: string | null
+        }
+        Returns: string
+      }
+      start_program_v2: {
+        Args: {
+          p_accessory_additions: Json
+          p_current_block_id: string | null
+          p_definition_checksum: string
+          p_movement_overrides: Json
+          p_replace_active: boolean
+          p_request_id: string
+          p_rounding: number
+          p_start_date: string
+          p_state_values: Json
+          p_template_id: string
+          p_template_version_id: string
+          p_title: string
+          p_units: string
+        }
+        Returns: string
+      }
+      start_session_v2: {
+        Args: {
+          p_client_mutation_id: string
+          p_expected_program_version: number
+          p_planned_session_id: string
+          p_prescription_snapshot: Json
+          p_program_instance_id: string
+          p_scheduled_date: string
+          p_source_session_id?: string | null
+        }
+        Returns: string
+      }
+      upsert_session_set_v2: {
+        Args: {
+          p_actual_load: number | null
+          p_actual_reps: number | null
+          p_actual_rir: number | null
+          p_actual_rpe: number | null
+          p_client_mutation_id: string
+          p_completed: boolean
+          p_expected_state_version: number
+          p_exercise_log_id: string
+          p_note: string | null
+          p_session_id: string
+          p_set_index: number
+        }
+        Returns: Json
+      }
+      substitute_session_movement_v2: {
+        Args: {
+          p_expected_state_version: number
+          p_exercise_log_id: string
+          p_intent: Json
+          p_note: string | null
+          p_performed_movement_id: string
+          p_phase_key: string
+          p_reason: string
+          p_request_id: string
+          p_scope: string
+          p_session_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {

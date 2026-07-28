@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildProgramTrajectory, shortLiftLabel } from '../src/domains/program/lib/program-trajectory'
 import type { TemplateDefinition } from '../src/domains/program/lib/template-engine'
-import type { ProgramSessionStamp, ProgramStateOverview, ProgressionDecision } from '../src/shared/types'
+import type { ProgramSessionStamp, ProgramStateOverview, ProgressionDecision } from '~/domains/program'
 
 /**
  * Synthetic 4-week / 2-day template with two phases:

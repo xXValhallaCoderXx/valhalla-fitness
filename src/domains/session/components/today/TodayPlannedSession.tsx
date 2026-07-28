@@ -2,10 +2,12 @@ import { ActionIcon, Badge, Button, Tooltip, VisuallyHidden } from '@mantine/cor
 import { ArrowRight, Dumbbell, Lock, Play, Plus } from 'lucide-react'
 import { Caption, Heading, Page, Panel, Text } from '~/components'
 import { intensityColor } from '~/domains/history/lib/insights'
+import type { TodayHistorySupport } from '~/domains/history'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { PendingProgressionReviewModal, PendingReviewAlert, PendingReviewGate } from '~/domains/program/components/PendingReview'
 import { formatPreviousHero } from '~/domains/session/lib/today-numbers'
-import type { HistoryDashboardWithInsights, PlannedSession, ProgressionDecision, TodayPayload } from '~/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
+import type { PlannedSession, TodayPayload } from '~/domains/session'
 import { TodayWorkoutLedger } from '../TodayWorkoutLedger'
 import { RecoveryCheckPanel, StreakBadge } from './TodayPanels'
 
@@ -28,7 +30,7 @@ export function TodayPlannedSession({
 }: {
   data: TodayPayload
   plannedSession: PlannedSession
-  history?: HistoryDashboardWithInsights
+  history?: TodayHistorySupport
   historyPending: boolean
   historyError: boolean
   pendingDecisions: ProgressionDecision[]

@@ -5,18 +5,21 @@ import { Link, useRouter } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { EmptyState, Page, PageLoadError } from '~/components'
-import { historyDashboardQueryOptions } from '~/domains/history/queries'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
+import type { AuthUser } from '~/domains/account/server/auth-functions'
+import { todayHistorySupportQueryOptions } from '~/domains/history/queries'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { useOnboardingActive } from '~/domains/onboarding/useOnboardingActive'
-import { programOverviewQueryOptions } from '~/domains/program/queries'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { startAdHocSessionFn, startSessionFn } from '~/domains/session/server/session-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
+import { browserIanaTimeZone } from '~/shared/lib/calendar-date'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
 import { TodayActiveSession } from './today/TodayActiveSession'
 import { TodayPageSkeleton } from './today/TodayPageSkeleton'
 import { TodayPlannedSession } from './today/TodayPlannedSession'
 
-export function TodayPage({ user }: { user: unknown }) {
+export function TodayPage({ user }: { user: AuthUser | null }) {
   const router = useRouter()
 
   if (!user) {
@@ -37,21 +40,29 @@ export function TodayPage({ user }: { user: unknown }) {
 
 function AuthedToday() {
   const router = useRouter()
+  const userId = useRequiredAccountId()
   const { active: onboardingActive, pending: onboardingPending } = useOnboardingActive()
-  const todayQuery = useQuery(todayQueryOptions())
-  const overviewQuery = useQuery({
-    ...programOverviewQueryOptions(),
-    enabled: Boolean(todayQuery.data?.activeProgram),
+  const todayQuery = useQuery(todayQueryOptions(userId))
+  const historyQuery = useQuery({
+    ...todayHistorySupportQueryOptions(userId),
+    enabled: Boolean(todayQuery.data?.activeSession || todayQuery.data?.plannedSession),
   })
-  const historyQuery = useQuery(historyDashboardQueryOptions())
   const [reviewOpen, setReviewOpen] = useState(false)
   const [resolvedDecisionIds, setResolvedDecisionIds] = useState<Set<string>>(() => new Set())
   const pendingDecisions = (todayQuery.data?.pendingDecisions ?? []).filter((decision) => !resolvedDecisionIds.has(decision.id))
   const startMutation = useMutation({
-    mutationFn: () => startSessionFn({ data: { clientMutationId: crypto.randomUUID() } }),
+    mutationFn: (clientMutationId: string) =>
+      startSessionFn({
+        data: { clientMutationId, timeZone: browserIanaTimeZone() ?? undefined },
+      }),
     onSuccess: async (session) => {
-      router.options.context.queryClient.setQueryData(['session', session.sessionId], session)
-      await router.options.context.queryClient.invalidateQueries({ queryKey: ['today'] })
+      router.options.context.queryClient.setQueryData(
+        accountQueryKeys.session(userId, session.sessionId),
+        session,
+      )
+      await router.options.context.queryClient.invalidateQueries({
+        queryKey: accountQueryKeys.today(userId),
+      })
       await router.navigate({ to: '/sessions/$sessionId', params: { sessionId: session.sessionId } })
     },
     onError: (error) => {
@@ -63,10 +74,18 @@ function AuthedToday() {
     },
   })
   const adHocMutation = useMutation({
-    mutationFn: () => startAdHocSessionFn({ data: { clientMutationId: crypto.randomUUID() } }),
+    mutationFn: (clientMutationId: string) =>
+      startAdHocSessionFn({
+        data: { clientMutationId, timeZone: browserIanaTimeZone() ?? undefined },
+      }),
     onSuccess: async (session) => {
-      router.options.context.queryClient.setQueryData(['session', session.sessionId], session)
-      await router.options.context.queryClient.invalidateQueries({ queryKey: ['today'] })
+      router.options.context.queryClient.setQueryData(
+        accountQueryKeys.session(userId, session.sessionId),
+        session,
+      )
+      await router.options.context.queryClient.invalidateQueries({
+        queryKey: accountQueryKeys.today(userId),
+      })
       await router.navigate({ to: '/sessions/$sessionId', params: { sessionId: session.sessionId } })
     },
     onError: (error) => {
@@ -98,9 +117,6 @@ function AuthedToday() {
       <TodayActiveSession
         data={data}
         session={data.activeSession}
-        overview={overviewQuery.data}
-        overviewPending={overviewQuery.isPending}
-        overviewError={overviewQuery.isError}
         history={historyQuery.data}
         historyPending={historyQuery.isPending}
         historyError={historyQuery.isError}
@@ -125,7 +141,7 @@ function AuthedToday() {
                 <Button
                   variant="default"
                   disabled={adHocMutation.isPending}
-                  onClick={() => adHocMutation.mutate()}
+                  onClick={() => adHocMutation.mutate(crypto.randomUUID())}
                 >
                   <Plus size={16} />
                   {adHocMutation.isPending ? 'Starting...' : 'Start a blank workout'}
@@ -147,9 +163,9 @@ function AuthedToday() {
       history={historyQuery.data}
       historyPending={historyQuery.isPending}
       historyError={historyQuery.isError}
-      onStart={() => startMutation.mutate()}
+      onStart={() => startMutation.mutate(crypto.randomUUID())}
       startPending={startMutation.isPending}
-      onStartAdHoc={() => adHocMutation.mutate()}
+      onStartAdHoc={() => adHocMutation.mutate(crypto.randomUUID())}
       adHocPending={adHocMutation.isPending}
       {...reviewProps}
     />

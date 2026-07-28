@@ -1,16 +1,23 @@
-import { Badge, Button, Card, Modal, Popover } from '@mantine/core'
+import { Button, Modal } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowRight, Check, Clock, Minus, Sparkles } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
-import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
+import { Check, Clock } from 'lucide-react'
+import { useState } from 'react'
+import { Caption, Heading, Panel, Text } from '~/components'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import { cn } from '~/shared/lib/cn'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
 import { meQueryOptions } from '~/domains/account/queries'
-import { DecisionFeedbackTrigger } from '~/domains/feedback/components/DecisionFeedback'
-import { resolveProgressionDecisionFn } from '~/domains/program/server/program-functions'
-import { reviewDecisionView, type ReviewDecisionView } from '~/domains/program/lib/progression-review'
-import type { ProgressionDecision } from '~/shared/types'
+import {
+  resolveProgressionDecisionFn,
+  resolveProgressionDecisionsFn,
+} from '~/domains/program/server/program-functions'
+import { reviewDecisionView } from '~/domains/program/lib/progression-review'
+import { useStableProgramMutationRequest } from '~/domains/program/lib/useStableProgramMutationRequest'
+import type { ProgressionDecision } from '~/domains/program'
+import { ProgressionReviewLiftCard } from './ProgressionReviewLiftCard'
+
+export { PendingReviewAlert, PendingReviewGate } from './PendingReviewSurfaces'
 
 type ProgressionDecisionResolution = 'accepted' | 'dismissed'
 
@@ -24,16 +31,25 @@ export function useResolveProgressionDecision({
 }: {
   onResolved?: (decisionId: string, action: ProgressionDecisionResolution) => void
 } = {}) {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
+  const request = useStableProgramMutationRequest()
 
   return useMutation({
-    mutationFn: (data: ProgressionDecisionVariables) => resolveProgressionDecisionFn({ data }),
+    mutationFn: (data: ProgressionDecisionVariables) =>
+      resolveProgressionDecisionFn({
+        data: {
+          ...data,
+          requestId: request.requestIdFor(data),
+        },
+      }),
     onSuccess: async (_pendingDecisions, variables) => {
+      request.clearRequest()
       onResolved?.(variables.decisionId, variables.action)
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
-        queryClient.invalidateQueries({ queryKey: ['today'] }),
-        queryClient.invalidateQueries({ queryKey: ['programOverview'] }),
+        queryClient.invalidateQueries({ queryKey: accountQueryKeys.activeProgram(userId) }),
+        queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) }),
+        queryClient.invalidateQueries({ queryKey: accountQueryKeys.programOverview(userId) }),
       ])
       notifications.show({ color: 'success', title: 'Progression updated', message: 'Your decision was saved.' })
     },
@@ -45,92 +61,6 @@ export function useResolveProgressionDecision({
       })
     },
   })
-}
-
-/**
- * Wraps a session-start button so that, while progression decisions are pending, the button is shown
- * disabled and a tap/click reveals a Popover (mobile-safe — not a hover Tooltip) explaining why, with a
- * "Review changes" link that opens the review modal. The caller renders the child button disabled with
- * `pointerEvents: 'none'` so the wrapping span receives the tap. With no pending items, renders the child as-is.
- */
-export function PendingReviewGate({
-  pendingCount,
-  onReview,
-  className,
-  children,
-}: {
-  pendingCount: number
-  onReview: () => void
-  className?: string
-  children: ReactNode
-}) {
-  if (pendingCount <= 0) return <>{children}</>
-
-  return (
-    <Popover withArrow withinPortal position="top" radius="md" shadow="md" offset={6} width={224}>
-      <Popover.Target>
-        <span className={className}>{children}</span>
-      </Popover.Target>
-      <Popover.Dropdown p="xs">
-        <div className="flex items-start gap-2">
-          <AlertTriangle size={15} color="var(--vf-warning-text)" style={{ flexShrink: 0, marginTop: 1 }} />
-          <div className="min-w-0">
-            <Caption component="p" lh={1.35}>
-              {pendingCount} pending change{pendingCount === 1 ? '' : 's'} to review before your next session.
-            </Caption>
-            <Button variant="subtle" color="action" size="compact-xs" mt={6} onClick={onReview}>
-              Review changes
-            </Button>
-          </div>
-        </div>
-      </Popover.Dropdown>
-    </Popover>
-  )
-}
-
-export function PendingReviewAlert({
-  decisions,
-  onReview,
-  className,
-}: {
-  decisions: ProgressionDecision[]
-  onReview: () => void
-  className?: string
-}) {
-  const firstDecision = decisions[0]
-  if (!firstDecision) return null
-
-  const countLabel = decisions.length === 1 ? '1 pending' : `${decisions.length} pending`
-
-  return (
-    <Card
-      className={cn('p-4', className)}
-      style={{
-        borderColor: 'var(--vf-danger-border)',
-        backgroundColor: 'var(--vf-danger-soft)',
-      }}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <AlertTriangle className="mt-0.5 shrink-0" style={{ color: 'var(--vf-danger-text)' }} size={19} />
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <Text component="p" size="sm" fw={900}>
-                Progression review pending
-              </Text>
-              <Badge color="danger">{countLabel}</Badge>
-            </div>
-            <Caption component="p" mt={2} lh={1.2}>
-              {firstDecision.movementName}: {firstDecision.recommendation}
-            </Caption>
-          </div>
-        </div>
-        <Button color="danger" variant="filled" className="w-full sm:w-auto" onClick={onReview}>
-          Review
-        </Button>
-      </div>
-    </Card>
-  )
 }
 
 /**
@@ -152,8 +82,11 @@ export function PendingProgressionReviewModal({
   onClose: () => void
   onResolved?: (decisionId: string, action: ProgressionDecisionResolution) => void
 }) {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
-  const units = useQuery(meQueryOptions()).data?.units ?? 'kg'
+  const units = useQuery(meQueryOptions(userId)).data?.units ?? 'kg'
+  const resolveRequest = useStableProgramMutationRequest()
+  const acceptAllRequest = useStableProgramMutationRequest()
 
   // Snapshot the pending set when the modal opens, so decided lifts stay visible (collapsed) even as the
   // caller's pending list shrinks underneath us.
@@ -172,15 +105,22 @@ export function PendingProgressionReviewModal({
 
   const invalidate = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
-      queryClient.invalidateQueries({ queryKey: ['today'] }),
-      queryClient.invalidateQueries({ queryKey: ['programOverview'] }),
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.activeProgram(userId) }),
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) }),
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.programOverview(userId) }),
     ])
 
   const resolveMutation = useMutation({
     mutationFn: ({ id, action }: { id: string; action: ProgressionDecisionResolution }) =>
-      resolveProgressionDecisionFn({ data: { decisionId: id, action } }),
+      resolveProgressionDecisionFn({
+        data: {
+          decisionId: id,
+          action,
+          requestId: resolveRequest.requestIdFor({ decisionId: id, action }),
+        },
+      }),
     onSuccess: async (_result, { id, action }) => {
+      resolveRequest.clearRequest()
       setDecided((current) => new Map(current).set(id, action === 'accepted' ? 'accepted' : 'kept'))
       onResolved?.(id, action)
       await invalidate()
@@ -191,8 +131,18 @@ export function PendingProgressionReviewModal({
 
   const acceptAllMutation = useMutation({
     mutationFn: (ids: string[]) =>
-      Promise.all(ids.map((id) => resolveProgressionDecisionFn({ data: { decisionId: id, action: 'accepted' as const } }))).then(() => ids),
+      resolveProgressionDecisionsFn({
+        data: {
+          decisionIds: ids,
+          action: 'accepted',
+          requestId: acceptAllRequest.requestIdFor({
+            decisionIds: ids,
+            action: 'accepted',
+          }),
+        },
+      }),
     onSuccess: async (ids) => {
+      acceptAllRequest.clearRequest()
       setDecided((current) => {
         const next = new Map(current)
         for (const id of ids) next.set(id, 'accepted')
@@ -269,7 +219,7 @@ export function PendingProgressionReviewModal({
         <div className="mt-3 min-h-0 flex-1 space-y-2.5 overflow-y-auto px-5 pb-2">
           {lifts.length ? (
             lifts.map((decision) => (
-              <ReviewLiftCard
+              <ProgressionReviewLiftCard
                 key={decision.id}
                 decision={decision}
                 view={reviewDecisionView(decision, units)}
@@ -302,104 +252,5 @@ export function PendingProgressionReviewModal({
         </div>
       </div>
     </Modal>
-  )
-}
-
-function ReviewLiftCard({
-  decision,
-  view,
-  state,
-  isSaving,
-  onAccept,
-  onKeep,
-}: {
-  decision: ProgressionDecision
-  view: ReviewDecisionView
-  state?: 'accepted' | 'kept'
-  isSaving: boolean
-  onAccept: () => void
-  onKeep: () => void
-}) {
-  const accepted = state === 'accepted'
-  const kept = state === 'kept'
-  const negative = typeof view.delta === 'number' && view.delta < 0
-  const confirmText = accepted
-    ? view.nextLabel
-      ? `Next block uses ${view.nextLabel}`
-      : 'Update applied'
-    : view.currentLabel
-      ? `Staying at ${view.currentLabel} this block`
-      : 'Kept current'
-
-  return (
-    <div
-      className="rounded-xl border p-4"
-      style={{
-        borderColor: accepted ? 'var(--vf-success-border)' : 'var(--mantine-color-default-border)',
-        backgroundColor: accepted ? 'var(--vf-success-soft)' : kept ? 'var(--vf-surface-2)' : 'var(--mantine-color-default)',
-      }}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <Text size="md" fw={800} truncate>{view.name}</Text>
-            {view.kindLabel ? <Badge color="action" variant="light" size="xs">{view.kindLabel}</Badge> : null}
-          </div>
-          {view.reason ? (
-            <div className="mt-1.5 flex items-start gap-1.5">
-              <Sparkles size={13} color="var(--vf-action-text)" className="mt-0.5 shrink-0" />
-              <Caption component="p" lh={1.4}>{view.reason}</Caption>
-            </div>
-          ) : null}
-        </div>
-        <Badge color={accepted ? 'success' : kept ? 'neutral' : 'warning'} className="shrink-0">
-          {accepted ? 'Accepted' : kept ? 'Kept' : 'Pending'}
-        </Badge>
-      </div>
-
-      {view.isNumeric ? (
-        <div className="mt-3.5 flex items-center gap-3.5">
-          <div>
-            <SectionLabel>Now</SectionLabel>
-            <Text mt={2} size="lg" fw={700} tone="dimmed">{view.currentLabel}</Text>
-          </div>
-          <ArrowRight size={20} color="var(--mantine-color-dimmed)" className="shrink-0" />
-          <div>
-            <SectionLabel tone="action">Next block</SectionLabel>
-            <Text mt={2} size="lg" fw={800} tone="action">{view.nextLabel}</Text>
-          </div>
-          {view.deltaLabel ? (
-            <Badge color={negative ? 'warning' : 'success'} variant="light">{view.deltaLabel}</Badge>
-          ) : null}
-        </div>
-      ) : null}
-
-      {state ? (
-        <div
-          className="mt-3.5 flex items-center gap-2 rounded-lg p-2.5"
-          style={{ backgroundColor: accepted ? 'var(--vf-success-soft)' : 'var(--vf-surface-2)' }}
-        >
-          {accepted ? (
-            <Check size={15} color="var(--vf-success-text)" className="shrink-0" />
-          ) : (
-            <Minus size={15} color="var(--mantine-color-dimmed)" className="shrink-0" />
-          )}
-          <Caption fw={600} tone={accepted ? 'success' : 'dimmed'}>{confirmText}</Caption>
-        </div>
-      ) : (
-        <div className="mt-3.5 flex gap-2.5">
-          <Button className="flex-1" disabled={isSaving} onClick={onAccept}>
-            <Check size={16} />
-            {view.isNumeric && view.deltaLabel ? `Accept ${view.deltaLabel}` : 'Accept'}
-          </Button>
-          <Button variant="default" className="shrink-0" disabled={isSaving} onClick={onKeep}>
-            {view.isNumeric && view.currentLabel ? `Keep ${view.currentLabel}` : 'Keep current'}
-          </Button>
-        </div>
-      )}
-      <div className="mt-2">
-        <DecisionFeedbackTrigger decision={decision} />
-      </div>
-    </div>
   )
 }

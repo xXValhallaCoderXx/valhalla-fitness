@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react'
 import { Caption, SectionLabel, Text } from '~/components'
-import type { MovementSlot } from '~/shared/types'
+import type { MovementSlot } from '~/domains/session'
 import { movementCompletedSets } from './live-focus-utils'
 import { MovementNumberBadge } from './LiveSessionControls'
 import { isMovementComplete } from './live-session-utils'

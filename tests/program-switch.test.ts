@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { shouldConfirmProgramStart } from '../src/domains/program/lib/program-switch'
-import type { ProgramInstance, TodayPayload, WorkoutSession } from '../src/shared/types'
+import type { ProgramInstance } from '~/domains/program'
+import type { TodayPayload, WorkoutSession } from '~/domains/session'
 
 const activeProgram: ProgramInstance = {
   id: 'program-1',
@@ -12,6 +13,7 @@ const activeProgram: ProgramInstance = {
   units: 'kg',
   rounding: 2.5,
   currentWeekIndex: 0,
+  stateVersion: 0,
   customizationStatus: 'default',
   customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
   stateValues: [],
@@ -19,6 +21,7 @@ const activeProgram: ProgramInstance = {
 
 const session = (status: WorkoutSession['status']): WorkoutSession => ({
   sessionId: `session-${status}`,
+  stateVersion: 0,
   id: 'planned-1',
   title: 'Squat',
   programTitle: 'Training Max Wave',

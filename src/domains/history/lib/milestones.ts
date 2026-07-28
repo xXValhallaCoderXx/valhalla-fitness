@@ -1,4 +1,5 @@
-import type { Milestone, MilestoneKind, MilestoneSummary, Unit } from '~/shared/types'
+import type { Milestone, MilestoneKind, MilestoneSummary } from '~/domains/history'
+import type { Unit } from '~/shared/types'
 
 /** Thresholds are in display units — trophies are deliberately unit-relative (10k lb ≙ 10k kg). */
 export const MILESTONE_TONNAGE = [10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000]

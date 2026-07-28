@@ -1,6 +1,7 @@
 import { Calculator, ChevronLeft, ChevronRight, History } from 'lucide-react'
 import { Caption, Heading, InfoHint, Text } from '~/components'
-import type { MovementSlot, Unit } from '~/shared/types'
+import type { MovementSlot } from '~/domains/session'
+import type { Unit } from '~/shared/types'
 import { RolePill, ToolButton } from './LiveSessionControls'
 import { formatPreviousShort } from './live-session-utils'
 

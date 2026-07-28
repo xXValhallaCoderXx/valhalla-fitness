@@ -8,7 +8,8 @@ import { buildProgressionDecisionsForSession } from '../src/domains/program/lib/
 import { expandPlannedSession } from '../src/domains/program/lib/templates'
 import { validateTemplateDefinition } from '../src/domains/program/lib/template-engine-schema'
 import type { TemplateDefinition } from '../src/domains/program/lib/template-engine'
-import type { ProgramInstance, WorkoutSession } from '../src/shared/types'
+import type { ProgramInstance } from '~/domains/program'
+import type { WorkoutSession } from '~/domains/session'
 
 function build(methodology: CustomProgramMethodology, templateId = `custom-${methodology}`) {
   return buildCustomProgramTemplateDefinition({
@@ -28,6 +29,7 @@ function programFor(definition: TemplateDefinition): ProgramInstance {
     units: 'kg',
     rounding: 2.5,
     currentWeekIndex: 0,
+    stateVersion: 0,
     customizationStatus: 'default',
     customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
     stateValues: definition.requiredState.map((state) => ({
@@ -62,6 +64,7 @@ function firstSessionFor(definition: TemplateDefinition): WorkoutSession {
   return {
     ...planned,
     sessionId: 'session-1',
+    stateVersion: 0,
     status: 'in_progress',
   }
 }

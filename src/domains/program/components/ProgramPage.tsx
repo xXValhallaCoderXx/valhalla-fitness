@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
+import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { buildProgramTimeline } from '~/domains/program/lib/program-timeline'
 import { buildProgramPhaseMap } from '~/domains/program/lib/program-phase-map'
 import { buildProgramTrajectory } from '~/domains/program/lib/program-trajectory'
@@ -13,7 +15,7 @@ import { RecentProgramSessions } from './ProgramRecentSessions'
 import { ProgramTimeline } from './ProgramTimeline'
 import { PendingProgressionReviewModal, PendingReviewAlert } from './PendingReview'
 
-export function ProgramPage({ user }: { user: unknown }) {
+export function ProgramPage({ user }: { user: AuthUser | null }) {
   if (!user) {
     return (
       <Page>
@@ -25,7 +27,8 @@ export function ProgramPage({ user }: { user: unknown }) {
 }
 
 function AuthedProgram() {
-  const overviewQuery = useQuery(programOverviewQueryOptions())
+  const userId = useRequiredAccountId()
+  const overviewQuery = useQuery(programOverviewQueryOptions(userId))
   const [reviewOpen, setReviewOpen] = useState(false)
   const [resolvedDecisionIds, setResolvedDecisionIds] = useState<Set<string>>(() => new Set())
   const pendingDecisions = (overviewQuery.data?.pendingDecisions ?? []).filter((decision) => !resolvedDecisionIds.has(decision.id))

@@ -1,5 +1,9 @@
 import { z } from 'zod'
 import { movementIdsForSlot, programStateKey } from '~/domains/program/lib/template-engine'
+import type {
+  TemplateDefinition as TemplateDefinitionContract,
+  TemplateSetDefinition as TemplateSetDefinitionContract,
+} from '~/domains/program'
 
 /**
  * Zod schemas + parsing/validation for the template DSL, split from the pure engine so the
@@ -163,8 +167,17 @@ export const templateDefinitionSchema = z.object({
   }
 })
 
-export type TemplateDefinition = z.infer<typeof templateDefinitionSchema>
-export type TemplateSetDefinition = TemplateDefinition['weeks'][number]['prescriptions'][string]['sets'][number]
+type SchemaTemplateDefinition = z.infer<typeof templateDefinitionSchema>
+type ContractExtendsSchema = TemplateDefinitionContract extends SchemaTemplateDefinition ? true : never
+type SchemaExtendsContract = SchemaTemplateDefinition extends TemplateDefinitionContract ? true : never
+
+const contractExtendsSchema: ContractExtendsSchema = true
+const schemaExtendsContract: SchemaExtendsContract = true
+void contractExtendsSchema
+void schemaExtendsContract
+
+export type TemplateDefinition = TemplateDefinitionContract
+export type TemplateSetDefinition = TemplateSetDefinitionContract
 export type TemplateValidationResult =
   | { ok: true; definition: TemplateDefinition }
   | { ok: false; message: string }

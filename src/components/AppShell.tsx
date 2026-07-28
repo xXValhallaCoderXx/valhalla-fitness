@@ -17,7 +17,11 @@ const navItems = [
 export function AppShell({ user, children }: { user: AuthUser | null; children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const isNavigating = useRouterState({ select: (state) => state.isLoading })
-  const isChromeless = pathname === '/' || pathname.startsWith('/auth')
+  const isChromeless =
+    pathname === '/' ||
+    pathname.startsWith('/auth') ||
+    pathname === '/privacy' ||
+    pathname === '/terms'
 
   // The app shell is a fixed-height flex column with an internal scroll area, so the document
   // itself never scrolls. This keeps the mobile address bar from collapsing/expanding (which

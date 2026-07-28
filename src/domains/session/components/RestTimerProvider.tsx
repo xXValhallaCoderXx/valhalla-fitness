@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { meQueryOptions } from '~/domains/account/queries'
-import type { MovementSlot } from '~/shared/types'
+import type { MovementSlot } from '~/domains/session'
 import { resolveRestSeconds } from '~/domains/session/lib/rest-timer'
 import { primeRestCue } from '~/domains/session/lib/rest-timer-cue'
 import {
@@ -23,7 +24,8 @@ const FALLBACK_PREFS = { autoStartTimer: true, defaultRestSeconds: 120 }
  * prop so ticks never re-render the session tree.
  */
 export function RestTimerProvider({ children }: { children: ReactNode }) {
-  const me = useQuery(meQueryOptions()).data
+  const userId = useRequiredAccountId()
+  const me = useQuery(meQueryOptions(userId)).data
   const autoStartTimer = me?.autoStartTimer ?? FALLBACK_PREFS.autoStartTimer
   const defaultRestSeconds = me?.defaultRestSeconds ?? FALLBACK_PREFS.defaultRestSeconds
 

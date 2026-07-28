@@ -1,0 +1,135 @@
+import type { SwapScope } from '~/domains/movement'
+import type { AccessoryProgressionMethod } from '~/domains/program'
+import type { MovementRole, SessionHardness, Unit } from '~/shared/types'
+
+export type SyncState = 'synced' | 'saving' | 'syncFailed'
+
+export type SubstitutionReason = 'equipment_missing' | 'crowded_gym' | 'preference' | 'fatigue' | 'other'
+
+export type SetTarget = {
+  id: string
+  setIndex: number
+  targetLoad?: number | null
+  targetReps?: number | null
+  targetRepMin?: number | null
+  targetRepMax?: number | null
+  targetRir?: number | null
+  targetRpe?: number | null
+  isTopSet?: boolean
+  isAmrap?: boolean
+  isBackoff?: boolean
+  label?: string
+}
+
+export type SetLog = SetTarget & {
+  exerciseLogId?: string
+  actualLoad?: number | null
+  actualReps?: number | null
+  actualRir?: number | null
+  actualRpe?: number | null
+  completed: boolean
+  note?: string | null
+  clientMutationId?: string | null
+  syncState?: SyncState
+}
+
+export type MovementSlot = {
+  id: string
+  slotId?: string
+  phaseKey?: string
+  movementId: string
+  movementName: string
+  performedMovementId?: string
+  performedMovementName?: string
+  role: MovementRole
+  orderIndex: number
+  targetSummary: string
+  progressionRuleId?: string | null
+  progressionMethod?: AccessoryProgressionMethod | null
+  sets: SetLog[]
+  previous?: PreviousComparable | null
+  notes?: string | null
+  isAdded?: boolean
+  addedScope?: SwapScope
+  /** Optional per-slot rest override (seconds); rides the session snapshot, no DB column. */
+  restSeconds?: number
+}
+
+export type PlannedSession = {
+  id: string
+  templateSessionId?: string
+  /** Present (as 'ad_hoc') on snapshots of plan-less one-off sessions. */
+  kind?: 'ad_hoc'
+  title: string
+  programTitle: string
+  templateId: string
+  weekIndex: number
+  weekLabel: string
+  /** null for ad-hoc sessions — they have no prescribed intensity. */
+  hardness: SessionHardness | null
+  scheduledDate: string
+  estimatedMinutes: number
+  units: Unit
+  rounding: number
+  movements: MovementSlot[]
+}
+
+export type WorkoutSession = PlannedSession & {
+  sessionId: string
+  /** Monotonic content revision used by atomic workout mutations. */
+  stateVersion: number
+  status: 'planned' | 'in_progress' | 'completed' | 'skipped'
+  startedAt?: string | null
+  completedAt?: string | null
+  notes?: string | null
+  /** One-tap "How hard was that?" rating captured at finish, 1 (easy) to 10 (max effort). */
+  sessionRpe?: number | null
+  /** Optional finish-time reflection: one thing that went well. */
+  reflectionWin?: string | null
+  /** Optional finish-time reflection: one thing to work on. */
+  reflectionImprove?: string | null
+  /** Personal records broken in this session, frozen at finish time. */
+  prs?: SessionPr[] | null
+  isAdHoc?: boolean
+  /** Favourite state of the whole workout lineage (the session or the workout it repeats). */
+  isFavorite?: boolean
+  /** Root session this one was repeated from; null for originals. */
+  sourceSessionId?: string | null
+  syncState?: SyncState
+}
+
+export type PrKind = 'heaviest_weight' | 'best_e1rm' | 'rep_record'
+
+/** A personal record broken in a session — computed and frozen at finish time. */
+export type SessionPr = {
+  movementId: string
+  movementName: string
+  /** Records broken by this movement's headline set, ordered most impressive first. */
+  kinds: PrKind[]
+  load: number
+  reps: number
+  e1rm: number | null
+  /** Beginner-readable "what you beat", e.g. "Old best: 80 kg × 5". */
+  previousLabel: string | null
+}
+
+/** A prior session's actual result for one set position, used for per-row "last time" ghosts. */
+export type PreviousComparableSet = {
+  setIndex: number
+  load: number | null
+  reps: number | null
+  rir: number | null
+}
+
+export type PreviousComparable = {
+  movementId: string
+  label: string
+  load?: number | null
+  reps?: number | null
+  rir?: number | null
+  performedAt?: string | null
+  e1rm?: number | null
+  setType?: 'top_set' | 'amrap' | 'backoff' | 'best_set' | 'accessory'
+  /** Completed sets from the comparable session; absent on snapshots created before this shipped. */
+  sets?: PreviousComparableSet[]
+}

@@ -3,7 +3,7 @@ import type {
   HistoryMovementSummary,
   HistoryWeeklyVolume,
   RecentHistoryEntry,
-} from '~/shared/types'
+} from '~/domains/history'
 
 /**
  * Pure presentation helpers for the Insights (`/history`) page — grouping,

@@ -6,7 +6,7 @@ import {
   resolveRegionWeights,
   worstBodyLoadTier,
 } from '../src/domains/history/lib/body-load'
-import type { BodyLoadRegion } from '../src/shared/types'
+import type { BodyLoadRegion } from '~/domains/history'
 
 describe('body load model', () => {
   it('weights recent completed work by role and movement region', () => {

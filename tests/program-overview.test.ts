@@ -3,7 +3,8 @@ import { calculateBodyLoad } from '../src/domains/history/lib/body-load'
 import { buildProgramOverview } from '../src/domains/program/lib/program-overview'
 import { getFallbackTemplateDefinition } from '../src/domains/program/lib/template-definitions'
 import { expandPlannedSession } from '../src/domains/program/lib/templates'
-import type { ProgramInstance, TodayPayload, WorkoutSession } from '../src/shared/types'
+import type { ProgramInstance } from '~/domains/program'
+import type { TodayPayload, WorkoutSession } from '~/domains/session'
 
 const program: ProgramInstance = {
   id: 'program-1',
@@ -15,6 +16,7 @@ const program: ProgramInstance = {
   units: 'kg',
   rounding: 2.5,
   currentWeekIndex: 1,
+  stateVersion: 0,
   customizationStatus: 'default',
   customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
   stateValues: [
@@ -98,6 +100,7 @@ describe('program overview model', () => {
       completedSession: {
         ...completedDayOne,
         sessionId: 'completed-day-one',
+        stateVersion: 0,
         status: 'completed',
         completedAt: '2026-06-22T10:00:00.000Z',
         syncState: 'synced',

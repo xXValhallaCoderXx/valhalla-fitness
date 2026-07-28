@@ -1,8 +1,8 @@
 # Sheetless — agent guide
 
-Beginner-friendly strength-training app (TanStack Start + React + Mantine, Supabase backend).
-The canonical product/implementation spec lives in `main-app-spec.md`; go-live steps in
-`release-checklist.md` + `RAILWAY.md`.
+Follow `AGENTS.md` for repository-wide implementation rules. `README.md` is the sole human-facing
+source for product scope, release state, architecture, the DSL, testing, and deployment. This file
+contains Claude-specific execution notes only.
 
 ## Commands
 
@@ -11,9 +11,11 @@ pnpm dev               # dev server on http://localhost:3000
 pnpm typecheck         # tsc --noEmit
 pnpm test              # vitest (unit)
 pnpm lint              # eslint
-pnpm e2e               # Playwright e2e  (see tests/e2e/README.md)
+pnpm verify            # complete release-oriented verification suite
+pnpm e2e               # Playwright e2e (setup and examples are in README.md)
 pnpm shot /program     # screenshot any route as the logged-in demo user
 pnpm demo:seed         # (re)create local demo users
+pnpm db:test           # pgTAP contracts; requires local Supabase/Docker
 ```
 
 ## Validation — definition of done

@@ -3,10 +3,10 @@ import type {
   HistoryWeeklyVolume,
   InsightGating,
   PlanState,
-  ProgramInstance,
-  SessionHardness,
   VolumeTrendSignal,
-} from '~/shared/types'
+} from '~/domains/history'
+import type { ProgramInstance } from '~/domains/program'
+import type { SessionHardness } from '~/shared/types'
 
 export const COLD_START_MAX_SESSIONS = 1
 export const ESTABLISHED_MIN_SESSIONS = 8

@@ -1,8 +1,5 @@
-import type {
-  PlannedSession,
-  ProgramInstance,
-  ProgramTemplateSummary,
-} from '~/shared/types'
+import type { ProgramInstance, ProgramTemplateSummary } from '~/domains/program'
+import type { PlannedSession } from '~/domains/session'
 import {
   expandSessionFromTemplateDefinition,
   programForNextUncompletedSessionFromDefinition,

@@ -1,4 +1,4 @@
-import type { ProgramSetupPreviewMovement, ProgramSetupPreviewWeek } from '~/shared/types'
+import type { ProgramSetupPreviewMovement, ProgramSetupPreviewWeek } from '~/domains/program'
 import { compactWeekPreviewOptions } from '~/domains/program/lib/template-start-utils'
 
 /**

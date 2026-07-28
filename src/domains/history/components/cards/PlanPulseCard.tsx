@@ -1,4 +1,5 @@
-import type { InsightGating, ProgramOverview } from '~/shared/types'
+import type { InsightGating } from '~/domains/history'
+import type { ProgramOverview } from '~/domains/program'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
 
 export type PlanPulseSignal = 'week_one' | 'deload' | 'completed' | 'paused' | 'active'

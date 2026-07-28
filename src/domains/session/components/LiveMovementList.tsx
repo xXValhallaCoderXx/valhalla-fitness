@@ -17,17 +17,25 @@ import {
 } from '@dnd-kit/sortable'
 import { Checkbox } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { useIsMutating, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { ConfirmDialog, Text } from '~/components'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { reorderAddedAccessories } from '~/domains/session/lib/accessories'
 import { isSessionMutationKey } from '~/domains/session/lib/session-mutations'
+import {
+  invalidateSessionManagementCaches,
+  invalidateSessionProgramCaches,
+  updateSessionManagementCaches,
+} from '~/domains/session/lib/session-management-cache'
 import {
   removeSessionAccessoryFn,
   reorderSessionAccessoriesFn,
 } from '~/domains/session/server/session-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import type { MovementSlot, SwapScope, TodayPayload, WorkoutSession } from '~/shared/types'
+import { useStableMutationRequest } from '~/domains/session/lib/useStableMutationRequest'
+import type { SwapScope } from '~/domains/movement'
+import type { MovementSlot, WorkoutSession } from '~/domains/session'
 import { LiveMovementCard } from './LiveMovementCard'
 import { MovementDragPreview, SortableAddedMovement } from './SortableAddedMovement'
 
@@ -42,7 +50,10 @@ export function LiveMovementList({
   activeMovementId,
   onSelectMovement,
 }: LiveMovementListProps) {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
+  const reorderRequest = useStableMutationRequest()
+  const removeRequest = useStableMutationRequest()
   const conflictingMutationCount = useIsMutating({
     predicate: (mutation) => isSessionMutationKey(mutation.options.mutationKey, session.sessionId),
   })
@@ -75,13 +86,24 @@ export function LiveMovementList({
 
   const reorderMutation = useMutation({
     mutationKey: ['reorderSessionAccessories', session.sessionId],
+    scope: { id: `session:${session.sessionId}` },
     mutationFn: (nextSlotIds: string[]) =>
       reorderSessionAccessoriesFn({
-        data: { sessionId: session.sessionId, orderedSlotIds: nextSlotIds },
+        data: {
+          sessionId: session.sessionId,
+          orderedSlotIds: nextSlotIds,
+          requestId: reorderRequest.requestIdFor({ orderedSlotIds: nextSlotIds }),
+          expectedStateVersion: session.stateVersion,
+        },
       }),
     onError: async (error) => {
       setOrderedSlotIds(currentAddedSlotIds)
-      await invalidateManagementCaches(queryClient, session.sessionId, hasPersistentAdditions)
+      await invalidateSessionManagementCaches(
+        queryClient,
+        userId,
+        session.sessionId,
+        hasPersistentAdditions,
+      )
       notifications.show({
         color: 'danger',
         title: 'Order not saved',
@@ -89,25 +111,34 @@ export function LiveMovementList({
       })
     },
     onSuccess: (nextSession) => {
-      updateSessionCaches(queryClient, nextSession)
-      if (hasPersistentAdditions) invalidateProgramCaches(queryClient)
+      reorderRequest.clearRequest()
+      updateSessionManagementCaches(queryClient, userId, nextSession)
+      if (hasPersistentAdditions) invalidateSessionProgramCaches(queryClient, userId)
     },
   })
 
   const removeMutation = useMutation({
     mutationKey: ['removeSessionAccessory', session.sessionId],
+    scope: { id: `session:${session.sessionId}` },
     mutationFn: ({ movement, scope }: { movement: MovementSlot; scope: SwapScope }) =>
       removeSessionAccessoryFn({
         data: {
           sessionId: session.sessionId,
           exerciseLogId: movement.id,
           scope,
+          requestId: removeRequest.requestIdFor({ exerciseLogId: movement.id, scope }),
+          expectedStateVersion: session.stateVersion,
         },
       }),
     onError: async (error, input) => {
       setMovementToRemove(null)
       setRemoveFromFuture(false)
-      await invalidateManagementCaches(queryClient, session.sessionId, input.scope === 'phase_slot')
+      await invalidateSessionManagementCaches(
+        queryClient,
+        userId,
+        session.sessionId,
+        input.scope === 'phase_slot',
+      )
       notifications.show({
         color: 'danger',
         title: 'Accessory not removed',
@@ -115,9 +146,10 @@ export function LiveMovementList({
       })
     },
     onSuccess: (nextSession, input) => {
+      removeRequest.clearRequest()
       const removedIndex = displayMovements.findIndex((movement) => movement.id === input.movement.id)
-      updateSessionCaches(queryClient, nextSession)
-      if (input.scope === 'phase_slot') invalidateProgramCaches(queryClient)
+      updateSessionManagementCaches(queryClient, userId, nextSession)
+      if (input.scope === 'phase_slot') invalidateSessionProgramCaches(queryClient, userId)
       if (activeMovementId === input.movement.id) {
         const nextIndex = Math.min(Math.max(removedIndex, 0), nextSession.movements.length - 1)
         onSelectMovement(nextSession.movements[nextIndex]?.id ?? '')
@@ -248,37 +280,4 @@ export function LiveMovementList({
 
 function movementSlotId(movement: MovementSlot) {
   return movement.slotId ?? movement.id
-}
-
-function updateSessionCaches(queryClient: QueryClient, session: WorkoutSession) {
-  queryClient.setQueryData(['session', session.sessionId], session)
-  queryClient.setQueryData<TodayPayload>(['today'], (current) =>
-    current ? { ...current, activeSession: session } : current,
-  )
-}
-
-function invalidateManagementCaches(
-  queryClient: QueryClient,
-  sessionId: string,
-  includeProgram: boolean,
-) {
-  const invalidations = [
-    queryClient.invalidateQueries({ queryKey: ['session', sessionId] }),
-    queryClient.invalidateQueries({ queryKey: ['today'] }),
-  ]
-  if (includeProgram) {
-    invalidations.push(
-      queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
-      queryClient.invalidateQueries({ queryKey: ['programOverview'] }),
-    )
-  }
-  return Promise.all(invalidations)
-}
-
-function invalidateProgramCaches(queryClient: QueryClient) {
-  void Promise.all([
-    queryClient.invalidateQueries({ queryKey: ['today'] }),
-    queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
-    queryClient.invalidateQueries({ queryKey: ['programOverview'] }),
-  ])
 }

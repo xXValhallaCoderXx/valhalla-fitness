@@ -1,30 +1,26 @@
+import type { Movement } from '~/domains/movement'
 import type {
-  MovementRole,
-  MovementSlot,
-  Movement,
   ProgramAccessoryAddition,
-  PlannedSession,
   ProgramInstance,
   ProgramMovementOverride,
   ProgramStateInput,
   ProgramStateType,
-  SetLog,
-  Unit,
-} from '~/shared/types'
+  TemplateDefinition,
+  TemplateSetDefinition,
+} from '~/domains/program'
+import type { MovementSlot, PlannedSession, SetLog } from '~/domains/session'
+import type { MovementRole, Unit } from '~/shared/types'
 import { accessoryProgressionRuleId } from '~/domains/session/lib/accessories'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { mround } from '~/domains/program/lib/progression'
 import { convertWeight } from '~/shared/lib/math'
-import type { TemplateDefinition, TemplateSetDefinition } from '~/domains/program/lib/template-engine-schema'
-
-// The zod schemas + parse/validate live in `template-engine-schema.ts` (server-side use) so
-// clients that only build timelines/previews from server-supplied definitions never bundle
-// zod. The inferred DSL types are re-exported here (type-only, erased at build time).
+// Zod parsing stays in `template-engine-schema.ts` so clients that only build
+// timelines and previews never bundle Zod.
 export type {
   TemplateDefinition,
   TemplateSetDefinition,
-  TemplateValidationResult,
-} from '~/domains/program/lib/template-engine-schema'
+} from '~/domains/program/types/template'
+export type { TemplateValidationResult } from '~/domains/program/lib/template-engine-schema'
 
 export type TimelineSessionMovement = {
   role: MovementRole

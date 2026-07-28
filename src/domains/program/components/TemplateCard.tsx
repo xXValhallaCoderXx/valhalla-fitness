@@ -2,7 +2,7 @@ import { ActionIcon, Badge, Button, Card, Popover } from '@mantine/core'
 import { Check, Eye, Info, Layers, Lock } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
-import type { ProgramTemplateSummary } from '~/shared/types'
+import type { ProgramTemplateSummary } from '~/domains/program'
 import {
   complexityRangeLabel,
   familyByTemplateId,

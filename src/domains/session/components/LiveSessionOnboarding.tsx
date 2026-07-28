@@ -2,6 +2,7 @@ import { Button } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sparkles, X } from 'lucide-react'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { meQueryOptions } from '~/domains/account/queries'
 import { dismissLiveOnboardingFn } from '~/domains/account/server/profile-functions'
 import { buildLiveSessionSteps } from '~/domains/onboarding/onboarding-tour'
@@ -9,27 +10,32 @@ import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { track } from '~/shared/lib/analytics'
-import type { UserProfile } from '~/shared/types'
+import type { UserProfile } from '~/domains/account'
 
 export function LiveSessionOnboarding() {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
-  const meQuery = useQuery(meQueryOptions())
+  const profileOptions = meQueryOptions(userId)
+  const meQuery = useQuery(profileOptions)
   const { start } = useOnboardingTour(buildLiveSessionSteps, 'live')
 
   const dismissMutation = useMutation({
     mutationFn: () => dismissLiveOnboardingFn(),
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['me'] })
-      const previous = queryClient.getQueryData<UserProfile | null>(['me'])
+      await queryClient.cancelQueries({ queryKey: profileOptions.queryKey })
+      const previous = queryClient.getQueryData<UserProfile | null>(profileOptions.queryKey)
       if (previous) {
-        queryClient.setQueryData<UserProfile | null>(['me'], (current) =>
+        queryClient.setQueryData<UserProfile | null>(profileOptions.queryKey, (current) =>
           current ? { ...current, liveOnboardingDismissed: true } : current,
         )
       }
       return { previous }
     },
     onError: (error, _variables, context) => {
-      queryClient.setQueryData<UserProfile | null>(['me'], context?.previous ?? null)
+      queryClient.setQueryData<UserProfile | null>(
+        profileOptions.queryKey,
+        context?.previous ?? null,
+      )
       notifications.show({
         color: 'danger',
         title: 'Could not hide walkthrough',
@@ -37,7 +43,7 @@ export function LiveSessionOnboarding() {
       })
     },
     onSuccess: (profile) => {
-      queryClient.setQueryData<UserProfile | null>(['me'], profile ?? null)
+      queryClient.setQueryData<UserProfile | null>(profileOptions.queryKey, profile ?? null)
     },
   })
 

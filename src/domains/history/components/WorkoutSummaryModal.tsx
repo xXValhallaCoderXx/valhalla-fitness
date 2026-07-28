@@ -5,11 +5,15 @@ import { useRouter } from '@tanstack/react-router'
 import { RotateCw, Star, X } from 'lucide-react'
 import { useState } from 'react'
 import { SectionLabel } from '~/components'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { buildWorkoutSummary } from '~/domains/history/lib/workout-summary'
 import { setSessionFavoriteFn } from '~/domains/session/server/favorite-functions'
 import { startAdHocSessionFn } from '~/domains/session/server/session-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import type { RecentHistoryEntry, WorkoutSession } from '~/shared/types'
+import { browserIanaTimeZone } from '~/shared/lib/calendar-date'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
+import type { RecentHistoryEntry } from '~/domains/history'
+import type { WorkoutSession } from '~/domains/session'
 import { FavoriteNameDialog } from './summary/FavoriteNameDialog'
 import { ExerciseCard, NotesCard, SessionBest, StatusBlock } from './summary/WorkoutSummaryExercises'
 import { WorkoutSummaryHero } from './summary/WorkoutSummaryHero'
@@ -29,6 +33,7 @@ export function WorkoutSummaryModal({
   error: unknown
   onClose: () => void
 }) {
+  const userId = useRequiredAccountId()
   const router = useRouter()
   const queryClient = useQueryClient()
   const [nameDialogOpen, setNameDialogOpen] = useState(false)
@@ -38,7 +43,13 @@ export function WorkoutSummaryModal({
 
   const repeatMutation = useMutation({
     mutationFn: (sourceSessionId: string) =>
-      startAdHocSessionFn({ data: { clientMutationId: crypto.randomUUID(), sourceSessionId } }),
+      startAdHocSessionFn({
+        data: {
+          clientMutationId: crypto.randomUUID(),
+          sourceSessionId,
+          timeZone: browserIanaTimeZone() ?? undefined,
+        },
+      }),
     onError: (error) => {
       notifications.show({
         color: 'danger',
@@ -47,8 +58,11 @@ export function WorkoutSummaryModal({
       })
     },
     onSuccess: async (nextSession) => {
-      queryClient.setQueryData(['session', nextSession.sessionId], nextSession)
-      await queryClient.invalidateQueries({ queryKey: ['today'] })
+      queryClient.setQueryData(
+        accountQueryKeys.session(userId, nextSession.sessionId),
+        nextSession,
+      )
+      await queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) })
       onClose()
       await router.navigate({ to: '/sessions/$sessionId', params: { sessionId: nextSession.sessionId } })
     },
@@ -66,12 +80,17 @@ export function WorkoutSummaryModal({
     },
     onSuccess: async (nextSession, input) => {
       setNameDialogOpen(false)
-      queryClient.setQueryData(['session', nextSession.sessionId], nextSession)
+      queryClient.setQueryData(
+        accountQueryKeys.session(userId, nextSession.sessionId),
+        nextSession,
+      )
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['history'] }),
-        queryClient.invalidateQueries({ queryKey: ['favoriteWorkouts'] }),
+        queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(userId) }),
+        queryClient.invalidateQueries({
+          queryKey: accountQueryKeys.favoriteWorkouts(userId),
+        }),
         // Favourite state spans the workout's lineage — other cached instances change too.
-        queryClient.invalidateQueries({ queryKey: ['session'] }),
+        queryClient.invalidateQueries({ queryKey: accountQueryKeys.sessions(userId) }),
       ])
       notifications.show({
         color: 'success',

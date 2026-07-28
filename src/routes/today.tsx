@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { historyDashboardQueryOptions } from '~/domains/history/queries'
-import { programOverviewQueryOptions } from '~/domains/program/queries'
+import { todayHistorySupportQueryOptions } from '~/domains/history/queries'
 import { TodayPage } from '~/domains/session/components/TodayPage'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { loadRouteQuery, prefetchRouteQueries } from '~/shared/lib/route-loading'
@@ -9,10 +8,9 @@ export const Route = createFileRoute('/today')({
   loader: async ({ context }) => {
     if (context.user) {
       await Promise.all([
-        loadRouteQuery(context.queryClient, todayQueryOptions()),
+        loadRouteQuery(context.queryClient, todayQueryOptions(context.user.id)),
         prefetchRouteQueries(context.queryClient, [
-          historyDashboardQueryOptions(),
-          programOverviewQueryOptions(),
+          todayHistorySupportQueryOptions(context.user.id),
         ]),
       ])
     }

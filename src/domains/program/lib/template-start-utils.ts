@@ -4,15 +4,14 @@ import {
   DEFAULT_WORKING_LOAD_PERCENT,
   buildProgramStartStateValues,
 } from '~/domains/program/lib/program-loads'
+import type { UserProfile } from '~/domains/account'
 import type {
-  MovementRole,
   ProgramSetupOptions,
   ProgramStartAccessoryAdditionInput,
   ProgramStateInput,
   ProgramTemplateSummary,
-  Unit,
-  UserProfile,
-} from '~/shared/types'
+} from '~/domains/program'
+import type { MovementRole, Unit } from '~/shared/types'
 
 export type AccessoryAdditionDraft = ProgramStartAccessoryAdditionInput & {
   clientId: string

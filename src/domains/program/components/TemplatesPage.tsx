@@ -2,21 +2,22 @@ import { Button } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Outlet, useRouter, useRouterState } from '@tanstack/react-router'
 import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
-import { templatesQueryOptions } from '~/domains/program/queries'
+import type { AuthUser } from '~/domains/account/server/auth-functions'
+import { availableTemplatesQueryOptions } from '~/domains/program/queries'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { TemplateCatalogue } from './TemplateCatalogue'
 
-export function TemplatesPage({ user }: { user: unknown }) {
+export function TemplatesPage({ user }: { user: AuthUser | null }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   if (pathname !== '/templates') return <Outlet />
   return <TemplatesIndexRoute user={user} />
 }
 
-function TemplatesIndexRoute({ user }: { user: unknown }) {
+function TemplatesIndexRoute({ user }: { user: AuthUser | null }) {
   const router = useRouter()
-  const templatesQuery = useQuery(templatesQueryOptions())
+  const templatesQuery = useQuery(availableTemplatesQueryOptions(user?.id ?? null))
   const todayQuery = useQuery({
-    ...todayQueryOptions(),
+    ...todayQueryOptions(user?.id ?? ''),
     enabled: Boolean(user),
   })
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildConsistency, buildWeeklySessionCounts, streakBadgeLabel } from '../src/domains/history/lib/consistency'
 import type { HistorySessionInput } from '../src/domains/history/lib/history'
-import type { WeeklyCount } from '../src/shared/types'
+import type { WeeklyCount } from '~/domains/history'
 
 function makeSession(overrides: Partial<HistorySessionInput> = {}): HistorySessionInput {
   return {

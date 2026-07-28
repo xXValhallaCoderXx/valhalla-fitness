@@ -1,4 +1,5 @@
-import type { BodyweightEntry, Sex, StrengthScore, StrengthScoreKind, TotalPoint } from '~/shared/types'
+import type { BodyweightEntry, Sex } from '~/domains/account'
+import type { StrengthScore, StrengthScoreKind, TotalPoint } from '~/domains/history'
 import { parseDate } from '~/domains/history/lib/history'
 
 /**

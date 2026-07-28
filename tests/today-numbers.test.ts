@@ -7,7 +7,7 @@ import {
   formatPreviousLine,
   hasTargetLoads,
 } from '../src/domains/session/lib/today-numbers'
-import type { MovementSlot, PreviousComparable, SetLog } from '../src/shared/types'
+import type { MovementSlot, PreviousComparable, SetLog } from '~/domains/session'
 
 function set(setIndex: number, over: Partial<SetLog> = {}): SetLog {
   return { id: `set-${setIndex}`, setIndex, completed: false, ...over }

@@ -1,4 +1,4 @@
-import type { MovementSlot } from '~/shared/types'
+import type { MovementSlot } from '~/domains/session'
 import { setSegments, type SetSegmentState } from './live-focus-utils'
 
 /** Tappable segmented per-exercise set progress. One segment per set; tap to revisit/edit a set. */

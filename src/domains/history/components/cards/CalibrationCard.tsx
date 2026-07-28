@@ -1,6 +1,6 @@
 import { Badge } from '@mantine/core'
 import { calibrationSignalLabels } from '~/domains/history/lib/calibration'
-import type { CalibrationSummary, CalibrationSignal } from '~/shared/types'
+import type { CalibrationSummary, CalibrationSignal } from '~/domains/history'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
 import { formatNumber } from '../insight-format'
 

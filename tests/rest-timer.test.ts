@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { formatRest, remaining, resolveRestSeconds } from '../src/domains/session/lib/rest-timer'
-import type { MovementSlot } from '../src/shared/types'
+import type { MovementSlot } from '~/domains/session'
 
 const ON = { autoStartTimer: true, defaultRestSeconds: 120 }
 const slot = (over: Partial<Pick<MovementSlot, 'role' | 'restSeconds'>>): Pick<MovementSlot, 'role' | 'restSeconds'> => ({

@@ -2,7 +2,7 @@ import { Badge } from '@mantine/core'
 import { Check } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Caption, SectionLabel, Text } from '~/components'
-import type { MovementSlot } from '~/shared/types'
+import type { MovementSlot } from '~/domains/session'
 
 export function StatusPanel({ tone, children }: { tone: 'warning' | 'danger'; children: ReactNode }) {
   return (

@@ -9,7 +9,8 @@ import {
   WeeklyVolumePanel,
 } from '../src/domains/session/components/today/TodayPanels'
 import { TodayPageSkeleton } from '../src/domains/session/components/today/TodayPageSkeleton'
-import type { HistoryDashboard, HistoryDashboardWithInsights, ProgramOverview } from '../src/shared/types'
+import type { TodayHistorySupport } from '../src/domains/history/types'
+import type { ProgramOverview } from '~/domains/program'
 
 function render(component: ReactNode) {
   return renderToStaticMarkup(<MantineProvider>{component}</MantineProvider>)
@@ -17,12 +18,10 @@ function render(component: ReactNode) {
 
 function makeStreakHistory(currentStreakWeeks: number) {
   return {
-    insights: {
-      consistency: {
-        currentStreakWeeks,
-      },
+    consistency: {
+      currentStreakWeeks,
     },
-  } as unknown as HistoryDashboardWithInsights
+  } as unknown as TodayHistorySupport
 }
 
 describe('Today loading states', () => {
@@ -90,7 +89,7 @@ describe('Today loading states', () => {
       },
     } as unknown as ProgramOverview
     const history = {
-      overview: { units: 'kg' },
+      units: 'kg',
       weeklyVolume: [
         {
           weekStart: '2026-07-13',
@@ -100,7 +99,7 @@ describe('Today loading states', () => {
           sessionCount: 2,
         },
       ],
-    } as unknown as HistoryDashboard
+    } as unknown as TodayHistorySupport
 
     const program = render(<ProgramProgressPanel overview={overview} isError />)
     const volume = render(<WeeklyVolumePanel history={history} isError />)

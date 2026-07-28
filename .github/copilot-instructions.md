@@ -1,12 +1,15 @@
 # Sheetless Agent Guidelines
 
-Use these instructions for all work in this repository. For the detailed file-scoped rules, also follow `.github/instructions/project-standards.instructions.md` and `AGENTS.md`.
+Use these instructions for all work in this repository. For the detailed file-scoped rules, also
+follow `.github/instructions/project-standards.instructions.md` and `AGENTS.md`. `README.md` is the
+sole human-facing source for product scope, release state, architecture, the DSL, testing, and
+deployment.
 
 ## Project shape
 
 - This is `sheetless`, a TanStack Start/Vite React 19 + TypeScript app backed by Supabase.
 - Code is organized by domain:
-  - `src/domains/{account,program,session,history,movement}/components` for domain UI.
+  - `src/domains/{account,program,session,history,movement,onboarding}/components` for domain UI.
   - `src/domains/*/server` for `createServerFn` handlers and domain data access.
   - `src/domains/*/lib` for pure domain logic.
   - `src/domains/*/queries.ts` for React Query options.
@@ -37,7 +40,9 @@ Use these instructions for all work in this repository. For the detailed file-sc
 - Keep route files in `src/routes/` using TanStack Router file-route naming.
 - Never edit `src/routeTree.gen.ts` manually.
 - Follow existing React Query and server-function patterns for data fetching and mutations.
-- Keep Dexie/offline/session-cache details in domain or shared lib modules, not scattered through route components.
+- Workout saving is online-only. Keep optimistic state in the account-scoped React Query session
+  cache with explicit saving/failure/retry UI; do not introduce a durable offline database or replay
+  queue without an explicit product/architecture decision in `README.md`.
 
 ## Commands and validation
 

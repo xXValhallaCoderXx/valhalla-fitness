@@ -1,24 +1,27 @@
 import { createServerFn } from '@tanstack/react-start'
+import type { BodyweightEntry, Sex } from '~/domains/account'
 import type {
-  BodyweightEntry,
   HistoryDashboardWithInsights,
   MovementHistoryEntry,
-  MovementRole,
-  PlannedSession,
-  ProgramOverview,
-  ProgramRecentSessionSummary,
-  ProgressionDecision,
   RecentHistoryEntry,
-  Sex,
-  SubstitutionReason,
-  Unit,
-} from '~/shared/types'
+} from '~/domains/history'
+import type { ProgramOverview, ProgramRecentSessionSummary, ProgressionDecision } from '~/domains/program'
+import type { PlannedSession, SubstitutionReason } from '~/domains/session'
+import type { MovementRole, Unit } from '~/shared/types'
 import {
   buildHistoryDashboard,
+  buildRecentHistoryEntries,
   type HistorySessionInput,
   type HistorySubstitutionInput,
 } from '~/domains/history/lib/history'
 import { buildHistoryInsights } from '~/domains/history/lib/build-insights'
+import { collectPostgrestPages } from '~/domains/history/lib/postgrest-pagination'
+import { movementHistoryInputSchema } from '~/domains/history/lib/schemas'
+import {
+  buildTodayHistorySupport,
+  todayHistoryWindowStart,
+} from '~/domains/history/lib/today-history-support'
+import type { TodayHistorySupport } from '~/domains/history/types'
 import { buildProgramOverview } from '~/domains/program/lib/program-overview'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { formatNumber } from '~/shared/lib/set-notation'
@@ -32,36 +35,47 @@ async function requireUser() {
   return requireUser()
 }
 
-/**
- * Sessions for the insights dashboard: ~2.5 years at 4×/week. The child-row
- * queries below must go through chunkedIn at this scale — a single
- * .in('exercise_log_id', ...) with thousands of ids overflows the GET URL.
- */
-const SESSION_FETCH_LIMIT = 520
 const IN_CHUNK_SIZE = 150
+const IN_CHUNK_CONCURRENCY = 4
 
 async function chunkedIn<T>(
   ids: string[],
-  fetchChunk: (chunk: string[]) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  fetchChunkPage: (
+    chunk: string[],
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<T[]> {
   const rows: T[] = []
+  const chunks: string[][] = []
   for (let start = 0; start < ids.length; start += IN_CHUNK_SIZE) {
-    const { data, error } = await fetchChunk(ids.slice(start, start + IN_CHUNK_SIZE))
-    if (error) throw new Error(error.message)
-    rows.push(...(data ?? []))
+    chunks.push(ids.slice(start, start + IN_CHUNK_SIZE))
+  }
+  for (let start = 0; start < chunks.length; start += IN_CHUNK_CONCURRENCY) {
+    const results = await Promise.all(
+      chunks
+        .slice(start, start + IN_CHUNK_CONCURRENCY)
+        .map((chunk) => collectPostgrestPages((from, to) => fetchChunkPage(chunk, from, to))),
+    )
+    for (const chunkRows of results) {
+      rows.push(...chunkRows)
+    }
   }
   return rows
 }
 
 /** Lineage keys of the user's favourited workouts — repeats of a favourite show its star. */
 async function getFavoriteLineageKeys(supabase: SupabaseServerClient, userId: string): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from('workout_sessions')
-    .select('id, source_session_id')
-    .eq('user_id', userId)
-    .eq('is_favorite', true)
-  if (error) throw new Error(error.message)
-  return favoriteLineageKeys(data ?? [])
+  const rows = await collectPostgrestPages((from, to) =>
+    supabase
+      .from('workout_sessions')
+      .select('id, source_session_id')
+      .eq('user_id', userId)
+      .eq('is_favorite', true)
+      .order('id', { ascending: true })
+      .range(from, to),
+  )
+  return favoriteLineageKeys(rows)
 }
 
 export async function getHistoryInputs(
@@ -70,53 +84,77 @@ export async function getHistoryInputs(
   options: {
     programInstanceId?: string
     limit?: number
+    completedAfter?: string
+    includeFavorites?: boolean
+    includeSubstitutions?: boolean
   } = {},
 ): Promise<{ sessions: HistorySessionInput[]; substitutions: HistorySubstitutionInput[] }> {
-  let sessionQuery = supabase
-    .from('workout_sessions')
-    .select('id, program_instance_id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot, is_favorite, source_session_id')
-    .eq('user_id', userId)
-    .eq('status', 'completed')
-    .order('completed_at', { ascending: false })
-  if (options.programInstanceId) sessionQuery = sessionQuery.eq('program_instance_id', options.programInstanceId)
-  if (options.limit) sessionQuery = sessionQuery.limit(options.limit)
-
-  const { data: sessionRows, error } = await sessionQuery
-  if (error) throw new Error(error.message)
-  const rows = sessionRows ?? []
+  const rows = await collectPostgrestPages(
+    (from, to) => {
+      let sessionQuery = supabase
+        .from('workout_sessions')
+        .select('id, program_instance_id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot, is_favorite, source_session_id')
+        .eq('user_id', userId)
+        .eq('status', 'completed')
+      if (options.programInstanceId) {
+        sessionQuery = sessionQuery.eq('program_instance_id', options.programInstanceId)
+      }
+      if (options.completedAfter) {
+        sessionQuery = sessionQuery.gte('completed_at', options.completedAfter)
+      }
+      return sessionQuery
+        .order('completed_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, to)
+    },
+    { limit: options.limit },
+  )
   const sessionIds = rows.map((row) => row.id)
   if (!sessionIds.length) return { sessions: [], substitutions: [] }
-  const favoriteKeys = await getFavoriteLineageKeys(supabase, userId)
+  const favoriteKeys = options.includeFavorites === false
+    ? new Set<string>()
+    : await getFavoriteLineageKeys(supabase, userId)
 
   // Children of a parent id always land in that id's chunk, so per-session /
   // per-exercise ordering survives chunk concatenation.
-  const exerciseRows = await chunkedIn(sessionIds, (chunk) =>
+  const exerciseRows = await chunkedIn(sessionIds, (chunk, from, to) =>
     supabase
       .from('exercise_logs')
       .select('id, session_id, planned_movement_id, performed_movement_id, role, target_summary, order_index')
       .eq('user_id', userId)
       .in('session_id', chunk)
-      .order('order_index', { ascending: true }),
+      .order('session_id', { ascending: true })
+      .order('order_index', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to),
   )
 
   const exerciseIds = exerciseRows.map((exercise) => exercise.id)
-  const setRows = await chunkedIn(exerciseIds, (chunk) =>
+  const setRows = await chunkedIn(exerciseIds, (chunk, from, to) =>
     supabase
       .from('set_logs')
       .select('id, exercise_log_id, set_index, target_load, target_reps, target_rep_min, target_rep_max, target_rir, actual_load, actual_reps, actual_rir, completed, is_top_set, is_amrap, is_backoff')
       .eq('user_id', userId)
       .in('exercise_log_id', chunk)
-      .order('set_index', { ascending: true }),
+      .order('exercise_log_id', { ascending: true })
+      .order('set_index', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to),
   )
 
-  const substitutionRows = await chunkedIn(sessionIds, (chunk) =>
-    supabase
-      .from('substitution_logs')
-      .select('id, session_id, planned_movement_id, performed_movement_id, reason, note, created_at')
-      .eq('user_id', userId)
-      .in('session_id', chunk)
-      .order('created_at', { ascending: false }),
-  )
+  const substitutionRows = options.includeSubstitutions === false
+    ? []
+    : await chunkedIn(sessionIds, (chunk, from, to) =>
+        supabase
+          .from('substitution_logs')
+          .select('id, session_id, planned_movement_id, performed_movement_id, reason, note, created_at')
+          .eq('user_id', userId)
+          .in('session_id', chunk)
+          .order('session_id', { ascending: true })
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to),
+      )
 
   const setsByExerciseId = new Map<string, typeof setRows>()
   for (const set of setRows ?? []) {
@@ -220,26 +258,32 @@ function buildProgramRecentSessions(sessions: HistorySessionInput[], units: Unit
 
 /** Every accepted decision for the program, newest first (no dedupe — callers reconstruct history). */
 async function getAcceptedDecisionsInternal(supabase: SupabaseServerClient, userId: string, programInstanceId: string): Promise<ProgressionDecision[]> {
-  const { data, error } = await supabase
-    .from('progression_decisions')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('program_instance_id', programInstanceId)
-    .eq('status', 'accepted')
-    .order('resolved_at', { ascending: false })
-    .order('created_at', { ascending: false })
-  if (error) throw new Error(error.message)
-  return (data ?? []).map(mapProgressionDecision)
+  const rows = await collectPostgrestPages((from, to) =>
+    supabase
+      .from('progression_decisions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('program_instance_id', programInstanceId)
+      .eq('status', 'accepted')
+      .order('resolved_at', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to),
+  )
+  return rows.map(mapProgressionDecision)
 }
 
 async function getBodyweightEntriesInternal(supabase: SupabaseServerClient, userId: string): Promise<BodyweightEntry[]> {
-  const { data, error } = await supabase
-    .from('bodyweight_entries')
-    .select('id, recorded_on, weight_kg')
-    .eq('user_id', userId)
-    .order('recorded_on', { ascending: true })
-  if (error) throw new Error(error.message)
-  return (data ?? []).map((row): BodyweightEntry => ({
+  const rows = await collectPostgrestPages((from, to) =>
+    supabase
+      .from('bodyweight_entries')
+      .select('id, recorded_on, weight_kg')
+      .eq('user_id', userId)
+      .order('recorded_on', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to),
+  )
+  return rows.map((row): BodyweightEntry => ({
     id: row.id,
     recordedOn: row.recorded_on,
     weightKg: Number(row.weight_kg),
@@ -256,7 +300,7 @@ export const getHistoryDashboardFn = createServerFn({ method: 'GET' }).handler(
   async (): Promise<HistoryDashboardWithInsights> => {
     const { supabase, user } = await requireUser()
     const [history, bodyweightEntries, sex] = await Promise.all([
-      getHistoryInputs(supabase, user.id, { limit: SESSION_FETCH_LIMIT }),
+      getHistoryInputs(supabase, user.id),
       getBodyweightEntriesInternal(supabase, user.id),
       getProfileSexInternal(supabase, user.id),
     ])
@@ -272,14 +316,47 @@ export const getHistoryDashboardFn = createServerFn({ method: 'GET' }).handler(
   },
 )
 
+export const getTodayHistorySupportFn = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<TodayHistorySupport> => {
+    const { supabase, user } = await requireUser()
+    const now = new Date()
+    const completedAfter = todayHistoryWindowStart(now)
+    const [history, completedSession] = await Promise.all([
+      getHistoryInputs(supabase, user.id, {
+        completedAfter,
+        includeFavorites: false,
+        includeSubstitutions: false,
+      }),
+      supabase
+        .from('workout_sessions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('completed_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ])
+    if (completedSession.error) throw new Error(completedSession.error.message)
+
+    return buildTodayHistorySupport({
+      sessions: history.sessions,
+      hasCompletedSessions: Boolean(completedSession.data),
+      now,
+    })
+  },
+)
+
 export const getProgramOverviewFn = createServerFn({ method: 'GET' }).handler(async (): Promise<ProgramOverview> => {
   const today = await getTodayInternal()
   const { supabase, user } = await requireUser()
   const history = await getHistoryInputs(supabase, user.id, { limit: 240 })
   const bodyLoad = buildHistoryDashboard(history).bodyLoad
-  const programHistory = today.activeProgram
-    ? await getHistoryInputs(supabase, user.id, { programInstanceId: today.activeProgram.id, limit: 8 })
-    : { sessions: [], substitutions: [] }
+  const programSessions = today.activeProgram
+    ? history.sessions
+        .filter((session) => session.programInstanceId === today.activeProgram!.id)
+        .slice(0, 8)
+    : []
   const acceptedDecisions = today.activeProgram
     ? await getAcceptedDecisionsInternal(supabase, user.id, today.activeProgram.id)
     : []
@@ -293,7 +370,7 @@ export const getProgramOverviewFn = createServerFn({ method: 'GET' }).handler(as
     : []
   return buildProgramOverview({
     today,
-    recentSessions: buildProgramRecentSessions(programHistory.sessions, today.activeProgram?.units ?? 'kg'),
+    recentSessions: buildProgramRecentSessions(programSessions, today.activeProgram?.units ?? 'kg'),
     bodyLoad,
     acceptedDecisions,
     sessionStamps,
@@ -302,71 +379,15 @@ export const getProgramOverviewFn = createServerFn({ method: 'GET' }).handler(as
 
 export const getRecentHistoryFn = createServerFn({ method: 'GET' }).handler(async (): Promise<RecentHistoryEntry[]> => {
   const { supabase, user } = await requireUser()
-  const { data, error } = await supabase
-    .from('workout_sessions')
-    .select('id, program_instance_id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot, is_favorite, source_session_id')
-    .eq('user_id', user.id)
-    .eq('status', 'completed')
-    .order('completed_at', { ascending: false })
-    .limit(20)
-  if (error) throw new Error(error.message)
-  const rows = data ?? []
-  const favoriteKeys = await getFavoriteLineageKeys(supabase, user.id)
-  const sessionIds = rows.map((row) => row.id)
-  const { data: exercises, error: exerciseError } = sessionIds.length
-    ? await supabase
-        .from('exercise_logs')
-        .select('id, session_id')
-        .eq('user_id', user.id)
-        .in('session_id', sessionIds)
-    : { data: [], error: null }
-  if (exerciseError) throw new Error(exerciseError.message)
-
-  const exerciseToSessionId = new Map((exercises ?? []).map((exercise) => [exercise.id, exercise.session_id]))
-  const exerciseIds = Array.from(exerciseToSessionId.keys())
-  const { data: sets, error: setError } = exerciseIds.length
-    ? await supabase
-        .from('set_logs')
-        .select('exercise_log_id, completed')
-        .eq('user_id', user.id)
-        .in('exercise_log_id', exerciseIds)
-    : { data: [], error: null }
-  if (setError) throw new Error(setError.message)
-
-  const completedSetsBySessionId = new Map<string, number>()
-  const loggedSetsBySessionId = new Map<string, number>()
-  for (const set of sets ?? []) {
-    const sessionId = exerciseToSessionId.get(set.exercise_log_id)
-    if (!sessionId) continue
-    loggedSetsBySessionId.set(sessionId, (loggedSetsBySessionId.get(sessionId) ?? 0) + 1)
-    if (set.completed) {
-      completedSetsBySessionId.set(sessionId, (completedSetsBySessionId.get(sessionId) ?? 0) + 1)
-    }
-  }
-
-  return rows.map((row): RecentHistoryEntry => {
-    const snapshot = row.prescription_snapshot as PlannedSession | null
-    const plannedSetCount = snapshot?.movements.reduce((total, movement) => total + movement.sets.length, 0) ?? 0
-    return {
-      id: row.id,
-      title: snapshot?.title ?? row.planned_session_id ?? 'Workout',
-      completedAt: row.completed_at,
-      scheduledDate: row.scheduled_date,
-      programTitle: snapshot?.programTitle ?? null,
-      weekLabel: snapshot?.weekLabel ?? null,
-      hardness: snapshot?.hardness ?? null,
-      estimatedMinutes: snapshot?.estimatedMinutes ?? null,
-      movementCount: snapshot?.movements.length ?? 0,
-      completedSetCount: completedSetsBySessionId.get(row.id) ?? 0,
-      plannedSetCount: loggedSetsBySessionId.get(row.id) ?? plannedSetCount,
-      isAdHoc: row.program_instance_id === null,
-      isFavorite: Boolean(row.is_favorite) || favoriteKeys.has(sessionLineageKey(row)),
-    }
+  const history = await getHistoryInputs(supabase, user.id, {
+    limit: 20,
+    includeSubstitutions: false,
   })
+  return buildRecentHistoryEntries(history.sessions)
 })
 
 export const getMovementHistoryFn = createServerFn({ method: 'GET' })
-  .validator((data: { movementId: string }) => data)
+  .validator((data) => movementHistoryInputSchema.parse(data))
   .handler(async ({ data }): Promise<MovementHistoryEntry[]> => {
     const { supabase, user } = await requireUser()
     const { data: exercises, error } = await supabase

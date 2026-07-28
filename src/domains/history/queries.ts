@@ -3,27 +3,36 @@ import {
   getHistoryDashboardFn,
   getMovementHistoryFn,
   getRecentHistoryFn,
+  getTodayHistorySupportFn,
 } from '~/domains/history/server/history-functions'
 import { queryStaleTimes } from '~/shared/lib/query-stale-times'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
 
-export const recentHistoryQueryOptions = () =>
+export const recentHistoryQueryOptions = (userId: string) =>
   queryOptions({
-    queryKey: ['history', 'recent'],
+    queryKey: accountQueryKeys.recentHistory(userId),
     queryFn: () => getRecentHistoryFn(),
     staleTime: queryStaleTimes.history,
   })
 
-export const historyDashboardQueryOptions = () =>
+export const historyDashboardQueryOptions = (userId: string) =>
   queryOptions({
-    queryKey: ['history', 'dashboard'],
+    queryKey: accountQueryKeys.historyDashboard(userId),
     queryFn: () => getHistoryDashboardFn(),
     staleTime: queryStaleTimes.history,
     gcTime: 30 * 60_000,
   })
 
-export const movementHistoryQueryOptions = (movementId: string) =>
+export const todayHistorySupportQueryOptions = (userId: string) =>
   queryOptions({
-    queryKey: ['history', 'movement', movementId],
+    queryKey: accountQueryKeys.todayHistorySupport(userId),
+    queryFn: () => getTodayHistorySupportFn(),
+    staleTime: queryStaleTimes.history,
+  })
+
+export const movementHistoryQueryOptions = (userId: string, movementId: string) =>
+  queryOptions({
+    queryKey: accountQueryKeys.movementHistory(userId, movementId),
     queryFn: () => getMovementHistoryFn({ data: { movementId } }),
     staleTime: queryStaleTimes.history,
   })

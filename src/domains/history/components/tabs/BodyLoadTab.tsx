@@ -9,7 +9,12 @@ import {
   type AdequacyTier,
   type RegionAdequacy,
 } from '~/domains/history/lib/muscle-volume'
-import type { BodyLoadRegion, BodyRegionId, HistoryDashboardWithInsights, InsightGating } from '~/shared/types'
+import type {
+  BodyLoadRegion,
+  BodyRegionId,
+  HistoryDashboardWithInsights,
+  InsightGating,
+} from '~/domains/history'
 import { Caption, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { bodyLoadColor, toneForTier } from '../insight-format'
 

@@ -20,7 +20,8 @@ import type {
   HistorySessionInput,
   HistorySetInput,
 } from '../src/domains/history/lib/history'
-import type { Movement, WeeklyRegionSets } from '../src/shared/types'
+import type { WeeklyRegionSets } from '~/domains/history'
+import type { Movement } from '~/domains/movement'
 
 function set(partial: Partial<HistorySetInput> = {}): HistorySetInput {
   return {

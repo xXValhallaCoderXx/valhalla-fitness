@@ -1,20 +1,12 @@
 import { defaultProgramStateRequirements } from '~/domains/program/lib/program-state-defaults'
 import type { ProgramStateDefaults } from '~/shared/types'
+import type { OnboardingProgressInput, OnboardingStep } from '~/domains/onboarding'
 
-export type OnboardingStepId = 'plan' | 'estimates' | 'firstWorkout'
-
-export type OnboardingStep = {
-  id: OnboardingStepId
-  title: string
-  description: string
-  done: boolean
-}
-
-export type OnboardingProgressInput = {
-  hasActiveProgram: boolean
-  programStateDefaults: ProgramStateDefaults
-  completedSessions: number
-}
+export type {
+  OnboardingProgressInput,
+  OnboardingStep,
+  OnboardingStepId,
+} from '~/domains/onboarding'
 
 /** The main-lift 1RM keys onboarding tracks (mirrors the program's required main lifts). */
 function oneRepMaxKeys() {

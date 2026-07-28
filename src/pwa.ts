@@ -12,9 +12,6 @@ export const updateServiceWorker = registerSW({
       }),
     )
   },
-  onOfflineReady() {
-    window.dispatchEvent(new CustomEvent('sheetless-pwa-offline-ready'))
-  },
   onRegisteredSW(_swScriptUrl, registration) {
     setupUpdateChecks(registration)
   },

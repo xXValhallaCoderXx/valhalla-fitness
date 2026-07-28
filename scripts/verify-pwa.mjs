@@ -81,6 +81,26 @@ if (existsSync(swPath)) {
   assert(sw.includes('precacheAndRoute'), 'Service worker must include a precache manifest')
   assert(!sw.includes('index.html'), 'Service worker must not reference missing index.html navigation fallback')
   assert(sw.includes('manifest.json'), 'Service worker must precache manifest.json')
+  assert(sw.includes('sheetless-script-assets-v1'), 'Service worker must cache hashed scripts on demand')
+
+  const precacheUrls = [...sw.matchAll(/url:"([^"]+)"/g)].map((match) => match[1])
+  const duplicateUrls = precacheUrls.filter((url, index) => precacheUrls.indexOf(url) !== index)
+  assert(duplicateUrls.length === 0, `Service worker precache contains duplicate URLs: ${[...new Set(duplicateUrls)].join(', ')}`)
+  const precachedScripts = precacheUrls.filter((url) => url.endsWith('.js'))
+  assert(
+    precachedScripts.length === 1 && /^assets\/index-[^.]+\.js$/.test(precachedScripts[0]),
+    `Service worker must precache only the revisioned application bootstrap; found: ${precachedScripts.join(', ')}`,
+  )
+
+  const precacheBytes = precacheUrls.reduce((total, url) => {
+    const filePath = join(publicDir, url.replace(/^\//, ''))
+    if (!existsSync(filePath)) {
+      fail(`Precached asset ${filePath} is missing`)
+      return total
+    }
+    return total + readFileSync(filePath).byteLength
+  }, 0)
+  assert(precacheBytes <= 1.5 * 1024 * 1024, `PWA precache is ${(precacheBytes / 1024 / 1024).toFixed(2)} MiB; limit is 1.50 MiB`)
 }
 
 if (failures.length) {

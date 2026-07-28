@@ -1,9 +1,6 @@
-import type {
-  Movement,
-  MovementReplacementRule,
-  MovementRole,
-  ProgramSetupPreviewWeek,
-} from '~/shared/types'
+import type { Movement, MovementReplacementRule } from '~/domains/movement'
+import type { ProgramSetupPreviewWeek } from '~/domains/program'
+import type { MovementRole } from '~/shared/types'
 import { buildMovementSwapOptions, getMovementName } from '~/domains/movement/lib/movements'
 import type { TemplateDefinition } from '~/domains/program/lib/template-engine'
 

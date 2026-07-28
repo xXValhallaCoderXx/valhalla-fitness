@@ -11,6 +11,7 @@ import { meQueryOptions } from '~/domains/account/queries'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { updateSettingsFn } from '~/domains/account/server/profile-functions'
 import { useSignOut } from '~/domains/account/useSignOut'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
 import type { Unit } from '~/shared/types'
 import { Caption, Text } from '~/components/atoms'
 
@@ -19,7 +20,7 @@ export function UserMenu({ user }: { user: AuthUser }) {
   const router = useRouter()
   const [opened, setOpened] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
-  const me = useQuery(meQueryOptions()).data ?? null
+  const me = useQuery(meQueryOptions(user.id)).data ?? null
   const signOutMutation = useSignOut()
   const unitsMutation = useMutation({
     mutationFn: (units: Unit) => {
@@ -37,13 +38,12 @@ export function UserMenu({ user }: { user: AuthUser }) {
     },
     onSuccess: (next) => {
       const queryClient = router.options.context.queryClient
-      queryClient.setQueryData(meQueryOptions().queryKey, next)
+      queryClient.setQueryData(meQueryOptions(user.id).queryKey, next)
       // Server-rendered strings (target summaries, previous labels, dashboard stats) embed units.
-      void queryClient.invalidateQueries({ queryKey: ['today'] })
-      void queryClient.invalidateQueries({ queryKey: ['history'] })
-      void queryClient.invalidateQueries({ queryKey: ['programOverview'] })
-      void queryClient.invalidateQueries({ queryKey: ['activeProgram'] })
-      void queryClient.invalidateQueries({ queryKey: ['session'] })
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(user.id) })
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(user.id) })
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.program(user.id) })
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.sessions(user.id) })
     },
     onError: (error) => {
       notifications.show({

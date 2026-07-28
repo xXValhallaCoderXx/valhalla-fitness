@@ -1,4 +1,4 @@
-import type { TodayPayload } from '~/shared/types'
+import type { TodayPayload } from '~/domains/session'
 
 export function shouldConfirmProgramStart(today?: TodayPayload | null) {
   return today?.activeProgram?.status === 'active'

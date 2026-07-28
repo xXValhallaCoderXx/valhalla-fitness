@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
-import { normalizeFeedbackInput, type SubmitFeedbackInput } from '~/domains/feedback/lib/feedback-options'
+import { normalizeFeedbackInput } from '~/domains/feedback/lib/feedback-options'
+import { submitFeedbackInputSchema } from '~/domains/feedback/lib/schemas'
 import type { Json } from '~/shared/types/database'
 
 async function requireUser() {
@@ -9,7 +10,7 @@ async function requireUser() {
 
 /** Append-only insert into `feedback_events`; the app never reads feedback back. */
 export const submitFeedbackFn = createServerFn({ method: 'POST' })
-  .validator((data: SubmitFeedbackInput) => data)
+  .validator((data) => submitFeedbackInputSchema.parse(data))
   .handler(async ({ data }) => {
     const input = normalizeFeedbackInput(data)
     const { supabase, user } = await requireUser()

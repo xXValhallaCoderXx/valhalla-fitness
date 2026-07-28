@@ -8,7 +8,9 @@ export const Route = createFileRoute('/settings')({
     focus: search.focus === 'estimates' ? 'estimates' : undefined,
   }),
   loader: async ({ context }) => {
-    if (context.user) await loadRouteQuery(context.queryClient, meQueryOptions())
+    if (context.user) {
+      await loadRouteQuery(context.queryClient, meQueryOptions(context.user.id))
+    }
   },
   component: SettingsRoute,
 })

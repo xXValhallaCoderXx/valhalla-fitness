@@ -1,4 +1,4 @@
-import type { WorkoutSession } from '~/shared/types'
+import type { WorkoutSession } from '~/domains/session'
 
 export function countCompletedSets(session: WorkoutSession) {
   return session.movements.reduce((total, movement) => total + movement.sets.filter((set) => set.completed).length, 0)

@@ -1,7 +1,7 @@
 import { Badge } from '@mantine/core'
 import { buildMovementBalance, balanceSignalLabels } from '~/domains/history/lib/muscle-volume'
 import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
-import type { HistoryInsights } from '~/shared/types'
+import type { HistoryInsights } from '~/domains/history'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
 import { formatNumber } from '../insight-format'
 

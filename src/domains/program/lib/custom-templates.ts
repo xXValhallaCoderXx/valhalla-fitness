@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { Movement, ProgramTemplateSummary } from '~/shared/types'
+import type { Movement } from '~/domains/movement'
+import type { ProgramTemplateSummary } from '~/domains/program'
 import {
   programStateKey,
   type TemplateDefinition,
@@ -32,6 +33,12 @@ export {
 } from '~/domains/program/lib/custom-program-meta'
 
 export const customProgramMethodologySchema = z.enum(customProgramMethodologyValues)
+const movementIdentifierSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(128)
+  .regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/)
 
 type PrescriptionDefinition = TemplateDefinition['weeks'][number]['prescriptions'][string]
 type CustomPhase = {
@@ -44,12 +51,12 @@ type CustomPhase = {
 }
 
 const loggerExerciseSchema = z.object({
-  movementId: z.string().min(1),
-  setCount: z.coerce.number().int().min(1).max(10),
-  repMin: z.coerce.number().int().min(1).max(50),
-  repMax: z.coerce.number().int().min(1).max(50),
-  targetRir: z.coerce.number().min(0).max(10).nullable().optional(),
-}).superRefine((exercise, context) => {
+  movementId: movementIdentifierSchema,
+  setCount: z.number().finite().int().min(1).max(10),
+  repMin: z.number().finite().int().min(1).max(50),
+  repMax: z.number().finite().int().min(1).max(50),
+  targetRir: z.number().finite().min(0).max(10).nullable().optional(),
+}).strict().superRefine((exercise, context) => {
   if (exercise.repMin > exercise.repMax) {
     context.addIssue({
       code: 'custom',
@@ -60,13 +67,13 @@ const loggerExerciseSchema = z.object({
 })
 
 const accessorySchema = z.object({
-  movementId: z.string().min(1),
-  setCount: z.coerce.number().int().min(1).max(8),
-  repMin: z.coerce.number().int().min(1).max(50),
-  repMax: z.coerce.number().int().min(1).max(50),
-  targetRir: z.coerce.number().min(0).max(10).nullable().optional(),
+  movementId: movementIdentifierSchema,
+  setCount: z.number().finite().int().min(1).max(8),
+  repMin: z.number().finite().int().min(1).max(50),
+  repMax: z.number().finite().int().min(1).max(50),
+  targetRir: z.number().finite().min(0).max(10).nullable().optional(),
   progressionMethod: z.enum(['history_only', 'double_progression']).default('history_only'),
-}).superRefine((accessory, context) => {
+}).strict().superRefine((accessory, context) => {
   if (accessory.repMin > accessory.repMax) {
     context.addIssue({
       code: 'custom',
@@ -78,21 +85,29 @@ const accessorySchema = z.object({
 
 const builderSessionSchema = z.object({
   title: z.string().trim().min(1).max(80),
-  mainMovementId: z.string().min(1),
-  variationMovementId: z.string().min(1).nullable().optional(),
-  mainSetCount: z.coerce.number().int().min(1).max(10),
-  mainTargetReps: z.coerce.number().int().min(1).max(30),
-  mainTargetRir: z.coerce.number().min(0).max(10).nullable().optional(),
+  mainMovementId: movementIdentifierSchema,
+  variationMovementId: movementIdentifierSchema.nullable().optional(),
+  mainSetCount: z.number().finite().int().min(1).max(10),
+  mainTargetReps: z.number().finite().int().min(1).max(30),
+  mainTargetRir: z.number().finite().min(0).max(10).nullable().optional(),
   accessories: z.array(accessorySchema).max(MAX_ACCESSORIES_PER_DAY),
   loggerExercises: z.array(loggerExerciseSchema).max(MAX_LOGGER_EXERCISES_PER_DAY).default([]),
-})
+}).strict()
 
 export const customProgramBuilderInputSchema = z.object({
   name: z.string().trim().min(3).max(80),
   goal: z.string().trim().max(220).optional().nullable(),
   methodology: customProgramMethodologySchema,
-  daysPerWeek: z.coerce.number().int().min(1).max(7),
+  daysPerWeek: z.number().finite().int().min(1).max(7),
   sessions: z.array(builderSessionSchema).min(1).max(7),
+}).strict().superRefine((input, context) => {
+  if (input.sessions.length !== input.daysPerWeek) {
+    context.addIssue({
+      code: 'custom',
+      path: ['sessions'],
+      message: 'Session count must match days per week.',
+    })
+  }
 })
 
 export type NormalizedCustomProgramBuilderInput = z.infer<typeof customProgramBuilderInputSchema>

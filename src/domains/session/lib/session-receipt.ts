@@ -1,11 +1,6 @@
-import type {
-  MovementSlot,
-  ProgressionDecision,
-  SessionSummary,
-  SetLog,
-  Unit,
-  WorkoutSession,
-} from '~/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
+import type { MovementSlot, SessionSummary, SetLog, WorkoutSession } from '~/domains/session'
+import type { Unit } from '~/shared/types'
 import { describeSet, formatWeight, type SetNotation } from '~/shared/lib/set-notation'
 
 export type ReceiptTone = 'success' | 'neutral' | 'warning'

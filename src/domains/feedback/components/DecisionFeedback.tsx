@@ -9,7 +9,7 @@ import {
   type FeedbackCategory,
 } from '~/domains/feedback/lib/feedback-options'
 import { useSubmitFeedback } from '~/domains/feedback/useSubmitFeedback'
-import type { ProgressionDecision } from '~/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
 import { FeedbackChipGroup } from './FeedbackChips'
 import { feedbackFieldStyles } from './field-styles'
 

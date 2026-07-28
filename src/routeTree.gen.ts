@@ -10,9 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TodayRouteImport } from './routes/today'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProgramRouteImport } from './routes/program'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -25,6 +27,11 @@ import { Route as SessionsSessionIdSummaryRouteImport } from './routes/sessions.
 const TodayRoute = TodayRouteImport.update({
   id: '/today',
   path: '/today',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TemplatesRoute = TemplatesRouteImport.update({
@@ -42,11 +49,16 @@ const ProgramRoute = ProgramRouteImport.update({
   path: '/program',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/history.lazy').then((d) => d.Route))
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -56,7 +68,7 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/index.lazy').then((d) => d.Route))
 const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
   id: '/sessions/$sessionId',
   path: '/sessions/$sessionId',
@@ -89,9 +101,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/history': typeof HistoryRoute
+  '/privacy': typeof PrivacyRoute
   '/program': typeof ProgramRoute
   '/settings': typeof SettingsRoute
   '/templates': typeof TemplatesRouteWithChildren
+  '/terms': typeof TermsRoute
   '/today': typeof TodayRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRouteWithChildren
@@ -103,9 +117,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/history': typeof HistoryRoute
+  '/privacy': typeof PrivacyRoute
   '/program': typeof ProgramRoute
   '/settings': typeof SettingsRoute
   '/templates': typeof TemplatesRouteWithChildren
+  '/terms': typeof TermsRoute
   '/today': typeof TodayRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/sessions/$sessionId/summary': typeof SessionsSessionIdSummaryRoute
@@ -117,9 +133,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/history': typeof HistoryRoute
+  '/privacy': typeof PrivacyRoute
   '/program': typeof ProgramRoute
   '/settings': typeof SettingsRoute
   '/templates': typeof TemplatesRouteWithChildren
+  '/terms': typeof TermsRoute
   '/today': typeof TodayRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRouteWithChildren
@@ -133,9 +151,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/history'
+    | '/privacy'
     | '/program'
     | '/settings'
     | '/templates'
+    | '/terms'
     | '/today'
     | '/auth/callback'
     | '/sessions/$sessionId'
@@ -147,9 +167,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/history'
+    | '/privacy'
     | '/program'
     | '/settings'
     | '/templates'
+    | '/terms'
     | '/today'
     | '/auth/callback'
     | '/sessions/$sessionId/summary'
@@ -160,9 +182,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/history'
+    | '/privacy'
     | '/program'
     | '/settings'
     | '/templates'
+    | '/terms'
     | '/today'
     | '/auth/callback'
     | '/sessions/$sessionId'
@@ -175,9 +199,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRouteWithChildren
   HistoryRoute: typeof HistoryRoute
+  PrivacyRoute: typeof PrivacyRoute
   ProgramRoute: typeof ProgramRoute
   SettingsRoute: typeof SettingsRoute
   TemplatesRoute: typeof TemplatesRouteWithChildren
+  TermsRoute: typeof TermsRoute
   TodayRoute: typeof TodayRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRouteWithChildren
 }
@@ -189,6 +215,13 @@ declare module '@tanstack/react-router' {
       path: '/today'
       fullPath: '/today'
       preLoaderRoute: typeof TodayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/templates': {
@@ -210,6 +243,13 @@ declare module '@tanstack/react-router' {
       path: '/program'
       fullPath: '/program'
       preLoaderRoute: typeof ProgramRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history': {
@@ -310,9 +350,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRouteWithChildren,
   HistoryRoute: HistoryRoute,
+  PrivacyRoute: PrivacyRoute,
   ProgramRoute: ProgramRoute,
   SettingsRoute: SettingsRoute,
   TemplatesRoute: TemplatesRouteWithChildren,
+  TermsRoute: TermsRoute,
   TodayRoute: TodayRoute,
   SessionsSessionIdRoute: SessionsSessionIdRouteWithChildren,
 }

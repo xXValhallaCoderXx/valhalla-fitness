@@ -10,9 +10,9 @@ import type {
   HistoryDashboardWithInsights,
   HistorySubstitutionSummary,
   InsightGating,
-  ProgramOverview,
   RecentHistoryEntry,
-} from '~/shared/types'
+} from '~/domains/history'
+import type { ProgramOverview } from '~/domains/program'
 import { Caption, EmptyState, Heading, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { CalibrationCard } from '../cards/CalibrationCard'
 import { ConsistencyCard } from '../cards/ConsistencyCard'

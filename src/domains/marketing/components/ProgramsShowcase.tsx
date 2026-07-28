@@ -5,7 +5,7 @@ import { CalendarDays, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
 import { FindMyPlanModal } from '~/domains/program/components/FindMyPlanModal'
-import { templatesQueryOptions } from '~/domains/program/queries'
+import { publicTemplatesQueryOptions } from '~/domains/program/queries'
 import {
   programLevelColor,
   programShowcaseCards,
@@ -19,7 +19,7 @@ export function ProgramsShowcase() {
   // quiz right here. Prefetch on hover/focus so the recommendation is ready on open, without
   // loading templates for visitors who never touch the quiz.
   const [armed, setArmed] = useState(false)
-  const templatesQuery = useQuery({ ...templatesQueryOptions(), enabled: armed })
+  const templatesQuery = useQuery({ ...publicTemplatesQueryOptions(), enabled: armed })
   const quizTemplates = (templatesQuery.data ?? []).filter((template) => template.origin !== 'user_created')
   const arm = () => setArmed(true)
   const openFinder = () => {

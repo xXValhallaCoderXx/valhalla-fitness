@@ -7,47 +7,52 @@ import {
   listMovementSwapOptionsFn,
 } from '~/domains/session/server/session-functions'
 import { queryStaleTimes } from '~/shared/lib/query-stale-times'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
 
-export const todayQueryOptions = () =>
+export const todayQueryOptions = (userId: string) =>
   queryOptions({
-    queryKey: ['today'],
+    queryKey: accountQueryKeys.today(userId),
     queryFn: () => getTodayFn(),
     staleTime: queryStaleTimes.today,
   })
 
-export const sessionQueryOptions = (sessionId: string) =>
+export const sessionQueryOptions = (userId: string, sessionId: string) =>
   queryOptions({
-    queryKey: ['session', sessionId],
+    queryKey: accountQueryKeys.session(userId, sessionId),
     queryFn: () => getSessionFn({ data: { sessionId } }),
     staleTime: queryStaleTimes.session,
   })
 
-export const movementSwapOptionsQueryOptions = (sessionId: string, exerciseLogId: string) =>
+export const movementSwapOptionsQueryOptions = (
+  userId: string,
+  sessionId: string,
+  exerciseLogId: string,
+) =>
   queryOptions({
-    queryKey: ['movementSwapOptions', sessionId, exerciseLogId],
+    queryKey: accountQueryKeys.movementSwapOptions(userId, sessionId, exerciseLogId),
     queryFn: () => listMovementSwapOptionsFn({ data: { sessionId, exerciseLogId } }),
     staleTime: queryStaleTimes.options,
   })
 
-export const accessoryMovementOptionsQueryOptions = () =>
+export const accessoryMovementOptionsQueryOptions = (userId: string) =>
   queryOptions({
-    queryKey: ['accessoryMovementOptions'],
+    queryKey: accountQueryKeys.accessoryMovementOptions(userId),
     queryFn: () => listAccessoryMovementOptionsFn(),
     staleTime: queryStaleTimes.options,
     gcTime: 30 * 60_000,
   })
 
-export const movementOptionsQueryOptions = () =>
+export const movementOptionsQueryOptions = (userId: string) =>
   queryOptions({
-    queryKey: ['movementOptions'],
+    queryKey: accountQueryKeys.allMovementOptions(userId),
     queryFn: () => listMovementOptionsFn(),
     staleTime: queryStaleTimes.options,
     gcTime: 30 * 60_000,
   })
 
-export const favoriteWorkoutsQueryOptions = () =>
+export const favoriteWorkoutsQueryOptions = (userId: string) =>
   queryOptions({
-    queryKey: ['favoriteWorkouts'],
+    queryKey: accountQueryKeys.favoriteWorkouts(userId),
     queryFn: () => listFavoriteWorkoutsFn(),
     staleTime: queryStaleTimes.history,
   })

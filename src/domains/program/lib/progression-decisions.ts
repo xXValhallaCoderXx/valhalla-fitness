@@ -1,4 +1,5 @@
-import type { MovementSlot, ProgramInstance, ProgressionDecision, SetLog, WorkoutSession } from '~/shared/types'
+import type { ProgramInstance, ProgressionDecision } from '~/domains/program'
+import type { MovementSlot, SetLog, WorkoutSession } from '~/domains/session'
 import { formatWeight } from '~/shared/lib/set-notation'
 import { programStateKey } from '~/domains/program/lib/template-engine'
 import {

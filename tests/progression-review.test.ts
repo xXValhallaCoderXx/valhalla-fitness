@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { progressionKindLabel, reviewDecisionView } from '../src/domains/program/lib/progression-review'
-import type { ProgressionDecision } from '../src/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
 
 function decision(over: Partial<ProgressionDecision>): ProgressionDecision {
   return {

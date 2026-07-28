@@ -2,7 +2,7 @@ import { AreaChart } from '@mantine/charts'
 import { Badge } from '@mantine/core'
 import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
 import { resolveVolumeTrendSignal, volumeTrendExplanation, volumeTrendLabels } from '~/domains/history/lib/insight-state'
-import type { HistoryInsights, InsightGating, VolumeTrendSignal } from '~/shared/types'
+import type { HistoryInsights, InsightGating, VolumeTrendSignal } from '~/domains/history'
 import { Caption, InfoHint, Panel, SectionLabel, Text } from '~/components'
 import { formatLoad, formatNumber } from '../insight-format'
 

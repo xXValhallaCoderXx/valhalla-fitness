@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildWorkoutSummary, rirTone } from '../src/domains/history/lib/workout-summary'
-import type { MovementRole, MovementSlot, SetLog, WorkoutSession } from '../src/shared/types'
+import type { MovementSlot, SetLog, WorkoutSession } from '~/domains/session'
+import type { MovementRole } from '~/shared/types'
 
 function st(setIndex: number, over: Partial<SetLog> = {}): SetLog {
   return { id: `set-${setIndex}`, setIndex, completed: true, ...over }
@@ -37,6 +38,7 @@ function session(movements: MovementSlot[], over: Partial<WorkoutSession> = {}):
     notes: null,
     movements,
     ...over,
+    stateVersion: over.stateVersion ?? 0,
   }
 }
 

@@ -8,7 +8,7 @@ import type { GuidanceIssue } from '~/domains/program/lib/custom-builder-guidanc
 import { buildProgressionPreviews, type ProgressionPreview } from '~/domains/program/lib/custom-builder-preview'
 import { customBuilderDayTitle } from '~/domains/program/lib/custom-builder-ui'
 import { customProgramMethodologies, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-program-meta'
-import type { UserProfile } from '~/shared/types'
+import type { UserProfile } from '~/domains/account'
 import { GUIDANCE_SEVERITY_ORDER, GuidanceList } from './CustomBuilderGuidance'
 
 export function CustomReviewStep({

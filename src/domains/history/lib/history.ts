@@ -4,14 +4,12 @@ import type {
   HistoryMovementSummary,
   HistorySubstitutionSummary,
   HistoryWeeklyVolume,
-  Movement,
   MovementHistorySet,
-  MovementRole,
-  PlannedSession,
   RecentHistoryEntry,
-  SubstitutionReason,
-  Unit,
-} from '~/shared/types'
+} from '~/domains/history'
+import type { Movement } from '~/domains/movement'
+import type { PlannedSession, SubstitutionReason } from '~/domains/session'
+import type { MovementRole, Unit } from '~/shared/types'
 import { calculateBodyLoad, type BodyLoadWork } from '~/domains/history/lib/body-load'
 import { getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
 import { e1rm, mround } from '~/domains/program/lib/progression'

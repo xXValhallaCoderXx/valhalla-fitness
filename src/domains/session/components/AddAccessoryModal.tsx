@@ -2,16 +2,16 @@ import { Modal } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { accessoryMovementOptionsQueryOptions } from '~/domains/session/queries'
 import { addSessionAccessoryFn } from '~/domains/session/server/session-functions'
 import { parseAccessoryRepTarget } from '~/domains/session/lib/accessories'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import type {
-  AccessoryMovementOption,
-  AccessoryProgressionMethod,
-  SwapScope,
-  WorkoutSession,
-} from '~/shared/types'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
+import { useStableMutationRequest } from '~/domains/session/lib/useStableMutationRequest'
+import type { AccessoryMovementOption, SwapScope } from '~/domains/movement'
+import type { AccessoryProgressionMethod } from '~/domains/program'
+import type { WorkoutSession } from '~/domains/session'
 import { AddAccessoryConfigPanel } from './AddAccessoryConfigPanel'
 import { AccessoryMovementPicker } from './AccessoryMovementPicker'
 import {
@@ -30,7 +30,9 @@ export function AddAccessoryModal({
   onClose: () => void
   onAdded: (movementId: string) => void
 }) {
+  const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
+  const { requestIdFor, clearRequest } = useStableMutationRequest()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null)
@@ -42,7 +44,7 @@ export function AddAccessoryModal({
   const [note, setNote] = useState('')
 
   const optionsQuery = useQuery({
-    ...accessoryMovementOptionsQueryOptions(),
+    ...accessoryMovementOptionsQueryOptions(userId),
     enabled: open,
   })
   const options = useMemo(() => optionsQuery.data ?? [], [optionsQuery.data])
@@ -74,6 +76,7 @@ export function AddAccessoryModal({
 
   const mutation = useMutation({
     mutationKey: ['addSessionAccessory', session.sessionId],
+    scope: { id: `session:${session.sessionId}` },
     mutationFn: (input: {
       movement: AccessoryMovementOption
       progressionMethod: AccessoryProgressionMethod
@@ -91,6 +94,7 @@ export function AddAccessoryModal({
           scope: input.scope,
           note: input.note,
           clientMutationId: input.clientMutationId,
+          expectedStateVersion: session.stateVersion,
         },
       }),
     onError: (error) => {
@@ -101,19 +105,27 @@ export function AddAccessoryModal({
       })
     },
     onSuccess: async (nextSession, input) => {
+      clearRequest(input.clientMutationId)
       const previousIds = new Set(session.movements.map((movement) => movement.id))
       const addedMovement =
         nextSession.movements.find((movement) => movement.isAdded && !previousIds.has(movement.id)) ??
         nextSession.movements.at(-1)
-      queryClient.setQueryData(['session', session.sessionId], nextSession)
-      queryClient.setQueryData(['today'], (current: any) =>
+      queryClient.setQueryData(
+        accountQueryKeys.session(userId, session.sessionId),
+        nextSession,
+      )
+      queryClient.setQueryData(accountQueryKeys.today(userId), (current: any) =>
         current ? { ...current, activeSession: nextSession } : current,
       )
       if (input.scope === 'phase_slot') {
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['today'] }),
-          queryClient.invalidateQueries({ queryKey: ['activeProgram'] }),
-          queryClient.invalidateQueries({ queryKey: ['programOverview'] }),
+          queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) }),
+          queryClient.invalidateQueries({
+            queryKey: accountQueryKeys.activeProgram(userId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: accountQueryKeys.programOverview(userId),
+          }),
         ])
       }
       notifications.show({
@@ -128,13 +140,22 @@ export function AddAccessoryModal({
 
   const submit = () => {
     if (!selectedOption || !parsedRepTarget || mutation.isPending) return
-    mutation.mutate({
+    const intent = {
       movement: selectedOption,
       progressionMethod,
       repTarget: repTargetInput.value,
       scope,
       note: note.trim() || undefined,
-      clientMutationId: crypto.randomUUID(),
+    }
+    mutation.mutate({
+      ...intent,
+      clientMutationId: requestIdFor({
+        movementId: intent.movement.movementId,
+        progressionMethod: intent.progressionMethod,
+        repTarget: intent.repTarget,
+        scope: intent.scope,
+        note: intent.note ?? null,
+      }),
     })
   }
 

@@ -1,4 +1,5 @@
-import type { FavoriteWorkout, MovementRole, MovementSlot, PlannedSession, SetLog, Unit, WorkoutSession } from '~/shared/types'
+import type { FavoriteWorkout, MovementSlot, PlannedSession, SetLog, WorkoutSession } from '~/domains/session'
+import type { MovementRole, Unit } from '~/shared/types'
 
 /** Sentinel template id stored in ad-hoc prescription snapshots. */
 export const AD_HOC_TEMPLATE_ID = 'ad_hoc'

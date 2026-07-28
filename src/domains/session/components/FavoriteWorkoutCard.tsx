@@ -4,11 +4,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { Play, Star } from 'lucide-react'
 import { Caption, Panel, Text } from '~/components'
+import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { formatRelativeTime } from '~/shared/lib/dates'
 import { setSessionFavoriteFn } from '~/domains/session/server/favorite-functions'
 import { startAdHocSessionFn } from '~/domains/session/server/session-functions'
-import type { FavoriteWorkout } from '~/shared/types'
+import type { FavoriteWorkout } from '~/domains/session'
+import { accountQueryKeys } from '~/shared/lib/query-keys'
+import { browserIanaTimeZone } from '~/shared/lib/calendar-date'
 
 /** A favourited ad-hoc workout on the Plans page — start a fresh copy or unfavourite it. */
 export function FavoriteWorkoutCard({
@@ -18,13 +21,18 @@ export function FavoriteWorkoutCard({
   workout: FavoriteWorkout
   activeSessionId: string | null
 }) {
+  const userId = useRequiredAccountId()
   const router = useRouter()
   const queryClient = useQueryClient()
 
   const startMutation = useMutation({
     mutationFn: () =>
       startAdHocSessionFn({
-        data: { clientMutationId: crypto.randomUUID(), sourceSessionId: workout.sessionId },
+        data: {
+          clientMutationId: crypto.randomUUID(),
+          sourceSessionId: workout.sessionId,
+          timeZone: browserIanaTimeZone() ?? undefined,
+        },
       }),
     onError: (error) => {
       notifications.show({
@@ -34,8 +42,11 @@ export function FavoriteWorkoutCard({
       })
     },
     onSuccess: async (session) => {
-      queryClient.setQueryData(['session', session.sessionId], session)
-      await queryClient.invalidateQueries({ queryKey: ['today'] })
+      queryClient.setQueryData(
+        accountQueryKeys.session(userId, session.sessionId),
+        session,
+      )
+      await queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) })
       await router.navigate({ to: '/sessions/$sessionId', params: { sessionId: session.sessionId } })
     },
   })
@@ -52,8 +63,10 @@ export function FavoriteWorkoutCard({
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['favoriteWorkouts'] }),
-        queryClient.invalidateQueries({ queryKey: ['history'] }),
+        queryClient.invalidateQueries({
+          queryKey: accountQueryKeys.favoriteWorkouts(userId),
+        }),
+        queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(userId) }),
       ])
       notifications.show({
         color: 'success',

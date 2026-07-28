@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { SetLog } from '../src/shared/types'
+import type { SetLog } from '~/domains/session'
 import { describeLift, describeSet, repsLeftLabel } from '../src/shared/lib/set-notation'
 
 function set(partial: Partial<SetLog>): SetLog {

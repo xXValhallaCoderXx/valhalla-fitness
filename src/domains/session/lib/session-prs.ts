@@ -1,6 +1,7 @@
 import { e1rm, mround } from '~/shared/lib/math'
 import { formatWeight } from '~/shared/lib/set-notation'
-import type { PrKind, SessionPr, SetLog, Unit, WorkoutSession } from '~/shared/types'
+import type { PrKind, SessionPr, SetLog, WorkoutSession } from '~/domains/session'
+import type { Unit } from '~/shared/types'
 
 /** One prior completed working set, reduced to what PR detection needs. */
 export type PriorSetSample = { load: number; reps: number; rir: number | null }

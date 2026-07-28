@@ -5,7 +5,7 @@ import {
   totalMetricLabel,
   totalMetricValue,
 } from '../src/domains/history/lib/total-metric'
-import type { TotalPoint } from '../src/shared/types'
+import type { TotalPoint } from '~/domains/history'
 
 const point: TotalPoint = {
   date: '2026-07-01',

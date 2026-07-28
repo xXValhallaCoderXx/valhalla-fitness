@@ -1,4 +1,4 @@
-import type { ProgramTemplateSummary } from '~/shared/types'
+import type { ProgramTemplateSummary } from '~/domains/program'
 import type { ProgramTemplateFamily } from '~/domains/program/lib/template-families'
 
 export type ExperienceLevel = 'Beginner' | 'Intermediate' | 'Advanced'

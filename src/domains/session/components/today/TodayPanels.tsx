@@ -4,7 +4,11 @@ import { ArrowRight } from 'lucide-react'
 import { Caption, CollapsiblePanel, Panel, SectionLabel, Text } from '~/components'
 import { bodyLoadTierLabels, recoverySummaryLine, worstBodyLoadTier } from '~/domains/history/lib/body-load'
 import { streakBadgeLabel } from '~/domains/history/lib/consistency'
-import type { BodyLoadTier, HistoryDashboard, HistoryDashboardWithInsights, ProgramOverview, Unit } from '~/shared/types'
+import type { TodayHistorySupport } from '~/domains/history'
+import type { BodyLoadTier } from '~/domains/history'
+import type { ProgramInstance, ProgramOverview } from '~/domains/program'
+import type { PlannedSession } from '~/domains/session'
+import type { Unit } from '~/shared/types'
 import {
   ProgramProgressSkeleton,
   RecoveryCheckSkeleton,
@@ -23,7 +27,7 @@ export function StreakBadge({
   isPending = false,
   isError = false,
 }: {
-  history?: HistoryDashboardWithInsights
+  history?: TodayHistorySupport
 } & AsyncPanelProps) {
   if (!history && isPending) {
     return (
@@ -35,7 +39,7 @@ export function StreakBadge({
   }
   if (!history && isError) return null
 
-  const label = streakBadgeLabel(history?.insights.consistency)
+  const label = streakBadgeLabel(history?.consistency)
   if (!label) return null
   return (
     <Badge color="warning" variant="light" data-testid="streak-badge">
@@ -46,11 +50,15 @@ export function StreakBadge({
 
 export function ProgramProgressPanel({
   overview,
+  program,
+  plannedSession,
   fallbackWeekLabel,
   isPending = false,
   isError = false,
 }: {
   overview?: ProgramOverview
+  program?: ProgramInstance | null
+  plannedSession?: PlannedSession | null
   fallbackWeekLabel?: string
 } & AsyncPanelProps) {
   if (!overview && isPending) return <ProgramProgressSkeleton />
@@ -64,20 +72,38 @@ export function ProgramProgressPanel({
     )
   }
 
-  const progress = overview?.position?.progressPercent ?? null
+  const activeProgram = overview?.activeProgram ?? program ?? null
+  const definition = activeProgram?.templateDefinition
+  const totalSessions = definition
+    ? definition.durationWeeks * definition.daysPerWeek
+    : 0
+  const progress = overview?.position?.progressPercent ??
+    (activeProgram && totalSessions
+      ? Math.round(((activeProgram.currentWeekIndex + 1) / totalSessions) * 100)
+      : null)
+  const programmeWeekIndex = activeProgram && definition
+    ? ((Math.floor(activeProgram.currentWeekIndex / definition.daysPerWeek) % definition.durationWeeks) + definition.durationWeeks) %
+      definition.durationWeeks
+    : null
+  const phaseLabel = programmeWeekIndex === null
+    ? null
+    : definition?.weeks[programmeWeekIndex]?.phaseLabel ?? null
+  const positionLabel = overview?.position
+    ? `${overview.position.weekLabel} · ${overview.position.phaseLabel}`
+    : plannedSession
+      ? [plannedSession.weekLabel, phaseLabel].filter(Boolean).join(' · ')
+      : fallbackWeekLabel
+        ? `Queued from ${fallbackWeekLabel}.`
+        : null
   return (
     <Panel p="sm">
       <div className="flex items-center justify-between gap-3">
         <SectionLabel>Program</SectionLabel>
-        <Badge color="action">{overview?.activeProgram?.title ?? 'Active'}</Badge>
+        <Badge color="action">{activeProgram?.title ?? 'Active'}</Badge>
       </div>
       <ProgressBar value={progress ?? 0} className="mt-3" />
       <Caption mt="xs">
-        {overview?.position
-          ? `${overview.position.weekLabel} · ${overview.position.phaseLabel}`
-          : fallbackWeekLabel
-            ? `Queued from ${fallbackWeekLabel}.`
-            : 'Program position loads with your dashboard.'}
+        {positionLabel ?? 'Program position is unavailable.'}
       </Caption>
     </Panel>
   )
@@ -88,7 +114,7 @@ export function WeeklyVolumePanel({
   isPending = false,
   isError = false,
 }: {
-  history?: HistoryDashboard
+  history?: TodayHistorySupport
 } & AsyncPanelProps) {
   if (!history && isPending) return <WeeklyVolumeSkeleton />
   if (!history && isError) {
@@ -113,7 +139,7 @@ export function WeeklyVolumePanel({
           className="mt-3"
           values={weeks.map((week) => week.volume)}
           labels={weeks.map((week) => week.weekLabel)}
-          units={history?.overview.units}
+          units={history?.units}
         />
       ) : (
         <Caption mt="xs">Complete sessions to build a volume trend.</Caption>
@@ -134,7 +160,7 @@ export function RecoveryCheckPanel({
   isPending = false,
   isError = false,
 }: {
-  history?: HistoryDashboard
+  history?: TodayHistorySupport
 } & AsyncPanelProps) {
   if (!history && isPending) return <RecoveryCheckSkeleton />
   if (!history && isError) {

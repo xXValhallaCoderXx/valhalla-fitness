@@ -1,7 +1,7 @@
 import { Badge, Box } from '@mantine/core'
 import { Caption, Text } from '~/components'
 import { sessionCompletion } from '~/domains/session/lib/session-cache'
-import type { WorkoutSession } from '~/shared/types'
+import type { WorkoutSession } from '~/domains/session'
 
 export function SyncPill({ state }: { state?: string }) {
   if (state !== 'saving' && state !== 'syncFailed') return null

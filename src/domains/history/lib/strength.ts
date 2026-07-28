@@ -2,14 +2,14 @@ import type {
   E1rmPoint,
   E1rmTrendSignal,
   LiftE1rmSeries,
-  Movement,
   RepMaxBest,
   RepMaxBests,
   StallSignal,
   StallStatus,
   TotalPoint,
-  Unit,
-} from '~/shared/types'
+} from '~/domains/history'
+import type { Movement } from '~/domains/movement'
+import type { Unit } from '~/shared/types'
 import { e1rm, mround, convertWeight } from '~/shared/lib/math'
 import { parseDate, type HistorySessionInput } from '~/domains/history/lib/history'
 import { getMovementName, movementCatalog } from '~/domains/movement/lib/movements'

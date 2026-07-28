@@ -6,11 +6,13 @@ import { useState } from 'react'
 import { Heading, Page, PageHeader, Panel, SectionLabel, StatCard, Text } from '~/components'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { PendingProgressionReviewModal, PendingReviewAlert } from '~/domains/program/components/PendingReview'
+import type { TodayHistorySupport } from '~/domains/history'
 import { AD_HOC_BADGE_LABEL, DEFAULT_AD_HOC_TITLE } from '~/domains/session/lib/ad-hoc'
 import { isSessionMutationKey } from '~/domains/session/lib/session-mutations'
 import { countCompletedSets, isMeaningfulSyncState, nextIncompleteSetLabel } from '~/domains/session/lib/today-page'
 import { countPlannedSets } from '~/domains/session/lib/today-numbers'
-import type { HistoryDashboardWithInsights, ProgramOverview, ProgressionDecision, TodayPayload, WorkoutSession } from '~/shared/types'
+import type { ProgressionDecision } from '~/domains/program'
+import type { TodayPayload, WorkoutSession } from '~/domains/session'
 import { SessionProgress, SyncPill } from '../Session'
 import { DiscardWorkoutDialog } from '../DiscardWorkoutDialog'
 import { ProgramProgressPanel, StreakBadge, WeeklyVolumePanel } from './TodayPanels'
@@ -19,9 +21,6 @@ import { ProgramProgressPanel, StreakBadge, WeeklyVolumePanel } from './TodayPan
 export function TodayActiveSession({
   data,
   session,
-  overview,
-  overviewPending,
-  overviewError,
   history,
   historyPending,
   historyError,
@@ -33,10 +32,7 @@ export function TodayActiveSession({
 }: {
   data: TodayPayload
   session: WorkoutSession
-  overview?: ProgramOverview
-  overviewPending: boolean
-  overviewError: boolean
-  history?: HistoryDashboardWithInsights
+  history?: TodayHistorySupport
   historyPending: boolean
   historyError: boolean
   pendingDecisions: ProgressionDecision[]
@@ -131,9 +127,8 @@ export function TodayActiveSession({
           {data.activeProgram ? (
             <>
               <ProgramProgressPanel
-                overview={overview}
-                isPending={overviewPending}
-                isError={overviewError}
+                program={data.activeProgram}
+                plannedSession={data.plannedSession}
               />
               <WeeklyVolumePanel history={history} isPending={historyPending} isError={historyError} />
             </>
