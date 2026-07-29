@@ -96,6 +96,76 @@ function series(movementId: string, points: E1rmPoint[]): LiftE1rmSeries {
 }
 
 describe('buildLiftE1rmSeries', () => {
+  it('uses the scheduled workout date rather than the completion timestamp', () => {
+    const result = buildLiftE1rmSeries([
+      session({
+        scheduledDate: '2026-06-28',
+        completedAt: '2026-06-29T00:30:00.000Z',
+      }),
+    ])
+
+    expect(result[0].points[0].date).toBe('2026-06-28')
+  })
+
+  it('normalizes mixed-unit loads before e1RM and rep-max comparisons', () => {
+    const result = buildLiftE1rmSeries([
+      session({
+        id: 'older-lb',
+        scheduledDate: '2026-06-15',
+        completedAt: '2026-06-15T12:00:00.000Z',
+        units: 'lb',
+        exercises: [exercise({ sets: [set({ actualLoad: 180, actualReps: 1 })] })],
+      }),
+      session({
+        id: 'newer-kg',
+        scheduledDate: '2026-06-22',
+        completedAt: '2026-06-22T12:00:00.000Z',
+        units: 'kg',
+        exercises: [exercise({ sets: [set({ actualLoad: 100, actualReps: 1 })] })],
+      }),
+    ])
+
+    expect(result[0].points.map((entry) => entry.sessionId)).toEqual(['older-lb', 'newer-kg'])
+    expect(result[0].points[0].load).toBeCloseTo(81.65, 2)
+    expect(result[0].points[0].e1rm).toBe(84.5)
+    expect(result[0].repMaxBests.oneRm).toEqual({
+      load: 100,
+      reps: 1,
+      date: '2026-06-22',
+    })
+  })
+
+  it('orders same-day points by completion time, then stable session id', () => {
+    const scheduledDate = '2026-06-22'
+    const result = buildLiftE1rmSeries([
+      session({
+        id: 'session-c',
+        scheduledDate,
+        completedAt: '2026-06-22T12:00:00.000Z',
+        exercises: [exercise({ sets: [set({ actualLoad: 102, actualReps: 1 })] })],
+      }),
+      session({
+        id: 'session-a',
+        scheduledDate,
+        completedAt: '2026-06-22T08:00:00.000Z',
+        exercises: [exercise({ sets: [set({ actualLoad: 100, actualReps: 1 })] })],
+      }),
+      session({
+        id: 'session-b',
+        scheduledDate,
+        completedAt: '2026-06-22T12:00:00.000Z',
+        exercises: [exercise({ sets: [set({ actualLoad: 101, actualReps: 1 })] })],
+      }),
+    ])
+
+    expect(result[0].points.map((entry) => entry.sessionId)).toEqual([
+      'session-a',
+      'session-b',
+      'session-c',
+    ])
+    expect(result[0].points.at(-1)?.sessionId).toBe('session-c')
+  })
+
   it('emits one point per session from the max-e1rm eligible set', () => {
     const result = buildLiftE1rmSeries([
       session({
@@ -151,6 +221,24 @@ describe('buildLiftE1rmSeries', () => {
       session({ exercises: [exercise({ sets: [set({ actualLoad: 80, actualReps: 12 })] })] }),
     ])
     expect(twelve[0].points[0]).toMatchObject({ e1rm: 112, reps: 12 })
+  })
+
+  it('excludes zero, null, and invalid loads from e1RM series', () => {
+    const result = buildLiftE1rmSeries([
+      session({
+        exercises: [
+          exercise({
+            sets: [
+              set({ id: 'zero', actualLoad: 0, actualReps: 12 }),
+              set({ id: 'null', actualLoad: null, actualReps: 12 }),
+              set({ id: 'negative', actualLoad: -20, actualReps: 12 }),
+            ],
+          }),
+        ],
+      }),
+    ])
+
+    expect(result).toEqual([])
   })
 
   it('treats missing RIR as 0 and records null rir on the point', () => {

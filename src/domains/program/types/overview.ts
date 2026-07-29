@@ -11,6 +11,7 @@ export type ProgramRecentSessionSummary = {
   title: string
   completedAt?: string | null
   scheduledDate: string
+  timeZone?: string | null
   weekLabel?: string | null
   completedSetCount: number
   plannedSetCount: number

@@ -1,6 +1,6 @@
 begin;
 
-select plan(94);
+select plan(114);
 
 select has_column('public', 'program_instances', 'state_version');
 select has_column('public', 'program_instances', 'client_mutation_id');
@@ -47,8 +47,8 @@ select has_function('public', 'add_session_set_v2');
 select has_function(
   'public',
   'substitute_session_movement_v2',
-  array['uuid', 'text', 'integer', 'jsonb', 'uuid', 'text', 'text', 'text', 'text', 'text'],
-  'movement substitution uses the stable-intent atomic signature'
+  array['uuid', 'text', 'integer', 'jsonb', 'uuid', 'text', 'text', 'text', 'text', 'text', 'jsonb'],
+  'movement substitution atomically persists the generated previous comparable'
 );
 select has_function('public', 'claim_session_mutation_v2');
 select has_function('public', 'set_session_favorite_v2');
@@ -127,6 +127,14 @@ select function_privs_are(
   'authenticated',
   array[]::text[],
   'authenticated clients cannot claim mutation receipts directly'
+);
+select function_privs_are(
+  'public',
+  'validate_previous_comparable_v2',
+  array['jsonb', 'text'],
+  'authenticated',
+  array[]::text[],
+  'authenticated clients cannot bypass substitution comparable validation'
 );
 select function_privs_are(
   'public',
@@ -678,6 +686,660 @@ select throws_ok(
   '22023',
   'PROGRAM_POSITION_REGRESSION',
   'programme position cannot move backwards'
+);
+
+insert into public.movements (id, name, category)
+values
+  (
+    'release-integrity-swap-original',
+    'Release integrity swap original',
+    'accessory'
+  ),
+  (
+    'release-integrity-swap-replacement',
+    'Release integrity swap replacement',
+    'accessory'
+  ),
+  (
+    'release-integrity-swap-alternate',
+    'Release integrity swap alternate',
+    'accessory'
+  );
+
+update public.movements
+set equipment = array['bodyweight']::text[]
+where id = 'release-integrity-swap-replacement';
+
+create temporary table substitution_previous_fixtures (
+  name text primary key,
+  value jsonb not null
+) on commit drop;
+
+insert into substitution_previous_fixtures (name, value)
+values (
+  'valid',
+  '{
+    "movementId":"release-integrity-swap-replacement",
+    "label":"Fabricated but structurally valid caller history",
+    "load":999,
+    "reps":99,
+    "rir":0,
+    "workoutDate":"2026-07-01",
+    "timeZone":"Asia/Singapore",
+    "performedAt":"2026-07-01T10:00:00+08:00",
+    "e1rm":9999,
+    "setType":"accessory",
+    "sets":[
+      {"setIndex":0,"load":999,"reps":99,"rir":0}
+    ]
+  }'::jsonb
+);
+
+insert into public.workout_sessions (
+  id,
+  user_id,
+  program_instance_id,
+  planned_session_id,
+  status,
+  scheduled_date,
+  completed_at,
+  prescription_snapshot,
+  state_version
+) values (
+  '00000000-0000-4000-8000-000000000098',
+  '00000000-0000-4000-8000-000000000091',
+  null,
+  null,
+  'completed',
+  '2026-07-29',
+  '2026-07-29T02:00:00Z',
+  '{
+    "id":"substitution-history",
+    "templateId":"substitution-template",
+    "title":"Substitution history",
+    "scheduledDate":"2026-07-29",
+    "timeZone":"Asia/Singapore",
+    "units":"kg",
+    "movements":[]
+  }'::jsonb,
+  0
+);
+
+insert into public.exercise_logs (
+  id,
+  user_id,
+  session_id,
+  slot_id,
+  planned_movement_id,
+  performed_movement_id,
+  role,
+  order_index,
+  target_summary
+) values (
+  '00000000-0000-4000-8000-000000000099',
+  '00000000-0000-4000-8000-000000000091',
+  '00000000-0000-4000-8000-000000000098',
+  'release-integrity-swap-slot',
+  'release-integrity-swap-original',
+  'release-integrity-swap-replacement',
+  'accessory',
+  0,
+  '2 × 10'
+);
+
+insert into public.set_logs (
+  id,
+  user_id,
+  exercise_log_id,
+  set_index,
+  actual_load,
+  actual_reps,
+  actual_rir,
+  completed
+) values
+  (
+    '00000000-0000-4000-8000-000000000100',
+    '00000000-0000-4000-8000-000000000091',
+    '00000000-0000-4000-8000-000000000099',
+    0,
+    12.5,
+    10,
+    2,
+    true
+  ),
+  (
+    '00000000-0000-4000-8000-000000000101',
+    '00000000-0000-4000-8000-000000000091',
+    '00000000-0000-4000-8000-000000000099',
+    1,
+    12.5,
+    9,
+    2,
+    true
+  );
+
+insert into public.workout_sessions (
+  id,
+  user_id,
+  program_instance_id,
+  planned_session_id,
+  status,
+  scheduled_date,
+  prescription_snapshot,
+  state_version
+) values (
+  '00000000-0000-4000-8000-000000000096',
+  '00000000-0000-4000-8000-000000000091',
+  null,
+  null,
+  'in_progress',
+  '2026-07-30',
+  '{
+    "id":"substitution-integrity",
+    "templateId":"substitution-template",
+    "title":"Substitution integrity",
+    "weekLabel":"Week 1",
+    "scheduledDate":"2026-07-30",
+    "timeZone":"Asia/Singapore",
+    "units":"kg",
+    "movements":[{
+      "id":"release-integrity-swap-slot",
+      "slotId":"release-integrity-swap-slot",
+      "phaseKey":"fixture-phase",
+      "movementId":"release-integrity-swap-original",
+      "movementName":"Release integrity swap original",
+      "role":"accessory",
+      "orderIndex":0,
+      "targetSummary":"3 × 10",
+      "sets":[{"id":"set-0","setIndex":0,"targetReps":10}],
+      "previous":{"stale":true}
+    }]
+  }'::jsonb,
+  0
+);
+
+insert into public.exercise_logs (
+  id,
+  user_id,
+  session_id,
+  slot_id,
+  planned_movement_id,
+  performed_movement_id,
+  role,
+  order_index,
+  target_summary
+) values (
+  '00000000-0000-4000-8000-000000000097',
+  '00000000-0000-4000-8000-000000000091',
+  '00000000-0000-4000-8000-000000000096',
+  'release-integrity-swap-slot',
+  'release-integrity-swap-original',
+  'release-integrity-swap-original',
+  'accessory',
+  0,
+  '3 × 10'
+);
+
+insert into public.set_logs (
+  id,
+  user_id,
+  exercise_log_id,
+  set_index,
+  target_load,
+  target_reps,
+  actual_load,
+  actual_reps,
+  completed
+) values (
+  '00000000-0000-4000-8000-000000000102',
+  '00000000-0000-4000-8000-000000000091',
+  '00000000-0000-4000-8000-000000000097',
+  0,
+  55,
+  10,
+  55,
+  10,
+  false
+);
+
+select is(
+  public.substitute_session_movement_v2(
+    '00000000-0000-4000-8000-000000000096',
+    'substitution-valid-request',
+    0,
+    '{
+      "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+      "performedMovementId":"release-integrity-swap-replacement",
+      "reason":"preference",
+      "note":"Database contract fixture",
+      "scope":"session"
+    }'::jsonb,
+    '00000000-0000-4000-8000-000000000097',
+    'release-integrity-swap-replacement',
+    'preference',
+    'Database contract fixture',
+    'session',
+    'fixture-phase',
+    (
+      select value
+      from substitution_previous_fixtures
+      where name = 'valid'
+    )
+  )->>'stateVersion',
+  '1',
+  'a valid substitution and generated previous comparable commit together'
+);
+
+select is(
+  (
+    select concat(
+      prescription_snapshot #>> '{movements,0,previous,load}',
+      ':',
+      prescription_snapshot #>> '{movements,0,previous,reps}',
+      ':',
+      prescription_snapshot #>> '{movements,0,previous,workoutDate}',
+      ':',
+      prescription_snapshot #>> '{movements,0,previous,timeZone}',
+      ':',
+      prescription_snapshot #>> '{movements,0,previous,sets,1,reps}'
+    )
+    from public.workout_sessions
+    where id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '12.5:10:2026-07-29:Asia/Singapore:9',
+  'the database ignores fabricated caller history and derives the canonical completed result'
+);
+
+select is(
+  (
+    select concat(
+      prescription_snapshot #>> '{movements,0,performedMovementId}',
+      ':',
+      prescription_snapshot #>> '{movements,0,performedMovementName}'
+    )
+    from public.workout_sessions
+    where id = '00000000-0000-4000-8000-000000000096'
+  ),
+  'release-integrity-swap-replacement:Release integrity swap replacement',
+  'the snapshot movement identity changes in the same substitution'
+);
+
+select is(
+  (
+    select concat(
+      exercise.performed_movement_id,
+      ':',
+      coalesce(active_set.actual_load::text, 'null')
+    )
+    from public.exercise_logs as exercise
+    join public.set_logs as active_set
+      on active_set.exercise_log_id = exercise.id
+    where exercise.id = '00000000-0000-4000-8000-000000000097'
+  ),
+  'release-integrity-swap-replacement:null',
+  'the exercise row changes and an untouched weighted seed is cleared for bodyweight'
+);
+
+select is(
+  (
+    select count(*)::text
+    from public.substitution_logs
+    where session_id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '1',
+  'the valid substitution writes one audit row'
+);
+
+select is(
+  public.substitute_session_movement_v2(
+    '00000000-0000-4000-8000-000000000096',
+    'substitution-valid-request',
+    0,
+    '{
+      "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+      "performedMovementId":"release-integrity-swap-replacement",
+      "reason":"preference",
+      "note":"Database contract fixture",
+      "scope":"session"
+    }'::jsonb,
+    '00000000-0000-4000-8000-000000000097',
+    'release-integrity-swap-replacement',
+    'preference',
+    'Database contract fixture',
+    'session',
+    '',
+    '{"movementId":"malformed-derived-replay"}'::jsonb
+  )->>'stateVersion',
+  '1',
+  'an exact substitution replay returns before regenerated values are validated'
+);
+
+select is(
+  (
+    select concat(
+      session.state_version,
+      ':',
+      (
+        select count(*)
+        from public.substitution_logs
+        where session_id = session.id
+      )
+    )
+    from public.workout_sessions as session
+    where session.id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '1:1',
+  'an exact substitution replay does not advance state or duplicate audit rows'
+);
+
+select is(
+  public.substitute_session_movement_v2(
+    '00000000-0000-4000-8000-000000000096',
+    'substitution-clear-request',
+    1,
+    '{
+      "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+      "performedMovementId":"release-integrity-swap-alternate",
+      "reason":"equipment_missing",
+      "note":null,
+      "scope":"session"
+    }'::jsonb,
+    '00000000-0000-4000-8000-000000000097',
+    'release-integrity-swap-alternate',
+    'equipment_missing',
+    null,
+    'session',
+    'fixture-phase',
+    null
+  )->>'stateVersion',
+  '2',
+  'a substitution without a comparable advances the session once'
+);
+
+select is(
+  (
+    select jsonb_typeof(
+      prescription_snapshot #> '{movements,0,previous}'
+    )
+    from public.workout_sessions
+    where id = '00000000-0000-4000-8000-000000000096'
+  ),
+  'null',
+  'a null comparable clears the stale snapshot previous value'
+);
+
+select is(
+  (
+    select concat(
+      exercise.performed_movement_id,
+      ':',
+      (
+        select count(*)
+        from public.substitution_logs
+        where session_id = exercise.session_id
+      )
+    )
+    from public.exercise_logs as exercise
+    where exercise.id = '00000000-0000-4000-8000-000000000097'
+  ),
+  'release-integrity-swap-alternate:2',
+  'clearing the comparable still updates the exercise and audit atomically'
+);
+
+select throws_ok(
+  $$
+    select public.substitute_session_movement_v2(
+      '00000000-0000-4000-8000-000000000096',
+      'substitution-noop-request',
+      2,
+      '{
+        "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+        "performedMovementId":"release-integrity-swap-alternate",
+        "reason":"preference",
+        "note":null,
+        "scope":"session"
+      }'::jsonb,
+      '00000000-0000-4000-8000-000000000097',
+      'release-integrity-swap-alternate',
+      'preference',
+      null,
+      'session',
+      'fixture-phase',
+      null
+    )
+  $$,
+  'P0001',
+  'MOVEMENT_ALREADY_SELECTED',
+  'a no-op substitution cannot be reused to change its authorized scope'
+);
+
+select throws_ok(
+  $$
+    select public.substitute_session_movement_v2(
+      '00000000-0000-4000-8000-000000000096',
+      'substitution-mismatch-request',
+      2,
+      '{
+        "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+        "performedMovementId":"squat",
+        "reason":"preference",
+        "note":null,
+        "scope":"session"
+      }'::jsonb,
+      '00000000-0000-4000-8000-000000000097',
+      'squat',
+      'preference',
+      null,
+      'session',
+      'fixture-phase',
+      null
+    )
+  $$,
+  'P0001',
+  'MOVEMENT_SWAP_NOT_ALLOWED',
+  'an unsupported replacement movement is rejected inside the atomic boundary'
+);
+
+select is(
+  (
+    select concat(
+      session.state_version,
+      ':',
+      exercise.performed_movement_id,
+      ':',
+      jsonb_typeof(session.prescription_snapshot #> '{movements,0,previous}'),
+      ':',
+      (
+        select count(*)
+        from public.substitution_logs
+        where session_id = session.id
+      ),
+      ':',
+      (
+        select count(*)
+        from public.session_mutation_receipts
+        where request_id = 'substitution-mismatch-request'
+      )
+    )
+    from public.workout_sessions as session
+    join public.exercise_logs as exercise
+      on exercise.session_id = session.id
+    where session.id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '2:release-integrity-swap-alternate:null:2:0',
+  'unsupported-movement rejection leaves snapshot, row, audit, receipt, and version unchanged'
+);
+
+select throws_ok(
+  $$
+    select public.substitute_session_movement_v2(
+      '00000000-0000-4000-8000-000000000096',
+      'substitution-malformed-request',
+      2,
+      '{
+        "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+        "performedMovementId":"release-integrity-swap-replacement",
+        "reason":"preference",
+        "note":null,
+        "scope":"session"
+      }'::jsonb,
+      '00000000-0000-4000-8000-000000000097',
+      'release-integrity-swap-replacement',
+      'preference',
+      null,
+      'session',
+      'forged-phase',
+      jsonb_set(
+        (
+          select value
+          from substitution_previous_fixtures
+          where name = 'valid'
+        ),
+        '{sets}',
+        '{"not":"an array"}'::jsonb
+      )
+    )
+  $$,
+  '22023',
+  'PHASE_KEY_MISMATCH',
+  'a caller cannot persist an arbitrary programme phase key'
+);
+
+select is(
+  (
+    select concat(
+      session.state_version,
+      ':',
+      exercise.performed_movement_id,
+      ':',
+      jsonb_typeof(session.prescription_snapshot #> '{movements,0,previous}'),
+      ':',
+      (
+        select count(*)
+        from public.substitution_logs
+        where session_id = session.id
+      ),
+      ':',
+      (
+        select count(*)
+        from public.session_mutation_receipts
+        where request_id = 'substitution-malformed-request'
+      )
+    )
+    from public.workout_sessions as session
+    join public.exercise_logs as exercise
+      on exercise.session_id = session.id
+    where session.id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '2:release-integrity-swap-alternate:null:2:0',
+  'phase-key rejection rolls the entire attempted mutation back'
+);
+
+update public.set_logs
+set completed = true
+where id = '00000000-0000-4000-8000-000000000102';
+
+select throws_ok(
+  $$
+    select public.substitute_session_movement_v2(
+      '00000000-0000-4000-8000-000000000096',
+      'substitution-after-logging-request',
+      2,
+      '{
+        "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+        "performedMovementId":"release-integrity-swap-replacement",
+        "reason":"preference",
+        "note":null,
+        "scope":"session"
+      }'::jsonb,
+      '00000000-0000-4000-8000-000000000097',
+      'release-integrity-swap-replacement',
+      'preference',
+      null,
+      'session',
+      'fixture-phase',
+      null
+    )
+  $$,
+  'P0001',
+  'MOVEMENT_SWAP_AFTER_LOGGING',
+  'a completed set prevents retroactive movement reattribution'
+);
+
+select is(
+  (
+    select concat(
+      session.state_version,
+      ':',
+      exercise.performed_movement_id,
+      ':',
+      (
+        select count(*)
+        from public.substitution_logs
+        where session_id = session.id
+      ),
+      ':',
+      (
+        select count(*)
+        from public.session_mutation_receipts
+        where request_id = 'substitution-after-logging-request'
+      )
+    )
+    from public.workout_sessions as session
+    join public.exercise_logs as exercise
+      on exercise.session_id = session.id
+    where session.id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '2:release-integrity-swap-alternate:2:0',
+  'a rejected post-log swap leaves movement, audit, receipt, and version unchanged'
+);
+
+select is(
+  public.substitute_session_movement_v2(
+    '00000000-0000-4000-8000-000000000096',
+    'substitution-clear-request',
+    1,
+    '{
+      "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+      "performedMovementId":"release-integrity-swap-alternate",
+      "reason":"equipment_missing",
+      "note":null,
+      "scope":"session"
+    }'::jsonb,
+    '00000000-0000-4000-8000-000000000097',
+    'release-integrity-swap-alternate',
+    'equipment_missing',
+    null,
+    'session',
+    '',
+    '{"malformed":"recomputed replay data"}'::jsonb
+  )->>'stateVersion',
+  '2',
+  'an exact null-comparable replay returns its original durable version'
+);
+
+select is(
+  (
+    select concat(
+      state_version,
+      ':',
+      (
+        select count(*)
+        from public.substitution_logs
+        where session_id = '00000000-0000-4000-8000-000000000096'
+      ),
+      ':',
+      (
+        select count(*)
+        from public.session_mutation_receipts
+        where session_id = '00000000-0000-4000-8000-000000000096'
+      )
+    )
+    from public.workout_sessions
+    where id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '2:2:2',
+  'replaying either substitution intent remains idempotent after later mutations'
 );
 
 select * from finish();

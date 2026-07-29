@@ -50,11 +50,13 @@ export function FocusExerciseHeader({
 
       {movement.previous ? (
         <div className="mt-1.5 flex items-center justify-center gap-1">
-          <Caption component="span">Last time</Caption>
+          <Caption component="span">Previous comparable</Caption>
           <Text component="span" size="xs" fw={700}>
             {formatPreviousShort(movement.previous, units)}
           </Text>
-          <InfoHint label="Last session details" width={260}>{movement.previous.label}</InfoHint>
+          <InfoHint label="Previous comparable details" width={280}>
+            {`Best matching prior result, preferring the same programme slot. ${movement.previous.label}`}
+          </InfoHint>
         </div>
       ) : null}
 

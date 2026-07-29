@@ -1,5 +1,6 @@
 import { formatWeight } from '~/shared/lib/set-notation'
 import { formatCompactDate } from '~/shared/lib/dates'
+import { externalLoadOrNull, isPositiveLoad } from '~/shared/lib/load'
 import type { PlannedSession, PreviousComparable, SetLog } from '~/domains/session'
 import type { MovementRole, Unit } from '~/shared/types'
 
@@ -11,7 +12,7 @@ export function countPlannedSets(session: PlannedMovements): number {
 }
 
 export function hasTargetLoads(session: PlannedMovements): boolean {
-  return session.movements.some((movement) => movement.sets.some((set) => set.targetLoad != null))
+  return session.movements.some((movement) => movement.sets.some((set) => isPositiveLoad(set.targetLoad)))
 }
 
 /** One movement's row in the "Today's workout" sheet ledger (Exercise / Sets / Target columns). */
@@ -53,8 +54,10 @@ function ledgerSetsLabel(sets: SetLog[]): string {
 
 /** Target cell: the top/working-set load when projected (handles waves), else the RIR cue. */
 function ledgerTarget(sets: SetLog[], units: string): { label: string; isLoad: boolean } {
-  const loads = sets.map((set) => set.targetLoad).filter((load): load is number => load != null)
+  const rawLoads = sets.map((set) => set.targetLoad).filter((load): load is number => load != null)
+  const loads = rawLoads.filter(isPositiveLoad)
   if (loads.length) return { label: formatWeight(Math.max(...loads), units) ?? '—', isLoad: true }
+  if (rawLoads.length) return { label: 'BW', isLoad: false }
   const rir = sets.find((set) => set.targetRir != null)?.targetRir
   if (rir != null) return { label: `RIR ${rir}`, isLoad: false }
   return { label: '—', isLoad: false }
@@ -83,18 +86,23 @@ export function buildTodayLedgerCaption(session: Pick<PlannedSession, 'title' | 
 /** Unitless ledger history line: "107.5 × 6 @ RIR 3", "BW × 8"; null when nothing comparable. */
 export function formatPreviousLine(previous?: PreviousComparable | null): string | null {
   if (!previous || (previous.load == null && previous.reps == null)) return null
-  const load = previous.load != null ? formatWeight(previous.load) : 'BW'
+  const externalLoad = externalLoadOrNull(previous.load)
+  const load = externalLoad == null ? 'BW' : formatWeight(externalLoad)
   const base = previous.reps != null ? `${load} × ${previous.reps}` : load
   return previous.rir != null ? `${base} @ RIR ${previous.rir}` : base
 }
 
-/** Hero last-performance line: "Last 107.5 kg × 6 @ RIR 3 · e1RM 140 kg · Jul 3" — parts omitted when unknown. */
+/** Hero comparable line: "Previous comparable · 107.5 kg × 6 · e1RM 140 kg · Jul 3". */
 export function formatPreviousHero(previous: PreviousComparable | null | undefined, units: Unit | string): string | null {
   if (!previous || (previous.load == null && previous.reps == null)) return null
-  const load = previous.load != null ? formatWeight(previous.load, units) : 'BW'
+  const externalLoad = externalLoadOrNull(previous.load)
+  const load = externalLoad == null ? 'BW' : formatWeight(externalLoad, units)
   const base = previous.reps != null ? `${load} × ${previous.reps}` : load
-  const parts = [`Last ${base}${previous.rir != null ? ` @ RIR ${previous.rir}` : ''}`]
-  if (previous.e1rm != null) parts.push(`e1RM ${formatWeight(previous.e1rm, units)}`)
-  if (previous.performedAt) parts.push(formatCompactDate(previous.performedAt))
+  const parts = [`Previous comparable · ${base}${previous.rir != null ? ` @ RIR ${previous.rir}` : ''}`]
+  if (externalLoad != null && isPositiveLoad(previous.e1rm)) {
+    parts.push(`e1RM ${formatWeight(previous.e1rm, units)}`)
+  }
+  const workoutDate = previous.workoutDate ?? previous.performedAt
+  if (workoutDate) parts.push(formatCompactDate(workoutDate))
   return parts.join(' · ')
 }

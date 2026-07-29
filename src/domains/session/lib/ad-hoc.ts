@@ -23,6 +23,7 @@ export function normalizeAdHocTitle(value: string | null | undefined): string | 
 export function buildAdHocSnapshot(input: {
   title?: string | null
   scheduledDate: string
+  timeZone?: string | null
   units: Unit
   rounding: number
   movements?: MovementSlot[]
@@ -38,6 +39,7 @@ export function buildAdHocSnapshot(input: {
     weekLabel: '',
     hardness: null,
     scheduledDate: input.scheduledDate,
+    timeZone: input.timeZone ?? null,
     estimatedMinutes: 0,
     units: input.units,
     rounding: input.rounding,
@@ -150,6 +152,7 @@ export function favoriteLineageKeys(favoriteRows: SessionLineageRow[]): Set<stri
 
 export function favoriteWorkoutFromRow(row: {
   id: string
+  scheduled_date?: string | null
   completed_at?: string | null
   prescription_snapshot?: PlannedSession | null
 }): FavoriteWorkout {
@@ -162,6 +165,8 @@ export function favoriteWorkoutFromRow(row: {
     movementNames: movements.map((movement) => movement.performedMovementName ?? movement.movementName),
     movementCount: movements.length,
     setCount: movements.reduce((total, movement) => total + movement.sets.length, 0),
+    scheduledDate: row.scheduled_date ?? row.prescription_snapshot?.scheduledDate ?? null,
     completedAt: row.completed_at ?? null,
+    timeZone: row.prescription_snapshot?.timeZone ?? null,
   }
 }

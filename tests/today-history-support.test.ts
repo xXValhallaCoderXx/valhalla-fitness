@@ -64,6 +64,7 @@ describe('Today history support', () => {
       ],
       hasCompletedSessions: true,
       now: new Date('2026-07-28T09:00:00.000Z'),
+      today: '2026-07-28',
     })
 
     expect(result.hasCompletedSessions).toBe(true)
@@ -72,7 +73,7 @@ describe('Today history support', () => {
     expect(result.consistency.currentStreakWeeks).toBe(2)
     expect(result.bodyLoad.topRegions[0]).toMatchObject({
       regionId: 'quads',
-      lastTrainedAt: '2026-07-27T09:00:00.000Z',
+      lastTrainedAt: '2026-07-27',
     })
     expect(result).not.toHaveProperty('bestSets')
     expect(result).not.toHaveProperty('movementSummaries')
@@ -84,6 +85,7 @@ describe('Today history support', () => {
       sessions: [],
       hasCompletedSessions: true,
       now: new Date('2026-07-28T09:00:00.000Z'),
+      today: '2026-07-28',
     })
 
     expect(result.hasCompletedSessions).toBe(true)
@@ -91,9 +93,7 @@ describe('Today history support', () => {
     expect(result.consistency.currentStreakWeeks).toBe(0)
   })
 
-  it('anchors the bounded read to twelve weeks before the server timestamp', () => {
-    expect(todayHistoryWindowStart(new Date('2026-07-28T09:00:00.000Z'))).toBe(
-      '2026-05-05T09:00:00.000Z',
-    )
+  it('anchors the bounded read to twelve weeks before the account calendar date', () => {
+    expect(todayHistoryWindowStart('2026-07-28')).toBe('2026-05-05')
   })
 })

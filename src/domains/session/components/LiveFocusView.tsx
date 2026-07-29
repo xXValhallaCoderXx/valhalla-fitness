@@ -173,7 +173,7 @@ export function LiveFocusView({
 
         {selectedSet ? (
           <FocusSetCard
-            key={`${activeMovement.id}-${selectedSet.setIndex}`}
+            key={`${activeMovement.id}-${activeMovement.performedMovementId ?? activeMovement.movementId}-${selectedSet.setIndex}`}
             session={session}
             movement={activeMovement}
             set={selectedSet}

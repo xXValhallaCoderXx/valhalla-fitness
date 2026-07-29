@@ -39,10 +39,11 @@ export const listFavoriteWorkoutsFn = createServerFn({ method: 'GET' }).handler(
     const { supabase, user } = await requireUser()
     const { data, error } = await supabase
       .from('workout_sessions')
-      .select('id, completed_at, prescription_snapshot')
+      .select('id, scheduled_date, completed_at, prescription_snapshot')
       .eq('user_id', user.id)
       .eq('is_favorite', true)
       .eq('status', 'completed')
+      .order('scheduled_date', { ascending: false })
       .order('completed_at', { ascending: false })
     if (error) throw new Error(error.message)
     return (data ?? []).map((row) =>

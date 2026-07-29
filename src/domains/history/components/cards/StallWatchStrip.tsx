@@ -20,7 +20,7 @@ export function StallWatchStrip({ insights, staleWelcomeBack }: { insights: Hist
 
   const chips = insights.liftSeries
     .map((series) => {
-      const stall = detectStall(series.points, insights.generatedAt)
+      const stall = detectStall(series.points, insights.today)
       return { movementId: series.movementId, label: shortLiftLabel(series.movementId) || series.movementName, stall }
     })
     .filter((chip) => chip.stall.signal !== 'insufficient')

@@ -10,8 +10,13 @@ import type {
 } from '~/domains/history'
 import type { Movement } from '~/domains/movement'
 import type { Unit } from '~/shared/types'
+import { isPositiveLoad } from '~/shared/lib/load'
 import { e1rm, mround, convertWeight } from '~/shared/lib/math'
-import { parseDate, type HistorySessionInput } from '~/domains/history/lib/history'
+import {
+  compareHistorySessionsNewestFirst,
+  parseDate,
+  type HistorySessionInput,
+} from '~/domains/history/lib/history'
 import { getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
 
 export const E1RM_MAX_REPS = 12
@@ -64,9 +69,9 @@ type EligibleSet = {
 }
 
 type LiftSessionEntry = {
-  sessionId: string
-  date: string
-  time: number
+  id: string
+  scheduledDate: string
+  completedAt: string | null
   sets: EligibleSet[]
 }
 
@@ -88,25 +93,29 @@ export function buildLiftE1rmSeries(
   options?: { catalog?: Record<string, Movement> },
 ): LiftE1rmSeries[] {
   const catalog = options?.catalog ?? movementCatalog
+  const orderedSessions = [...sessions].sort(compareHistorySessionsNewestFirst)
+  const displayUnits = orderedSessions.find((session) => session.units)?.units ?? null
   const byLift = new Map<string, LiftSessionEntry[]>()
 
-  for (const session of sessions) {
-    const date = session.completedAt ?? session.scheduledDate
-    const time = parseDate(date)?.getTime()
-    if (time == null) continue
+  for (const session of orderedSessions) {
+    const date = session.scheduledDate
+    if (!parseDate(date)) continue
 
     const liftSets = new Map<string, EligibleSet[]>()
     for (const exercise of session.exercises) {
       if (!strengthLiftSet.has(exercise.performedMovementId)) continue
       for (const set of exercise.sets) {
         if (!set.completed) continue
-        if (typeof set.actualLoad !== 'number' || set.actualLoad <= 0) continue
+        if (!isPositiveLoad(set.actualLoad)) continue
         if (typeof set.actualReps !== 'number' || set.actualReps < 1 || set.actualReps > E1RM_MAX_REPS) continue
+        const load = displayUnits
+          ? convertWeight(set.actualLoad, session.units ?? displayUnits, displayUnits)
+          : set.actualLoad
         const eligible: EligibleSet = {
-          load: set.actualLoad,
+          load,
           reps: set.actualReps,
           rir: set.actualRir ?? null,
-          value: mround(e1rm(set.actualLoad, set.actualReps, set.actualRir ?? 0), 0.5),
+          value: mround(e1rm(load, set.actualReps, set.actualRir ?? 0), 0.5),
         }
         const existing = liftSets.get(exercise.performedMovementId)
         if (existing) existing.push(eligible)
@@ -115,7 +124,12 @@ export function buildLiftE1rmSeries(
     }
 
     for (const [liftId, sets] of liftSets) {
-      const entry: LiftSessionEntry = { sessionId: session.id, date, time, sets }
+      const entry: LiftSessionEntry = {
+        id: session.id,
+        scheduledDate: date,
+        completedAt: session.completedAt ?? null,
+        sets,
+      }
       const existing = byLift.get(liftId)
       if (existing) existing.push(entry)
       else byLift.set(liftId, [entry])
@@ -126,7 +140,7 @@ export function buildLiftE1rmSeries(
   for (const liftId of STRENGTH_LIFTS) {
     const entries = byLift.get(liftId)
     if (!entries?.length) continue
-    entries.sort((a, b) => a.time - b.time)
+    entries.sort((left, right) => compareHistorySessionsNewestFirst(right, left))
 
     const points: E1rmPoint[] = []
     const priorValues: number[] = []
@@ -137,8 +151,8 @@ export function buildLiftE1rmSeries(
         priorValues.length >= OUTLIER_MIN_PRIOR_POINTS &&
         best.value > OUTLIER_HIGH_FACTOR * median(priorValues.slice(-OUTLIER_MEDIAN_WINDOW))
       points.push({
-        date: entry.date,
-        sessionId: entry.sessionId,
+        date: entry.scheduledDate,
+        sessionId: entry.id,
         e1rm: best.value,
         load: best.load,
         reps: best.reps,
@@ -283,7 +297,7 @@ function bestAtReps(entries: LiftSessionEntry[], minReps: number): RepMaxBest | 
     for (const set of entry.sets) {
       if (set.reps < minReps) continue
       if (!best || set.load > best.load) {
-        best = { load: set.load, reps: set.reps, date: entry.date }
+        best = { load: set.load, reps: set.reps, date: entry.scheduledDate }
       }
     }
   }

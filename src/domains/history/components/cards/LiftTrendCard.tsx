@@ -50,11 +50,11 @@ export function LiftTrendCard({
   const units = insights.units
   const slicedPoints = filterToRange(series.points, range, {
     firstDataDate: insights.firstSessionDate,
-    now: insights.generatedAt,
+    now: insights.today,
     getDate: (point) => point.date,
   })
-  const trend = classifyE1rmTrend(slicedPoints, insights.generatedAt)
-  const velocity = computeVelocity(slicedPoints, insights.generatedAt)
+  const trend = classifyE1rmTrend(slicedPoints, insights.today)
+  const velocity = computeVelocity(slicedPoints, insights.today)
 
   const slicedClean = slicedPoints.filter((point) => !point.outlier)
   const allClean = series.points.filter((point) => !point.outlier)
@@ -65,7 +65,7 @@ export function LiftTrendCard({
   // Stall reads the FULL series (PRs are absolute, not range-relative); welcome-back framing replaces it.
   const stallLine = (() => {
     if (gating.staleWelcomeBack) return null
-    const stall = detectStall(series.points, insights.generatedAt)
+    const stall = detectStall(series.points, insights.today)
     const weeks = stall.weeksSincePr ?? 0
     if (stall.signal === 'progressing') {
       return { text: weeks === 0 ? 'Last PR this week' : `Last PR ${weeks}w ago`, tone: 'success' as const }

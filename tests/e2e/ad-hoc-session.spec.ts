@@ -3,7 +3,7 @@ import { login } from './support/auth'
 
 /**
  * Full ad-hoc workout journey: start a blank workout from Today (not gated by the seeded
- * pending review), pick an exercise from the full catalog, log a set with the "last time"
+ * pending review), pick an exercise from the full catalog, log a set with the previous comparable
  * seed, rename, finish (no plan progression), find it in Insights → Sessions via the
  * Ad hoc filter + search, favourite it (named), and restart it from the Plans page with
  * the previous session's numbers seeded.
@@ -82,10 +82,10 @@ test('ad-hoc workout: start, log, rename, finish, find, favourite, restart', asy
   await page.getByRole('button', { name: /^Bench Press / }).first().click()
   await page.getByTestId('confirm-add-exercise').click()
 
-  // The card opens with the main-lift role and a "Last time" chip fed by plan history.
-  // The hidden Focus view renders its own "Last time" copy, so filter to the visible one.
+  // The card opens with the main-lift role and a previous-comparable chip fed by plan history.
+  // The hidden Focus view renders its own copy, so filter to the visible one.
   await expect(page.getByRole('heading', { name: 'Bench Press' })).toBeVisible({ timeout: 15000 })
-  await expect(page.locator('main').getByText('Last time').filter({ visible: true })).toBeVisible({ timeout: 15000 })
+  await expect(page.locator('main').getByText('Previous comparable').filter({ visible: true })).toBeVisible({ timeout: 15000 })
 
   // Weight is pre-seeded from the comparable; log set 1 at a distinctive load.
   const set1 = setRow(page, 1)
@@ -144,7 +144,7 @@ test('ad-hoc workout: start, log, rename, finish, find, favourite, restart', asy
   await expect(page.getByText('Saved to favourites')).toBeVisible({ timeout: 10000 })
 
   // Plans page: the favourite has a card; starting it seeds a fresh copy of the workout
-  // with the just-finished session as the "last time" comparable (weight 33 pre-filled).
+  // with the just-finished session as the previous comparable (weight 33 pre-filled).
   await page.goto('/templates')
   await expect(page.getByText('Favourite workouts')).toBeVisible({ timeout: 15000 })
   await expect(async () => {
@@ -154,7 +154,7 @@ test('ad-hoc workout: start, log, rename, finish, find, favourite, restart', asy
 
   await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 15000 })
   await expect(page.getByRole('heading', { name: 'Bench Press' })).toBeVisible({ timeout: 15000 })
-  await expect(page.locator('main').getByText('Last time').filter({ visible: true })).toBeVisible({ timeout: 15000 })
+  await expect(page.locator('main').getByText('Previous comparable').filter({ visible: true })).toBeVisible({ timeout: 15000 })
   const repeatWeight = setRow(page, 1).locator('input[type="number"]').first()
   await expect(repeatWeight).toHaveValue('33', { timeout: 15000 })
 

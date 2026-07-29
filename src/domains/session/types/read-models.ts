@@ -32,5 +32,7 @@ export type FavoriteWorkout = {
   movementNames: string[]
   movementCount: number
   setCount: number
+  scheduledDate: string | null
   completedAt: string | null
+  timeZone?: string | null
 }

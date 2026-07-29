@@ -24,11 +24,18 @@ import {
 import type { TodayHistorySupport } from '~/domains/history/types'
 import { buildProgramOverview } from '~/domains/program/lib/program-overview'
 import { getMovementName } from '~/domains/movement/lib/movements'
+import { externalLoadOrNull } from '~/shared/lib/load'
 import { formatNumber } from '~/shared/lib/set-notation'
 import type { SupabaseServerClient } from '~/shared/server/supabase'
 import { mapProgressionDecision } from '~/domains/program/server/program-functions'
 import { favoriteLineageKeys, sessionLineageKey } from '~/domains/session/lib/ad-hoc'
 import { getTodayInternal } from '~/domains/session/server/session-functions'
+import { getMovementHistoryEntries } from '~/domains/history/server/movement-history'
+import {
+  calendarDateInTimeZone,
+  calendarDateToUtcDate,
+  resolveIanaTimeZone,
+} from '~/shared/lib/calendar-date'
 
 async function requireUser() {
   const { requireUser } = await import('~/shared/server/require-user')
@@ -84,7 +91,7 @@ export async function getHistoryInputs(
   options: {
     programInstanceId?: string
     limit?: number
-    completedAfter?: string
+    scheduledAfter?: string
     includeFavorites?: boolean
     includeSubstitutions?: boolean
   } = {},
@@ -99,10 +106,11 @@ export async function getHistoryInputs(
       if (options.programInstanceId) {
         sessionQuery = sessionQuery.eq('program_instance_id', options.programInstanceId)
       }
-      if (options.completedAfter) {
-        sessionQuery = sessionQuery.gte('completed_at', options.completedAfter)
+      if (options.scheduledAfter) {
+        sessionQuery = sessionQuery.gte('scheduled_date', options.scheduledAfter)
       }
       return sessionQuery
+        .order('scheduled_date', { ascending: false })
         .order('completed_at', { ascending: false })
         .order('id', { ascending: false })
         .range(from, to)
@@ -183,6 +191,7 @@ export async function getHistoryInputs(
       programInstanceId: row.program_instance_id,
       scheduledDate: row.scheduled_date,
       completedAt: row.completed_at,
+      timeZone: snapshot?.timeZone ?? null,
       units: snapshot?.units ?? null,
       weekLabel: snapshot?.weekLabel ?? null,
       weekIndex: typeof snapshot?.weekIndex === 'number' ? snapshot.weekIndex : null,
@@ -239,7 +248,11 @@ function buildProgramRecentSessions(sessions: HistorySessionInput[], units: Unit
     const topSetHighlights = sets
       .filter(({ set }) => set.completed && (set.isTopSet || set.isAmrap))
       .map(({ exercise, set }) => {
-        const load = typeof set.actualLoad === 'number' ? `${formatNumber(set.actualLoad)} ${session.units ?? units}` : 'bodyweight'
+        const externalLoad = externalLoadOrNull(set.actualLoad)
+        const load =
+          externalLoad == null
+            ? 'bodyweight'
+            : `${formatNumber(externalLoad)} ${session.units ?? units}`
         return `${exercise.performedMovementName} ${load} x ${set.actualReps ?? '-'}${set.isAmrap ? '+' : ''}`
       })
       .slice(0, 3)
@@ -248,6 +261,7 @@ function buildProgramRecentSessions(sessions: HistorySessionInput[], units: Unit
       title: session.title,
       completedAt: session.completedAt,
       scheduledDate: session.scheduledDate,
+      timeZone: session.timeZone,
       weekLabel: session.weekLabel,
       completedSetCount,
       plannedSetCount: session.plannedSetCount,
@@ -290,27 +304,44 @@ async function getBodyweightEntriesInternal(supabase: SupabaseServerClient, user
   }))
 }
 
-async function getProfileSexInternal(supabase: SupabaseServerClient, userId: string): Promise<Sex | null> {
-  const { data, error } = await supabase.from('profiles').select('sex').eq('id', userId).maybeSingle()
+async function getProfileHistoryContext(
+  supabase: SupabaseServerClient,
+  userId: string,
+): Promise<{ sex: Sex | null; timeZone: string }> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('sex, timezone')
+    .eq('id', userId)
+    .maybeSingle()
   if (error) throw new Error(error.message)
-  return (data?.sex as Sex | undefined) ?? null
+  return {
+    sex: (data?.sex as Sex | undefined) ?? null,
+    timeZone: resolveIanaTimeZone(data?.timezone),
+  }
 }
 
 export const getHistoryDashboardFn = createServerFn({ method: 'GET' }).handler(
   async (): Promise<HistoryDashboardWithInsights> => {
     const { supabase, user } = await requireUser()
-    const [history, bodyweightEntries, sex] = await Promise.all([
+    const generatedAt = new Date()
+    const [history, bodyweightEntries, profile] = await Promise.all([
       getHistoryInputs(supabase, user.id),
       getBodyweightEntriesInternal(supabase, user.id),
-      getProfileSexInternal(supabase, user.id),
+      getProfileHistoryContext(supabase, user.id),
     ])
-    const dashboard = buildHistoryDashboard(history)
+    const today = calendarDateInTimeZone(generatedAt, profile.timeZone)
+    const dashboard = buildHistoryDashboard({
+      ...history,
+      now: calendarDateToUtcDate(today) ?? generatedAt,
+    })
     const insights = buildHistoryInsights({
       sessions: history.sessions,
       overview: dashboard.overview,
       bodyweightEntries,
-      sex,
-      now: new Date().toISOString(),
+      sex: profile.sex,
+      now: generatedAt.toISOString(),
+      today,
+      timeZone: profile.timeZone,
     })
     return { ...dashboard, insights }
   },
@@ -320,10 +351,12 @@ export const getTodayHistorySupportFn = createServerFn({ method: 'GET' }).handle
   async (): Promise<TodayHistorySupport> => {
     const { supabase, user } = await requireUser()
     const now = new Date()
-    const completedAfter = todayHistoryWindowStart(now)
+    const profile = await getProfileHistoryContext(supabase, user.id)
+    const today = calendarDateInTimeZone(now, profile.timeZone)
+    const scheduledAfter = todayHistoryWindowStart(today)
     const [history, completedSession] = await Promise.all([
       getHistoryInputs(supabase, user.id, {
-        completedAfter,
+        scheduledAfter,
         includeFavorites: false,
         includeSubstitutions: false,
       }),
@@ -332,6 +365,7 @@ export const getTodayHistorySupportFn = createServerFn({ method: 'GET' }).handle
         .select('id')
         .eq('user_id', user.id)
         .eq('status', 'completed')
+        .order('scheduled_date', { ascending: false })
         .order('completed_at', { ascending: false })
         .order('id', { ascending: false })
         .limit(1)
@@ -343,6 +377,7 @@ export const getTodayHistorySupportFn = createServerFn({ method: 'GET' }).handle
       sessions: history.sessions,
       hasCompletedSessions: Boolean(completedSession.data),
       now,
+      today,
     })
   },
 )
@@ -350,8 +385,15 @@ export const getTodayHistorySupportFn = createServerFn({ method: 'GET' }).handle
 export const getProgramOverviewFn = createServerFn({ method: 'GET' }).handler(async (): Promise<ProgramOverview> => {
   const today = await getTodayInternal()
   const { supabase, user } = await requireUser()
-  const history = await getHistoryInputs(supabase, user.id, { limit: 240 })
-  const bodyLoad = buildHistoryDashboard(history).bodyLoad
+  const [history, profile] = await Promise.all([
+    getHistoryInputs(supabase, user.id, { limit: 240 }),
+    getProfileHistoryContext(supabase, user.id),
+  ])
+  const accountToday = calendarDateInTimeZone(new Date(), profile.timeZone)
+  const bodyLoad = buildHistoryDashboard({
+    ...history,
+    now: calendarDateToUtcDate(accountToday) ?? new Date(),
+  }).bodyLoad
   const programSessions = today.activeProgram
     ? history.sessions
         .filter((session) => session.programInstanceId === today.activeProgram!.id)
@@ -390,85 +432,5 @@ export const getMovementHistoryFn = createServerFn({ method: 'GET' })
   .validator((data) => movementHistoryInputSchema.parse(data))
   .handler(async ({ data }): Promise<MovementHistoryEntry[]> => {
     const { supabase, user } = await requireUser()
-    const { data: exercises, error } = await supabase
-      .from('exercise_logs')
-      .select('id, session_id, planned_movement_id, performed_movement_id, role, target_summary, created_at')
-      .eq('user_id', user.id)
-      .or(`planned_movement_id.eq.${data.movementId},performed_movement_id.eq.${data.movementId}`)
-      .order('created_at', { ascending: false })
-      .limit(80)
-    if (error) throw new Error(error.message)
-
-    const exerciseRows = exercises ?? []
-    const exerciseIds = exerciseRows.map((exercise) => exercise.id)
-    const sessionIds = Array.from(new Set(exerciseRows.map((exercise) => exercise.session_id)))
-    if (!exerciseIds.length || !sessionIds.length) return []
-
-    const { data: sessions, error: sessionError } = await supabase
-      .from('workout_sessions')
-      .select('id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot')
-      .eq('user_id', user.id)
-      .eq('status', 'completed')
-      .in('id', sessionIds)
-    if (sessionError) throw new Error(sessionError.message)
-
-    const { data: setRows, error: setError } = await supabase
-      .from('set_logs')
-      .select('id, exercise_log_id, set_index, target_load, target_reps, target_rep_min, target_rep_max, target_rir, actual_load, actual_reps, actual_rir, completed, is_top_set, is_amrap, is_backoff')
-      .eq('user_id', user.id)
-      .in('exercise_log_id', exerciseIds)
-      .order('set_index', { ascending: true })
-    if (setError) throw new Error(setError.message)
-
-    const sessionsById = new Map((sessions ?? []).map((session) => [session.id, session]))
-    const setsByExerciseId = new Map<string, NonNullable<typeof setRows>>()
-    for (const set of setRows ?? []) {
-      const sets = setsByExerciseId.get(set.exercise_log_id) ?? []
-      sets.push(set)
-      setsByExerciseId.set(set.exercise_log_id, sets)
-    }
-
-    return exerciseRows
-      .map((exercise): MovementHistoryEntry | null => {
-        const session = sessionsById.get(exercise.session_id)
-        if (!session) return null
-        const snapshot = session.prescription_snapshot as PlannedSession | null
-        return {
-          id: exercise.id,
-          sessionId: session.id,
-          sessionTitle: snapshot?.title ?? session.planned_session_id ?? 'Workout',
-          programTitle: snapshot?.programTitle ?? null,
-          scheduledDate: session.scheduled_date,
-          completedAt: session.completed_at,
-          units: snapshot?.units ?? null,
-          plannedMovementId: exercise.planned_movement_id,
-          performedMovementId: exercise.performed_movement_id,
-          performedMovementName: getMovementName(exercise.performed_movement_id),
-          role: exercise.role as MovementRole,
-          targetSummary: exercise.target_summary,
-          sets: (setsByExerciseId.get(exercise.id) ?? []).map((set) => ({
-            id: set.id,
-            setIndex: set.set_index,
-            targetLoad: set.target_load === null ? null : Number(set.target_load),
-            targetReps: set.target_reps,
-            targetRepMin: set.target_rep_min,
-            targetRepMax: set.target_rep_max,
-            targetRir: set.target_rir === null ? null : Number(set.target_rir),
-            actualLoad: set.actual_load === null ? null : Number(set.actual_load),
-            actualReps: set.actual_reps,
-            actualRir: set.actual_rir === null ? null : Number(set.actual_rir),
-            completed: set.completed,
-            isTopSet: set.is_top_set,
-            isAmrap: set.is_amrap,
-            isBackoff: set.is_backoff,
-          })),
-        }
-      })
-      .filter((entry): entry is MovementHistoryEntry => entry !== null)
-      .sort((left, right) => {
-        const leftDate = left.completedAt ?? left.scheduledDate
-        const rightDate = right.completedAt ?? right.scheduledDate
-        return rightDate.localeCompare(leftDate)
-      })
-      .slice(0, 12)
+    return getMovementHistoryEntries(supabase, user.id, data.movementId)
   })

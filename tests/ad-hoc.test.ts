@@ -190,7 +190,9 @@ describe('favoriteWorkoutFromRow', () => {
       movementNames: ['Bench Press'],
       movementCount: 1,
       setCount: 2,
+      scheduledDate: '2026-07-01',
       completedAt: '2026-07-01T12:45:00Z',
+      timeZone: null,
     })
   })
 

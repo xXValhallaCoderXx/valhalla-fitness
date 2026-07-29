@@ -128,6 +128,38 @@ describe('buildWorkoutSummary', () => {
     expect(model.exercises[0].completedSetCount).toBe(0)
     expect(model.exercises[0].sets).toHaveLength(2) // falls back to all sets when none completed
   })
+
+  it('treats zero/null actual load as bodyweight in every derived summary', () => {
+    const model = buildWorkoutSummary(
+      session([
+        mv('main', [
+          st(1, { actualLoad: 0, actualReps: 8, targetLoad: 55, targetReps: 8 }),
+          st(2, { actualLoad: null, actualReps: 12, targetLoad: 55, targetReps: 8, isAmrap: true }),
+        ], { movementName: 'Chin-Up' }),
+      ]),
+    )
+
+    expect(model.stats.volumeLabel).toBe('0 kg')
+    expect(model.sessionBest).toBeNull()
+    expect(model.exercises[0].volumeLabel).toBe('0 kg')
+    expect(model.exercises[0].bestSetLabel).toBe('Bodyweight × 12+')
+    expect(model.exercises[0].sets.map((set) => set.resultLabel)).toEqual([
+      'Bodyweight × 8',
+      'Bodyweight × 12+',
+    ])
+  })
+
+  it('keeps positive weighted bodyweight work in volume and session-best calculations', () => {
+    const model = buildWorkoutSummary(
+      session([mv('main', [st(1, { actualLoad: 10, actualReps: 8, isTopSet: true })], { movementName: 'Weighted Chin-Up' })]),
+    )
+
+    expect(model.stats.volumeLabel).toBe('80 kg')
+    expect(model.sessionBest).toMatchObject({
+      movementName: 'Weighted Chin-Up',
+      resultLabel: '10 kg × 8',
+    })
+  })
 })
 
 describe('rirTone', () => {

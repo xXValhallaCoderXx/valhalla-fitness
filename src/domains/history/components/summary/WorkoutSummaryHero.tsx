@@ -1,12 +1,22 @@
 import type { ReactNode } from 'react'
-import { Heading, SectionLabel, Text } from '~/components'
-import type { WorkoutSummaryModel } from '~/domains/history/lib/workout-summary'
+import { Heading, InfoHint, SectionLabel, Text } from '~/components'
+import {
+  topSetCountExplanation,
+  type WorkoutSummaryModel,
+} from '~/domains/history/lib/workout-summary'
+import { useAccountClock } from '~/domains/account/components/AccountIdentityProvider'
 import { AD_HOC_BADGE_LABEL } from '~/domains/session/lib/ad-hoc'
-import { formatFullDate, formatRelativeTime } from '~/shared/lib/dates'
+import { describeWorkoutDate } from '~/shared/lib/dates'
 import type { WorkoutSession } from '~/domains/session'
 
 export function WorkoutSummaryHero({ model, session }: { model: WorkoutSummaryModel; session: WorkoutSession }) {
-  const date = session.completedAt ?? session.scheduledDate
+  const clock = useAccountClock()
+  const date = describeWorkoutDate({
+    scheduledDate: session.scheduledDate,
+    completedAt: session.completedAt,
+    timeZone: session.timeZone ?? clock.timeZone,
+    today: clock.today,
+  })
   return (
     <div
       className="px-4 py-4 sm:px-5"
@@ -23,7 +33,8 @@ export function WorkoutSummaryHero({ model, session }: { model: WorkoutSummaryMo
             ) : session.isAdHoc ? (
               <Chip tone="action">{AD_HOC_BADGE_LABEL}</Chip>
             ) : null}
-            <Chip>{formatFullDate(date)} · {formatRelativeTime(date)}</Chip>
+            <Chip>{date.fullDate} · {date.relativeDate}</Chip>
+            {date.completionLabel ? <Chip>{date.completionLabel}</Chip> : null}
           </div>
         </div>
         <CompletionRing percent={model.completion.percent} completed={model.completion.completed} planned={model.completion.planned} />
@@ -86,7 +97,7 @@ function StatStrip({ stats }: { stats: WorkoutSummaryModel['stats'] }) {
   const cells = [
     { label: 'Volume', value: stats.volumeLabel },
     { label: 'Movements', value: String(stats.movementCount) },
-    { label: 'Top sets', value: String(stats.topSetCount) },
+    { label: 'Top/AMRAP sets', value: String(stats.topSetCount), hint: topSetCountExplanation },
     { label: 'Duration', value: `${stats.durationMinutes} min` },
   ]
   return (
@@ -96,7 +107,10 @@ function StatStrip({ stats }: { stats: WorkoutSummaryModel['stats'] }) {
     >
       {cells.map((cell) => (
         <div key={cell.label} className="p-3" style={{ backgroundColor: 'var(--mantine-color-default)' }}>
-          <SectionLabel>{cell.label}</SectionLabel>
+          <div className="flex items-center gap-1">
+            <SectionLabel>{cell.label}</SectionLabel>
+            {cell.hint ? <InfoHint label="About Top/AMRAP sets">{cell.hint}</InfoHint> : null}
+          </div>
           <Text fw={800} size="md" mt={2} truncate>{cell.value}</Text>
         </div>
       ))}

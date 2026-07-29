@@ -56,7 +56,10 @@ export function CollapsedMovementCard({
           <Caption component="p" className="pl-7" size="xs">
             {totalSets} sets · {movement.targetSummary}
             {movement.previous ? (
-              <span className="hidden sm:inline"> · last {formatPreviousShort(movement.previous, units)}</span>
+              <span className="hidden sm:inline">
+                {' · previous comparable '}
+                {formatPreviousShort(movement.previous, units)}
+              </span>
             ) : null}
           </Caption>
         </div>

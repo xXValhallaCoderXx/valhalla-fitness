@@ -23,6 +23,7 @@ describe('set notation', () => {
   it('shows "Bodyweight" instead of 0 kg when no load is logged', () => {
     expect(describeLift({ load: 0, reps: 15, rir: 2, units: 'kg' }).plain).toBe('Bodyweight × 15 reps · ~2 left')
     expect(describeLift({ load: null, reps: 10, units: 'kg' }).plain).toBe('Bodyweight × 10 reps')
+    expect(describeLift({ load: 0, reps: 10, e1rm: 99, units: 'kg' }).technical).not.toContain('e1RM')
   })
 
   it('omits the reps-left clause when no RIR is logged', () => {
@@ -37,5 +38,15 @@ describe('set notation', () => {
 
     const planned = describeSet(set({ targetLoad: 80, targetRepMin: 3, targetRepMax: 5, isAmrap: true, completed: false }), 'kg')
     expect(planned.plain).toBe('80 kg × 3-5+ reps')
+  })
+
+  it('does not inherit a target load after loadless actual reps are logged', () => {
+    const zero = describeSet(set({ actualLoad: 0, actualReps: 8, targetLoad: 55, targetReps: 10 }), 'kg')
+    const legacyNull = describeSet(set({ actualLoad: null, actualReps: 8, targetLoad: 55, targetReps: 10 }), 'kg')
+
+    expect(zero.plain).toBe('Bodyweight × 8 reps')
+    expect(zero.technical).not.toContain('e1RM')
+    expect(legacyNull.plain).toBe('Bodyweight × 8 reps')
+    expect(legacyNull.technical).not.toContain('e1RM')
   })
 })

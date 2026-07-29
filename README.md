@@ -5,7 +5,7 @@ spreadsheet in the gym.
 
 **Document authority:** this README is the sole human-facing source for the product, current release
 status, architecture, training-plan DSL, development workflow, testing, and production runbook.
-It was last reconciled with the repository on **2026-07-28**. Machine-specific implementation
+It was last reconciled with the repository on **2026-07-30**. Machine-specific implementation
 instructions remain in `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, and
 `.github/instructions/`.
 
@@ -14,7 +14,7 @@ instructions remain in `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.m
 Sheetless should answer five questions without making a lifter think during a hard session:
 
 1. What am I meant to do today?
-2. What did I do last time in the same programme slot?
+2. What is the best prior result for this movement, preferring the same programme slot?
 3. What load, reps, and RIR did I actually perform?
 4. What does that imply for the next progression decision?
 5. Where am I in the current programme?
@@ -56,7 +56,7 @@ exercise metadata, legal/operator review, and a few logging-quality gaps.
 | Programme start | **Shipped** | Units, rounding, required state values, allowed movement replacements, accessory additions, preview, and active-program replacement are supported. |
 | Today | **Shipped** | Planned, active/resume, completed, onboarding, and pending-progression states are supported. |
 | Live workout logging | **Shipped** | Optimistic load, reps, RIR, completion, sync state, notes in the model, focus/overview layouts, swaps, and accessory additions are supported. The live UI does not currently expose RPE entry. |
-| Previous comparable | **Partial** | Exact programme-slot and per-set history is displayed. The planned tap-to-fill interaction is not implemented. |
+| Previous comparable | **Partial** | Prior results match the movement actually performed, prefer the same programme slot/template, and retain per-set history. The chronological movement-history view remains literal. The planned tap-to-fill interaction is not implemented. |
 | Rest timer | **Partial** | Auto-start on genuine set completion, role-based defaults, global opt-out, wall-clock correction, `+15`, skip, audio, and vibration are implemented. Reload persistence, per-movement defaults, `-15`, wake lock, and notifications are not. |
 | Plate calculator | **Shipped** | Kg/lb plate loading is available from both live-session layouts. Saved bar/plate inventory and equipment gating are not implemented. |
 | Session PRs | **Partial** | Heaviest-load, estimated-1RM, and rep-at-weight PRs are calculated at finish and shown in the summary. There is no live inline celebration or separate lifetime `personal_records` table. |
@@ -215,7 +215,11 @@ Important invariants:
   restored safely.
 - Only completed work contributes to progression, PRs, and historical training signals.
 - Recommendations do not mutate programme state until the user accepts them.
-- Calendar-day calculations use the account timezone rather than the server's timezone.
+- `scheduled_date` is the workout calendar date used for display, ordering, trends, streaks, and
+  analytics. `completed_at` remains a lifecycle instant for duration, audit, same-day tie-breaking,
+  and a secondary completion label.
+- Calendar-day calculations use the account timezone rather than the server's timezone. New
+  prescription snapshots retain that timezone so overnight completion labels stay stable.
 - Workout saving is intentionally online-only; there is no second durable local database or replay
   queue.
 

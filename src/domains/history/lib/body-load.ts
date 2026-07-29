@@ -2,6 +2,7 @@ import type { BodyLoadRegion, BodyLoadSummary, BodyRegionId, BodyLoadTier } from
 import type { Movement } from '~/domains/movement'
 import type { MovementRole } from '~/shared/types'
 import { movementCatalog } from '~/domains/movement/lib/movements'
+import { isCalendarDate } from '~/shared/lib/calendar-date'
 
 export type BodyLoadWork = {
   movementId: string
@@ -64,7 +65,10 @@ function formatWeekday(value?: string | null) {
   if (!value) return null
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleDateString('en-US', { weekday: 'short' })
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    ...(isCalendarDate(value) ? { timeZone: 'UTC' } : {}),
+  })
 }
 
 export const bodyRegionOrder: BodyRegionId[] = [
@@ -224,8 +228,9 @@ export function calculateBodyLoad(
       state.score += baseScore * regionWeight
       state.recentSetCount += item.completedSets
       state.movementNames.add(item.movementName)
-      if (!state.lastTrainedAt || performedAt.toISOString() > state.lastTrainedAt) {
-        state.lastTrainedAt = performedAt.toISOString()
+      const lastTrained = parseDate(state.lastTrainedAt)
+      if (!lastTrained || performedAt.getTime() > lastTrained.getTime()) {
+        state.lastTrainedAt = item.performedAt ?? null
       }
     }
   }

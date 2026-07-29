@@ -40,7 +40,7 @@ export function buildWeeklyRegionSets(
   const buckets = new Map<string, { weekStart: Date; regionSets: Partial<Record<BodyRegionId, number>>; totalSets: number }>()
 
   for (const session of sessions) {
-    const date = parseDate(session.completedAt ?? session.scheduledDate)
+    const date = parseDate(session.scheduledDate)
     if (!date) continue
     const weekStart = startOfWeek(date)
     const key = formatDateKey(weekStart)

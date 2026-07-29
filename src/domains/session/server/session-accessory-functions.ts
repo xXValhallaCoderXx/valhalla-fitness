@@ -19,6 +19,7 @@ import {
 import { getMovementCatalogForSwap } from '~/domains/movement/server/movement-functions'
 import type { Json, Tables } from '~/shared/types/database'
 import { getSessionInternal } from '~/domains/session/server/session-read-functions'
+import { getPreviousComparablesBySlotId } from '~/domains/session/server/previous-comparables'
 import { phaseKeyForSnapshot } from '~/domains/session/server/session-server-helpers'
 import { requireSessionUser } from '~/domains/session/server/session-server'
 
@@ -182,6 +183,15 @@ export const addSessionAccessoryFn = createServerFn({ method: 'POST' })
       scope: data.scope,
       progressionMethod: data.progressionMethod,
     })
+    const previousBySlotId = await getPreviousComparablesBySlotId(
+      supabase,
+      user.id,
+      {
+        ...snapshot,
+        movements: [snapshotMovement],
+      },
+    )
+    snapshotMovement.previous = previousBySlotId[sessionSlotId] ?? null
 
     const nextSnapshot: PlannedSession = {
       ...snapshot,

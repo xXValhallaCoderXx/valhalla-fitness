@@ -2,6 +2,7 @@ import type { AccentColor } from '~/domains/history/lib/insights'
 import type { BodyLoadRegion, HistoryBestSet } from '~/domains/history'
 import type { Unit } from '~/shared/types'
 import { Text } from '~/components'
+import { externalLoadOrNull, isPositiveLoad } from '~/shared/lib/load'
 
 export { HISTORY_TAB_VALUES } from '~/domains/history/lib/history-tabs'
 export type { HistoryTab } from '~/domains/history/lib/history-tabs'
@@ -65,13 +66,20 @@ export function toneForTier(tier: BodyLoadRegion['tier']) {
 }
 
 export function formatBestSetPrimary(set: HistoryBestSet) {
-  const load = set.load == null ? 'Bodyweight' : `${formatNumber(set.load)} ${set.units ?? ''}`.trim()
+  const externalLoad = externalLoadOrNull(set.load)
+  const load = externalLoad == null ? 'Bodyweight' : `${formatNumber(externalLoad)} ${set.units ?? ''}`.trim()
   const reps = `${set.reps ?? '-'}${set.type === 'amrap' ? '+' : ''}`
   return `${load} × ${reps} reps`
 }
 
+export function hasDisplayE1rm(
+  set: HistoryBestSet,
+): set is HistoryBestSet & { load: number; e1rm: number } {
+  return isPositiveLoad(set.load) && isPositiveLoad(set.e1rm)
+}
+
 export function formatE1rm(set: HistoryBestSet) {
-  return typeof set.e1rm === 'number' ? `${formatNumber(set.e1rm)} ${set.units ?? ''}`.trim() : '—'
+  return hasDisplayE1rm(set) ? `${formatNumber(set.e1rm)} ${set.units ?? ''}`.trim() : '—'
 }
 
 export function formatLoad(value?: number | null, units?: Unit | null) {

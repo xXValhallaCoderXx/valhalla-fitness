@@ -732,6 +732,15 @@ export function getMovementName(movementId: string) {
   return movementCatalog[movementId]?.name ?? movementId
 }
 
+/** Movements whose default logged load is bodyweight rather than external resistance. */
+export function defaultsToBodyweightLoad(
+  movementId: string,
+  catalog: Record<string, Movement> = movementCatalog,
+) {
+  const equipment = catalog[movementId]?.equipment
+  return equipment?.length === 1 && equipment[0] === 'bodyweight'
+}
+
 export function listMovementAlternatives(movementId: string) {
   const movement = movementCatalog[movementId]
   if (!movement) return Object.values(movementCatalog)

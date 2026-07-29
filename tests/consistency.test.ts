@@ -53,11 +53,15 @@ describe('buildWeeklySessionCounts', () => {
     expect(weekly.map((week) => week.sessionCount)).toEqual([1, 0, 0])
   })
 
-  it('counts multiple sessions in the same week and falls back to scheduledDate', () => {
+  it('counts sessions by scheduled date even when completion falls in another week', () => {
     const sessions = [
       makeSession({ id: 'c', completedAt: null, scheduledDate: '2026-06-05' }),
-      makeSession({ id: 'b', completedAt: '2026-06-04T10:00:00.000Z' }),
-      makeSession({ id: 'a', completedAt: '2026-06-01T10:00:00.000Z' }),
+      makeSession({
+        id: 'b',
+        scheduledDate: '2026-06-07',
+        completedAt: '2026-06-08T00:30:00.000Z',
+      }),
+      makeSession({ id: 'a', scheduledDate: '2026-06-01', completedAt: '2026-06-01T10:00:00.000Z' }),
     ]
     const weekly = buildWeeklySessionCounts(sessions, '2026-06-06T12:00:00.000Z')
 

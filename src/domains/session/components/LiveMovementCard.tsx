@@ -6,7 +6,6 @@ import {
   History,
   Info,
   Plus,
-  Repeat2,
   Trash2,
 } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
@@ -27,6 +26,7 @@ import {
 import { LiveSetRow } from './LiveSetRow'
 import { MovementHistoryModal } from './MovementHistoryModal'
 import { MovementSwapModal } from './MovementSwapModal'
+import { MovementSwapToolButton } from './MovementSwapToolButton'
 import { PlateCalculatorModal } from './PlateCalculatorModal'
 import {
   formatPreviousShort,
@@ -159,11 +159,9 @@ export function LiveMovementCard({
           <div className="flex gap-1.5 md:pt-0.5">
             {sortHandle}
             <ToolButton title="Plate math" icon={<Calculator size={13} />} label="Plates" onClick={() => setPlateOpen(true)} />
-            <ToolButton
-              title={movement.role === 'main' ? 'Main lifts cannot be swapped' : 'Swap movement'}
-              icon={<Repeat2 size={13} />}
-              label="Swap"
-              disabled={movement.role === 'main' || managementPending}
+            <MovementSwapToolButton
+              movement={movement}
+              disabled={managementPending}
               onClick={() => setSwapOpen(true)}
             />
             <ToolButton title="Movement history" icon={<History size={13} />} label="History" onClick={() => setHistoryOpen(true)} />
@@ -182,20 +180,22 @@ export function LiveMovementCard({
         <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 md:mb-1">
           {movement.previous ? (
             <span className="inline-flex items-center gap-1">
-              <Caption component="span">Last time</Caption>
+              <Caption component="span">Previous comparable</Caption>
               <Text component="span" size="xs" fw={700}>
                 {formatPreviousShort(movement.previous, session.units)}
               </Text>
-              <InfoHint label="Last session details" width={260}>{movement.previous.label}</InfoHint>
+              <InfoHint label="Previous comparable details" width={280}>
+                {`Best matching prior result, preferring the same programme slot. ${movement.previous.label}`}
+              </InfoHint>
             </span>
           ) : (
-            <Caption component="span">No previous session yet</Caption>
+            <Caption component="span">No previous comparable yet</Caption>
           )}
           {topSet ? (
             <Caption component="span">
               · key set{' '}
               <Text component="span" size="xs" fw={700}>
-                {formatSetTarget(topSet, session.units)}
+                {formatSetTarget(topSet, session.units, true, movement)}
               </Text>
             </Caption>
           ) : null}
@@ -232,7 +232,7 @@ export function LiveMovementCard({
       <div className="space-y-2 px-4 pb-3 md:space-y-1.5 md:px-0 md:pb-0">
         {movement.sets.map((set) => (
           <LiveSetRow
-            key={`${movement.id}-${set.setIndex}`}
+            key={`${movement.id}-${movement.performedMovementId ?? movement.movementId}-${set.setIndex}`}
             session={session}
             movement={movement}
             set={set}

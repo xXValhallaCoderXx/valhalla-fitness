@@ -152,7 +152,7 @@ export function LiveSetRow({
             ) : set.isBackoff ? (
               'Back-off'
             ) : (
-              formatSetTarget(set, session.units, false)
+              formatSetTarget(set, session.units, false, movement)
             )}
           </Caption>
           {previousGhost ? (

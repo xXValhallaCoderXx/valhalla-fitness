@@ -11,7 +11,7 @@ import type { SessionSummary, WorkoutSession } from '~/domains/session'
 import { Caption, EmptyState, Heading, Page, PageLoadError, PageSkeleton, SectionLabel, Text } from '~/components'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { buildSessionReceipt } from '~/domains/session/lib/session-receipt'
-import { buildWorkoutSummary } from '~/domains/history/lib/workout-summary'
+import { buildWorkoutSummary, topSetCountExplanation } from '~/domains/history/lib/workout-summary'
 import { summaryHeadline, updatesStat } from '~/domains/session/lib/summary-decisions'
 import { SessionSummaryDecisionHero, type DecidedState } from './SessionSummaryDecisionHero'
 import { PendingProgressionReviewModal, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
@@ -167,7 +167,12 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
           <div className="vf-stat-strip">
             <SummaryStat icon={<Dumbbell size={15} />} label="Movements" value={recap.stats.movementCount} />
             <SummaryStat icon={<ListChecks size={15} />} label="Sets" value={`${recap.completion.completed}/${recap.completion.planned}`} />
-            <SummaryStat icon={<Trophy size={15} />} label="Top sets" value={recap.stats.topSetCount} />
+            <SummaryStat
+              icon={<Trophy size={15} />}
+              label="Top/AMRAP sets"
+              value={recap.stats.topSetCount}
+              hint={topSetCountExplanation}
+            />
             <SummaryStat icon={<ArrowRight size={15} />} label="Updates" value={updates.value} tone={updates.tone} />
           </div>
 

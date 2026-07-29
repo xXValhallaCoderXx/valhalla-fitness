@@ -109,6 +109,7 @@ describe('buildWeeklyRegionSets', () => {
     const weekly = buildWeeklyRegionSets([
       session({
         id: 's2',
+        scheduledDate: '2026-06-17',
         completedAt: '2026-06-17T09:00:00Z',
         exercises: [
           exercise({ performedMovementId: 'bench_press', sets: sets(4) }),
@@ -117,6 +118,7 @@ describe('buildWeeklyRegionSets', () => {
       }),
       session({
         id: 's1',
+        scheduledDate: '2026-06-02',
         completedAt: '2026-06-02T09:00:00Z',
         exercises: [
           exercise({ performedMovementId: 'squat', sets: sets(5) }),
@@ -164,7 +166,7 @@ describe('buildWeeklyRegionSets', () => {
     expect(weekly[0].regionSets).toEqual({})
   })
 
-  it('uses scheduledDate when completedAt is missing and merges sessions in the same week', () => {
+  it('always uses scheduledDate and merges sessions in the same scheduled week', () => {
     const weekly = buildWeeklyRegionSets([
       session({
         id: 's2',
@@ -174,7 +176,8 @@ describe('buildWeeklyRegionSets', () => {
       }),
       session({
         id: 's1',
-        completedAt: '2026-06-15T08:00:00Z',
+        scheduledDate: '2026-06-15',
+        completedAt: '2026-06-22T08:00:00Z',
         exercises: [exercise({ performedMovementId: 'barbell_curl', sets: sets(3) })],
       }),
     ])

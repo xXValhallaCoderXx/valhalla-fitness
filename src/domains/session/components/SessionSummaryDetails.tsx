@@ -1,7 +1,7 @@
 import { Badge, Box, Card } from '@mantine/core'
 import { Check, Sparkles, Trophy } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Caption, Heading, Panel, SectionLabel, StatValue, Text } from '~/components'
+import { Caption, Heading, InfoHint, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { DecisionFeedbackTrigger } from '~/domains/feedback/components/DecisionFeedback'
 import type { SummaryExercise } from '~/domains/history/lib/workout-summary'
 import { prBannerTitle, prKindLabels } from '~/domains/session/lib/session-prs'
@@ -63,11 +63,13 @@ export function SummaryStat({
   label,
   value,
   tone = 'neutral',
+  hint,
 }: {
   icon: ReactNode
   label: string
   value: ReactNode
   tone?: 'neutral' | 'warning' | 'success'
+  hint?: string
 }) {
   const color = tone === 'warning' ? 'var(--vf-warning-text)' : tone === 'success' ? 'var(--vf-success-text)' : undefined
   return (
@@ -76,7 +78,10 @@ export function SummaryStat({
         <Box c="dimmed" className="shrink-0">{icon}</Box>
         <StatValue c={color} size="md" ta="right" truncate>{value}</StatValue>
       </div>
-      <Caption component="p" mt={4} fw={800} tt="uppercase">{label}</Caption>
+      <div className="mt-1 flex items-center gap-1">
+        <Caption component="span" fw={800} tt="uppercase">{label}</Caption>
+        {hint ? <InfoHint label={`About ${label}`}>{hint}</InfoHint> : null}
+      </div>
     </Panel>
   )
 }

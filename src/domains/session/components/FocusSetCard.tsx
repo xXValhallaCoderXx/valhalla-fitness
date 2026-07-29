@@ -80,7 +80,7 @@ export function FocusSetCard({
           Current · Set {setNumber} of {setTotal}
         </SectionLabel>
         <Caption>
-          Target {formatSetTarget(set, session.units)}
+          Target {formatSetTarget(set, session.units, true, movement)}
           {previousSetShort(movement.previous, set.setIndex) ? ` · ${previousSetShort(movement.previous, set.setIndex)}` : ''}
         </Caption>
       </div>

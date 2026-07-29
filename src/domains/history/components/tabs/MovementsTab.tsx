@@ -13,7 +13,14 @@ import {
 import type { HistoryDashboard, HistoryMovementSummary } from '~/domains/history'
 import type { Unit } from '~/shared/types'
 import { Caption, EmptyState, Panel, SectionLabel, Text } from '~/components'
-import { FilterChip, formatBestSetPrimary, formatLoad, formatNumber, historySearchInputStyles } from '../insight-format'
+import {
+  FilterChip,
+  formatBestSetPrimary,
+  formatLoad,
+  formatNumber,
+  hasDisplayE1rm,
+  historySearchInputStyles,
+} from '../insight-format'
 
 const movementGridColumns =
   'grid grid-cols-[minmax(0,1fr)_4.5rem_3rem] items-center gap-3 md:grid-cols-[minmax(0,1.6fr)_5.5rem_6.5rem_minmax(0,1.4fr)_3.5rem]'
@@ -131,7 +138,7 @@ function MovementRow({ movement, units }: { movement: HistoryMovementSummary; un
         {movement.bestSet ? (
           <Text size="sm" truncate>
             <Text component="span" size="sm" fw={600}>{formatBestSetPrimary(movement.bestSet)}</Text>
-            {typeof movement.bestSet.e1rm === 'number' ? (
+            {hasDisplayE1rm(movement.bestSet) ? (
               <Text component="span" size="xs" fw={700} tone="action"> · e1RM {formatNumber(movement.bestSet.e1rm)}</Text>
             ) : null}
           </Text>

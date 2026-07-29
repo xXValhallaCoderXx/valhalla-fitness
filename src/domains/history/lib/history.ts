@@ -13,6 +13,7 @@ import type { MovementRole, Unit } from '~/shared/types'
 import { calculateBodyLoad, type BodyLoadWork } from '~/domains/history/lib/body-load'
 import { getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
 import { e1rm, mround } from '~/domains/program/lib/progression'
+import { externalLoadOrNull, isPositiveLoad } from '~/shared/lib/load'
 import { convertWeight } from '~/shared/lib/math'
 
 export type HistorySetInput = MovementHistorySet & {
@@ -38,6 +39,7 @@ export type HistorySessionInput = {
   programInstanceId?: string | null
   scheduledDate: string
   completedAt?: string | null
+  timeZone?: string | null
   units?: Unit | null
   weekLabel?: string | null
   /** Global session index from the prescription snapshot; used for phase attribution. */
@@ -63,6 +65,31 @@ export type HistorySubstitutionInput = {
 
 type BestSetCandidate = HistoryBestSet & {
   score: number
+  completedAt: string | null
+}
+
+type HistorySessionOrderKey = Pick<HistorySessionInput, 'id' | 'scheduledDate' | 'completedAt'>
+
+type MovementSummaryCandidate = {
+  summary: HistoryMovementSummary
+  latestSession: HistorySessionOrderKey
+}
+
+type SubstitutionSummaryCandidate = {
+  summary: HistorySubstitutionSummary
+  session: HistorySessionOrderKey
+  createdAt: string | null
+}
+
+export function compareHistorySessionsNewestFirst(
+  left: HistorySessionOrderKey,
+  right: HistorySessionOrderKey,
+) {
+  const scheduledDateCompare = right.scheduledDate.localeCompare(left.scheduledDate)
+  if (scheduledDateCompare !== 0) return scheduledDateCompare
+  const completedAtCompare = (right.completedAt ?? '').localeCompare(left.completedAt ?? '')
+  if (completedAtCompare !== 0) return completedAtCompare
+  return right.id.localeCompare(left.id)
 }
 
 export function buildHistoryDashboard({
@@ -76,36 +103,37 @@ export function buildHistoryDashboard({
   now?: Date
   catalog?: Record<string, Movement>
 }): HistoryDashboard {
-  const allSets = sessions.flatMap((session) => session.exercises.flatMap((exercise) => exercise.sets))
+  const orderedSessions = sortHistorySessionsNewestFirst(sessions)
+  const allSets = orderedSessions.flatMap((session) => session.exercises.flatMap((exercise) => exercise.sets))
   const completedSets = allSets.filter((set) => set.completed)
-  const displayUnits = sessions.find((session) => session.units)?.units ?? null
+  const displayUnits = orderedSessions.find((session) => session.units)?.units ?? null
   const completedVolume = displayUnits
-    ? sessions.reduce((total, session) => total + calculateSessionCompletedVolume(session, displayUnits), 0)
+    ? orderedSessions.reduce((total, session) => total + calculateSessionCompletedVolume(session, displayUnits), 0)
     : calculateCompletedVolume(completedSets)
-  const movementSummaries = buildMovementSummaries(sessions, catalog, displayUnits)
-  const recentSessions = buildRecentHistoryEntries(sessions)
+  const movementSummaries = buildMovementSummaries(orderedSessions, catalog, displayUnits)
+  const recentSessions = buildRecentHistoryEntries(orderedSessions)
 
   return {
     overview: {
-      completedSessions: sessions.length,
+      completedSessions: orderedSessions.length,
       loggedSets: completedSets.length,
       completedVolume,
       uniqueMovements: movementSummaries.length,
-      latestTrainingDate: sessions[0]?.completedAt ?? sessions[0]?.scheduledDate ?? null,
+      latestTrainingDate: orderedSessions[0]?.scheduledDate ?? null,
       units: displayUnits,
     },
-    bodyLoad: calculateBodyLoad(toBodyLoadWork(sessions, catalog), { now, catalog }),
-    bestSets: rankBestSets(sessions).slice(0, 12),
+    bodyLoad: calculateBodyLoad(toBodyLoadWork(orderedSessions, catalog), { now, catalog }),
+    bestSets: rankBestSets(orderedSessions).slice(0, 12),
     movementSummaries,
-    weeklyVolume: buildWeeklyVolumeBuckets(sessions, displayUnits),
-    substitutions: buildSubstitutionSummaries(substitutions, sessions),
+    weeklyVolume: buildWeeklyVolumeBuckets(orderedSessions, displayUnits),
+    substitutions: buildSubstitutionSummaries(substitutions, orderedSessions),
     recentSessions,
   }
 }
 
 export function calculateCompletedVolume(sets: Array<Pick<HistorySetInput, 'completed' | 'actualLoad' | 'actualReps'>>) {
   return sets.reduce((total, set) => {
-    if (!set.completed || !hasNumber(set.actualLoad) || !hasNumber(set.actualReps)) return total
+    if (!set.completed || !isPositiveLoad(set.actualLoad) || !hasNumber(set.actualReps)) return total
     return total + set.actualLoad * set.actualReps
   }, 0)
 }
@@ -116,7 +144,7 @@ export function calculateCompletedVolumeInUnits(
   targetUnits: Unit,
 ) {
   return sets.reduce((total, set) => {
-    if (!set.completed || !hasNumber(set.actualLoad) || !hasNumber(set.actualReps)) return total
+    if (!set.completed || !isPositiveLoad(set.actualLoad) || !hasNumber(set.actualReps)) return total
     return total + convertWeight(set.actualLoad, sourceUnits, targetUnits) * set.actualReps
   }, 0)
 }
@@ -130,14 +158,15 @@ function calculateSessionCompletedVolume(session: HistorySessionInput, displayUn
 
 export function rankBestSets(sessions: HistorySessionInput[]): HistoryBestSet[] {
   const byMovement = new Map<string, BestSetCandidate>()
+  const fallbackUnits = resolveHistoryDisplayUnits(sessions) ?? 'kg'
 
   for (const session of sessions) {
     for (const exercise of session.exercises) {
       for (const set of exercise.sets) {
-        const candidate = buildBestSetCandidate(session, exercise, set)
+        const candidate = buildBestSetCandidate(session, exercise, set, fallbackUnits)
         if (!candidate) continue
         const existing = byMovement.get(candidate.movementId)
-        if (!existing || candidate.score > existing.score) {
+        if (!existing || compareBestSetCandidates(candidate, existing) < 0) {
           byMovement.set(candidate.movementId, candidate)
         }
       }
@@ -145,10 +174,7 @@ export function rankBestSets(sessions: HistorySessionInput[]): HistoryBestSet[] 
   }
 
   return Array.from(byMovement.values())
-    .sort((left, right) => {
-      if (right.score !== left.score) return right.score - left.score
-      return (right.performedAt ?? '').localeCompare(left.performedAt ?? '')
-    })
+    .sort(compareBestSetCandidates)
     .map(toHistoryBestSet)
 }
 
@@ -174,13 +200,14 @@ function toHistoryBestSet(candidate: BestSetCandidate): HistoryBestSet {
 export function buildMovementSummaries(
   sessions: HistorySessionInput[],
   catalog: Record<string, Movement> = movementCatalog,
-  displayUnits: Unit | null = sessions.find((session) => session.units)?.units ?? null,
+  displayUnits: Unit | null = resolveHistoryDisplayUnits(sessions),
 ): HistoryMovementSummary[] {
+  const orderedSessions = sortHistorySessionsNewestFirst(sessions)
   const bestSetsByMovement = new Map(rankBestSets(sessions).map((set) => [set.movementId, set]))
-  const summaries = new Map<string, HistoryMovementSummary>()
+  const summaries = new Map<string, MovementSummaryCandidate>()
 
-  for (const session of sessions) {
-    const performedAt = session.completedAt ?? session.scheduledDate
+  for (const session of orderedSessions) {
+    const performedAt = session.scheduledDate
     for (const exercise of session.exercises) {
       const completedSets = exercise.sets.filter((set) => set.completed)
       if (!completedSets.length) continue
@@ -191,22 +218,22 @@ export function buildMovementSummaries(
         : calculateCompletedVolume(completedSets)
       const substitutionCount = exercise.plannedMovementId === exercise.performedMovementId ? 0 : 1
       if (existing) {
-        existing.totalCompletedSets += completedSets.length
-        existing.totalVolume += totalVolume
-        existing.substitutionCount += substitutionCount
-        if (!existing.lastPerformedAt || performedAt.localeCompare(existing.lastPerformedAt) > 0) {
-          existing.lastPerformedAt = performedAt
-        }
+        existing.summary.totalCompletedSets += completedSets.length
+        existing.summary.totalVolume += totalVolume
+        existing.summary.substitutionCount += substitutionCount
       } else {
         summaries.set(exercise.performedMovementId, {
-          movementId: exercise.performedMovementId,
-          movementName: exercise.performedMovementName,
-          category: movement?.category ?? 'other',
-          lastPerformedAt: performedAt,
-          totalCompletedSets: completedSets.length,
-          totalVolume,
-          substitutionCount,
-          bestSet: bestSetsByMovement.get(exercise.performedMovementId) ?? null,
+          summary: {
+            movementId: exercise.performedMovementId,
+            movementName: exercise.performedMovementName,
+            category: movement?.category ?? 'other',
+            lastPerformedAt: performedAt,
+            totalCompletedSets: completedSets.length,
+            totalVolume,
+            substitutionCount,
+            bestSet: bestSetsByMovement.get(exercise.performedMovementId) ?? null,
+          },
+          latestSession: session,
         })
       }
     }
@@ -214,23 +241,26 @@ export function buildMovementSummaries(
 
   return Array.from(summaries.values())
     .sort((left, right) => {
-      const dateCompare = (right.lastPerformedAt ?? '').localeCompare(left.lastPerformedAt ?? '')
-      if (dateCompare !== 0) return dateCompare
-      return right.totalCompletedSets - left.totalCompletedSets
+      const recencyCompare = compareHistorySessionsNewestFirst(left.latestSession, right.latestSession)
+      if (recencyCompare !== 0) return recencyCompare
+      const setCountCompare = right.summary.totalCompletedSets - left.summary.totalCompletedSets
+      if (setCountCompare !== 0) return setCountCompare
+      return left.summary.movementId.localeCompare(right.summary.movementId)
     })
     .slice(0, 40)
+    .map((candidate) => candidate.summary)
 }
 
 export function buildWeeklyVolumeBuckets(
   sessions: HistorySessionInput[],
-  displayUnits: Unit | null = sessions.find((session) => session.units)?.units ?? null,
+  displayUnits: Unit | null = resolveHistoryDisplayUnits(sessions),
   options: { maxWeeks?: number | null } = {},
 ): HistoryWeeklyVolume[] {
   const { maxWeeks = 8 } = options
   const buckets = new Map<string, HistoryWeeklyVolume>()
 
   for (const session of sessions) {
-    const date = parseDate(session.completedAt ?? session.scheduledDate)
+    const date = parseDate(session.scheduledDate)
     if (!date) continue
     const weekStart = startOfWeek(date)
     const key = formatDateKey(weekStart)
@@ -267,35 +297,47 @@ export function buildSubstitutionSummaries(
 ): HistorySubstitutionSummary[] {
   const sessionsById = new Map(sessions.map((session) => [session.id, session]))
   return substitutions
-    .map((substitution): HistorySubstitutionSummary | null => {
+    .map((substitution): SubstitutionSummaryCandidate | null => {
       const session = sessionsById.get(substitution.sessionId)
       if (!session) return null
       return {
-        id: substitution.id,
-        sessionId: substitution.sessionId,
-        sessionTitle: session.title,
-        plannedMovementId: substitution.plannedMovementId,
-        plannedMovementName: getMovementName(substitution.plannedMovementId),
-        performedMovementId: substitution.performedMovementId,
-        performedMovementName: getMovementName(substitution.performedMovementId),
-        reason: substitution.reason,
-        note: substitution.note,
-        performedAt: session.completedAt ?? session.scheduledDate ?? substitution.createdAt ?? null,
+        summary: {
+          id: substitution.id,
+          sessionId: substitution.sessionId,
+          sessionTitle: session.title,
+          plannedMovementId: substitution.plannedMovementId,
+          plannedMovementName: getMovementName(substitution.plannedMovementId),
+          performedMovementId: substitution.performedMovementId,
+          performedMovementName: getMovementName(substitution.performedMovementId),
+          reason: substitution.reason,
+          note: substitution.note,
+          performedAt: session.scheduledDate,
+        },
+        session,
+        createdAt: substitution.createdAt ?? null,
       }
     })
-    .filter((summary): summary is HistorySubstitutionSummary => summary !== null)
-    .sort((left, right) => (right.performedAt ?? '').localeCompare(left.performedAt ?? ''))
+    .filter((candidate): candidate is SubstitutionSummaryCandidate => candidate !== null)
+    .sort((left, right) => {
+      const sessionCompare = compareHistorySessionsNewestFirst(left.session, right.session)
+      if (sessionCompare !== 0) return sessionCompare
+      const createdAtCompare = (right.createdAt ?? '').localeCompare(left.createdAt ?? '')
+      if (createdAtCompare !== 0) return createdAtCompare
+      return right.summary.id.localeCompare(left.summary.id)
+    })
     .slice(0, 20)
+    .map((candidate) => candidate.summary)
 }
 
 export function buildRecentHistoryEntries(sessions: HistorySessionInput[]): RecentHistoryEntry[] {
-  return sessions.slice(0, 20).map((session): RecentHistoryEntry => {
+  return sortHistorySessionsNewestFirst(sessions).slice(0, 20).map((session): RecentHistoryEntry => {
     const completedSetCount = session.exercises.flatMap((exercise) => exercise.sets).filter((set) => set.completed).length
     return {
       id: session.id,
       title: session.title,
       completedAt: session.completedAt,
       scheduledDate: session.scheduledDate,
+      timeZone: session.timeZone,
       programTitle: session.programTitle,
       weekLabel: session.weekLabel,
       hardness: session.hardness,
@@ -322,7 +364,7 @@ export function toBodyLoadWork(
         category: movement?.category,
         role: exercise.role,
         completedSets: exercise.sets.filter((set) => set.completed).length,
-        performedAt: session.completedAt ?? session.scheduledDate,
+        performedAt: session.scheduledDate,
       }
     }),
   )
@@ -332,13 +374,15 @@ function buildBestSetCandidate(
   session: HistorySessionInput,
   exercise: HistoryExerciseInput,
   set: HistorySetInput,
+  fallbackUnits: Unit,
 ): BestSetCandidate | null {
   if (!set.completed || !hasNumber(set.actualReps)) return null
-  const load = hasNumber(set.actualLoad) ? set.actualLoad : null
-  const volume = hasNumber(load) ? load * set.actualReps : null
-  const estimatedMax = hasNumber(load) ? mround(e1rm(load, set.actualReps, set.actualRir ?? 0), 0.5) : null
+  const load = externalLoadOrNull(set.actualLoad)
+  const volume = load == null ? null : load * set.actualReps
+  const estimatedMax = load == null ? null : mround(e1rm(load, set.actualReps, set.actualRir ?? 0), 0.5)
   const type = set.isAmrap ? 'amrap' : set.isTopSet ? 'top_set' : exercise.role === 'accessory' ? 'accessory' : 'volume'
-  const score = estimatedMax ?? volume ?? set.actualReps
+  const normalizedLoad = load == null ? null : convertWeight(load, exerciseUnits(session, fallbackUnits), 'kg')
+  const score = normalizedLoad == null ? set.actualReps : e1rm(normalizedLoad, set.actualReps, set.actualRir ?? 0)
 
   return {
     id: set.id,
@@ -353,10 +397,31 @@ function buildBestSetCandidate(
     volume,
     sessionId: session.id,
     sessionTitle: session.title,
-    performedAt: session.completedAt ?? session.scheduledDate,
+    performedAt: session.scheduledDate,
     units: session.units,
     score,
+    completedAt: session.completedAt ?? null,
   }
+}
+
+function compareBestSetCandidates(left: BestSetCandidate, right: BestSetCandidate) {
+  const scoreCompare = right.score - left.score
+  if (scoreCompare !== 0) return scoreCompare
+  const scheduledDateCompare = (right.performedAt ?? '').localeCompare(left.performedAt ?? '')
+  if (scheduledDateCompare !== 0) return scheduledDateCompare
+  const completedAtCompare = (right.completedAt ?? '').localeCompare(left.completedAt ?? '')
+  if (completedAtCompare !== 0) return completedAtCompare
+  const sessionIdCompare = right.sessionId.localeCompare(left.sessionId)
+  if (sessionIdCompare !== 0) return sessionIdCompare
+  return right.id.localeCompare(left.id)
+}
+
+function sortHistorySessionsNewestFirst(sessions: HistorySessionInput[]) {
+  return [...sessions].sort(compareHistorySessionsNewestFirst)
+}
+
+function resolveHistoryDisplayUnits(sessions: HistorySessionInput[]): Unit | null {
+  return sortHistorySessionsNewestFirst(sessions).find((session) => session.units)?.units ?? null
 }
 
 function hasNumber(value: unknown): value is number {

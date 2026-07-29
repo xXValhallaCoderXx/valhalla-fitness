@@ -87,6 +87,14 @@ describe('buildTodayLedgerRows', () => {
     expect(row).toMatchObject({ setsLabel: '2 × 8–12', targetLabel: 'RIR 2', targetIsLoad: false })
   })
 
+  it('renders an explicit zero target as bodyweight, not 0 kg', () => {
+    const bodyweight = movement('Chin-Up', [set(1, { targetLoad: 0, targetReps: 8 })])
+    const [row] = buildTodayLedgerRows({ units: 'kg', movements: [bodyweight] })
+
+    expect(hasTargetLoads({ movements: [bodyweight] })).toBe(false)
+    expect(row).toMatchObject({ targetLabel: 'BW', targetIsLoad: false })
+  })
+
   it('labels uniform AMRAP sets with a trailing plus', () => {
     const bench = movement('Bench', [
       set(1, { targetLoad: 100, targetReps: 5, isAmrap: true }),
@@ -158,6 +166,7 @@ describe('formatPreviousLine / formatPreviousHero', () => {
 
   it('handles bodyweight and missing RIR', () => {
     expect(formatPreviousLine({ movementId: 'chin', label: '', reps: 8 })).toBe('BW × 8')
+    expect(formatPreviousLine({ movementId: 'chin', label: '', load: 0, reps: 8 })).toBe('BW × 8')
     expect(formatPreviousLine({ movementId: 'squat', label: '', load: 100, reps: 5 })).toBe('100 × 5')
   })
 
@@ -167,11 +176,23 @@ describe('formatPreviousLine / formatPreviousHero', () => {
   })
 
   it('formats the full hero line with units, e1RM, and a compact date', () => {
-    expect(formatPreviousHero(full, 'kg')).toBe('Last 107.5 kg × 6 @ RIR 3 · e1RM 140 kg · Jul 3')
+    expect(formatPreviousHero(full, 'kg')).toBe('Previous comparable · 107.5 kg × 6 @ RIR 3 · e1RM 140 kg · Jul 3')
   })
 
   it('omits hero parts that are unknown', () => {
-    expect(formatPreviousHero({ movementId: 'squat', label: '', load: 100, reps: 5 }, 'kg')).toBe('Last 100 kg × 5')
+    expect(formatPreviousHero({ movementId: 'squat', label: '', load: 100, reps: 5 }, 'kg')).toBe('Previous comparable · 100 kg × 5')
+    expect(formatPreviousHero({ movementId: 'chin', label: '', load: 0, reps: 8, e1rm: 100 }, 'kg')).toBe('Previous comparable · BW × 8')
     expect(formatPreviousHero(null, 'kg')).toBeNull()
+  })
+
+  it('prefers the canonical workout date over the completion timestamp', () => {
+    expect(formatPreviousHero({
+      movementId: 'squat',
+      label: '',
+      load: 100,
+      reps: 5,
+      workoutDate: '2026-07-03',
+      performedAt: '2026-07-04T00:30:00+08:00',
+    }, 'kg')).toContain('Jul 3')
   })
 })
