@@ -4,6 +4,21 @@
 @import "driver.js/dist/driver.css";
 @import "tailwindcss";
 
+:root {
+  --vf-safe-top: env(safe-area-inset-top, 0px);
+  --vf-safe-right: env(safe-area-inset-right, 0px);
+  --vf-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --vf-safe-left: env(safe-area-inset-left, 0px);
+  --vf-safe-bottom-max: env(
+    safe-area-max-inset-bottom,
+    env(safe-area-inset-bottom, 0px)
+  );
+  --vf-mobile-nav-height: 4rem;
+  --vf-mobile-bottom-offset: calc(
+    var(--vf-mobile-nav-height) + var(--vf-safe-bottom-max)
+  );
+}
+
 * {
   box-sizing: border-box;
 }
@@ -22,13 +37,52 @@ body {
 
 body {
   accent-color: var(--mantine-primary-color-filled);
+  min-height: 100vh;
   min-height: 100dvh;
   text-rendering: optimizeLegibility;
 }
 
 #root,
 #app {
+  min-height: 100vh;
   min-height: 100dvh;
+}
+
+.vf-app-shell {
+  height: 100vh;
+  height: 100dvh;
+  overscroll-behavior: contain;
+}
+
+.vf-app-header {
+  padding-top: var(--vf-safe-top);
+}
+
+.vf-app-header-inner {
+  padding-left: max(0.75rem, var(--vf-safe-left));
+  padding-right: max(0.75rem, var(--vf-safe-right));
+}
+
+.vf-app-scroll-region {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.vf-mobile-nav {
+  padding-bottom: var(--vf-safe-bottom-max);
+  padding-left: max(0.5rem, var(--vf-safe-left));
+  padding-right: max(0.5rem, var(--vf-safe-right));
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --vf-mobile-nav-height: 0px;
+  }
+
+  .vf-app-header-inner {
+    padding-left: max(1.25rem, var(--vf-safe-left));
+    padding-right: max(1.25rem, var(--vf-safe-right));
+  }
 }
 
 button,

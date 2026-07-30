@@ -2,10 +2,12 @@ import { Box, Button } from '@mantine/core'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { CalendarDays, History, Layers3, ListChecks } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { BrandLockup, Text } from '~/components/atoms'
+import { Text } from '~/components/atoms'
 import { UserMenu } from '~/domains/account/components'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { cn } from '~/shared/lib/cn'
+import { AppHeaderLeading } from './molecules/AppHeaderLeading'
+import { resolveAppNavigation } from './molecules/app-navigation'
 
 const navItems = [
   { to: '/today', label: 'Today', icon: CalendarDays },
@@ -17,6 +19,7 @@ const navItems = [
 export function AppShell({ user, children }: { user: AuthUser | null; children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const isNavigating = useRouterState({ select: (state) => state.isLoading })
+  const navigation = resolveAppNavigation(pathname)
   const isChromeless =
     pathname === '/' ||
     pathname.startsWith('/auth') ||
@@ -32,20 +35,20 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
     <Box
       bg="var(--mantine-color-body)"
       c="var(--mantine-color-text)"
-      className="flex h-dvh flex-col overflow-hidden"
+      className="vf-app-shell flex flex-col overflow-hidden"
+      data-testid="app-shell"
     >
       <Box
         component="header"
-        className="relative z-30 shrink-0 pt-[env(safe-area-inset-top)] backdrop-blur-md"
+        className="vf-app-header relative z-30 shrink-0 backdrop-blur-md"
+        data-testid="app-header"
         style={{
           borderBottom: '1px solid var(--mantine-color-default-border)',
           backgroundColor: 'color-mix(in srgb, var(--mantine-color-default) 94%, transparent)',
         }}
       >
-        <div className="mx-auto grid h-12 max-w-[1180px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 md:px-5">
-          <Link to="/today" className="flex min-w-0 items-center justify-self-start">
-            <BrandLockup size="sm" />
-          </Link>
+        <div className="vf-app-header-inner mx-auto grid h-12 max-w-[1180px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+          <AppHeaderLeading backTarget={navigation.backTarget} />
           <Box
             component="nav"
             className="hidden items-center justify-center gap-1 rounded-lg p-1 md:flex"
@@ -56,7 +59,7 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
             }}
           >
             {navItems.map((item) => {
-              const active = pathname.startsWith(item.to)
+              const active = navigation.activeBottomNavSection === item.to
               return (
                 <Button
                   key={item.to}
@@ -66,6 +69,7 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
                   color={active ? 'action' : 'neutral'}
                   variant={active ? 'light' : 'subtle'}
                   size="compact-xs"
+                  aria-current={active ? 'page' : undefined}
                 >
                   {item.label}
                 </Button>
@@ -81,12 +85,18 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
         <NavigationProgress active={isNavigating} />
       </Box>
       {/* key by pathname so each route mounts a fresh scroll area (starts at the top). */}
-      <div key={pathname} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" style={{ scrollbarGutter: 'stable' }}>
+      <div
+        key={pathname}
+        className="vf-app-scroll-region min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+        data-testid="app-scroll-region"
+        style={{ scrollbarGutter: 'stable' }}
+      >
         {children}
       </div>
       <Box
         component="nav"
-        className="z-40 shrink-0 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+        className="vf-mobile-nav z-40 shrink-0 backdrop-blur md:hidden"
+        data-testid="mobile-nav"
         style={{
           borderTop: '1px solid var(--mantine-color-default-border)',
           backgroundColor: 'color-mix(in srgb, var(--mantine-color-default) 96%, transparent)',
@@ -96,7 +106,7 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
         <div className="grid h-16 grid-cols-4">
           {navItems.map((item) => {
             const Icon = item.icon
-            const active = pathname.startsWith(item.to)
+            const active = navigation.activeBottomNavSection === item.to
             return (
               <Link
                 key={item.to}
@@ -105,6 +115,7 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
                 className="relative flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-md"
                 style={{ color: active ? 'var(--vf-action-text)' : 'var(--mantine-color-dimmed)' }}
                 aria-label={item.label}
+                aria-current={active ? 'page' : undefined}
               >
                 {active ? (
                   <Box

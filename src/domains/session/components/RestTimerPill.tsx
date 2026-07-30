@@ -37,8 +37,7 @@ export function RestTimerPill() {
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-4"
-      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}
+      className="fixed inset-x-0 bottom-[var(--vf-mobile-bottom-offset)] z-50 flex justify-center px-4 pb-3 md:bottom-0 md:pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]"
       data-testid="rest-timer-pill"
     >
       {/* Lifted off the bottom edge and elevated on desktop so it reads as a floating control,

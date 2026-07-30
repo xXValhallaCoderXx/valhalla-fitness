@@ -135,6 +135,12 @@ test('finishing a session and applying all load updates succeeds', async ({ page
   await finishModal.getByRole('button', { name: 'Finish workout' }).click()
 
   await expect(page).toHaveURL(/\/summary$/, { timeout: 30000 })
+  const summaryBack = page.getByTestId('nested-back')
+  await expect(summaryBack).toHaveAccessibleName('Back to Today')
+  const summaryBackBox = await summaryBack.boundingBox()
+  expect(summaryBackBox).not.toBeNull()
+  expect(summaryBackBox!.width).toBeGreaterThanOrEqual(44)
+  expect(summaryBackBox!.height).toBeGreaterThanOrEqual(44)
 
   // The +20 bump broke the heaviest-weight record — the summary celebrates it.
   const prBanner = page.getByTestId('pr-banner')
@@ -193,4 +199,7 @@ test('finishing a session and applying all load updates succeeds', async ({ page
   await page.getByRole('button', { name: /^Apply all \d+ & finish$/ }).click()
   await expect(page.getByText('Loads updated').first()).toBeVisible({ timeout: 15000 })
   await expect(page.getByText('Could not apply updates')).toHaveCount(0)
+
+  await summaryBack.click()
+  await expect(page).toHaveURL(/\/today$/)
 })

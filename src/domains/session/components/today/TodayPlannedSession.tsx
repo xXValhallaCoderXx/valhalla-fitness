@@ -145,7 +145,7 @@ export function TodayPlannedSession({
       />
 
       {/* Ad-hoc entry stays ungated by pending reviews (unlike "Start workout"). */}
-      <div className="fixed right-4 bottom-[calc(4rem+env(safe-area-inset-bottom)+1rem)] z-30 md:right-6 md:bottom-6">
+      <div className="fixed right-4 bottom-[calc(var(--vf-mobile-bottom-offset)+1rem)] z-30 md:right-6 md:bottom-6">
         <Tooltip label="Blank workout">
           <ActionIcon
             size={56}
