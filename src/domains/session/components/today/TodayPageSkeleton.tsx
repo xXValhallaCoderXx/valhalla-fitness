@@ -37,7 +37,7 @@ export function TodayPageSkeleton() {
         </div>
       </div>
 
-      <div className="fixed right-4 bottom-[calc(4rem+env(safe-area-inset-bottom)+1rem)] z-30 md:right-6 md:bottom-6">
+      <div className="fixed right-4 bottom-[calc(var(--vf-mobile-bottom-offset)+1rem)] z-30 md:right-6 md:bottom-6">
         <Skeleton
           width={56}
           height={56}

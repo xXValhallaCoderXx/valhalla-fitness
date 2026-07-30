@@ -1,10 +1,10 @@
 import { Badge, Button } from '@mantine/core'
-import { Link } from '@tanstack/react-router'
-import { ArrowLeft, Check, Info } from 'lucide-react'
+import { Check, Info } from 'lucide-react'
 import type { ReactNode } from 'react'
 import {
   Caption,
   ConfirmDialog,
+  MobileActionBar,
   Page,
   PageHeader,
   Text,
@@ -82,19 +82,6 @@ export function TemplateStartContent({
 
   return (
     <Page className="max-w-[1200px] pb-44 md:px-8 lg:px-10 lg:pb-8">
-      <Link
-        to="/templates"
-        className="mb-3 inline-flex items-center gap-1.5 transition"
-        style={{
-          color: 'var(--mantine-color-dimmed)',
-          fontSize: 'var(--mantine-font-size-xs)',
-          fontWeight: 700,
-        }}
-      >
-        <ArrowLeft size={14} />
-        Templates
-      </Link>
-
       <PageHeader
         eyebrow="Start programme"
         title={template.name}
@@ -180,56 +167,47 @@ export function TemplateStartContent({
         </div>
       </div>
 
-      <div
-        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t p-3 backdrop-blur lg:hidden"
-        style={{
-          borderColor: 'var(--mantine-color-default-border)',
-          backgroundColor: 'color-mix(in srgb, var(--mantine-color-default) 96%, transparent)',
-          boxShadow: '0 -12px 36px rgb(0 0 0 / 0.12)',
-        }}
-      >
-        <div className="mx-auto flex max-w-[1200px] flex-col gap-2">
-          {startError ? (
-            <Text
-              size="xs"
-              style={{
-                border: '1px solid var(--vf-danger-border)',
-                backgroundColor: 'var(--vf-danger-soft)',
-                color: 'var(--vf-danger-text)',
-                borderRadius: 'var(--mantine-radius-md)',
-                padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-sm)',
-              }}
-            >
-              {startError}
-            </Text>
-          ) : null}
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <Text size="xs" fw={800} truncate>{template.name}</Text>
-              <Caption truncate>
-                {defaultsSummary(me.units, me.rounding, visibleState)}
-              </Caption>
-            </div>
-            <div className="flex shrink-0 gap-2">
-              <SetupValuesButton
-                disabled={missingRequiredState.length > 0}
-                label={missingRequiredState.length === 0 && visibleState.length > 0 ? 'Modify values' : 'Values'}
-                onClick={() => setShowDefaultsModal(true)}
-              />
-              <MissingEstimatesPopover active={missingRequiredState.length > 0}>
-                <Button
-                  disabled={isStarting || missingRequiredState.length > 0}
-                  style={missingRequiredState.length > 0 ? { pointerEvents: 'none' } : undefined}
-                  onClick={missingRequiredState.length > 0 ? undefined : requestStartProgram}
-                >
-                  <Check size={16} />
-                  Start
-                </Button>
-              </MissingEstimatesPopover>
-            </div>
+      <MobileActionBar maxWidth="1200px">
+        {startError ? (
+          <Text
+            size="xs"
+            style={{
+              border: '1px solid var(--vf-danger-border)',
+              backgroundColor: 'var(--vf-danger-soft)',
+              color: 'var(--vf-danger-text)',
+              borderRadius: 'var(--mantine-radius-md)',
+              padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-sm)',
+            }}
+          >
+            {startError}
+          </Text>
+        ) : null}
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <Text size="xs" fw={800} truncate>{template.name}</Text>
+            <Caption truncate>
+              {defaultsSummary(me.units, me.rounding, visibleState)}
+            </Caption>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <SetupValuesButton
+              disabled={missingRequiredState.length > 0}
+              label={missingRequiredState.length === 0 && visibleState.length > 0 ? 'Modify values' : 'Values'}
+              onClick={() => setShowDefaultsModal(true)}
+            />
+            <MissingEstimatesPopover active={missingRequiredState.length > 0}>
+              <Button
+                disabled={isStarting || missingRequiredState.length > 0}
+                style={missingRequiredState.length > 0 ? { pointerEvents: 'none' } : undefined}
+                onClick={missingRequiredState.length > 0 ? undefined : requestStartProgram}
+              >
+                <Check size={16} />
+                Start
+              </Button>
+            </MissingEstimatesPopover>
           </div>
         </div>
-      </div>
+      </MobileActionBar>
 
       <DefaultsModal
         opened={showDefaultsModal}

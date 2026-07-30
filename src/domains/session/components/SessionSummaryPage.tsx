@@ -8,7 +8,16 @@ import { useRequiredAccountId } from '~/domains/account/components/AccountIdenti
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { sessionQueryOptions } from '~/domains/session/queries'
 import type { SessionSummary, WorkoutSession } from '~/domains/session'
-import { Caption, EmptyState, Page, PageLoadError, PageSkeleton, SectionLabel, Text } from '~/components'
+import {
+  Caption,
+  EmptyState,
+  MobileActionBar,
+  Page,
+  PageLoadError,
+  PageSkeleton,
+  SectionLabel,
+  Text,
+} from '~/components'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { buildSessionReceipt } from '~/domains/session/lib/session-receipt'
 import { buildWorkoutSummary, topSetCountExplanation } from '~/domains/history/lib/workout-summary'
@@ -211,34 +220,25 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
       </div>
 
       {/* Mobile sticky action bar — keeps the primary action reachable, offset above the app bottom nav. */}
-      <div
-        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t p-3 backdrop-blur lg:hidden"
-        style={{
-          borderColor: 'var(--mantine-color-default-border)',
-          backgroundColor: 'color-mix(in srgb, var(--mantine-color-default) 96%, transparent)',
-          boxShadow: '0 -12px 36px rgb(0 0 0 / 0.12)',
-        }}
-      >
-        <div className="mx-auto flex max-w-[1180px] flex-col gap-2">
-          {hasPending ? (
-            <>
-              <Button fullWidth size="md" loading={isSaving} onClick={handleApplyAll}>
-                <Check size={18} />
-                Apply all {pendingDecisions.length} &amp; finish
-              </Button>
-              <Link to="/today">
-                <Text component="span" size="sm" fw={700} tone="dimmed" ta="center" className="block">
-                  Skip for now — back to Today
-                </Text>
-              </Link>
-            </>
-          ) : (
+      <MobileActionBar>
+        {hasPending ? (
+          <>
+            <Button fullWidth size="md" loading={isSaving} onClick={handleApplyAll}>
+              <Check size={18} />
+              Apply all {pendingDecisions.length} &amp; finish
+            </Button>
             <Link to="/today">
-              <Button fullWidth size="md">Back to Today</Button>
+              <Text component="span" size="sm" fw={700} tone="dimmed" ta="center" className="block">
+                Skip for now — back to Today
+              </Text>
             </Link>
-          )}
-        </div>
-      </div>
+          </>
+        ) : (
+          <Link to="/today">
+            <Button fullWidth size="md">Back to Today</Button>
+          </Link>
+        )}
+      </MobileActionBar>
 
       <PendingProgressionReviewModal
         opened={reviewOpen}

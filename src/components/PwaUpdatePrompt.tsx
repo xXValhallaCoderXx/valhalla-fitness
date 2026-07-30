@@ -28,7 +28,7 @@ export function PwaUpdatePrompt() {
 
   return (
     <Panel
-      className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 mx-auto max-w-md md:bottom-4"
+      className="fixed inset-x-3 bottom-[calc(var(--vf-mobile-bottom-offset)+0.75rem)] z-50 mx-auto max-w-md md:bottom-4"
       p="sm"
       style={{ boxShadow: 'var(--vf-shadow-panel)' }}
     >

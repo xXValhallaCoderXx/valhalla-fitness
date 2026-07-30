@@ -17,6 +17,17 @@ test('mobile focus mode: steppers, RIR, Overview round-trip, exercise nav', asyn
   test.skip(!isMobileViewport(page), 'Focus mode is mobile-only')
   await enterSession(page)
 
+  const routeBack = page.getByTestId('nested-back')
+  await expect(routeBack).toHaveAccessibleName('Back to Today')
+  await expect(page.locator('[data-tour="mnav-today"]')).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  const routeBackBox = await routeBack.boundingBox()
+  expect(routeBackBox).not.toBeNull()
+  expect(routeBackBox!.width).toBeGreaterThanOrEqual(44)
+  expect(routeBackBox!.height).toBeGreaterThanOrEqual(44)
+
   // A brand-new session can open in Overview; make sure we're in Focus.
   const enterFocus = page.getByTestId('enter-focus')
   if (await enterFocus.isVisible().catch(() => false)) await enterFocus.click()
@@ -63,6 +74,10 @@ test('mobile focus mode: steppers, RIR, Overview round-trip, exercise nav', asyn
     await nextExercise.click()
     await expect(title).not.toHaveText(initial, { timeout: 5000 })
   }
+
+  // The app-level action exits the nested workout without replacing Focus → Overview.
+  await routeBack.click()
+  await expect(page).toHaveURL(/\/today$/)
 })
 
 test('mobile focus: weight carries to the next set on choose-your-load movements', async ({ page }) => {
