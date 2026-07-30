@@ -4,9 +4,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { Play, Star } from 'lucide-react'
 import { Caption, Panel, Text } from '~/components'
-import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
+import {
+  useAccountClock,
+  useRequiredAccountId,
+} from '~/domains/account/components/AccountIdentityProvider'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import { formatRelativeTime } from '~/shared/lib/dates'
+import { describeWorkoutDate } from '~/shared/lib/dates'
 import { setSessionFavoriteFn } from '~/domains/session/server/favorite-functions'
 import { startAdHocSessionFn } from '~/domains/session/server/session-functions'
 import type { FavoriteWorkout } from '~/domains/session'
@@ -22,8 +25,15 @@ export function FavoriteWorkoutCard({
   activeSessionId: string | null
 }) {
   const userId = useRequiredAccountId()
+  const clock = useAccountClock()
   const router = useRouter()
   const queryClient = useQueryClient()
+  const lastWorkout = describeWorkoutDate({
+    scheduledDate: workout.scheduledDate,
+    completedAt: workout.completedAt,
+    timeZone: workout.timeZone ?? clock.timeZone,
+    today: clock.today,
+  })
 
   const startMutation = useMutation({
     mutationFn: () =>
@@ -111,10 +121,15 @@ export function FavoriteWorkoutCard({
         </ActionIcon>
       </div>
       <div className="mt-auto flex items-center justify-between gap-3">
-        <Caption>
-          {workout.movementCount} exercise{workout.movementCount === 1 ? '' : 's'} · {workout.setCount} sets
-          {workout.completedAt ? ` · last ${formatRelativeTime(workout.completedAt)}` : ''}
-        </Caption>
+        <div className="min-w-0">
+          <Caption>
+            {workout.movementCount} exercise{workout.movementCount === 1 ? '' : 's'} · {workout.setCount} sets
+            {lastWorkout.workoutDate
+              ? ` · last ${lastWorkout.compactDate} (${lastWorkout.relativeDate.toLowerCase()})`
+              : ''}
+          </Caption>
+          {lastWorkout.completionLabel ? <Caption mt={2}>{lastWorkout.completionLabel}</Caption> : null}
+        </div>
         <Button
           size="compact-sm"
           className="shrink-0"

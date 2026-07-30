@@ -133,12 +133,12 @@ export function createDefaultCustomProgramBuilderInput({
   // different variation and accessory focus to keep weekly volume varied and recoverable.
   const dayDefaults = [
     { mainMovementId: 'squat', variation: 'front_squat', accessoryMovementId: 'leg_press' },
-    { mainMovementId: 'bench_press', variation: 'close_grip_bench_press', accessoryMovementId: 'chest_supported_row' },
+    { mainMovementId: 'bench_press', variation: 'close_grip_bench_press', accessoryMovementId: 'chest_supported_dumbbell_row' },
     { mainMovementId: 'deadlift', variation: 'romanian_deadlift', accessoryMovementId: 'hamstring_curl' },
     { mainMovementId: 'overhead_press', variation: 'push_press', accessoryMovementId: 'face_pull' },
-    { mainMovementId: 'squat', variation: 'pause_squat', accessoryMovementId: 'split_squat' },
+    { mainMovementId: 'squat', variation: 'pause_squat', accessoryMovementId: 'dumbbell_split_squat' },
     { mainMovementId: 'bench_press', variation: 'incline_bench_press', accessoryMovementId: 'dumbbell_row' },
-    { mainMovementId: 'deadlift', variation: 'stiff_leg_deadlift', accessoryMovementId: 'back_extension' },
+    { mainMovementId: 'deadlift', variation: 'stiff_leg_deadlift', accessoryMovementId: 'back_extension_45_degree' },
   ]
 
   return {

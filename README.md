@@ -5,7 +5,7 @@ spreadsheet in the gym.
 
 **Document authority:** this README is the sole human-facing source for the product, current release
 status, architecture, training-plan DSL, development workflow, testing, and production runbook.
-It was last reconciled with the repository on **2026-07-28**. Machine-specific implementation
+It was last reconciled with the repository on **2026-07-30**. Machine-specific implementation
 instructions remain in `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, and
 `.github/instructions/`.
 
@@ -14,7 +14,7 @@ instructions remain in `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.m
 Sheetless should answer five questions without making a lifter think during a hard session:
 
 1. What am I meant to do today?
-2. What did I do last time in the same programme slot?
+2. What is the best prior result for this movement, preferring the same programme slot?
 3. What load, reps, and RIR did I actually perform?
 4. What does that imply for the next progression decision?
 5. Where am I in the current programme?
@@ -40,11 +40,11 @@ performed work.
 ## Current release state
 
 The core workout loop is implemented end to end. The application can authenticate a user, start a
-built-in or custom programme, plan Today, log a session, add or swap movements, finish the workout,
-review progression, and inspect programme/history data.
+built-in or custom programme, choose an equipment mode, plan Today, log a session, add or swap
+movements, finish the workout, review progression, and inspect programme/history data.
 
 The remaining beta work is concentrated in production configuration and live verification,
-exercise metadata, legal/operator review, and a few logging-quality gaps.
+legal/operator review, exercise instructions/media, and a few logging-quality gaps.
 
 ### Capability matrix
 
@@ -53,10 +53,11 @@ exercise metadata, legal/operator review, and a few logging-quality gaps.
 | Authentication | **Shipped; production setup pending** | Magic Link and Google OAuth are the production methods. Password auth remains for local development and E2E only. Google, Resend SMTP, callback URLs, and live delivery still require dashboard verification. |
 | Programme catalogue | **Shipped** | Fourteen concrete built-ins are grouped into six presentation families: Beginner Linear Strength, Intermediate Strength, Powerbuilding, Training Max Wave, Classic Volume Strength, and Bodybuilding Splits. |
 | Custom programmes | **Shipped** | Users can create constrained programmes from supported methodologies, including logger-only mode. Definitions are validated before storage. |
-| Programme start | **Shipped** | Units, rounding, required state values, allowed movement replacements, accessory additions, preview, and active-program replacement are supported. |
+| Programme start | **Shipped** | Units, rounding, required state values, allowed movement replacements, accessory additions, equipment mode, preview, and active-program replacement are supported. |
+| Equipment modes | **Shipped** | Programmes can use All equipment or Free weights only. The free-weight overlay is previewed before confirmation, reversible before a workout starts, pinned to an immutable policy, enforced for live additions/swaps, and frozen into session history. Ad-hoc workouts and favourites remain equipment-neutral. |
 | Today | **Shipped** | Planned, active/resume, completed, onboarding, and pending-progression states are supported. |
 | Live workout logging | **Shipped** | Optimistic load, reps, RIR, completion, sync state, notes in the model, focus/overview layouts, swaps, and accessory additions are supported. The live UI does not currently expose RPE entry. |
-| Previous comparable | **Partial** | Exact programme-slot and per-set history is displayed. The planned tap-to-fill interaction is not implemented. |
+| Previous comparable | **Partial** | Prior results match the movement actually performed, prefer the same programme slot/template, and retain per-set history. The chronological movement-history view remains literal. The planned tap-to-fill interaction is not implemented. |
 | Rest timer | **Partial** | Auto-start on genuine set completion, role-based defaults, global opt-out, wall-clock correction, `+15`, skip, audio, and vibration are implemented. Reload persistence, per-movement defaults, `-15`, wake lock, and notifications are not. |
 | Plate calculator | **Shipped** | Kg/lb plate loading is available from both live-session layouts. Saved bar/plate inventory and equipment gating are not implemented. |
 | Session PRs | **Partial** | Heaviest-load, estimated-1RM, and rep-at-weight PRs are calculated at finish and shown in the summary. There is no live inline celebration or separate lifetime `personal_records` table. |
@@ -64,7 +65,7 @@ exercise metadata, legal/operator review, and a few logging-quality gaps.
 | Ad-hoc sessions and favourites | **Shipped** | Users can start unprogrammed workouts, repeat prior sessions, and save/reuse favourites while retaining comparable history. |
 | Programme and Insights views | **Shipped** | Programme position, timeline, loads, decisions, recent sessions, e1RM, DOTS/bodyweight-multiple fallbacks, trends, consistency, calibration, muscle-set estimates, records, and history are data-backed. |
 | Body profile | **Partial** | Bodyweight history and sex can be stored from Insights/Settings. Units, sex, and bodyweight are not yet collected in first-run onboarding, and Overview has no dedicated bodyweight trend chart. |
-| Exercise metadata | **Missing for beta target** | Movement name, category, equipment, unit, and competition status exist. Primary/secondary muscles, instructions, external IDs, and media do not. Current muscle-region analytics use coarse deterministic mappings. |
+| Exercise catalogue | **Shipped; media deferred** | The catalogue stores 151 movements (140 active and 11 resolvable deprecated aliases) with resistance mode, required equipment, pattern, primary/secondary muscles, aliases, load convention, and replacement lineage. Instructions, external IDs, and media are not yet included. |
 | Feedback | **Shipped** | Global and post-workout feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
 | Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Failed sets must be retried before finishing. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
@@ -79,9 +80,7 @@ exercise metadata, legal/operator review, and a few logging-quality gaps.
    this build.
 3. Review Privacy and Terms against the production operator, jurisdiction, processors, retention
    schedule, and working contact inbox.
-4. Add primary/secondary muscle and instruction metadata, or explicitly move it out of the beta
-   definition.
-5. Keep every save-status surface explicit that beta is online-only while preserving transient
+4. Keep every save-status surface explicit that beta is online-only while preserving transient
    saving, failed, and retry states.
 
 #### P1 — beta quality
@@ -94,7 +93,7 @@ exercise metadata, legal/operator review, and a few logging-quality gaps.
 
 #### Deferred
 
-- Exercise images/video and large catalogue expansion.
+- Exercise instructions/media and future catalogue expansion.
 - Warm-up generation and user-editable set types.
 - Supersets/circuits and body measurements beyond bodyweight.
 - Persisted Find My Plan answers.
@@ -204,7 +203,11 @@ Important invariants:
   directly.
 - At most one active programme and one in-progress workout may exist per user.
 - Started programmes pin an immutable template-version ID and checksum-protected definition.
+- Free-weight programmes pin an immutable conversion-policy version and a normalized, hashed set of
+  choices keyed by template session, slot, phase, and role.
 - Started sessions persist a prescription snapshot so later programme edits do not rewrite history.
+- Programme equipment mode is copied into that snapshot. A durable database boundary rejects any
+  machine/cable target added to a free-weight workout, including direct live-add and swap RPC use.
 - Planned and performed movement IDs remain separate through substitutions.
 - In-session writes use stable request IDs plus an expected workout revision. Durable mutation
   receipts make exact retries safe, while stale revisions and token reuse with a different payload
@@ -215,7 +218,11 @@ Important invariants:
   restored safely.
 - Only completed work contributes to progression, PRs, and historical training signals.
 - Recommendations do not mutate programme state until the user accepts them.
-- Calendar-day calculations use the account timezone rather than the server's timezone.
+- `scheduled_date` is the workout calendar date used for display, ordering, trends, streaks, and
+  analytics. `completed_at` remains a lifecycle instant for duration, audit, same-day tie-breaking,
+  and a secondary completion label.
+- Calendar-day calculations use the account timezone rather than the server's timezone. New
+  prescription snapshots retain that timezone so overnight completion labels stay stable.
 - Workout saving is intentionally online-only; there is no second durable local database or replay
   queue.
 
@@ -261,6 +268,30 @@ The current schema version is **`2026.06.dsl`**.
 `pnpm export:templates` exports the built-in code catalogue/definitions to the ignored
 `.artifacts/template-definitions.json` file for inspection. The export is generated, not a second
 editable source or document.
+
+### Movement catalogue and equipment-mode overlay
+
+Movement taxonomy lives in `src/domains/movement/lib/movements.ts`. Discovery and programme
+builders expose only active movements; deprecated IDs remain resolvable so immutable template and
+session history never breaks. The stored catalogue contains 151 movements: 140 active entries and
+11 deprecated aliases with explicit replacements.
+
+Equipment mode is programme state rather than a second DSL schema:
+
+1. A template slot resolves its phase-specific movement.
+2. An allowed manual programme override resolves next.
+3. In `free_weight` mode, an ineligible source resolves through the programme's pinned policy and
+   its saved choice for that exact template-session/slot/phase/role identity.
+4. Barbell, dumbbell, specialty-bar, and bodyweight movements are eligible. Cable and selectorized
+   or plate-loaded machine resistance is not. Fixed supports such as a rack, bench, pull-up bar,
+   dip bars, sliders, or a bodyweight support station remain allowed.
+5. An automatic equipment-mode replacement records provenance in the session snapshot and clears
+   target/actual load values; rep, RIR/RPE, set-role, and progression metadata remain intact.
+
+Users review every affected future phase before starting or converting a programme. Turning the
+mode off restores the DSL plus manual customizations; completed sessions remain literal historical
+snapshots. Mode changes are blocked while any workout is in progress. Live programme swaps and
+accessory additions are filtered and server-enforced against the snapshot mode.
 
 ### Mental model
 

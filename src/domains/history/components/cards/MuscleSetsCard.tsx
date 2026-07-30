@@ -15,7 +15,7 @@ const GROUP_COLOR: Record<string, string> = {
 export function MuscleSetsCard({ insights, range }: { insights: HistoryInsights; range: InsightRange }) {
   const weekly = filterToRange(insights.weeklyRegionSets, range, {
     firstDataDate: insights.firstSessionDate,
-    now: insights.generatedAt,
+    now: insights.today,
     getDate: (week) => week.weekStart,
   })
   const balance = buildMovementBalance(weekly, null)

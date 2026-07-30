@@ -5,6 +5,10 @@ import type {
   ProgramStateType,
   TemplateDefinition,
 } from '~/domains/program/types/template'
+import type {
+  ProgramEquipmentMode,
+  ProgramEquipmentModeChoice,
+} from '~/domains/program/types/equipment-mode'
 
 export type AccessoryProgressionMethod = 'history_only' | 'double_progression'
 
@@ -28,11 +32,16 @@ export type ProgramInstance = {
   rounding: number
   currentWeekIndex: number
   stateVersion: number
+  /** Missing on legacy in-memory fixtures and pre-mode records; treated as standard. */
+  equipmentMode?: ProgramEquipmentMode
+  freeWeightPolicyVersionId?: string | null
+  freeWeightChoicesHash?: string | null
   customizationStatus: ProgramCustomizationStatus
   customizationSummary: ProgramCustomizationSummary
   stateValues: ProgramStateInput[]
   movementOverrides?: ProgramMovementOverride[]
   accessoryAdditions?: ProgramAccessoryAddition[]
+  equipmentModeChoices?: ProgramEquipmentModeChoice[]
   templateDefinition?: TemplateDefinition
 }
 

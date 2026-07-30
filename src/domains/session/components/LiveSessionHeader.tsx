@@ -1,6 +1,6 @@
 import { ActionIcon, Box, Button, Tooltip } from '@mantine/core'
 import { Pencil, Trash2 } from 'lucide-react'
-import { Caption, Text } from '~/components'
+import { Caption, EquipmentModeBadge, Text } from '~/components'
 import { AD_HOC_BADGE_LABEL } from '~/domains/session/lib/ad-hoc'
 import { sessionCompletion } from '~/domains/session/lib/session-cache'
 import type { WorkoutSession } from '~/domains/session'
@@ -48,6 +48,7 @@ export function LiveSessionHeader({
                 <Text component="h1" size="sm" fw={900} lh={1.1} truncate>
                   {session.title}
                 </Text>
+                <EquipmentModeBadge equipmentMode={session.equipmentMode} className="shrink-0" />
                 {onRename ? (
                   <ActionIcon
                     aria-label="Rename workout"

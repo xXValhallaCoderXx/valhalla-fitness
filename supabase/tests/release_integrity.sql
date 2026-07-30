@@ -1,6 +1,6 @@
 begin;
 
-select plan(94);
+select plan(160);
 
 select has_column('public', 'program_instances', 'state_version');
 select has_column('public', 'program_instances', 'client_mutation_id');
@@ -10,6 +10,118 @@ select has_column('public', 'workout_sessions', 'discard_journal_version');
 select has_column('public', 'workout_sessions', 'state_version');
 select has_column('public', 'program_template_versions', 'definition_checksum');
 select has_table('public', 'session_mutation_receipts');
+select ok(
+  to_regclass('public.equipment_mode_policy_versions') is not null,
+  'equipment-mode policy versions table exists'
+);
+select ok(
+  to_regclass('public.program_equipment_mode_choices') is not null,
+  'programme equipment-mode choices table exists'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.movements'::regclass
+      and attname = 'status' and not attisdropped
+  ),
+  'movements include lifecycle status metadata'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.movements'::regclass
+      and attname = 'resistance_mode' and not attisdropped
+  ),
+  'movements include resistance-mode metadata'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.movements'::regclass
+      and attname = 'required_equipment' and not attisdropped
+  ),
+  'movements include required-equipment metadata'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.movements'::regclass
+      and attname = 'pattern' and not attisdropped
+  ),
+  'movements include pattern metadata'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.movements'::regclass
+      and attname = 'primary_muscles' and not attisdropped
+  ),
+  'movements include primary-muscle metadata'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.movements'::regclass
+      and attname = 'secondary_muscles' and not attisdropped
+  ),
+  'movements include secondary-muscle metadata'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.movements'::regclass
+      and attname = 'aliases' and not attisdropped
+  ),
+  'movements include aliases metadata'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.movements'::regclass
+      and attname = 'load_convention' and not attisdropped
+  ),
+  'movements include load-convention metadata'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.movements'::regclass
+      and attname = 'replaced_by_movement_id' and not attisdropped
+  ),
+  'movements retain deprecated replacement lineage'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.movements'::regclass
+      and attname = 'canonical_free_weight_movement_id' and not attisdropped
+  ),
+  'movements include canonical free-weight mappings'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.program_instances'::regclass
+      and attname = 'equipment_mode' and not attisdropped
+  ),
+  'programmes persist their equipment mode'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.program_instances'::regclass
+      and attname = 'free_weight_policy_version_id' and not attisdropped
+  ),
+  'programmes pin their free-weight policy'
+);
+select ok(
+  exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.program_instances'::regclass
+      and attname = 'free_weight_choices_hash' and not attisdropped
+  ),
+  'programmes persist the normalized free-weight choices hash'
+);
 select col_has_check(
   'public',
   'workout_sessions',
@@ -47,18 +159,103 @@ select has_function('public', 'add_session_set_v2');
 select has_function(
   'public',
   'substitute_session_movement_v2',
-  array['uuid', 'text', 'integer', 'jsonb', 'uuid', 'text', 'text', 'text', 'text', 'text'],
-  'movement substitution uses the stable-intent atomic signature'
+  array['uuid', 'text', 'integer', 'jsonb', 'uuid', 'text', 'text', 'text', 'text', 'text', 'jsonb'],
+  'movement substitution atomically persists the generated previous comparable'
 );
 select has_function('public', 'claim_session_mutation_v2');
 select has_function('public', 'set_session_favorite_v2');
 select has_function('public', 'advance_program_position_v2');
 select has_function('public', 'create_custom_program_template_v2');
+select ok(
+  to_regprocedure(
+    'public.start_program_v3(text,text,uuid,text,text,date,text,numeric,text,jsonb,jsonb,jsonb,boolean,text,uuid,text,jsonb)'
+  ) is not null,
+  'equipment-aware programme start exists'
+);
+select ok(
+  to_regprocedure(
+    'public.set_program_equipment_mode_v1(uuid,text,integer,uuid,text,jsonb)'
+  ) is not null,
+  'guarded programme equipment-mode transition exists'
+);
 select has_trigger(
   'public',
   'program_template_versions',
   'protect_pinned_template_version',
   'pinned template versions are immutable'
+);
+select has_trigger(
+  'public',
+  'equipment_mode_policy_versions',
+  'protect_referenced_equipment_mode_policy_version',
+  'equipment-mode policy versions are append-only'
+);
+
+select is(
+  (select count(*)::integer from public.movements),
+  151,
+  'the durable movement catalogue matches the exhaustive code manifest'
+);
+select is(
+  (
+    select count(*)::integer
+    from public.movements
+    where status = 'active'
+  ),
+  140,
+  'the expanded movement catalogue contains 140 active movements'
+);
+select is(
+  (
+    select count(*)::integer
+    from public.movements
+    where status = 'deprecated'
+  ),
+  11,
+  'the expanded movement catalogue retains 11 deprecated aliases'
+);
+select is(
+  (
+    select count(*)::integer
+    from public.equipment_mode_policy_versions as policy
+    cross join lateral jsonb_array_elements(policy.definition->'rules') as rule(value)
+    where not exists (
+      select 1
+      from public.movements
+      where id = rule.value->>'sourceMovementId'
+    )
+      or exists (
+        select 1
+        from jsonb_array_elements_text(
+          rule.value->'replacementMovementIds'
+        ) as replacement(value)
+        where not exists (
+          select 1
+          from public.movements
+          where id = replacement.value
+            and status = 'active'
+            and resistance_mode in (
+              'barbell', 'dumbbell', 'specialty_bar', 'bodyweight'
+            )
+        )
+      )
+  ),
+  0,
+  'every free-weight policy target is an active strict free-weight movement'
+);
+select is(
+  (
+    select rule.value #>> '{replacementMovementIds,0}'
+    from public.equipment_mode_policy_versions as policy
+    cross join lateral jsonb_array_elements(
+      policy.definition->'rules'
+    ) as rule(value)
+    where policy.mode = 'free_weight'
+      and policy.version = '1'
+      and rule.value->>'sourceMovementId' = 'hamstring_curl'
+  ),
+  'sliding_leg_curl',
+  'free-weight policy v1 uses the curated canonical hamstring-curl replacement'
 );
 
 select col_is_fk(
@@ -103,6 +300,18 @@ select col_is_fk(
   array['program_instance_id', 'user_id'],
   'decisions must belong to a same-owner programme'
 );
+select col_is_fk(
+  'public',
+  'program_equipment_mode_choices',
+  array['program_instance_id', 'user_id'],
+  'equipment-mode choices must belong to a same-owner programme'
+);
+select col_is_fk(
+  'public',
+  'program_instances',
+  'free_weight_policy_version_id',
+  'free-weight programmes pin a policy version'
+);
 
 select function_privs_are(
   'public',
@@ -127,6 +336,14 @@ select function_privs_are(
   'authenticated',
   array[]::text[],
   'authenticated clients cannot claim mutation receipts directly'
+);
+select function_privs_are(
+  'public',
+  'validate_previous_comparable_v2',
+  array['jsonb', 'text'],
+  'authenticated',
+  array[]::text[],
+  'authenticated clients cannot bypass substitution comparable validation'
 );
 select function_privs_are(
   'public',
@@ -171,6 +388,26 @@ select function_privs_are(
 );
 select function_privs_are(
   'public',
+  'start_program_v3',
+  array[
+    'text', 'text', 'uuid', 'text', 'text', 'date', 'text', 'numeric',
+    'text', 'jsonb', 'jsonb', 'jsonb', 'boolean', 'text', 'uuid', 'text',
+    'jsonb'
+  ],
+  'authenticated',
+  array['EXECUTE'],
+  'authenticated clients can execute the guarded equipment-aware programme start'
+);
+select function_privs_are(
+  'public',
+  'set_program_equipment_mode_v1',
+  array['uuid', 'text', 'integer', 'uuid', 'text', 'jsonb'],
+  'authenticated',
+  array['EXECUTE'],
+  'authenticated clients can execute the guarded equipment-mode transition'
+);
+select function_privs_are(
+  'public',
   'advance_program_position_v2',
   array['uuid', 'integer', 'integer'],
   'authenticated',
@@ -206,6 +443,20 @@ select table_privs_are(
   'authenticated',
   array['SELECT'],
   'authenticated clients have read-only programme-instance table access'
+);
+select table_privs_are(
+  'public',
+  'equipment_mode_policy_versions',
+  'authenticated',
+  array['SELECT'],
+  'authenticated clients have read-only equipment-policy access'
+);
+select table_privs_are(
+  'public',
+  'program_equipment_mode_choices',
+  'authenticated',
+  array['SELECT'],
+  'authenticated clients have read-only programme equipment choices'
 );
 select table_privs_are(
   'public',
@@ -378,8 +629,22 @@ select is(
   'one durable receipt is recorded for the successful mutation'
 );
 
-insert into public.movements (id, name, category)
-values ('release-integrity-movement', 'Release integrity movement', 'accessory');
+insert into public.movements (
+  id,
+  name,
+  category,
+  resistance_mode,
+  pattern,
+  load_convention
+)
+values (
+  'release-integrity-movement',
+  'Release integrity movement',
+  'accessory',
+  'dumbbell',
+  'accessory',
+  'implement_weight'
+);
 
 select is(
   public.add_ad_hoc_exercise_v2(
@@ -678,6 +943,1371 @@ select throws_ok(
   '22023',
   'PROGRAM_POSITION_REGRESSION',
   'programme position cannot move backwards'
+);
+
+insert into public.movements (
+  id,
+  name,
+  category,
+  resistance_mode,
+  pattern,
+  load_convention
+)
+values
+  (
+    'release-integrity-swap-original',
+    'Release integrity swap original',
+    'accessory',
+    'dumbbell',
+    'accessory',
+    'implement_weight'
+  ),
+  (
+    'release-integrity-swap-replacement',
+    'Release integrity swap replacement',
+    'accessory',
+    'bodyweight',
+    'accessory',
+    'bodyweight_only'
+  ),
+  (
+    'release-integrity-swap-alternate',
+    'Release integrity swap alternate',
+    'accessory',
+    'dumbbell',
+    'accessory',
+    'implement_weight'
+  );
+
+update public.movements
+set equipment = array['bodyweight']::text[]
+where id = 'release-integrity-swap-replacement';
+
+create temporary table substitution_previous_fixtures (
+  name text primary key,
+  value jsonb not null
+) on commit drop;
+
+insert into substitution_previous_fixtures (name, value)
+values (
+  'valid',
+  '{
+    "movementId":"release-integrity-swap-replacement",
+    "label":"Fabricated but structurally valid caller history",
+    "load":999,
+    "reps":99,
+    "rir":0,
+    "workoutDate":"2026-07-01",
+    "timeZone":"Asia/Singapore",
+    "performedAt":"2026-07-01T10:00:00+08:00",
+    "e1rm":9999,
+    "setType":"accessory",
+    "sets":[
+      {"setIndex":0,"load":999,"reps":99,"rir":0}
+    ]
+  }'::jsonb
+);
+
+insert into public.workout_sessions (
+  id,
+  user_id,
+  program_instance_id,
+  planned_session_id,
+  status,
+  scheduled_date,
+  completed_at,
+  prescription_snapshot,
+  state_version
+) values (
+  '00000000-0000-4000-8000-000000000098',
+  '00000000-0000-4000-8000-000000000091',
+  null,
+  null,
+  'completed',
+  '2026-07-29',
+  '2026-07-29T02:00:00Z',
+  '{
+    "id":"substitution-history",
+    "templateId":"substitution-template",
+    "title":"Substitution history",
+    "scheduledDate":"2026-07-29",
+    "timeZone":"Asia/Singapore",
+    "units":"kg",
+    "movements":[]
+  }'::jsonb,
+  0
+);
+
+insert into public.exercise_logs (
+  id,
+  user_id,
+  session_id,
+  slot_id,
+  planned_movement_id,
+  performed_movement_id,
+  role,
+  order_index,
+  target_summary
+) values (
+  '00000000-0000-4000-8000-000000000099',
+  '00000000-0000-4000-8000-000000000091',
+  '00000000-0000-4000-8000-000000000098',
+  'release-integrity-swap-slot',
+  'release-integrity-swap-original',
+  'release-integrity-swap-replacement',
+  'accessory',
+  0,
+  '2 × 10'
+);
+
+insert into public.set_logs (
+  id,
+  user_id,
+  exercise_log_id,
+  set_index,
+  actual_load,
+  actual_reps,
+  actual_rir,
+  completed
+) values
+  (
+    '00000000-0000-4000-8000-000000000100',
+    '00000000-0000-4000-8000-000000000091',
+    '00000000-0000-4000-8000-000000000099',
+    0,
+    12.5,
+    10,
+    2,
+    true
+  ),
+  (
+    '00000000-0000-4000-8000-000000000101',
+    '00000000-0000-4000-8000-000000000091',
+    '00000000-0000-4000-8000-000000000099',
+    1,
+    12.5,
+    9,
+    2,
+    true
+  );
+
+insert into public.workout_sessions (
+  id,
+  user_id,
+  program_instance_id,
+  planned_session_id,
+  status,
+  scheduled_date,
+  prescription_snapshot,
+  state_version
+) values (
+  '00000000-0000-4000-8000-000000000096',
+  '00000000-0000-4000-8000-000000000091',
+  null,
+  null,
+  'in_progress',
+  '2026-07-30',
+  '{
+    "id":"substitution-integrity",
+    "templateId":"substitution-template",
+    "title":"Substitution integrity",
+    "weekLabel":"Week 1",
+    "scheduledDate":"2026-07-30",
+    "timeZone":"Asia/Singapore",
+    "units":"kg",
+    "movements":[{
+      "id":"release-integrity-swap-slot",
+      "slotId":"release-integrity-swap-slot",
+      "phaseKey":"fixture-phase",
+      "movementId":"release-integrity-swap-original",
+      "movementName":"Release integrity swap original",
+      "role":"accessory",
+      "orderIndex":0,
+      "targetSummary":"3 × 10",
+      "sets":[{"id":"set-0","setIndex":0,"targetReps":10}],
+      "previous":{"stale":true}
+    }]
+  }'::jsonb,
+  0
+);
+
+insert into public.exercise_logs (
+  id,
+  user_id,
+  session_id,
+  slot_id,
+  planned_movement_id,
+  performed_movement_id,
+  role,
+  order_index,
+  target_summary
+) values (
+  '00000000-0000-4000-8000-000000000097',
+  '00000000-0000-4000-8000-000000000091',
+  '00000000-0000-4000-8000-000000000096',
+  'release-integrity-swap-slot',
+  'release-integrity-swap-original',
+  'release-integrity-swap-original',
+  'accessory',
+  0,
+  '3 × 10'
+);
+
+insert into public.set_logs (
+  id,
+  user_id,
+  exercise_log_id,
+  set_index,
+  target_load,
+  target_reps,
+  actual_load,
+  actual_reps,
+  completed
+) values (
+  '00000000-0000-4000-8000-000000000102',
+  '00000000-0000-4000-8000-000000000091',
+  '00000000-0000-4000-8000-000000000097',
+  0,
+  55,
+  10,
+  55,
+  10,
+  false
+);
+
+select is(
+  public.substitute_session_movement_v2(
+    '00000000-0000-4000-8000-000000000096',
+    'substitution-valid-request',
+    0,
+    '{
+      "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+      "performedMovementId":"release-integrity-swap-replacement",
+      "reason":"preference",
+      "note":"Database contract fixture",
+      "scope":"session"
+    }'::jsonb,
+    '00000000-0000-4000-8000-000000000097',
+    'release-integrity-swap-replacement',
+    'preference',
+    'Database contract fixture',
+    'session',
+    'fixture-phase',
+    (
+      select value
+      from substitution_previous_fixtures
+      where name = 'valid'
+    )
+  )->>'stateVersion',
+  '1',
+  'a valid substitution and generated previous comparable commit together'
+);
+
+select is(
+  (
+    select concat(
+      prescription_snapshot #>> '{movements,0,previous,load}',
+      ':',
+      prescription_snapshot #>> '{movements,0,previous,reps}',
+      ':',
+      prescription_snapshot #>> '{movements,0,previous,workoutDate}',
+      ':',
+      prescription_snapshot #>> '{movements,0,previous,timeZone}',
+      ':',
+      prescription_snapshot #>> '{movements,0,previous,sets,1,reps}'
+    )
+    from public.workout_sessions
+    where id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '12.5:10:2026-07-29:Asia/Singapore:9',
+  'the database ignores fabricated caller history and derives the canonical completed result'
+);
+
+select is(
+  (
+    select concat(
+      prescription_snapshot #>> '{movements,0,performedMovementId}',
+      ':',
+      prescription_snapshot #>> '{movements,0,performedMovementName}'
+    )
+    from public.workout_sessions
+    where id = '00000000-0000-4000-8000-000000000096'
+  ),
+  'release-integrity-swap-replacement:Release integrity swap replacement',
+  'the snapshot movement identity changes in the same substitution'
+);
+
+select is(
+  (
+    select concat(
+      exercise.performed_movement_id,
+      ':',
+      coalesce(active_set.actual_load::text, 'null')
+    )
+    from public.exercise_logs as exercise
+    join public.set_logs as active_set
+      on active_set.exercise_log_id = exercise.id
+    where exercise.id = '00000000-0000-4000-8000-000000000097'
+  ),
+  'release-integrity-swap-replacement:null',
+  'the exercise row changes and an untouched weighted seed is cleared for bodyweight'
+);
+
+select is(
+  (
+    select count(*)::text
+    from public.substitution_logs
+    where session_id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '1',
+  'the valid substitution writes one audit row'
+);
+
+select is(
+  public.substitute_session_movement_v2(
+    '00000000-0000-4000-8000-000000000096',
+    'substitution-valid-request',
+    0,
+    '{
+      "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+      "performedMovementId":"release-integrity-swap-replacement",
+      "reason":"preference",
+      "note":"Database contract fixture",
+      "scope":"session"
+    }'::jsonb,
+    '00000000-0000-4000-8000-000000000097',
+    'release-integrity-swap-replacement',
+    'preference',
+    'Database contract fixture',
+    'session',
+    '',
+    '{"movementId":"malformed-derived-replay"}'::jsonb
+  )->>'stateVersion',
+  '1',
+  'an exact substitution replay returns before regenerated values are validated'
+);
+
+select is(
+  (
+    select concat(
+      session.state_version,
+      ':',
+      (
+        select count(*)
+        from public.substitution_logs
+        where session_id = session.id
+      )
+    )
+    from public.workout_sessions as session
+    where session.id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '1:1',
+  'an exact substitution replay does not advance state or duplicate audit rows'
+);
+
+select is(
+  public.substitute_session_movement_v2(
+    '00000000-0000-4000-8000-000000000096',
+    'substitution-clear-request',
+    1,
+    '{
+      "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+      "performedMovementId":"release-integrity-swap-alternate",
+      "reason":"equipment_missing",
+      "note":null,
+      "scope":"session"
+    }'::jsonb,
+    '00000000-0000-4000-8000-000000000097',
+    'release-integrity-swap-alternate',
+    'equipment_missing',
+    null,
+    'session',
+    'fixture-phase',
+    null
+  )->>'stateVersion',
+  '2',
+  'a substitution without a comparable advances the session once'
+);
+
+select is(
+  (
+    select jsonb_typeof(
+      prescription_snapshot #> '{movements,0,previous}'
+    )
+    from public.workout_sessions
+    where id = '00000000-0000-4000-8000-000000000096'
+  ),
+  'null',
+  'a null comparable clears the stale snapshot previous value'
+);
+
+select is(
+  (
+    select concat(
+      exercise.performed_movement_id,
+      ':',
+      (
+        select count(*)
+        from public.substitution_logs
+        where session_id = exercise.session_id
+      )
+    )
+    from public.exercise_logs as exercise
+    where exercise.id = '00000000-0000-4000-8000-000000000097'
+  ),
+  'release-integrity-swap-alternate:2',
+  'clearing the comparable still updates the exercise and audit atomically'
+);
+
+select throws_ok(
+  $$
+    select public.substitute_session_movement_v2(
+      '00000000-0000-4000-8000-000000000096',
+      'substitution-noop-request',
+      2,
+      '{
+        "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+        "performedMovementId":"release-integrity-swap-alternate",
+        "reason":"preference",
+        "note":null,
+        "scope":"session"
+      }'::jsonb,
+      '00000000-0000-4000-8000-000000000097',
+      'release-integrity-swap-alternate',
+      'preference',
+      null,
+      'session',
+      'fixture-phase',
+      null
+    )
+  $$,
+  'P0001',
+  'MOVEMENT_ALREADY_SELECTED',
+  'a no-op substitution cannot be reused to change its authorized scope'
+);
+
+select throws_ok(
+  $$
+    select public.substitute_session_movement_v2(
+      '00000000-0000-4000-8000-000000000096',
+      'substitution-mismatch-request',
+      2,
+      '{
+        "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+        "performedMovementId":"squat",
+        "reason":"preference",
+        "note":null,
+        "scope":"session"
+      }'::jsonb,
+      '00000000-0000-4000-8000-000000000097',
+      'squat',
+      'preference',
+      null,
+      'session',
+      'fixture-phase',
+      null
+    )
+  $$,
+  'P0001',
+  'MOVEMENT_SWAP_NOT_ALLOWED',
+  'an unsupported replacement movement is rejected inside the atomic boundary'
+);
+
+select is(
+  (
+    select concat(
+      session.state_version,
+      ':',
+      exercise.performed_movement_id,
+      ':',
+      jsonb_typeof(session.prescription_snapshot #> '{movements,0,previous}'),
+      ':',
+      (
+        select count(*)
+        from public.substitution_logs
+        where session_id = session.id
+      ),
+      ':',
+      (
+        select count(*)
+        from public.session_mutation_receipts
+        where request_id = 'substitution-mismatch-request'
+      )
+    )
+    from public.workout_sessions as session
+    join public.exercise_logs as exercise
+      on exercise.session_id = session.id
+    where session.id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '2:release-integrity-swap-alternate:null:2:0',
+  'unsupported-movement rejection leaves snapshot, row, audit, receipt, and version unchanged'
+);
+
+select throws_ok(
+  $$
+    select public.substitute_session_movement_v2(
+      '00000000-0000-4000-8000-000000000096',
+      'substitution-malformed-request',
+      2,
+      '{
+        "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+        "performedMovementId":"release-integrity-swap-replacement",
+        "reason":"preference",
+        "note":null,
+        "scope":"session"
+      }'::jsonb,
+      '00000000-0000-4000-8000-000000000097',
+      'release-integrity-swap-replacement',
+      'preference',
+      null,
+      'session',
+      'forged-phase',
+      jsonb_set(
+        (
+          select value
+          from substitution_previous_fixtures
+          where name = 'valid'
+        ),
+        '{sets}',
+        '{"not":"an array"}'::jsonb
+      )
+    )
+  $$,
+  '22023',
+  'PHASE_KEY_MISMATCH',
+  'a caller cannot persist an arbitrary programme phase key'
+);
+
+select is(
+  (
+    select concat(
+      session.state_version,
+      ':',
+      exercise.performed_movement_id,
+      ':',
+      jsonb_typeof(session.prescription_snapshot #> '{movements,0,previous}'),
+      ':',
+      (
+        select count(*)
+        from public.substitution_logs
+        where session_id = session.id
+      ),
+      ':',
+      (
+        select count(*)
+        from public.session_mutation_receipts
+        where request_id = 'substitution-malformed-request'
+      )
+    )
+    from public.workout_sessions as session
+    join public.exercise_logs as exercise
+      on exercise.session_id = session.id
+    where session.id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '2:release-integrity-swap-alternate:null:2:0',
+  'phase-key rejection rolls the entire attempted mutation back'
+);
+
+update public.set_logs
+set completed = true
+where id = '00000000-0000-4000-8000-000000000102';
+
+select throws_ok(
+  $$
+    select public.substitute_session_movement_v2(
+      '00000000-0000-4000-8000-000000000096',
+      'substitution-after-logging-request',
+      2,
+      '{
+        "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+        "performedMovementId":"release-integrity-swap-replacement",
+        "reason":"preference",
+        "note":null,
+        "scope":"session"
+      }'::jsonb,
+      '00000000-0000-4000-8000-000000000097',
+      'release-integrity-swap-replacement',
+      'preference',
+      null,
+      'session',
+      'fixture-phase',
+      null
+    )
+  $$,
+  'P0001',
+  'MOVEMENT_SWAP_AFTER_LOGGING',
+  'a completed set prevents retroactive movement reattribution'
+);
+
+select is(
+  (
+    select concat(
+      session.state_version,
+      ':',
+      exercise.performed_movement_id,
+      ':',
+      (
+        select count(*)
+        from public.substitution_logs
+        where session_id = session.id
+      ),
+      ':',
+      (
+        select count(*)
+        from public.session_mutation_receipts
+        where request_id = 'substitution-after-logging-request'
+      )
+    )
+    from public.workout_sessions as session
+    join public.exercise_logs as exercise
+      on exercise.session_id = session.id
+    where session.id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '2:release-integrity-swap-alternate:2:0',
+  'a rejected post-log swap leaves movement, audit, receipt, and version unchanged'
+);
+
+select is(
+  public.substitute_session_movement_v2(
+    '00000000-0000-4000-8000-000000000096',
+    'substitution-clear-request',
+    1,
+    '{
+      "exerciseLogId":"00000000-0000-4000-8000-000000000097",
+      "performedMovementId":"release-integrity-swap-alternate",
+      "reason":"equipment_missing",
+      "note":null,
+      "scope":"session"
+    }'::jsonb,
+    '00000000-0000-4000-8000-000000000097',
+    'release-integrity-swap-alternate',
+    'equipment_missing',
+    null,
+    'session',
+    '',
+    '{"malformed":"recomputed replay data"}'::jsonb
+  )->>'stateVersion',
+  '2',
+  'an exact null-comparable replay returns its original durable version'
+);
+
+select is(
+  (
+    select concat(
+      state_version,
+      ':',
+      (
+        select count(*)
+        from public.substitution_logs
+        where session_id = '00000000-0000-4000-8000-000000000096'
+      ),
+      ':',
+      (
+        select count(*)
+        from public.session_mutation_receipts
+        where session_id = '00000000-0000-4000-8000-000000000096'
+      )
+    )
+    from public.workout_sessions
+    where id = '00000000-0000-4000-8000-000000000096'
+  ),
+  '2:2:2',
+  'replaying either substitution intent remains idempotent after later mutations'
+);
+
+select throws_ok(
+  $$
+    select public.set_program_equipment_mode_v1(
+      '00000000-0000-4000-8000-000000000095',
+      'standard',
+      1,
+      null,
+      null,
+      null
+    )
+  $$,
+  'P0001',
+  'WORKOUT_IN_PROGRESS',
+  'equipment mode cannot change while any workout is in progress'
+);
+
+insert into auth.users (id, email)
+values (
+  '00000000-0000-4000-8000-000000000202',
+  'equipment-bypass@example.test'
+);
+insert into public.profiles (id, email)
+values (
+  '00000000-0000-4000-8000-000000000202',
+  'equipment-bypass@example.test'
+);
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-4000-8000-000000000202',
+  true
+);
+
+select throws_ok(
+  $$
+    select public.start_program_v3(
+      'equipment-empty-choice-bypass',
+      'healthy-531-fsl',
+      (
+        select id
+        from public.program_template_versions
+        where template_id = 'healthy-531-fsl'
+        order by created_at desc, id desc
+        limit 1
+      ),
+      (
+        select definition_checksum
+        from public.program_template_versions
+        where template_id = 'healthy-531-fsl'
+        order by created_at desc, id desc
+        limit 1
+      ),
+      'Equipment bypass fixture',
+      current_date,
+      'kg',
+      2.5,
+      'cycle',
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      false,
+      'free_weight',
+      '00000000-0000-4000-8000-000000000201',
+      (
+        select definition_checksum
+        from public.equipment_mode_policy_versions
+        where id = '00000000-0000-4000-8000-000000000201'
+      ),
+      '[]'::jsonb
+    )
+  $$,
+  'P0001',
+  'FREE_WEIGHT_CHOICE_STALE',
+  'direct programme start rejects an empty free-weight choice bypass'
+);
+
+select throws_ok(
+  $$
+    select public.start_program_v3(
+      'equipment-partial-choice-bypass',
+      'healthy-531-fsl',
+      (
+        select id
+        from public.program_template_versions
+        where template_id = 'healthy-531-fsl'
+        order by created_at desc, id desc
+        limit 1
+      ),
+      (
+        select definition_checksum
+        from public.program_template_versions
+        where template_id = 'healthy-531-fsl'
+        order by created_at desc, id desc
+        limit 1
+      ),
+      'Equipment bypass fixture',
+      current_date,
+      'kg',
+      2.5,
+      'cycle',
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      false,
+      'free_weight',
+      '00000000-0000-4000-8000-000000000201',
+      (
+        select definition_checksum
+        from public.equipment_mode_policy_versions
+        where id = '00000000-0000-4000-8000-000000000201'
+      ),
+      '[{
+        "templateSessionId":"forged",
+        "slotId":"forged",
+        "phaseKey":"cycle",
+        "role":"accessory",
+        "sourceMovementId":"lat_pulldown",
+        "replacementMovementId":"pull_up",
+        "policyRuleId":"free-weight-v1-lat_pulldown"
+      }]'::jsonb
+    )
+  $$,
+  'P0001',
+  'FREE_WEIGHT_CHOICE_STALE',
+  'direct programme start rejects a partial free-weight choice bypass'
+);
+
+select lives_ok(
+  $$
+    select public.start_program_v3(
+      'equipment-standard-replay',
+      'healthy-531-fsl',
+      (
+        select id
+        from public.program_template_versions
+        where template_id = 'healthy-531-fsl'
+        order by created_at desc, id desc
+        limit 1
+      ),
+      (
+        select definition_checksum
+        from public.program_template_versions
+        where template_id = 'healthy-531-fsl'
+        order by created_at desc, id desc
+        limit 1
+      ),
+      'Equipment standard replay fixture',
+      current_date,
+      'kg',
+      2.5,
+      'cycle',
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      false,
+      'standard',
+      null,
+      null,
+      '[]'::jsonb
+    )
+  $$,
+  'a standard v3 programme can be created with an equipment-aware mutation key'
+);
+
+select throws_ok(
+  $$
+    select public.start_program_v3(
+      'equipment-standard-replay',
+      'healthy-531-fsl',
+      (
+        select id
+        from public.program_template_versions
+        where template_id = 'healthy-531-fsl'
+        order by created_at desc, id desc
+        limit 1
+      ),
+      (
+        select definition_checksum
+        from public.program_template_versions
+        where template_id = 'healthy-531-fsl'
+        order by created_at desc, id desc
+        limit 1
+      ),
+      'Equipment standard replay fixture',
+      current_date,
+      'kg',
+      2.5,
+      'cycle',
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      false,
+      'free_weight',
+      '00000000-0000-4000-8000-000000000201',
+      (
+        select definition_checksum
+        from public.equipment_mode_policy_versions
+        where id = '00000000-0000-4000-8000-000000000201'
+      ),
+      '[]'::jsonb
+    )
+  $$,
+  '40001',
+  'IDEMPOTENCY_CONFLICT',
+  'a standard start cannot be replayed as a free-weight start'
+);
+
+select is(
+  (
+    select concat(
+      equipment_mode,
+      ':',
+      free_weight_policy_version_id is null,
+      ':',
+      free_weight_choices_hash is null
+    )
+    from public.program_instances
+    where user_id = '00000000-0000-4000-8000-000000000202'
+      and client_mutation_id = 'equipment-standard-replay'
+  ),
+  'standard:t:t',
+  'a conflicting free-weight replay cannot mutate the standard programme'
+);
+
+update public.program_instances
+set status = 'archived'
+where user_id = '00000000-0000-4000-8000-000000000202'
+  and client_mutation_id = 'equipment-standard-replay';
+
+select is(
+  public.create_custom_program_template_v2(
+    '{
+      "id":"custom-00000000-equipment-replay",
+      "name":"Equipment replay template",
+      "description":"A one-slot equipment idempotency fixture.",
+      "daysPerWeek":1,
+      "progressionLabel":"Manual",
+      "complexity":"Beginner",
+      "schemaVersion":"2026.06.dsl",
+      "tags":["custom","test"]
+    }'::jsonb,
+    '{
+      "schemaVersion":"2026.06.dsl",
+      "id":"custom-00000000-equipment-replay",
+      "name":"Equipment replay template",
+      "durationWeeks":1,
+      "daysPerWeek":1,
+      "requiredState":[],
+      "timelineDescription":"Equipment replay fixture.",
+      "sessions":[{
+        "id":"day-1",
+        "title":"Day 1",
+        "slots":[{
+          "id":"pulldown",
+          "role":"accessory",
+          "movementId":"lat_pulldown",
+          "prescriptionId":"manual"
+        }]
+      }],
+      "weeks":[{"label":"Week 1","phaseKey":"base","prescriptions":{}}],
+      "progressionRules":{"manual":"Keep load stable."}
+    }'::jsonb
+  ),
+  'custom-00000000-equipment-replay',
+  'the equipment replay fixture has one complete non-free source slot'
+);
+
+select lives_ok(
+  $$
+    select public.start_program_v3(
+      'equipment-free-replay',
+      'custom-00000000-equipment-replay',
+      (
+        select id
+        from public.program_template_versions
+        where template_id = 'custom-00000000-equipment-replay'
+          and version = '1'
+      ),
+      (
+        select definition_checksum
+        from public.program_template_versions
+        where template_id = 'custom-00000000-equipment-replay'
+          and version = '1'
+      ),
+      'Equipment free replay fixture',
+      current_date,
+      'kg',
+      2.5,
+      null,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      false,
+      'free_weight',
+      '00000000-0000-4000-8000-000000000201',
+      (
+        select definition_checksum
+        from public.equipment_mode_policy_versions
+        where id = '00000000-0000-4000-8000-000000000201'
+      ),
+      '[{
+        "templateSessionId":"day-1",
+        "slotId":"slot-day-1-pulldown",
+        "phaseKey":"base",
+        "role":"accessory",
+        "sourceMovementId":"lat_pulldown",
+        "replacementMovementId":"pull_up",
+        "policyRuleId":"free-weight-v1-lat_pulldown"
+      }]'::jsonb
+    )
+  $$,
+  'a complete free-weight v3 programme persists its normalized choice identity'
+);
+
+select throws_ok(
+  $$
+    select public.start_program_v3(
+      'equipment-free-replay',
+      'custom-00000000-equipment-replay',
+      (
+        select id
+        from public.program_template_versions
+        where template_id = 'custom-00000000-equipment-replay'
+          and version = '1'
+      ),
+      (
+        select definition_checksum
+        from public.program_template_versions
+        where template_id = 'custom-00000000-equipment-replay'
+          and version = '1'
+      ),
+      'Equipment free replay fixture',
+      current_date,
+      'kg',
+      2.5,
+      null,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      false,
+      'free_weight',
+      '00000000-0000-4000-8000-000000000201',
+      (
+        select definition_checksum
+        from public.equipment_mode_policy_versions
+        where id = '00000000-0000-4000-8000-000000000201'
+      ),
+      '[{
+        "templateSessionId":"day-1",
+        "slotId":"slot-day-1-pulldown",
+        "phaseKey":"base",
+        "role":"accessory",
+        "sourceMovementId":"lat_pulldown",
+        "replacementMovementId":"chin_up",
+        "policyRuleId":"free-weight-v1-lat_pulldown"
+      }]'::jsonb
+    )
+  $$,
+  '40001',
+  'IDEMPOTENCY_CONFLICT',
+  'a free-weight start cannot replay the same request with changed choices'
+);
+
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-4000-8000-000000000091',
+  true
+);
+
+insert into public.program_accessory_additions (
+  user_id,
+  program_instance_id,
+  session_id,
+  slot_id,
+  phase_key,
+  movement_id,
+  prescription_id,
+  effective_from_week_index,
+  order_index
+) values (
+  '00000000-0000-4000-8000-000000000091',
+  '00000000-0000-4000-8000-000000000095',
+  'day-1',
+  'equipment-review-slot',
+  'base',
+  'lat_pulldown',
+  'manual',
+  0,
+  1
+);
+insert into public.program_equipment_mode_choices (
+  user_id,
+  program_instance_id,
+  equipment_mode,
+  template_session_id,
+  slot_id,
+  phase_key,
+  role,
+  source_movement_id,
+  replacement_movement_id,
+  policy_rule_id
+) values (
+  '00000000-0000-4000-8000-000000000091',
+  '00000000-0000-4000-8000-000000000095',
+  'free_weight',
+  'day-1',
+  'slot-day-1-equipment-review-slot',
+  'base',
+  'accessory',
+  'lat_pulldown',
+  'pull_up',
+  'free-weight-v1-lat_pulldown'
+);
+update public.program_instances
+set
+  equipment_mode = 'free_weight',
+  free_weight_policy_version_id = '00000000-0000-4000-8000-000000000201',
+  free_weight_choices_hash = md5('[{"fixture":true}]'::jsonb::text)
+where id = '00000000-0000-4000-8000-000000000095';
+
+select lives_ok(
+  $$
+    select public.validate_program_equipment_snapshot_v1(
+      '00000000-0000-4000-8000-000000000095',
+      '{
+        "id":"day-1-w1",
+        "templateSessionId":"day-1",
+        "equipmentMode":"free_weight",
+        "freeWeightPolicyVersionId":"00000000-0000-4000-8000-000000000201",
+        "movements":[{
+          "id":"slot-day-1-new-free-accessory",
+          "slotId":"slot-day-1-new-free-accessory",
+          "phaseKey":"base",
+          "movementId":"pull_up",
+          "role":"accessory",
+          "isAdded":true,
+          "addedScope":"phase_slot",
+          "sets":[]
+        }]
+      }'::jsonb
+    )
+  $$,
+  'a strict free-weight phase-slot addition is valid in its creating live session'
+);
+
+select throws_ok(
+  $$
+    select public.validate_program_equipment_snapshot_v1(
+      '00000000-0000-4000-8000-000000000095',
+      '{
+        "id":"day-1-w1",
+        "templateSessionId":"day-1",
+        "equipmentMode":"free_weight",
+        "freeWeightPolicyVersionId":"00000000-0000-4000-8000-000000000201",
+        "movements":[{
+          "id":"slot-day-1-equipment-review-slot",
+          "slotId":"slot-day-1-equipment-review-slot",
+          "phaseKey":"base",
+          "movementId":"pull_up",
+          "role":"accessory",
+          "isAdded":true,
+          "addedScope":"phase_slot",
+          "sets":[]
+        }]
+      }'::jsonb
+    )
+  $$,
+  'P0001',
+  'FREE_WEIGHT_CHOICE_STALE',
+  'an eligible target cannot omit its required free-weight provenance'
+);
+
+select throws_ok(
+  $$
+    select public.validate_program_equipment_snapshot_v1(
+      '00000000-0000-4000-8000-000000000095',
+      '{
+        "id":"day-1-w1",
+        "templateSessionId":"day-1",
+        "equipmentMode":"free_weight",
+        "freeWeightPolicyVersionId":"00000000-0000-4000-8000-000000000201",
+        "movements":[{
+          "id":"slot-day-1-equipment-review-slot",
+          "slotId":"slot-day-1-equipment-review-slot",
+          "phaseKey":"base",
+          "movementId":"pull_up",
+          "role":"accessory",
+          "isAdded":true,
+          "addedScope":"phase_slot",
+          "modeAdaptation":{
+            "mode":"free_weight",
+            "sourceMovementId":"lat_pulldown",
+            "policyRuleId":"free-weight-v1-lat_pulldown",
+            "loadReset":true
+          },
+          "sets":[{"setIndex":0,"targetLoad":10,"actualLoad":null}]
+        }]
+      }'::jsonb
+    )
+  $$,
+  'P0001',
+  'FREE_WEIGHT_CHOICE_STALE',
+  'adapted snapshot provenance cannot retain a caller-supplied load'
+);
+
+select throws_ok(
+  $$
+    update public.equipment_mode_policy_versions
+    set schema_version = 'forged'
+    where id = '00000000-0000-4000-8000-000000000201'
+  $$,
+  'P0001',
+  'PINNED_POLICY_VERSION_IMMUTABLE',
+  'a policy becomes immutable as soon as programme history pins it'
+);
+
+update public.program_instances
+set equipment_mode = 'standard'
+where id = '00000000-0000-4000-8000-000000000095';
+
+select is(
+  (
+    select concat(
+      equipment_mode,
+      ':',
+      free_weight_policy_version_id is not null,
+      ':',
+      free_weight_choices_hash is not null
+    )
+    from public.program_instances
+    where id = '00000000-0000-4000-8000-000000000095'
+  ),
+  'standard:t:t',
+  'standard mode retains its dormant policy pin and choices hash'
+);
+
+update public.workout_sessions
+set
+  program_instance_id = '00000000-0000-4000-8000-000000000095',
+  planned_session_id = 'day-1',
+  prescription_snapshot = '{
+    "id":"added-phase-scope-integrity",
+    "templateSessionId":"day-1",
+    "equipmentMode":"standard",
+    "title":"Added phase-scope integrity",
+    "weekLabel":"Week 1",
+    "scheduledDate":"2026-07-30",
+    "timeZone":"Asia/Singapore",
+    "units":"kg",
+    "movements":[{
+      "id":"added-phase-swap-slot",
+      "slotId":"added-phase-swap-slot",
+      "phaseKey":"base",
+      "movementId":"chin_up",
+      "movementName":"Chin-up",
+      "role":"accessory",
+      "orderIndex":0,
+      "targetSummary":"3 × 10",
+      "isAdded":true,
+      "addedScope":"phase_slot",
+      "sets":[{"id":"set-0","setIndex":0,"targetReps":10}]
+    }]
+  }'::jsonb
+where id = '00000000-0000-4000-8000-000000000096';
+
+insert into public.exercise_logs (
+  id,
+  user_id,
+  session_id,
+  slot_id,
+  planned_movement_id,
+  performed_movement_id,
+  role,
+  order_index,
+  target_summary
+) values (
+  '00000000-0000-4000-8000-000000000204',
+  '00000000-0000-4000-8000-000000000091',
+  '00000000-0000-4000-8000-000000000096',
+  'added-phase-swap-slot',
+  'chin_up',
+  'chin_up',
+  'accessory',
+  0,
+  '3 × 10'
+);
+
+create temporary table added_phase_scope_before
+on commit drop
+as
+select
+  session.state_version as session_state_version,
+  program.customization_status,
+  program.customization_summary,
+  (
+    select count(*)
+    from public.program_movement_overrides
+    where program_instance_id = program.id
+  ) as override_count,
+  (
+    select count(*)
+    from public.session_program_change_journal
+    where session_id = session.id
+  ) as journal_count,
+  (
+    select count(*)
+    from public.session_mutation_receipts
+    where session_id = session.id
+      and request_id = 'added-phase-scope-bypass'
+  ) as receipt_count
+from public.workout_sessions as session
+join public.program_instances as program
+  on program.id = session.program_instance_id
+where session.id = '00000000-0000-4000-8000-000000000096';
+
+select throws_ok(
+  $$
+    select public.substitute_session_movement_v2(
+      '00000000-0000-4000-8000-000000000096',
+      'added-phase-scope-bypass',
+      (
+        select state_version
+        from public.workout_sessions
+        where id = '00000000-0000-4000-8000-000000000096'
+      ),
+      '{
+        "exerciseLogId":"00000000-0000-4000-8000-000000000204",
+        "performedMovementId":"pull_up",
+        "reason":"preference",
+        "note":null,
+        "scope":"phase_slot"
+      }'::jsonb,
+      '00000000-0000-4000-8000-000000000204',
+      'pull_up',
+      'preference',
+      null,
+      'phase_slot',
+      'base',
+      null
+    )
+  $$,
+  'P0001',
+  'ADDED_ACCESSORY_PHASE_SCOPE_UNSUPPORTED',
+  'an added accessory cannot persist an unreachable phase-slot override'
+);
+
+select is(
+  (
+    select performed_movement_id
+    from public.exercise_logs
+    where id = '00000000-0000-4000-8000-000000000204'
+  ),
+  'chin_up',
+  'a rejected added-accessory phase swap leaves performed movement unchanged'
+);
+
+select is(
+  (
+    select concat(
+      session.state_version = before.session_state_version,
+      ':',
+      program.customization_status is not distinct from
+        before.customization_status,
+      ':',
+      program.customization_summary is not distinct from
+        before.customization_summary,
+      ':',
+      (
+        select count(*)
+        from public.program_movement_overrides
+        where program_instance_id = program.id
+      ) = before.override_count,
+      ':',
+      (
+        select count(*)
+        from public.session_program_change_journal
+        where session_id = session.id
+      ) = before.journal_count,
+      ':',
+      (
+        select count(*)
+        from public.session_mutation_receipts
+        where session_id = session.id
+          and request_id = 'added-phase-scope-bypass'
+      ) = before.receipt_count
+    )
+    from public.workout_sessions as session
+    join public.program_instances as program
+      on program.id = session.program_instance_id
+    cross join added_phase_scope_before as before
+    where session.id = '00000000-0000-4000-8000-000000000096'
+  ),
+  't:t:t:t:t:t',
+  'phase-scope rejection rolls back session, customization, journal, and receipt state'
 );
 
 select * from finish();

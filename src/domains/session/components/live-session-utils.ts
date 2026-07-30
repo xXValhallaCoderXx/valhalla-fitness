@@ -1,4 +1,3 @@
-import type { MovementHistorySet } from '~/domains/history'
 import type { AccessoryMovementOption } from '~/domains/movement'
 import type {
   MovementSlot,
@@ -7,7 +6,8 @@ import type {
   SubstitutionReason,
   WorkoutSession,
 } from '~/domains/session'
-import { describeSet } from '~/shared/lib/set-notation'
+import { defaultsToBodyweightLoad } from '~/domains/movement/lib/movements'
+import { externalLoadOrNull, isPositiveLoad } from '~/shared/lib/load'
 
 // Overview-only set table: SET · TARGET · KG · REPS · RIR · ✓ (Target is shown on mobile too,
 // freed up by the narrow RIR chip). Desktop KG/Reps columns are wider to host the inline ±
@@ -41,46 +41,66 @@ export function getTopSet(movement: MovementSlot) {
   return movement.sets.find((set) => set.isTopSet || set.isAmrap) ?? movement.sets.at(-1)
 }
 
+function isBodyweightSubstitution(
+  movement: Pick<MovementSlot, 'movementId' | 'performedMovementId'>,
+) {
+  const performedMovementId = movement.performedMovementId ?? movement.movementId
+  return (
+    performedMovementId !== movement.movementId &&
+    defaultsToBodyweightLoad(performedMovementId)
+  )
+}
+
 export function getProgressionHint(movement: MovementSlot, topSet?: SetLog) {
   if (!topSet) return 'Complete the prescribed work and log RIR so recommendations stay accurate.'
   if (movement.role === 'main') {
-    return `${formatSetTarget(topSet)} is the key set. Extra clean reps with honest RIR can support a stronger progression call.`
+    return `${formatSetTarget(topSet, undefined, true, movement)} is the key set. Extra clean reps with honest RIR can support a stronger progression call.`
   }
   return 'Stay inside the target rep range and record RIR to make accessory progression reviewable later.'
 }
 
-export function formatSetTarget(set: SetLog, units?: string, includeUnit = true) {
-  const load = set.targetLoad ?? set.actualLoad
+export function formatSetTarget(
+  set: SetLog,
+  units?: string,
+  includeUnit = true,
+  movement?: Pick<MovementSlot, 'movementId' | 'performedMovementId'>,
+) {
+  const load = movement && isBodyweightSubstitution(movement)
+    ? 0
+    : set.targetLoad ?? set.actualLoad
   const reps = set.targetReps ?? (set.targetRepMin && set.targetRepMax ? `${set.targetRepMin}-${set.targetRepMax}` : set.targetRepMin)
-  const loadText = load == null ? '—' : `${formatNumber(load)}${includeUnit && units ? ` ${units}` : ''}`
+  const externalLoad = externalLoadOrNull(load)
+  const loadText =
+    load == null
+      ? '—'
+      : externalLoad == null
+        ? 'BW'
+        : `${formatNumber(externalLoad)}${includeUnit && units ? ` ${units}` : ''}`
   const repsText = reps == null ? '—' : `${reps}${set.isAmrap ? '+' : ''}`
   return `${loadText} × ${repsText}`
 }
 
-export function formatHistorySet(set: MovementHistorySet, units?: string) {
-  return describeSet(set, units).compact
-}
-
 /**
- * Compact "last time" label for the movement header, e.g. "90 kg × 5" — the full detail
+ * Compact previous-comparable label for the movement header, e.g. "90 kg × 5" — the full detail
  * (date, e1RM, RIR) stays in `previous.label` and is surfaced via tooltip.
  */
 export function formatPreviousShort(previous: PreviousComparable, units?: string) {
-  const loadText = typeof previous.load === 'number' ? `${formatNumber(previous.load)}${units ? ` ${units}` : ''}` : 'BW'
+  const load = externalLoadOrNull(previous.load)
+  const loadText = load == null ? 'BW' : `${formatNumber(load)}${units ? ` ${units}` : ''}`
   const repsText = typeof previous.reps === 'number' ? String(previous.reps) : '—'
   return `${loadText} × ${repsText}`
 }
 
 /**
- * Per-row "last time" ghost, e.g. "last 80 × 8" — what this exact set position got last
- * session. Unitless on purpose (the movement header's chip carries units); null when the
- * comparable has no matching set (older snapshots, added sets, or no history at all).
+ * Per-row previous-comparable ghost, e.g. "previous 80 × 8". Unitless on purpose
+ * (the movement header's chip carries units); null when the comparable has no
+ * matching set (older snapshots, added sets, or no history at all).
  */
 export function previousSetShort(previous: PreviousComparable | null | undefined, setIndex: number): string | null {
   const match = previous?.sets?.find((set) => set.setIndex === setIndex)
   if (!match || typeof match.reps !== 'number' || match.reps <= 0) return null
   const loadText = typeof match.load === 'number' && match.load > 0 ? formatNumber(match.load) : 'BW'
-  return `last ${loadText} × ${match.reps}`
+  return `previous ${loadText} × ${match.reps}`
 }
 
 export function roundToStep(value: number, step: number) {
@@ -104,18 +124,20 @@ export function selectAllOnFocus(event: { currentTarget: HTMLInputElement }) {
   })
 }
 
-function isPositiveLoad(value: number | null | undefined): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
-}
-
 /**
  * Weight to pre-fill for a set: a logged value wins, then the prescribed target. Sets without a
  * prescribed load (user-selected accessories) carry the nearest earlier completed set's weight,
  * falling back to last session's comparable — so straight sets only need the weight entered once.
  */
 export function seedLoadForSet(movement: MovementSlot, set: SetLog): number {
-  if (set.actualLoad != null) return set.actualLoad
-  if (set.targetLoad != null) return set.targetLoad
+  const bodyweightSubstitution = isBodyweightSubstitution(movement)
+  const hasUntouchedTransferredLoad =
+    bodyweightSubstitution &&
+    !set.completed &&
+    set.targetLoad != null &&
+    set.actualLoad === set.targetLoad
+  if (set.actualLoad != null && !hasUntouchedTransferredLoad) return set.actualLoad
+  if (!bodyweightSubstitution && set.targetLoad != null) return set.targetLoad
   let carried: number | null = null
   let carriedIndex = -1
   for (const other of movement.sets) {
@@ -128,6 +150,18 @@ export function seedLoadForSet(movement: MovementSlot, set: SetLog): number {
   if (carried != null) return carried
   const previousLoad = movement.previous?.load
   return isPositiveLoad(previousLoad) ? previousLoad : 0
+}
+
+export function getMovementSwapControl(
+  movement: Pick<MovementSlot, 'role' | 'sets'>,
+): { disabled: boolean; title: string } {
+  if (movement.role === 'main') {
+    return { disabled: true, title: 'Main lifts cannot be swapped' }
+  }
+  if (movement.sets.some((set) => set.completed)) {
+    return { disabled: true, title: 'Undo completed sets before swapping movement' }
+  }
+  return { disabled: false, title: 'Swap movement' }
 }
 
 function isPositiveReps(value: number | null | undefined): value is number {

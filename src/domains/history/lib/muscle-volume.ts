@@ -40,7 +40,7 @@ export function buildWeeklyRegionSets(
   const buckets = new Map<string, { weekStart: Date; regionSets: Partial<Record<BodyRegionId, number>>; totalSets: number }>()
 
   for (const session of sessions) {
-    const date = parseDate(session.completedAt ?? session.scheduledDate)
+    const date = parseDate(session.scheduledDate)
     if (!date) continue
     const weekStart = startOfWeek(date)
     const key = formatDateKey(weekStart)
@@ -59,6 +59,7 @@ export function buildWeeklyRegionSets(
       const weights = resolveRegionWeights(
         exercise.performedMovementId,
         catalog[exercise.performedMovementId]?.category,
+        catalog[exercise.performedMovementId],
       )
       const entries = Object.entries(weights) as Array<[BodyRegionId, number]>
       const weightSum = entries.reduce((sum, [, weight]) => sum + (weight ?? 0), 0)

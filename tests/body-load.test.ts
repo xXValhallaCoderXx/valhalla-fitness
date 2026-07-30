@@ -63,6 +63,15 @@ describe('body load model', () => {
       biceps: 0.2,
     })
   })
+
+  it('uses catalog muscle metadata for newly cataloged movements', () => {
+    expect(resolveRegionWeights('standing_machine_calf_raise')).toEqual({
+      calves: 1,
+    })
+    expect(resolveRegionWeights('hip_abduction_machine')).toEqual({
+      glutes: 1,
+    })
+  })
 })
 
 function region(over: Partial<BodyLoadRegion> = {}): BodyLoadRegion {

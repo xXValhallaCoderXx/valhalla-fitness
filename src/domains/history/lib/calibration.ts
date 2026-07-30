@@ -55,7 +55,7 @@ export function buildCalibration(sessions: HistorySessionInput[], now: string): 
   const samples: PairedSample[] = []
   for (const session of sessions) {
     if (session.programInstanceId == null) continue
-    const date = parseDate(session.completedAt ?? session.scheduledDate)
+    const date = parseDate(session.scheduledDate)
     if (!date) continue
     for (const exercise of session.exercises) {
       for (const set of exercise.sets) {

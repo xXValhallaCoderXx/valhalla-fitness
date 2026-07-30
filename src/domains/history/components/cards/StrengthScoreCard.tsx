@@ -39,7 +39,7 @@ export function StrengthScoreCard({
   const metric = totalMetricFor(score.kind)
   const chartPoints = filterToRange(insights.totalSeries, range, {
     firstDataDate: insights.firstSessionDate,
-    now: insights.generatedAt,
+    now: insights.today,
     getDate: (point) => point.date,
   })
     .map((point) => ({ date: formatCompactDate(point.date), value: totalMetricValue(point, metric) }))

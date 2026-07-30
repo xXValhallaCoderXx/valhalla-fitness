@@ -38,7 +38,7 @@ export function StrengthTab({
 
   const totalPoints = filterToRange(insights.totalSeries, range, {
     firstDataDate: insights.firstSessionDate,
-    now: insights.generatedAt,
+    now: insights.today,
     getDate: (point) => point.date,
   })
   const hasBodyweight = insights.bodyweight.entries.length > 0

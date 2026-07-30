@@ -89,6 +89,7 @@ export function LiveFocusView({
           onBack={onExitToOverview}
           centerPrimary={session.title}
           centerSecondary=""
+          equipmentMode={session.equipmentMode}
           finishLabel={finishLabel}
           finishDisabled={finishDisabled}
           onFinish={onFinish}
@@ -138,6 +139,7 @@ export function LiveFocusView({
         onBack={onExitToOverview}
         centerPrimary={activeMovement.movementName}
         centerSecondary={`${session.title} · Set ${setNumber} of ${setTotal}`}
+        equipmentMode={session.equipmentMode}
         finishLabel={finishLabel}
         finishDisabled={finishDisabled}
         onFinish={onFinish}
@@ -173,7 +175,7 @@ export function LiveFocusView({
 
         {selectedSet ? (
           <FocusSetCard
-            key={`${activeMovement.id}-${selectedSet.setIndex}`}
+            key={`${activeMovement.id}-${activeMovement.performedMovementId ?? activeMovement.movementId}-${selectedSet.setIndex}`}
             session={session}
             movement={activeMovement}
             set={selectedSet}

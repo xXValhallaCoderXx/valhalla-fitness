@@ -1,26 +1,21 @@
 import { createServerFn } from '@tanstack/react-start'
 import type {
-  MovementSlot,
   PlannedSession,
   SessionPr,
   SetLog,
   TodayPayload,
   WorkoutSession,
 } from '~/domains/session'
-import type { Unit } from '~/shared/types'
 import { sessionLineageKey } from '~/domains/session/lib/ad-hoc'
-import {
-  collectChunkedSessionQueryPages,
-  collectSessionQueryPages,
-  uniqueRowsById,
-} from '~/domains/session/lib/session-query-pages'
 import { ensureProfile } from '~/domains/account/server/profile-functions'
 import { expandPlannedSession, programForNextUncompletedSession } from '~/domains/program/lib/templates'
-import { e1rm, mround } from '~/domains/program/lib/progression'
 import { getMovementName } from '~/domains/movement/lib/movements'
 import { sessionIdInputSchema } from '~/domains/session/lib/schemas'
-import type { SupabaseServerClient } from '~/shared/server/supabase'
-import { calendarDateInTimeZone } from '~/shared/lib/calendar-date'
+import { getPreviousComparablesBySlotId } from '~/domains/session/server/previous-comparables'
+import {
+  calendarDateInTimeZone,
+  resolveIanaTimeZone,
+} from '~/shared/lib/calendar-date'
 import {
   getActiveProgramInternal,
   getPendingDecisionsInternal,
@@ -57,7 +52,8 @@ export async function getTodayInternal(timeZone?: string | null): Promise<TodayP
   const templateDefinition = activeProgram.templateDefinition
   if (!templateDefinition) throw new Error('Active program template definition missing')
   const profile = await ensureProfile()
-  const scheduledDate = calendarDateInTimeZone(new Date(), timeZone ?? profile.timezone)
+  const resolvedTimeZone = resolveIanaTimeZone(timeZone ?? profile.timezone)
+  const scheduledDate = calendarDateInTimeZone(new Date(), resolvedTimeZone)
 
   const { data: completedSessionRows, error: completedSessionError } = await supabase
     .from('workout_sessions')
@@ -83,13 +79,19 @@ export async function getTodayInternal(timeZone?: string | null): Promise<TodayP
     }
   }
 
-  const barePlannedSession = expandPlannedSession(activeProgram, scheduledDate, templateDefinition)
-  const plannedSession = expandPlannedSession(
-    activeProgram,
-    scheduledDate,
-    templateDefinition,
-    await getPreviousComparablesBySlotId(supabase, user.id, barePlannedSession),
-  )
+  const barePlannedSession = {
+    ...expandPlannedSession(activeProgram, scheduledDate, templateDefinition),
+    timeZone: resolvedTimeZone,
+  }
+  const plannedSession = {
+    ...expandPlannedSession(
+      activeProgram,
+      scheduledDate,
+      templateDefinition,
+      await getPreviousComparablesBySlotId(supabase, user.id, barePlannedSession),
+    ),
+    timeZone: resolvedTimeZone,
+  }
   const pendingDecisions = await getPendingDecisionsInternal(activeProgram.id)
 
   return {
@@ -99,258 +101,6 @@ export async function getTodayInternal(timeZone?: string | null): Promise<TodayP
     completedSession,
     pendingDecisions,
   }
-}
-
-type ComparableCandidate = {
-  slotId: string
-  plannedMovementId: string
-  performedMovementId: string
-  role: MovementSlot['role']
-  completedAt?: string | null
-  scheduledDate: string
-  templateId?: string | null
-  sets: SetLog[]
-}
-
-type ComparableSessionRow = {
-  id: string
-  completed_at?: string | null
-  scheduled_date: string
-  prescription_snapshot?: PlannedSession | null
-}
-
-export async function getPreviousComparablesBySlotId(
-  supabase: SupabaseServerClient,
-  userId: string,
-  plannedSession: PlannedSession,
-): Promise<Record<string, MovementSlot['previous']>> {
-  const movementIds = new Set(
-    plannedSession.movements.flatMap((movement) => [
-      movement.movementId,
-      movement.performedMovementId ?? movement.movementId,
-    ]),
-  )
-  if (!movementIds.size) return {}
-
-  const movementIdList = Array.from(movementIds)
-  const [plannedExerciseRows, performedExerciseRows] = await Promise.all([
-    collectSessionQueryPages((from, to) =>
-      supabase
-        .from('exercise_logs')
-        .select('id, session_id, slot_id, planned_movement_id, performed_movement_id, role, created_at')
-        .eq('user_id', userId)
-        .in('planned_movement_id', movementIdList)
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false })
-        .range(from, to),
-    ),
-    collectSessionQueryPages((from, to) =>
-      supabase
-        .from('exercise_logs')
-        .select('id, session_id, slot_id, planned_movement_id, performed_movement_id, role, created_at')
-        .eq('user_id', userId)
-        .in('performed_movement_id', movementIdList)
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false })
-        .range(from, to),
-    ),
-  ])
-  const relevantExerciseRows = uniqueRowsById(
-    [...plannedExerciseRows, ...performedExerciseRows],
-  )
-  const exerciseIds = relevantExerciseRows.map((exercise) => exercise.id)
-  const sessionIds = Array.from(new Set(relevantExerciseRows.map((exercise) => exercise.session_id)))
-  if (!exerciseIds.length || !sessionIds.length) return {}
-
-  const sessionRows = await collectChunkedSessionQueryPages(sessionIds, (idChunk, from, to) =>
-    supabase
-      .from('workout_sessions')
-      .select('id, status, completed_at, scheduled_date, prescription_snapshot')
-      .eq('user_id', userId)
-      .eq('status', 'completed')
-      .in('id', idChunk)
-      .order('id', { ascending: true })
-      .range(from, to),
-  )
-
-  const completedSessionsById = new Map<string, ComparableSessionRow>(
-    sessionRows.map((session) => [session.id, { ...session, prescription_snapshot: session.prescription_snapshot as PlannedSession | null }]),
-  )
-  const completedExerciseRows = relevantExerciseRows.filter((exercise) => completedSessionsById.has(exercise.session_id))
-  if (!completedExerciseRows.length) return {}
-
-  const setRows = await collectChunkedSessionQueryPages(
-    completedExerciseRows.map((exercise) => exercise.id),
-    (idChunk, from, to) =>
-      supabase
-        .from('set_logs')
-        .select('id, exercise_log_id, set_index, target_load, target_reps, target_rep_min, target_rep_max, target_rir, target_rpe, actual_load, actual_reps, actual_rir, actual_rpe, completed, is_top_set, is_amrap, is_backoff')
-        .eq('user_id', userId)
-        .eq('completed', true)
-        .in('exercise_log_id', idChunk)
-        .order('exercise_log_id', { ascending: true })
-        .order('set_index', { ascending: true })
-        .order('id', { ascending: true })
-        .range(from, to),
-  )
-
-  const setsByExerciseId = new Map<string, SetLog[]>()
-  for (const row of setRows) {
-    const sets = setsByExerciseId.get(row.exercise_log_id) ?? []
-    sets.push({
-      id: row.id,
-      exerciseLogId: row.exercise_log_id,
-      setIndex: row.set_index,
-      targetLoad: row.target_load === null ? null : Number(row.target_load),
-      targetReps: row.target_reps,
-      targetRepMin: row.target_rep_min,
-      targetRepMax: row.target_rep_max,
-      targetRir: row.target_rir === null ? null : Number(row.target_rir),
-      targetRpe: row.target_rpe === null ? null : Number(row.target_rpe),
-      actualLoad: row.actual_load === null ? null : Number(row.actual_load),
-      actualReps: row.actual_reps,
-      actualRir: row.actual_rir === null ? null : Number(row.actual_rir),
-      actualRpe: row.actual_rpe === null ? null : Number(row.actual_rpe),
-      completed: row.completed,
-      isTopSet: row.is_top_set,
-      isAmrap: row.is_amrap,
-      isBackoff: row.is_backoff,
-    })
-    setsByExerciseId.set(row.exercise_log_id, sets)
-  }
-
-  const candidates: ComparableCandidate[] = completedExerciseRows.map((exercise): ComparableCandidate => {
-    const session = completedSessionsById.get(exercise.session_id)
-    const snapshot = session?.prescription_snapshot ?? null
-    return {
-      slotId: exercise.slot_id,
-      plannedMovementId: exercise.planned_movement_id,
-      performedMovementId: exercise.performed_movement_id,
-      role: exercise.role as MovementSlot['role'],
-      completedAt: session?.completed_at,
-      scheduledDate: session?.scheduled_date ?? plannedSession.scheduledDate,
-      templateId: snapshot?.templateId ?? null,
-      sets: setsByExerciseId.get(exercise.id) ?? [],
-    }
-  })
-
-  const result: Record<string, MovementSlot['previous']> = {}
-  for (const movement of plannedSession.movements) {
-    const slotId = movement.slotId ?? movement.id
-    const ranked: Array<{ candidate: ComparableCandidate; score: number }> = candidates
-      .map((candidate) => ({
-        candidate,
-        score: scoreComparableCandidate(plannedSession, movement, candidate),
-      }))
-      .filter((item) => item.score > 0)
-      .sort((left, right) => {
-        if (right.score !== left.score) return right.score - left.score
-        return comparableDate(right.candidate).localeCompare(comparableDate(left.candidate))
-      })
-    // Fall through the ranking when a candidate has no completed sets (e.g. a
-    // workout finished without logging anything) — a dead top candidate would
-    // otherwise erase "last time" and the per-set ghosts entirely.
-    for (const { candidate } of ranked) {
-      const comparable = comparableFromCandidate(movement, candidate, plannedSession.units)
-      if (comparable) {
-        result[slotId] = comparable
-        break
-      }
-    }
-  }
-  return result
-}
-
-function scoreComparableCandidate(
-  plannedSession: PlannedSession,
-  movement: MovementSlot,
-  candidate: ComparableCandidate,
-) {
-  let score = 0
-  const performedMovementId = movement.performedMovementId ?? movement.movementId
-  if (candidate.performedMovementId === performedMovementId) score += 100
-  if (candidate.plannedMovementId === movement.movementId) score += 80
-  if (candidate.role === movement.role) score += 20
-  if (candidate.templateId === plannedSession.templateId) score += 8
-  if (candidate.slotId === (movement.slotId ?? movement.id)) score += 12
-  return score
-}
-
-function hasNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
-}
-
-function comparableFromCandidate(
-  movement: MovementSlot,
-  candidate: ComparableCandidate,
-  units: Unit,
-): MovementSlot['previous'] {
-  const completedSets = candidate.sets.filter((set) => set.completed && hasNumber(set.actualReps))
-  if (!completedSets.length) return null
-  const set = movement.role === 'main' ? bestMainComparableSet(completedSets) : bestAccessoryComparableSet(completedSets)
-  if (!set) return null
-
-  const load = set.actualLoad ?? set.targetLoad ?? null
-  const reps = set.actualReps ?? set.targetReps ?? null
-  const estimatedMax = hasNumber(load) && hasNumber(reps) ? mround(e1rm(load, reps, set.actualRir ?? 0), 0.5) : null
-  const label =
-    movement.role === 'main'
-      ? `Last comparable: ${formatComparableSet(set, units)}${estimatedMax ? ` · e1RM ${formatNumber(estimatedMax)} ${units}` : ''} · ${formatComparableDate(comparableDate(candidate))}`
-      : `Last time: ${formatComparableSet(set, units)} · ${formatComparableDate(comparableDate(candidate))}`
-
-  return {
-    movementId: candidate.performedMovementId,
-    label,
-    load,
-    reps,
-    rir: set.actualRir ?? null,
-    performedAt: candidate.completedAt ?? candidate.scheduledDate,
-    e1rm: estimatedMax,
-    setType: set.isAmrap ? 'amrap' : set.isTopSet ? 'top_set' : set.isBackoff ? 'backoff' : movement.role === 'accessory' ? 'accessory' : 'best_set',
-    // Per-set actuals power the per-row "last time" ghosts in the logger.
-    sets: completedSets.map((completedSet) => ({
-      setIndex: completedSet.setIndex,
-      load: completedSet.actualLoad ?? completedSet.targetLoad ?? null,
-      reps: completedSet.actualReps ?? null,
-      rir: completedSet.actualRir ?? null,
-    })),
-  }
-}
-
-function bestMainComparableSet(sets: SetLog[]) {
-  const topSets = sets.filter((set) => set.isTopSet || set.isAmrap)
-  const pool = topSets.length ? topSets : sets
-  return [...pool].sort((left, right) => setScore(right) - setScore(left))[0] ?? null
-}
-
-function bestAccessoryComparableSet(sets: SetLog[]) {
-  return [...sets].sort((left, right) => setScore(right) - setScore(left))[0] ?? null
-}
-
-function setScore(set: SetLog) {
-  const load = set.actualLoad ?? set.targetLoad ?? 0
-  const reps = set.actualReps ?? set.targetReps ?? 0
-  return load > 0 ? e1rm(load, reps, set.actualRir ?? 0) : reps
-}
-
-function comparableDate(candidate: ComparableCandidate) {
-  return candidate.completedAt ?? candidate.scheduledDate
-}
-
-function formatComparableSet(set: SetLog, units: Unit) {
-  const load = set.actualLoad ?? set.targetLoad
-  const reps = set.actualReps ?? set.targetReps
-  const rir = typeof set.actualRir === 'number' ? ` @ RIR ${set.actualRir}` : ''
-  const loadText = typeof load === 'number' ? `${formatNumber(load)} ${units}` : 'bodyweight'
-  return `${loadText} x ${reps ?? '-'}${set.isAmrap ? '+' : ''}${rir}`
-}
-
-function formatComparableDate(value: string) {
-  return value.slice(0, 10)
-}
-
-function formatNumber(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }
 
 export async function getSessionInternal(sessionId: string): Promise<WorkoutSession> {

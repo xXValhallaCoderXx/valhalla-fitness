@@ -1,5 +1,6 @@
 import type { SetLog, WorkoutSession } from '~/domains/session'
 import type { MovementRole, Unit } from '~/shared/types'
+import { externalLoadOrNull, isPositiveLoad } from '~/shared/lib/load'
 import { e1rm } from '~/shared/lib/math'
 import { formatWeight } from '~/shared/lib/set-notation'
 
@@ -43,6 +44,9 @@ export type WorkoutSummaryModel = {
   notes: string | null
 }
 
+export const topSetCountExplanation =
+  'Counts only sets explicitly marked Top Set or AMRAP; Session Best is calculated separately from completed weighted sets.'
+
 function hasNum(value: number | null | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -50,7 +54,7 @@ function hasNum(value: number | null | undefined): value is number {
 /** Completed-set volume (load × reps), in the session's own units. */
 function completedVolume(sets: SetLog[]): number {
   return sets.reduce((total, set) => {
-    if (!set.completed || !hasNum(set.actualLoad) || !hasNum(set.actualReps)) return total
+    if (!set.completed || !isPositiveLoad(set.actualLoad) || !hasNum(set.actualReps)) return total
     return total + set.actualLoad * set.actualReps
   }, 0)
 }
@@ -79,15 +83,18 @@ export function rirTone(rir: number | null): EffortTone {
 
 /** "82.5 kg × 10+" — actual values, falling back to targets; bodyweight-aware. */
 function setResultLabel(set: SetLog, units: Unit): string {
-  const load = set.actualLoad ?? set.targetLoad
-  const loadText = load == null || load === 0 ? 'Bodyweight' : formatWeight(load, units)!
+  const usingActualReps = set.actualReps != null
+  const load = usingActualReps ? externalLoadOrNull(set.actualLoad) : externalLoadOrNull(set.targetLoad ?? set.actualLoad)
+  const loadText = load == null ? 'Bodyweight' : formatWeight(load, units)!
   const reps = set.actualReps ?? set.targetReps ?? set.targetRepMin ?? null
   const repsText = reps == null ? '—' : `${reps}${set.isAmrap ? '+' : ''}`
   return `${loadText} × ${repsText}`
 }
 
 function setScore(set: SetLog): number {
-  if (hasNum(set.actualLoad) && hasNum(set.actualReps)) return e1rm(set.actualLoad, set.actualReps, set.actualRir ?? 0)
+  if (isPositiveLoad(set.actualLoad) && hasNum(set.actualReps)) {
+    return e1rm(set.actualLoad, set.actualReps, set.actualRir ?? 0)
+  }
   return set.actualReps ?? 0
 }
 
@@ -96,7 +103,7 @@ function pickBestSet(sets: SetLog[]): SetLog | null {
   const completed = sets.filter((set) => set.completed)
   const pool = completed.length ? completed : sets
   if (!pool.length) return null
-  const top = pool.find((set) => set.isTopSet)
+  const top = pool.find((set) => set.isTopSet || set.isAmrap)
   if (top) return top
   return pool.reduce((best, set) => (setScore(set) > setScore(best) ? set : best), pool[0])
 }
@@ -122,7 +129,7 @@ export function buildWorkoutSummary(session: WorkoutSession): WorkoutSummaryMode
   for (const movement of session.movements) {
     const movementName = movement.performedMovementName ?? movement.movementName
     for (const set of movement.sets) {
-      if (!set.completed || !hasNum(set.actualLoad) || !hasNum(set.actualReps)) continue
+      if (!set.completed || !isPositiveLoad(set.actualLoad) || !hasNum(set.actualReps)) continue
       const value = e1rm(set.actualLoad, set.actualReps, set.actualRir ?? 0)
       if (!best || value > best.value) best = { set, movementName, value }
     }

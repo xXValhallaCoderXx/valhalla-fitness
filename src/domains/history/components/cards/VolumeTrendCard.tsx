@@ -25,7 +25,7 @@ export function VolumeTrendCard({
 }) {
   const weeks = filterToRange(insights.weeklyVolume, range, {
     firstDataDate: insights.firstSessionDate,
-    now: insights.generatedAt,
+    now: insights.today,
     getDate: (week) => week.weekStart,
   })
   const signal = resolveVolumeTrendSignal(weeks, gating)

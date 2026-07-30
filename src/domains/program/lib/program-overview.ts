@@ -30,6 +30,7 @@ export function buildProgramOverview({
   if (!program || !program.templateDefinition) {
     return {
       activeProgram: program,
+      hasActiveSession: Boolean(today.activeSession),
       position: null,
       nextSession: null,
       recentSessions,
@@ -67,6 +68,7 @@ export function buildProgramOverview({
 
   return {
     activeProgram: program,
+    hasActiveSession: Boolean(today.activeSession),
     position: {
       phaseKey: week?.phaseKey ?? 'current',
       phaseLabel: week?.phaseLabel ?? 'Current phase',

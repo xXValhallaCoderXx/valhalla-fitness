@@ -1,7 +1,10 @@
 import { createServerFn } from '@tanstack/react-start'
 import type { MovementSwapOption } from '~/domains/movement'
 import type { MovementSlot, PlannedSession } from '~/domains/session'
-import { buildMovementSwapOptions } from '~/domains/movement/lib/movements'
+import {
+  buildMovementSwapOptions,
+  isFreeWeightMovement,
+} from '~/domains/movement/lib/movements'
 import {
   getMovementCatalogForSwap,
   getReplacementRulesForSwap,
@@ -20,9 +23,11 @@ type SwapContext = {
   sessionRow: Tables<'workout_sessions'>
   exerciseRow: Tables<'exercise_logs'>
   snapshot: PlannedSession
+  movement: MovementSlot
   slotId: string
   phaseKey: string
   role: MovementSlot['role']
+  hasCompletedSets: boolean
 }
 
 async function getSwapContext(supabase: SupabaseServerClient, userId: string, sessionId: string, exerciseLogId: string): Promise<SwapContext> {
@@ -46,23 +51,39 @@ async function getSwapContext(supabase: SupabaseServerClient, userId: string, se
   const snapshot = sessionRow.prescription_snapshot as PlannedSession
   const slotId = exerciseRow.slot_id
   const movement = snapshot.movements.find((item) => (item.slotId ?? item.id) === slotId)
+  if (!movement) throw new Error('Workout movement snapshot is stale. Refresh and try again.')
+
+  const { count: completedSetCount, error: completedSetError } = await supabase
+    .from('set_logs')
+    .select('id', { count: 'exact', head: true })
+    .eq('exercise_log_id', exerciseLogId)
+    .eq('user_id', userId)
+    .eq('completed', true)
+  if (completedSetError) throw new Error(completedSetError.message)
 
   return {
     sessionRow,
     exerciseRow,
     snapshot,
+    movement,
     slotId,
     phaseKey: phaseKeyForSnapshot(snapshot, movement),
     role: exerciseRow.role as MovementSlot['role'],
+    hasCompletedSets: (completedSetCount ?? 0) > 0,
   }
 }
 
-async function getSwapOptionsForContext(supabase: SupabaseServerClient, context: SwapContext): Promise<MovementSwapOption[]> {
-  if (context.role === 'main') return []
+async function getSwapOptionsForContext(
+  supabase: SupabaseServerClient,
+  context: SwapContext,
+  providedCatalog?: Awaited<ReturnType<typeof getMovementCatalogForSwap>>,
+): Promise<MovementSwapOption[]> {
+  if (context.role === 'main' || context.hasCompletedSets) return []
   const [catalog, rules] = await Promise.all([
-    getMovementCatalogForSwap(supabase),
+    providedCatalog ?? getMovementCatalogForSwap(supabase),
     getReplacementRulesForSwap(supabase),
   ])
+  const freeWeightOnly = context.snapshot.equipmentMode === 'free_weight'
   const options = buildMovementSwapOptions({
     movementId: context.exerciseRow.planned_movement_id,
     role: context.role,
@@ -71,10 +92,17 @@ async function getSwapOptionsForContext(supabase: SupabaseServerClient, context:
     slotId: context.slotId,
     catalog,
     rules,
-  }).filter((option) => option.movementId !== context.exerciseRow.performed_movement_id)
+  }).filter(
+    (option) =>
+      option.movementId !== context.exerciseRow.performed_movement_id &&
+      (!freeWeightOnly || isFreeWeightMovement(catalog[option.movementId])),
+  )
   if (context.exerciseRow.performed_movement_id !== context.exerciseRow.planned_movement_id) {
     const plannedMovement = catalog[context.exerciseRow.planned_movement_id]
-    if (plannedMovement) {
+    if (
+      plannedMovement &&
+      (!freeWeightOnly || isFreeWeightMovement(plannedMovement))
+    ) {
       options.unshift({
         movementId: plannedMovement.id,
         movementName: plannedMovement.name,
@@ -83,6 +111,7 @@ async function getSwapOptionsForContext(supabase: SupabaseServerClient, context:
         relationshipLabel: 'Default for this slot',
         source: 'default',
         allowedScopes: ['session', 'phase_slot'],
+        freeWeightCompatible: isFreeWeightMovement(plannedMovement),
       })
     }
   }
@@ -116,6 +145,10 @@ export const substituteMovementFn = createServerFn({ method: 'POST' })
       .eq('user_id', user.id)
       .single()
     if (sessionStateError) throw new Error(sessionStateError.message)
+    const context = await getSwapContext(supabase, user.id, data.sessionId, data.exerciseLogId)
+    if (scope === 'phase_slot' && context.movement.isAdded) {
+      throw new Error('Added accessories can only be swapped for this session.')
+    }
     if (
       sessionState.status !== 'in_progress' ||
       Number(sessionState.state_version) !== data.expectedStateVersion
@@ -131,27 +164,43 @@ export const substituteMovementFn = createServerFn({ method: 'POST' })
         p_note: intent.note,
         p_scope: scope,
         p_phase_key: '',
+        p_previous: null,
       })
       if (replayError) throw new Error(replayError.message)
       return getSessionInternal(data.sessionId)
     }
-    const context = await getSwapContext(supabase, user.id, data.sessionId, data.exerciseLogId)
 
     if (context.role === 'main') {
       throw new Error('Main lifts cannot be swapped.')
+    }
+    if (context.hasCompletedSets) {
+      throw new Error('A movement cannot be swapped after one of its sets has been logged.')
     }
     if (scope === 'phase_slot' && context.sessionRow.program_instance_id === null) {
       throw new Error('Ad-hoc workouts only support session swaps.')
     }
 
-    if (context.exerciseRow.performed_movement_id !== data.performedMovementId) {
-      const options = await getSwapOptionsForContext(supabase, context)
-      const selectedOption = options.find(
-        (option) => option.movementId === data.performedMovementId && option.allowedScopes.includes(scope),
+    const catalog = await getMovementCatalogForSwap(supabase)
+    const replacementMovement = catalog[data.performedMovementId]
+    if (!replacementMovement) throw new Error('Unknown replacement movement.')
+    if (
+      context.snapshot.equipmentMode === 'free_weight' &&
+      !isFreeWeightMovement(replacementMovement)
+    ) {
+      throw new Error(
+        'Free weights only workouts require a free-weight replacement.',
       )
-      if (!selectedOption) {
-        throw new Error('This movement is not an allowed replacement for the selected slot.')
-      }
+    }
+    if (context.exerciseRow.performed_movement_id === data.performedMovementId) {
+      throw new Error('This movement is already selected.')
+    }
+
+    const options = await getSwapOptionsForContext(supabase, context, catalog)
+    const selectedOption = options.find(
+      (option) => option.movementId === data.performedMovementId && option.allowedScopes.includes(scope),
+    )
+    if (!selectedOption) {
+      throw new Error('This movement is not an allowed replacement for the selected slot.')
     }
 
     const { error: mutationError } = await supabase.rpc('substitute_session_movement_v2', {
@@ -165,6 +214,10 @@ export const substituteMovementFn = createServerFn({ method: 'POST' })
       p_note: intent.note,
       p_scope: scope,
       p_phase_key: context.phaseKey,
+      // The database derives the comparable from completed history. Keeping
+      // caller-generated history out of this mutation prevents direct RPC
+      // clients from persisting fabricated prior results.
+      p_previous: null,
     })
     if (mutationError) throw new Error(mutationError.message)
 

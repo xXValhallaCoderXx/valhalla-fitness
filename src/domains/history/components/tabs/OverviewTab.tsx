@@ -1,8 +1,12 @@
 import { Badge, Button } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import { Trophy } from 'lucide-react'
-import type { ReactNode } from 'react'
-import { formatCompactDate, formatRelativeTime } from '~/shared/lib/dates'
+import {
+  describeWorkoutDate,
+  formatCalendarRelativeDate,
+  formatCompactDate,
+} from '~/shared/lib/dates'
+import { useAccountClock } from '~/domains/account/components/AccountIdentityProvider'
 import { intensityColor } from '~/domains/history/lib/insights'
 import type { InsightRange } from '~/domains/history/lib/insight-ranges'
 import type {
@@ -13,7 +17,7 @@ import type {
   RecentHistoryEntry,
 } from '~/domains/history'
 import type { ProgramOverview } from '~/domains/program'
-import { Caption, EmptyState, Heading, Panel, SectionLabel, StatValue, Text } from '~/components'
+import { Caption, EmptyState, EquipmentModeBadge, Heading, Panel, SectionLabel, Text } from '~/components'
 import { CalibrationCard } from '../cards/CalibrationCard'
 import { ConsistencyCard } from '../cards/ConsistencyCard'
 import { MilestonesStrip } from '../cards/MilestonesStrip'
@@ -23,6 +27,7 @@ import { StallWatchStrip } from '../cards/StallWatchStrip'
 import { StrengthScoreCard } from '../cards/StrengthScoreCard'
 import { VolumeTrendCard } from '../cards/VolumeTrendCard'
 import { ACCENT_TEXT, formatBestSetPrimary, formatE1rm, formatLoad, type HistoryTab } from '../insight-format'
+import { OverviewKpiStrip, type OverviewKpi } from './OverviewKpiStrip'
 
 const UNLOCK_STEPS = [
   'Volume trend — 2 sessions',
@@ -49,16 +54,19 @@ export function OverviewTab({
   onNavigate: (tab: HistoryTab) => void
 }) {
   const { insights } = data
+  const clock = useAccountClock()
   const latestSession = data.recentSessions[0]
 
-  const kpis: Array<{ label: string; value: ReactNode; desktopOnly?: boolean }> = [
+  const kpis: OverviewKpi[] = [
     { label: 'Sessions', value: data.overview.completedSessions },
     { label: 'Logged sets', value: data.overview.loggedSets },
     { label: 'Total volume', value: formatLoad(data.overview.completedVolume, data.overview.units) },
     { label: 'Movements', value: data.overview.uniqueMovements },
     {
       label: 'Latest',
-      value: latestSession ? formatRelativeTime(latestSession.completedAt ?? latestSession.scheduledDate) : '—',
+      value: latestSession
+        ? formatCalendarRelativeDate(latestSession.scheduledDate, clock.today)
+        : '—',
       desktopOnly: true,
     },
   ]
@@ -83,7 +91,7 @@ export function OverviewTab({
 
   return (
     <div className="space-y-4">
-      <KpiStrip kpis={kpis} />
+      <OverviewKpiStrip kpis={kpis} />
 
       {gating.lifecycle === 'cold_start' ? (
         <>
@@ -111,7 +119,10 @@ export function OverviewTab({
               </Heading>
               <Caption mt={4}>
                 It&apos;s been a while — the numbers below are from{' '}
-                {formatRelativeTime(data.overview.latestTrainingDate ?? latestSession?.scheduledDate ?? null)}. Ease back in;
+                {formatCalendarRelativeDate(
+                  data.overview.latestTrainingDate ?? latestSession?.scheduledDate ?? null,
+                  clock.today,
+                ).toLowerCase()}. Ease back in;
                 strength returns fast.
               </Caption>
             </Panel>
@@ -167,30 +178,6 @@ export function OverviewTab({
   )
 }
 
-function KpiStrip({ kpis }: { kpis: Array<{ label: string; value: ReactNode; desktopOnly?: boolean }> }) {
-  return (
-    <Panel p={0} className="overflow-hidden">
-      <div
-        className="grid grid-cols-2 gap-px sm:grid-cols-3 lg:grid-cols-5"
-        style={{ backgroundColor: 'var(--mantine-color-default-border)' }}
-      >
-        {kpis.map((kpi) => (
-          <div
-            key={kpi.label}
-            className={kpi.desktopOnly ? 'hidden p-4 lg:block' : 'p-4'}
-            style={{ backgroundColor: 'var(--mantine-color-default)' }}
-          >
-            <SectionLabel>{kpi.label}</SectionLabel>
-            <StatValue size="xl" mt={4} truncate>
-              {kpi.value}
-            </StatValue>
-          </div>
-        ))}
-      </div>
-    </Panel>
-  )
-}
-
 function RecentSessionsPanel({
   data,
   onOpenSession,
@@ -227,7 +214,13 @@ function NavLink({ label, onClick }: { label: string; onClick: () => void }) {
 
 function RecentMiniRow({ session, onOpen }: { session: RecentHistoryEntry; onOpen: () => void }) {
   const color = intensityColor(session.hardness)
-  const date = session.completedAt ?? session.scheduledDate
+  const clock = useAccountClock()
+  const date = describeWorkoutDate({
+    scheduledDate: session.scheduledDate,
+    completedAt: session.completedAt,
+    timeZone: session.timeZone ?? clock.timeZone,
+    today: clock.today,
+  })
   return (
     <button
       type="button"
@@ -237,16 +230,20 @@ function RecentMiniRow({ session, onOpen }: { session: RecentHistoryEntry; onOpe
     >
       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: ACCENT_TEXT[color] }} />
       <div className="min-w-0 flex-1">
-        <Text size="sm" fw={700} truncate>
-          {session.title}
-        </Text>
+        <div className="flex items-center gap-2">
+          <Text size="sm" fw={700} truncate>
+            {session.title}
+          </Text>
+          <EquipmentModeBadge equipmentMode={session.equipmentMode} className="shrink-0" />
+        </div>
         <Caption truncate>{session.weekLabel ?? session.programTitle ?? 'Session'}</Caption>
+        {date.completionLabel ? <Caption truncate>{date.completionLabel}</Caption> : null}
       </div>
       <Badge color="success" style={{ flexShrink: 0 }}>
         {session.completedSetCount}/{session.plannedSetCount}
       </Badge>
       <Caption className="w-14 shrink-0" ta="right">
-        {formatCompactDate(date)}
+        {date.compactDate}
       </Caption>
     </button>
   )

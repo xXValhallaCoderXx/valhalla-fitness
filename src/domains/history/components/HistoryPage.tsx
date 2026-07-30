@@ -81,7 +81,7 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
   const gating = resolveInsightGating({
     completedSessions: data.overview.completedSessions,
     lastCompletedAt: data.overview.latestTrainingDate ?? null,
-    now: data.insights.generatedAt,
+    now: data.insights.today,
     program: programOverview?.activeProgram
       ? {
           status: programOverview.activeProgram.status,

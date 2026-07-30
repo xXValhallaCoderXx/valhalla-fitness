@@ -31,6 +31,38 @@ test('phased programme overview: blocks, phase tabs, and how-it-works', async ({
   await expect(page.getByRole('dialog').getByText('What Sheetless regulates')).toBeVisible()
 })
 
+test('free-weights-only mode previews and applies phased replacements', async ({
+  page,
+}) => {
+  await page.goto('/templates/bromley-bullmastiff/start')
+
+  await expect(async () => {
+    await page.getByText('Free weights only', { exact: true }).click()
+    await expect(
+      page.getByRole('dialog', { name: 'Use free weights only?' }),
+    ).toBeVisible({ timeout: 1500 })
+  }).toPass({ timeout: 15000 })
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Use free weights only?',
+  })
+  await expect(dialog.getByText('Base phase', { exact: true }).first()).toBeVisible()
+  await expect(dialog.getByText('Peak phase', { exact: true }).first()).toBeVisible()
+  await expect(dialog.getByText('Leg Press', { exact: true }).first()).toBeVisible()
+  await expect(dialog.getByText('Goblet Squat', { exact: true }).first()).toBeVisible()
+
+  await dialog
+    .getByRole('button', { name: 'Use free weights only', exact: true })
+    .click()
+  await expect(page.getByText('Goblet Squat', { exact: true }).first()).toBeVisible()
+  await expect(
+    page.getByText('Free weights only', { exact: true }).last(),
+  ).toBeVisible()
+
+  await page.getByText('All equipment', { exact: true }).click()
+  await expect(page.getByText('Leg Press', { exact: true }).first()).toBeVisible()
+})
+
 // Without saved strength estimates the Start CTA is disabled — tapping it must explain why
 // (same popover as the Values button) instead of doing nothing.
 test('disabled Start explains missing strength estimates on tap', async ({ page }) => {

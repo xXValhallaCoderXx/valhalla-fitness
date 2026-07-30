@@ -1,4 +1,4 @@
-import type { SubstitutionReason } from '~/domains/session'
+import type { PlannedSession, SubstitutionReason } from '~/domains/session'
 import type { MovementRole, SessionHardness, Unit } from '~/shared/types'
 
 export type RecentHistoryEntry = {
@@ -6,9 +6,11 @@ export type RecentHistoryEntry = {
   title: string
   completedAt?: string | null
   scheduledDate: string
+  timeZone?: string | null
   programTitle?: string | null
   weekLabel?: string | null
   hardness?: SessionHardness | null
+  equipmentMode?: PlannedSession['equipmentMode']
   estimatedMinutes?: number | null
   movementCount: number
   completedSetCount: number
@@ -25,6 +27,7 @@ export type MovementHistorySet = {
   targetRepMin?: number | null
   targetRepMax?: number | null
   targetRir?: number | null
+  /** Raw external resistance: positive = weighted, 0/null = bodyweight or loadless. */
   actualLoad?: number | null
   actualReps?: number | null
   actualRir?: number | null
@@ -41,7 +44,9 @@ export type MovementHistoryEntry = {
   programTitle?: string | null
   scheduledDate: string
   completedAt?: string | null
+  timeZone?: string | null
   units?: Unit | null
+  equipmentMode?: PlannedSession['equipmentMode']
   plannedMovementId: string
   performedMovementId: string
   performedMovementName: string
@@ -71,6 +76,7 @@ export type BodyLoadRegion = {
   impactPercent: number
   tier: BodyLoadTier
   recentSetCount: number
+  /** Scheduled workout calendar date (YYYY-MM-DD). */
   lastTrainedAt?: string | null
   movementNames: string[]
 }
@@ -89,6 +95,7 @@ export type HistoryBestSet = {
   movementName: string
   role: MovementRole
   type: 'top_set' | 'amrap' | 'accessory' | 'volume'
+  /** Normalized external resistance; null means bodyweight/loadless. */
   load?: number | null
   reps?: number | null
   rir?: number | null
@@ -96,6 +103,7 @@ export type HistoryBestSet = {
   volume?: number | null
   sessionId: string
   sessionTitle: string
+  /** Scheduled workout calendar date (YYYY-MM-DD). */
   performedAt?: string | null
   units?: Unit | null
 }
@@ -131,6 +139,7 @@ export type HistorySubstitutionSummary = {
   performedMovementName: string
   reason: SubstitutionReason
   note?: string | null
+  /** Scheduled workout calendar date (YYYY-MM-DD). */
   performedAt?: string | null
 }
 

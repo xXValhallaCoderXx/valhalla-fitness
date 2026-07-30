@@ -35,7 +35,7 @@ export type InsightGating = {
 }
 
 export type E1rmPoint = {
-  /** Session date (completedAt ?? scheduledDate, ISO). One point per session per lift. */
+  /** Scheduled workout calendar date (YYYY-MM-DD). One point per session per lift. */
   date: string
   sessionId: string
   e1rm: number
@@ -158,8 +158,12 @@ export type MilestoneSummary = {
 }
 
 export type HistoryInsights = {
-  /** Server timestamp all "weeks since"/range math keys off — never new Date() in render. */
+  /** Operational server generation timestamp for cache/debug visibility. */
   generatedAt: string
+  /** Current calendar date in `timeZone`; anchors all day/week calculations. */
+  today: string
+  /** Account IANA timezone used to derive `today`. */
+  timeZone: string
   firstSessionDate: string | null
   units: Unit | null
   liftSeries: LiftE1rmSeries[]

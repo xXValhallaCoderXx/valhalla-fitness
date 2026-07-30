@@ -1,7 +1,10 @@
 import type { Movement, MovementReplacementRule } from '~/domains/movement'
 import type { ProgramSetupPreviewWeek } from '~/domains/program'
 import type { MovementRole } from '~/shared/types'
-import { buildMovementSwapOptions, getMovementName } from '~/domains/movement/lib/movements'
+import {
+  buildMovementSwapOptions,
+  isFreeWeightMovement,
+} from '~/domains/movement/lib/movements'
 import type { TemplateDefinition } from '~/domains/program/lib/template-engine'
 
 type TemplateSlot = TemplateDefinition['sessions'][number]['slots'][number]
@@ -123,7 +126,10 @@ export function buildProgramStartPreview({
           role: slot.role,
           roleLabel: previewRoleLabel(slot.role, roleCounts.get(slot.role) ?? 1, roleIndex),
           defaultMovementId: movementId,
-          defaultMovementName: getMovementName(movementId),
+          defaultMovementName: catalog[movementId]?.name ?? movementId,
+          defaultFreeWeightCompatible: isFreeWeightMovement(
+            catalog[movementId],
+          ),
           targetSummary: slot.targetSummary ?? prescription?.targetSummary ?? 'No prescription',
           progressionRuleId: prescription?.progressionRuleId ?? null,
           replacementOptions,

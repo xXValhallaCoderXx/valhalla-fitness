@@ -9,6 +9,7 @@ import { buildCalibration } from '~/domains/history/lib/calibration'
 import { buildWeeklyRegionSets } from '~/domains/history/lib/muscle-volume'
 import { buildMilestones } from '~/domains/history/lib/milestones'
 import { movementCatalog } from '~/domains/movement/lib/movements'
+import { calendarDateInTimeZone, resolveIanaTimeZone } from '~/shared/lib/calendar-date'
 
 /**
  * Assembles the full-range insight payload the client slices by time range.
@@ -23,6 +24,8 @@ export function buildHistoryInsights({
   bodyweightEntries,
   sex,
   now,
+  today,
+  timeZone,
   catalog = movementCatalog,
 }: {
   sessions: HistorySessionInput[]
@@ -30,12 +33,16 @@ export function buildHistoryInsights({
   bodyweightEntries: BodyweightEntry[]
   sex: Sex | null
   now: string
+  today?: string
+  timeZone?: string | null
   catalog?: Record<string, Movement>
 }): HistoryInsights {
   const units = sessions.find((session) => session.units)?.units ?? null
   const firstSessionDate = sessions.length
-    ? (sessions[sessions.length - 1].completedAt ?? sessions[sessions.length - 1].scheduledDate)
+    ? sessions[sessions.length - 1].scheduledDate
     : null
+  const resolvedTimeZone = resolveIanaTimeZone(timeZone)
+  const accountToday = today ?? calendarDateInTimeZone(new Date(now), resolvedTimeZone)
 
   const liftSeries = buildLiftE1rmSeries(sessions, { catalog })
   const totalSeries = decorateTotalPoints(buildPowerliftingTotal(liftSeries, units), bodyweightEntries, sex)
@@ -45,15 +52,17 @@ export function buildHistoryInsights({
   // I now", while totalSeries carries the historically-paired DOTS trend.
   const currentBodyweight = bodyweightEntries.length
     ? bodyweightEntries[bodyweightEntries.length - 1]
-    : nearestBodyweight(bodyweightEntries, now)
+    : nearestBodyweight(bodyweightEntries, accountToday)
 
-  const weeklySessions = buildWeeklySessionCounts(sessions, now)
+  const weeklySessions = buildWeeklySessionCounts(sessions, accountToday)
   const completedReps = sessions
     .flatMap((session) => session.exercises.flatMap((exercise) => exercise.sets))
     .reduce((total, set) => (set.completed && typeof set.actualReps === 'number' ? total + set.actualReps : total), 0)
 
   return {
     generatedAt: now,
+    today: accountToday,
+    timeZone: resolvedTimeZone,
     firstSessionDate,
     units,
     liftSeries,
@@ -62,7 +71,7 @@ export function buildHistoryInsights({
     weeklyRegionSets: buildWeeklyRegionSets(sessions, { catalog }),
     weeklySessions,
     consistency: buildConsistency(weeklySessions),
-    calibration: buildCalibration(sessions, now),
+    calibration: buildCalibration(sessions, accountToday),
     bodyweight: { entries: bodyweightEntries, sex },
     strengthScore: resolveStrengthScore({
       total: latestTotal?.total ?? null,

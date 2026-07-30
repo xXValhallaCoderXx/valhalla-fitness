@@ -1,11 +1,13 @@
 import { Badge, Card, Group } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
-import { Caption, SectionLabel, Text } from '~/components'
+import { Caption, EquipmentModeBadge, SectionLabel, Text } from '~/components'
 import type { ProgramOverview } from '~/domains/program'
-import { formatCompactDate, formatRelativeTime } from '~/shared/lib/dates'
+import { useAccountClock } from '~/domains/account/components/AccountIdentityProvider'
+import { describeWorkoutDate } from '~/shared/lib/dates'
 
 export function RecentProgramSessions({ overview }: { overview: ProgramOverview }) {
+  const clock = useAccountClock()
   return (
     <Card p="md">
       <SectionLabel>Recent sessions</SectionLabel>
@@ -13,6 +15,12 @@ export function RecentProgramSessions({ overview }: { overview: ProgramOverview 
         <div className="mt-2">
           {overview.recentSessions.slice(0, 3).map((session, index) => {
             const complete = session.plannedSetCount > 0 && session.completedSetCount >= session.plannedSetCount
+            const date = describeWorkoutDate({
+              scheduledDate: session.scheduledDate,
+              completedAt: session.completedAt,
+              timeZone: session.timeZone ?? clock.timeZone,
+              today: clock.today,
+            })
             return (
               <Group
                 key={session.id}
@@ -23,12 +31,16 @@ export function RecentProgramSessions({ overview }: { overview: ProgramOverview 
                 style={index === 0 ? undefined : { borderTop: '1px solid var(--mantine-color-default-border)' }}
               >
                 <div className="min-w-0">
-                  <Text size="sm" fw={700} truncate>
-                    {session.title}
-                  </Text>
+                  <div className="flex items-center gap-2">
+                    <Text size="sm" fw={700} truncate>
+                      {session.title}
+                    </Text>
+                    <EquipmentModeBadge equipmentMode={session.equipmentMode} className="shrink-0" />
+                  </div>
                   <Caption mt={1} truncate>
-                    {sessionWhen(session.completedAt, session.scheduledDate)}
+                    {date.compactDate} · {date.relativeDate}
                   </Caption>
+                  {date.completionLabel ? <Caption mt={1} truncate>{date.completionLabel}</Caption> : null}
                 </div>
                 <Badge color={complete ? 'success' : 'warning'} variant="light" style={{ flexShrink: 0 }}>
                   {session.completedSetCount}/{session.plannedSetCount}
@@ -52,16 +64,4 @@ export function RecentProgramSessions({ overview }: { overview: ProgramOverview 
       )}
     </Card>
   )
-}
-
-/** "Yesterday" for fresh sessions, a compact date once it's older. */
-function sessionWhen(completedAt?: string | null, scheduledDate?: string) {
-  const stamp = completedAt ?? scheduledDate
-  if (!stamp) return 'Completed session'
-  const ageDays = (Date.now() - Date.parse(stamp)) / 86_400_000
-  if (Number.isFinite(ageDays) && ageDays < 2) {
-    const relative = formatRelativeTime(stamp)
-    return relative.charAt(0).toUpperCase() + relative.slice(1)
-  }
-  return formatCompactDate(stamp)
 }

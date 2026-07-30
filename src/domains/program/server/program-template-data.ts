@@ -1,4 +1,9 @@
-import type { ProgramTemplateOrigin, ProgramTemplateSummary } from '~/domains/program'
+import type {
+  FreeWeightPolicyRule,
+  FreeWeightPolicyVersion,
+  ProgramTemplateOrigin,
+  ProgramTemplateSummary,
+} from '~/domains/program'
 import { applyFamilyMeta } from '~/domains/program/lib/template-families'
 import { parseTemplateDefinition, validateTemplateDefinition } from '~/domains/program/lib/template-engine-schema'
 import type { TemplateDefinition } from '~/domains/program/lib/template-engine'
@@ -126,6 +131,65 @@ export async function getLatestTemplateVersion(
     id: templateVersionIdFromRows(data ?? []),
     definition: templateDefinitionFromRows(data ?? []),
     definitionChecksum: data?.[0]?.definition_checksum ?? '',
+  }
+}
+
+export async function getLatestFreeWeightPolicyVersion(
+  supabase: SupabaseServerClient,
+): Promise<FreeWeightPolicyVersion> {
+  const { data, error } = await supabase
+    .from('equipment_mode_policy_versions')
+    .select('id, version, definition, definition_checksum')
+    .eq('mode', 'free_weight')
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(1)
+    .single()
+  if (error) throw new Error(error.message)
+  const definition = data.definition as
+    | { rules?: FreeWeightPolicyRule[] }
+    | FreeWeightPolicyRule[]
+    | null
+  const rules = Array.isArray(definition)
+    ? definition
+    : definition?.rules
+  if (!Array.isArray(rules) || !rules.length) {
+    throw new Error('FREE_WEIGHT_POLICY_INVALID')
+  }
+  return {
+    id: data.id,
+    version: data.version,
+    checksum: data.definition_checksum,
+    rules,
+  }
+}
+
+export async function getFreeWeightPolicyVersionById(
+  supabase: SupabaseServerClient,
+  policyVersionId: string,
+): Promise<FreeWeightPolicyVersion> {
+  const { data, error } = await supabase
+    .from('equipment_mode_policy_versions')
+    .select('id, version, definition, definition_checksum')
+    .eq('id', policyVersionId)
+    .eq('mode', 'free_weight')
+    .single()
+  if (error) throw new Error(error.message)
+  const definition = data.definition as
+    | { rules?: FreeWeightPolicyRule[] }
+    | FreeWeightPolicyRule[]
+    | null
+  const rules = Array.isArray(definition)
+    ? definition
+    : definition?.rules
+  if (!Array.isArray(rules) || !rules.length) {
+    throw new Error('FREE_WEIGHT_POLICY_INVALID')
+  }
+  return {
+    id: data.id,
+    version: data.version,
+    checksum: data.definition_checksum,
+    rules,
   }
 }
 

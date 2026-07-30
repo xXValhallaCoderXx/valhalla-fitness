@@ -1,4 +1,8 @@
-import { getMovementName, movementCatalog } from '~/domains/movement/lib/movements'
+import {
+  getMovementName,
+  isActiveMovement,
+  movementCatalog,
+} from '~/domains/movement/lib/movements'
 import {
   createDefaultCustomProgramBuilderInput,
   type CustomProgramBuilderInput,
@@ -26,18 +30,19 @@ export function customBuilderStepsFor(methodology: CustomProgramMethodology): Ar
 }
 
 export const mainMovementOptions = Object.values(movementCatalog)
-  .filter((movement) => movement.isCompetition)
+  .filter((movement) => isActiveMovement(movement) && movement.isCompetition)
   .sort((left, right) => left.name.localeCompare(right.name))
 
 export const variationMovementOptions = Object.values(movementCatalog)
-  .filter((movement) => !movement.isCompetition && movement.variationOf)
+  .filter((movement) => isActiveMovement(movement) && !movement.isCompetition && movement.variationOf)
   .sort((left, right) => left.name.localeCompare(right.name))
 
 export const accessoryMovementOptions = Object.values(movementCatalog)
-  .filter((movement) => !movement.isCompetition)
+  .filter((movement) => isActiveMovement(movement) && !movement.isCompetition)
   .sort((left, right) => left.name.localeCompare(right.name))
 
 export const loggerMovementOptions = Object.values(movementCatalog)
+  .filter(isActiveMovement)
   .sort((left, right) => left.name.localeCompare(right.name))
 
 export function customBuilderDayTitle(index: number, movementId: string) {

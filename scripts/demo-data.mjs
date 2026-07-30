@@ -7,9 +7,16 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { URL } from 'node:url'
+import {
+  defaultsToBodyweightLoad,
+  movementCatalog,
+} from '../src/domains/movement/lib/movements.ts'
+import { getPreviousComparablesBySlotId } from '../src/domains/session/server/previous-comparables.ts'
 
 const DEMO_PASSWORD = 'DemoPass123!'
 const DEMO_EMAIL_DOMAIN = 'sheetless.local'
+const DEMO_TIME_ZONE = 'Asia/Singapore'
 
 const DEMO_USERS = [
   {
@@ -251,6 +258,53 @@ const DEMO_USERS = [
     liveOnboardingDismissed: true,
     seedAccessoryAdditions: true,
   },
+  {
+    // Dedicated to equipment-mode e2e. The spec restores all-equipment mode
+    // and discards its workout, so successful reruns return this account here.
+    email: `demo.equipment@${DEMO_EMAIL_DOMAIN}`,
+    displayName: 'Quinn Equipment',
+    title: 'Quinn - Equipment Mode',
+    templateId: 'generic_alternating_5x5_lp',
+    units: 'kg',
+    rounding: 2.5,
+    sex: 'female',
+    bodyweightKg: 66,
+    completedSessions: 0,
+    activeSession: false,
+    equipmentProfile: ['barbell', 'plates', 'rack', 'bench', 'dumbbells', 'machine', 'cable', 'bodyweight'],
+    stateKind: 'working_load',
+    startValues: {
+      squat: 60,
+      bench_press: 37.5,
+      overhead_press: 25,
+      deadlift: 80,
+      barbell_row: 40,
+    },
+    currentValues: {
+      squat: 60,
+      bench_press: 37.5,
+      overhead_press: 25,
+      deadlift: 80,
+      barbell_row: 40,
+    },
+    oneRepMaxes: {
+      squat: 90,
+      bench_press: 57.5,
+      deadlift: 120,
+      overhead_press: 40,
+      barbell_row: 62.5,
+    },
+    baseAccessories: {
+      lat_pulldown: 42.5,
+      seated_cable_row: 45,
+      hamstring_curl: 30,
+      cable_crunch: 30,
+    },
+    acceptedDecisions: [],
+    pendingDecisions: [],
+    liveOnboardingDismissed: true,
+    seedAccessoryAdditions: false,
+  },
 
   // ---- Onboarding test accounts (onboarding_completed = false) ----
   {
@@ -340,6 +394,12 @@ const anonKey = process.env.SUPABASE_ANON_KEY ?? env.SUPABASE_ANON_KEY ?? localS
 const needsSupabaseAdmin = action === 'seed' || action === 'refresh' || action === 'reset'
 const needsSignedInClient = action === 'seed' || action === 'refresh' || action === 'verify'
 
+if (needsSupabaseAdmin && !isLoopbackUrl(supabaseUrl)) {
+  console.error(`Refusing to ${action} demo users outside local Supabase (${supabaseUrl}).`)
+  console.error('Demo fixtures are destructive and local-only.')
+  process.exit(1)
+}
+
 if (needsSupabaseAdmin && !serviceRoleKey) {
   console.error('Missing SUPABASE_SERVICE_ROLE_KEY.')
   console.error('Start local Supabase with `pnpm exec supabase start`, or run `pnpm exec supabase status -o env` and copy SERVICE_ROLE_KEY into .env as SUPABASE_SERVICE_ROLE_KEY.')
@@ -386,6 +446,15 @@ function shouldLoadLocalSupabaseStatus() {
   const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY)
   const hasAnonKey = Boolean(process.env.SUPABASE_ANON_KEY ?? env.SUPABASE_ANON_KEY)
   return !hasServiceRoleKey || !hasAnonKey
+}
+
+function isLoopbackUrl(value) {
+  try {
+    const hostname = new URL(value).hostname
+    return hostname === 'localhost' || hostname === '::1' || hostname.startsWith('127.')
+  } catch {
+    return false
+  }
 }
 
 function loadEnv() {
@@ -445,12 +514,19 @@ async function resetDemoUsers() {
 async function seedDemoUsers() {
   for (const demo of DEMO_USERS) {
     const authUser = await createDemoAuthUser(demo)
-    const userClient = await createSignedInClient(demo)
-    await seedProfile(userClient, authUser.id, demo)
-    const lastSessionDate = demo.profileOnly ? null : await seedProgram(userClient, authUser.id, demo)
-    if (demo.adHocFavorite) await insertAdHocSession(userClient, authUser.id, demo)
-    await seedBodyweight(userClient, authUser.id, demo, lastSessionDate)
-    await userClient.auth.signOut()
+    // Programme/session tables are intentionally read-only to browser clients.
+    // This local-only fixture writer is already gated on the service-role key,
+    // while demo verification below still reads through each signed-in user.
+    await seedProfile(adminClient, authUser.id, demo)
+    const seededProgram = demo.profileOnly ? null : await seedProgram(adminClient, authUser.id, demo)
+    if (demo.adHocFavorite) await insertAdHocSession(adminClient, authUser.id, demo)
+    if (seededProgram && demo.activeSession) {
+      await insertActiveProgramSession(adminClient, authUser.id, demo, seededProgram)
+    }
+    const lastSessionDate = demo.activeSession
+      ? todayIsoDate(demo.timeZone ?? DEMO_TIME_ZONE)
+      : seededProgram?.latestSessionDate ?? null
+    await seedBodyweight(adminClient, authUser.id, demo, lastSessionDate)
   }
 
   printDemoUsers()
@@ -462,14 +538,18 @@ async function verifyDemoUsers() {
     const client = await createSignedInClient(demo)
     const { data: profile, error: profileError } = await client
       .from('profiles')
-      .select('id, display_name')
+      .select('id, display_name, timezone')
       .eq('email', demo.email)
       .maybeSingle()
     if (profileError) throw new Error(`Unable to verify ${demo.email}: ${profileError.message}`)
     if (!profile) {
-      console.log(`- ${demo.displayName}: missing profile`)
-      await client.auth.signOut()
-      continue
+      throw new Error(`${demo.email} is missing its seeded profile`)
+    }
+    const expectedTimeZone = demo.timeZone ?? DEMO_TIME_ZONE
+    if (profile.timezone !== expectedTimeZone) {
+      throw new Error(
+        `${demo.email} timezone mismatch: expected ${expectedTimeZone}, received ${profile.timezone ?? 'null'}`,
+      )
     }
 
     const { data: programs, error: programError } = await client
@@ -478,16 +558,30 @@ async function verifyDemoUsers() {
       .eq('user_id', profile.id)
     if (programError) throw new Error(`Unable to verify programmes for ${demo.email}: ${programError.message}`)
 
+    if (demo.profileOnly) {
+      if ((programs ?? []).length !== 0) {
+        throw new Error(`${demo.email} is profile-only but has ${(programs ?? []).length} programme(s)`)
+      }
+      console.log(`- ${demo.displayName}: profile-only fixture verified`)
+      continue
+    }
+
+    if ((programs ?? []).length !== 1) {
+      throw new Error(`${demo.email} expected exactly one programme, received ${(programs ?? []).length}`)
+    }
     const activeProgram = (programs ?? []).find((program) => program.status === 'active')
     if (!activeProgram) {
-      console.log(`- ${demo.displayName}: profile found, no active programme`)
-      await client.auth.signOut()
-      continue
+      throw new Error(`${demo.email} is missing its active programme`)
+    }
+    if (activeProgram.template_id !== demo.templateId) {
+      throw new Error(
+        `${demo.email} template mismatch: expected ${demo.templateId}, received ${activeProgram.template_id}`,
+      )
     }
 
     const { data: sessions, error: sessionError } = await client
       .from('workout_sessions')
-      .select('id, status')
+      .select('id, status, scheduled_date, completed_at, prescription_snapshot')
       .eq('user_id', profile.id)
       .eq('program_instance_id', activeProgram.id)
     if (sessionError) throw new Error(`Unable to verify sessions for ${demo.email}: ${sessionError.message}`)
@@ -495,6 +589,13 @@ async function verifyDemoUsers() {
     const sessionIds = (sessions ?? []).map((session) => session.id)
     const completedSessions = (sessions ?? []).filter((session) => session.status === 'completed').length
     const activeSessions = (sessions ?? []).filter((session) => session.status === 'in_progress').length
+    const expectedCompletedSessions = demo.completedSessions ?? 0
+    const expectedActiveSessions = demo.activeSession ? 1 : 0
+    if (completedSessions !== expectedCompletedSessions || activeSessions !== expectedActiveSessions) {
+      throw new Error(
+        `${demo.email} session count mismatch: expected ${expectedCompletedSessions} completed/${expectedActiveSessions} active, received ${completedSessions}/${activeSessions}`,
+      )
+    }
     const exercises = sessionIds.length
       ? await countRows(client, 'exercise_logs', profile.id, 'session_id', sessionIds)
       : 0
@@ -505,13 +606,181 @@ async function verifyDemoUsers() {
       ? await countRows(client, 'set_logs', profile.id, 'exercise_log_id', exerciseIds)
       : 0
     const decisions = await countRows(client, 'progression_decisions', profile.id, 'program_instance_id', [activeProgram.id])
+    const expectedExercises = (sessions ?? []).reduce(
+      (total, session) => total + (Array.isArray(session.prescription_snapshot?.movements)
+        ? session.prescription_snapshot.movements.length
+        : 0),
+      0,
+    )
+    const expectedSets = (sessions ?? []).reduce(
+      (sessionTotal, session) => sessionTotal + (
+        Array.isArray(session.prescription_snapshot?.movements)
+          ? session.prescription_snapshot.movements.reduce(
+              (movementTotal, movement) => movementTotal + (Array.isArray(movement.sets) ? movement.sets.length : 0),
+              0,
+            )
+          : 0
+      ),
+      0,
+    )
+    const expectedDecisions = (demo.acceptedDecisions?.length ?? 0) + (demo.pendingDecisions?.length ?? 0)
+    if (exercises !== expectedExercises || sets !== expectedSets || decisions !== expectedDecisions) {
+      throw new Error(
+        `${demo.email} child-row mismatch: expected ${expectedExercises} exercises/${expectedSets} sets/${expectedDecisions} decisions, received ${exercises}/${sets}/${decisions}`,
+      )
+    }
+
+    await verifyActiveComparables(client, profile.id, sessions ?? [], demo)
+    await verifyBodyweightLoadsAndVolume(client, profile.id, demo)
+    await verifySessionDates(client, profile.id, demo)
 
     console.log(
       `- ${demo.displayName}: ${activeProgram.template_id}, ${completedSessions} completed session${completedSessions === 1 ? '' : 's'}, ${activeSessions} active, ${exercises} exercises, ${sets} sets, ${decisions} progression decision${decisions === 1 ? '' : 's'}`,
     )
-    await client.auth.signOut()
   }
   console.log('')
+}
+
+async function verifyActiveComparables(client, userId, sessions, demo) {
+  const active = sessions.find((session) => session.status === 'in_progress')
+  if (!active) {
+    if (demo.activeSession) throw new Error(`${demo.email} is missing its active demo session`)
+    return
+  }
+  if (!demo.activeSession) {
+    throw new Error(`${demo.email} unexpectedly has an active demo session`)
+  }
+
+  const snapshot = active.prescription_snapshot
+  if (!snapshot || !Array.isArray(snapshot.movements)) {
+    throw new Error(`${demo.email} active session has no valid prescription snapshot`)
+  }
+  if (snapshot.timeZone !== (demo.timeZone ?? DEMO_TIME_ZONE)) {
+    throw new Error(
+      `${demo.email} active session timezone mismatch: expected ${demo.timeZone ?? DEMO_TIME_ZONE}, received ${snapshot.timeZone ?? 'missing'}`,
+    )
+  }
+  const freshBySlotId = await getPreviousComparablesBySlotId(client, userId, snapshot)
+  for (const movement of snapshot.movements) {
+    const slotId = movement.slotId ?? movement.id
+    const stored = comparableSignature(movement.previous ?? null)
+    const fresh = comparableSignature(freshBySlotId[slotId] ?? null)
+    if (JSON.stringify(stored) !== JSON.stringify(fresh)) {
+      throw new Error(
+        `${demo.email} active comparable mismatch for ${movement.movementName ?? movement.movementId}`,
+      )
+    }
+  }
+}
+
+function comparableSignature(previous) {
+  if (!previous) return null
+  return {
+    movementId: previous.movementId,
+    label: previous.label ?? null,
+    load: previous.load ?? null,
+    reps: previous.reps ?? null,
+    rir: previous.rir ?? null,
+    e1rm: previous.e1rm ?? null,
+    setType: previous.setType ?? null,
+    workoutDate: previous.workoutDate ?? null,
+    timeZone: previous.timeZone ?? null,
+    performedAt: previous.performedAt ?? null,
+    sets: (previous.sets ?? []).map((set) => ({
+      setIndex: set.setIndex,
+      load: set.load ?? null,
+      reps: set.reps ?? null,
+      rir: set.rir ?? null,
+    })),
+  }
+}
+
+async function verifyBodyweightLoadsAndVolume(client, userId, demo) {
+  const { data: completedSessions, error: sessionError } = await client
+    .from('workout_sessions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+  if (sessionError) throw new Error(`Unable to verify completed sessions for ${demo.email}: ${sessionError.message}`)
+  const completedSessionIds = (completedSessions ?? []).map((session) => session.id)
+  if (!completedSessionIds.length) return
+
+  const { data: exerciseRows, error: exerciseError } = await client
+    .from('exercise_logs')
+    .select('id, performed_movement_id')
+    .eq('user_id', userId)
+    .in('session_id', completedSessionIds)
+  if (exerciseError) throw new Error(`Unable to verify exercises for ${demo.email}: ${exerciseError.message}`)
+  const exerciseById = new Map((exerciseRows ?? []).map((exercise) => [exercise.id, exercise]))
+  const exerciseIds = [...exerciseById.keys()]
+  if (!exerciseIds.length) return
+
+  const { data: setRows, error: setError } = await client
+    .from('set_logs')
+    .select('exercise_log_id, actual_load, actual_reps, completed')
+    .eq('user_id', userId)
+    .eq('completed', true)
+    .in('exercise_log_id', exerciseIds)
+  if (setError) throw new Error(`Unable to verify sets for ${demo.email}: ${setError.message}`)
+
+  let completedVolume = 0
+  for (const set of setRows ?? []) {
+    const exercise = exerciseById.get(set.exercise_log_id)
+    if (!exercise) continue
+    const load = set.actual_load === null ? null : Number(set.actual_load)
+    const reps = set.actual_reps === null ? null : Number(set.actual_reps)
+    const movementId = exercise.performed_movement_id
+    const explicitlyWeighted = isPositiveNumber(demo.baseAccessories?.[movementId])
+    if (
+      defaultsToUnweighted(movementId) &&
+      !explicitlyWeighted &&
+      isPositiveNumber(load)
+    ) {
+      throw new Error(`${demo.email} has a fabricated ${load} load for ${movementId}`)
+    }
+    if (isPositiveNumber(load) && isPositiveNumber(reps)) completedVolume += load * reps
+  }
+
+  if (demo.email === `demo.linear@${DEMO_EMAIL_DOMAIN}` && completedVolume !== 72_052.5) {
+    throw new Error(
+      `${demo.email} completed volume mismatch: expected 72052.5, received ${completedVolume}`,
+    )
+  }
+}
+
+async function verifySessionDates(client, userId, demo) {
+  const { data: sessions, error } = await client
+    .from('workout_sessions')
+    .select('planned_session_id, scheduled_date, completed_at, prescription_snapshot, source_session_id')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+  if (error) throw new Error(`Unable to verify session dates for ${demo.email}: ${error.message}`)
+
+  let overnightCount = 0
+  for (const session of sessions ?? []) {
+    const snapshot = session.prescription_snapshot
+    const timeZone = snapshot?.timeZone
+    if (!timeZone) {
+      throw new Error(`${demo.email} completed session is missing its snapshot timezone`)
+    }
+    if (timeZone !== (demo.timeZone ?? DEMO_TIME_ZONE)) {
+      throw new Error(`${demo.email} snapshot has unexpected timezone ${timeZone}`)
+    }
+    if (!session.completed_at) continue
+    const completedDate = calendarDateForInstant(new Date(session.completed_at), timeZone)
+    if (completedDate !== session.scheduled_date) {
+      overnightCount += 1
+      if (session.planned_session_id !== null || session.source_session_id === null) {
+        throw new Error(`${demo.email} has an unexpected cross-date programme session`)
+      }
+    }
+  }
+  const expectedOvernightCount = demo.adHocFavorite ? 1 : 0
+  if (overnightCount !== expectedOvernightCount) {
+    throw new Error(
+      `${demo.email} overnight fixture mismatch: expected ${expectedOvernightCount}, received ${overnightCount}`,
+    )
+  }
 }
 
 async function listAuthUsers() {
@@ -583,6 +852,7 @@ async function seedProfile(client, userId, demo) {
     units: demo.units,
     rounding: demo.rounding,
     theme_preference: 'system',
+    timezone: demo.timeZone ?? DEMO_TIME_ZONE,
     equipment_profile: demo.equipmentProfile,
     program_state_defaults: profileDefaultsForDemo(demo),
     onboarding_completed: demo.onboardingCompleted ?? true,
@@ -638,6 +908,7 @@ async function seedProgram(client, userId, demo) {
     currentWeekIndex: demo.completedSessions,
     customizationStatus: 'default',
     customizationSummary: { movementOverrideCount: 0, accessoryAdditionCount: 0 },
+    timeZone: demo.timeZone ?? DEMO_TIME_ZONE,
     stateValues: stateValuesForDemo(definition, demo, demo.completedSessions),
     movementOverrides: [],
     accessoryAdditions: accessoryAdditionsForDemo(demo),
@@ -685,16 +956,31 @@ async function seedProgram(client, userId, demo) {
     latestSessionDate = scheduledDate
   }
 
-  if (demo.activeSession) {
-    const scheduledDate = todayIsoDate()
-    const plannedSession = expandPlannedSession(program, definition, scheduledDate)
-    await insertWorkoutSession(client, userId, program.id, plannedSession, demo, demo.completedSessions, 'in_progress')
-    latestSessionDate = scheduledDate
-  }
-
   await insertProgressionDecisions(client, userId, program.id, demo)
   console.log(`Seeded ${demo.displayName}: ${demo.email}`)
-  return latestSessionDate
+  return { program, definition, latestSessionDate }
+}
+
+async function insertActiveProgramSession(client, userId, demo, { program, definition }) {
+  const scheduledDate = todayIsoDate(program.timeZone)
+  const bareSession = expandPlannedSession(program, definition, scheduledDate)
+  const previousBySlotId = await getPreviousComparablesBySlotId(client, userId, bareSession)
+  const plannedSession = {
+    ...bareSession,
+    movements: bareSession.movements.map((movement) => ({
+      ...movement,
+      previous: previousBySlotId[movement.slotId ?? movement.id] ?? null,
+    })),
+  }
+  await insertWorkoutSession(
+    client,
+    userId,
+    program.id,
+    plannedSession,
+    demo,
+    demo.completedSessions,
+    'in_progress',
+  )
 }
 
 async function getTemplate(client, templateId) {
@@ -764,8 +1050,11 @@ async function insertAccessoryAdditions(client, userId, program) {
 }
 
 async function insertWorkoutSession(client, userId, programInstanceId, plannedSession, demo, sessionIndex, status) {
-  const startedAt = timestampForDate(plannedSession.scheduledDate, status === 'completed' ? 17 : 9)
-  const completedAt = status === 'completed' ? timestampForDate(plannedSession.scheduledDate, 18.25) : null
+  const timeZone = plannedSession.timeZone ?? demo.timeZone ?? DEMO_TIME_ZONE
+  const startedAt = timestampForDate(plannedSession.scheduledDate, status === 'completed' ? 17 : 9, timeZone)
+  const completedAt = status === 'completed'
+    ? timestampForDate(plannedSession.scheduledDate, 18.25, timeZone)
+    : null
   const sessionSnapshot = status === 'in_progress'
     ? completeSnapshotPartially(plannedSession)
     : plannedSession
@@ -813,6 +1102,7 @@ async function insertWorkoutSession(client, userId, programInstanceId, plannedSe
       exerciseId: exercise.id,
       set,
       movement,
+      performedMovementId,
       demo,
       sessionIndex,
       status,
@@ -859,8 +1149,12 @@ async function insertAdHocSession(client, userId, demo) {
 
 async function insertAdHocSessionInstance(client, userId, demo, { daysBack, isFavorite, sourceSessionId = null, suffix }) {
   const scheduledDate = daysAgo(daysBack)
-  const startedAt = timestampForDate(scheduledDate, 12)
-  const completedAt = timestampForDate(scheduledDate, 12.75)
+  const timeZone = demo.timeZone ?? DEMO_TIME_ZONE
+  const overnight = suffix === '2'
+  const startedAt = timestampForDate(scheduledDate, overnight ? 23.5 : 12, timeZone)
+  const completedAt = overnight
+    ? timestampForDate(addIsoDays(scheduledDate, 1), 0.25, timeZone)
+    : timestampForDate(scheduledDate, 12.75, timeZone)
   const movements = [
     {
       slotId: 'adhoc-1-bench_press',
@@ -894,6 +1188,7 @@ async function insertAdHocSessionInstance(client, userId, demo, { daysBack, isFa
     estimatedMinutes: 0,
     units: demo.units,
     rounding: demo.rounding,
+    timeZone,
     movements: movements.map((movement, index) => ({
       id: movement.slotId,
       slotId: movement.slotId,
@@ -1130,6 +1425,7 @@ function expandPlannedSession(program, definition, scheduledDate) {
     estimatedMinutes: session.estimatedMinutes,
     units: program.units,
     rounding: program.rounding,
+    timeZone: program.timeZone ?? DEMO_TIME_ZONE,
     movements: [...movements, ...additions],
   }
 }
@@ -1238,9 +1534,16 @@ function accessoryAddition(sessionId, slotId, movementId, targetSummary, effecti
   }
 }
 
-function setLogRow({ userId, exerciseId, set, movement, demo, sessionIndex, status }) {
+function setLogRow({ userId, exerciseId, set, movement, performedMovementId, demo, sessionIndex, status }) {
   const completed = status === 'completed' || (status === 'in_progress' && movement.orderIndex === 1 && set.setIndex <= 2)
-  const actual = actualSetValues({ set, movement, demo, sessionIndex, completed })
+  const actual = actualSetValues({
+    set,
+    movement,
+    performedMovementId,
+    demo,
+    sessionIndex,
+    completed,
+  })
   return {
     user_id: userId,
     exercise_log_id: exerciseId,
@@ -1264,18 +1567,43 @@ function setLogRow({ userId, exerciseId, set, movement, demo, sessionIndex, stat
   }
 }
 
-function actualSetValues({ set, movement, demo, sessionIndex, completed }) {
+function actualSetValues({ set, movement, performedMovementId, demo, sessionIndex, completed }) {
   if (!completed) {
     return { load: null, reps: null, rpe: null, rir: null, note: null }
   }
 
-  const baseLoad = set.targetLoad ?? demo.baseAccessories[movement.movementId] ?? fallbackLoad(movement.movementId)
-  const load = roundToStep(baseLoad + smallJitter(demo.email, movement.movementId, sessionIndex, set.setIndex), demo.rounding)
+  const explicitPerformedLoad = demo.baseAccessories?.[performedMovementId]
+  const sameMovement = performedMovementId === movement.movementId
+  const bodyweightDefault = defaultsToUnweighted(performedMovementId)
+  const bodyweightLoad = isPositiveNumber(explicitPerformedLoad)
+    ? explicitPerformedLoad
+    : sameMovement && isPositiveNumber(set.targetLoad)
+      ? set.targetLoad
+      : null
+  const baseLoad = bodyweightDefault
+    ? bodyweightLoad
+    : sameMovement
+      ? set.targetLoad ?? explicitPerformedLoad ?? fallbackLoad(performedMovementId)
+      : explicitPerformedLoad ?? fallbackLoad(performedMovementId)
+  const load = bodyweightDefault && !isPositiveNumber(baseLoad)
+    ? 0
+    : roundToStep(
+        baseLoad + smallJitter(demo.email, performedMovementId, sessionIndex, set.setIndex),
+        demo.rounding,
+      )
   const min = set.targetRepMin ?? set.targetReps ?? 8
   const max = set.targetRepMax ?? set.targetReps ?? min
-  const amrapBonus = set.isAmrap ? 2 + deterministicNumber(demo.email, movement.movementId, sessionIndex, set.setIndex, 4) : 0
+  const amrapBonus = set.isAmrap
+    ? 2 + deterministicNumber(demo.email, performedMovementId, sessionIndex, set.setIndex, 4)
+    : 0
   const range = Math.max(0, max - min)
-  const reps = Math.max(1, Math.min(max + amrapBonus, min + deterministicNumber(movement.movementId, demo.email, set.setIndex, sessionIndex, range + 1) + amrapBonus))
+  const reps = Math.max(
+    1,
+    Math.min(
+      max + amrapBonus,
+      min + deterministicNumber(performedMovementId, demo.email, set.setIndex, sessionIndex, range + 1) + amrapBonus,
+    ),
+  )
   const rir = set.isAmrap ? 1 : movement.role === 'accessory' ? 1 + deterministicNumber(demo.email, movement.movementId, set.setIndex, sessionIndex, 3) : 2
   const rpe = set.targetRpe ?? null
   return {
@@ -1379,6 +1707,10 @@ function isPositiveNumber(value) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
 
+function defaultsToUnweighted(movementId) {
+  return defaultsToBodyweightLoad(movementId, movementCatalog)
+}
+
 function roundToStep(value, step) {
   if (!Number.isFinite(value)) return 0
   if (!step) return value
@@ -1402,26 +1734,67 @@ function smallJitter(...parts) {
   return raw * 0.5
 }
 
-function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10)
+function todayIsoDate(timeZone = DEMO_TIME_ZONE) {
+  return calendarDateForInstant(new Date(), timeZone)
 }
 
-function daysAgo(days) {
-  const date = new Date()
-  date.setDate(date.getDate() - days)
-  return date.toISOString().slice(0, 10)
+function daysAgo(days, timeZone = DEMO_TIME_ZONE) {
+  return addIsoDays(todayIsoDate(timeZone), -days)
 }
 
 function isoDateDaysBefore(isoDate, days) {
+  return addIsoDays(isoDate, -days)
+}
+
+function addIsoDays(isoDate, days) {
   const date = new Date(`${isoDate}T00:00:00.000Z`)
-  date.setUTCDate(date.getUTCDate() - days)
+  date.setUTCDate(date.getUTCDate() + days)
   return date.toISOString().slice(0, 10)
 }
 
-function timestampForDate(date, hour) {
-  const [hours, fraction = 0] = String(hour).split('.').map(Number)
-  const minutes = Math.round((fraction / 100) * 60)
-  return `${date}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00.000Z`
+function calendarDateForInstant(instant, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(instant)
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${values.year}-${values.month}-${values.day}`
+}
+
+function timestampForDate(date, hour, timeZone = DEMO_TIME_ZONE) {
+  const hours = Math.trunc(hour)
+  const minutes = Math.round((hour - hours) * 60)
+  const [year, month, day] = date.split('-').map(Number)
+  const wantedWallTime = Date.UTC(year, month - 1, day, hours, minutes)
+  let candidate = wantedWallTime
+
+  // Convert a wall-clock time in an IANA zone into its UTC instant. Iterating
+  // handles offset changes without adding a timezone library to the seed tool.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(new Date(candidate))
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+    const observedWallTime = Date.UTC(
+      Number(values.year),
+      Number(values.month) - 1,
+      Number(values.day),
+      Number(values.hour),
+      Number(values.minute),
+      Number(values.second),
+    )
+    candidate += wantedWallTime - observedWallTime
+  }
+  return new Date(candidate).toISOString()
 }
 
 function printDemoUsers() {

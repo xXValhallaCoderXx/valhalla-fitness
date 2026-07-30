@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { buildMovementSwapOptions } from '../src/domains/movement/lib/movements'
 import { listFallbackTemplateDefinitions } from '../src/domains/program/lib/template-definitions'
+import {
+  canUseMovementSwapPhaseScope,
+  selectVisibleMovementSwapOption,
+} from '../src/domains/session/lib/movement-swap-options'
 
 function resolveMovementId(movementId: string | { default: string; byPhase?: Record<string, string> }, phaseKey: string) {
   if (typeof movementId === 'string') return movementId
@@ -42,6 +46,14 @@ describe('movement swap options', () => {
 
     expect(options[0]?.source).toBe('rule')
     expect(firstRelatedIndex).toBeGreaterThan(lastSuggestedIndex)
+    expect(
+      options.find((option) => option.movementId === 'goblet_squat')
+        ?.freeWeightCompatible,
+    ).toBe(true)
+    expect(
+      options.find((option) => option.movementId === 'hack_squat')
+        ?.freeWeightCompatible,
+    ).toBe(false)
   })
 
   it('has programme-level suggestions for every built-in accessory and variation slot', () => {
@@ -69,5 +81,48 @@ describe('movement swap options', () => {
     }
 
     expect(missing).toEqual([])
+  })
+})
+
+describe('movement swap selection', () => {
+  const options = buildMovementSwapOptions({
+    movementId: 'pull_up',
+    role: 'accessory',
+  })
+
+  it('does not keep a selected option that is hidden by the active filter', () => {
+    const visibleOptions = options.filter(
+      (option) => option.movementId === 'chin_up',
+    )
+
+    expect(
+      selectVisibleMovementSwapOption(visibleOptions, 'lat_pulldown')
+        ?.movementId,
+    ).toBe('chin_up')
+    expect(
+      selectVisibleMovementSwapOption([], 'lat_pulldown'),
+    ).toBeNull()
+  })
+
+  it('keeps added movements session-only even when the option supports phase scope', () => {
+    const phaseOption =
+      options.find((option) => option.allowedScopes.includes('phase_slot')) ??
+      null
+
+    expect(phaseOption).not.toBeNull()
+    expect(
+      canUseMovementSwapPhaseScope({
+        option: phaseOption,
+        isAdHoc: false,
+        isAdded: true,
+      }),
+    ).toBe(false)
+    expect(
+      canUseMovementSwapPhaseScope({
+        option: phaseOption,
+        isAdHoc: false,
+        isAdded: false,
+      }),
+    ).toBe(true)
   })
 })

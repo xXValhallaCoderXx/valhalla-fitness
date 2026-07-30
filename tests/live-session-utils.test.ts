@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { MovementSlot, PreviousComparable, SetLog } from '~/domains/session'
-import { formatPreviousShort, previousSetShort, resolveSetRir, seedLoadForSet, seedRepsForSet } from '../src/domains/session/components/live-session-utils'
+import {
+  formatPreviousShort,
+  formatSetTarget,
+  getMovementSwapControl,
+  previousSetShort,
+  resolveSetRir,
+  seedLoadForSet,
+  seedRepsForSet,
+} from '../src/domains/session/components/live-session-utils'
 
 function previous(extra: Partial<PreviousComparable> = {}): PreviousComparable {
   return { movementId: 'm1', label: 'Last comparable: 90 kg × 5 @ RIR 3 · e1RM 111 kg - 2026-06-29', ...extra }
@@ -17,10 +25,35 @@ describe('formatPreviousShort', () => {
 
   it('shows BW when there is no load (bodyweight movement)', () => {
     expect(formatPreviousShort(previous({ load: null, reps: 8 }), 'kg')).toBe('BW × 8')
+    expect(formatPreviousShort(previous({ load: 0, reps: 8 }), 'kg')).toBe('BW × 8')
   })
 
   it('falls back to an em dash when reps are missing', () => {
     expect(formatPreviousShort(previous({ load: 60, reps: null }), 'kg')).toBe('60 kg × —')
+  })
+})
+
+describe('formatSetTarget', () => {
+  it('renders an explicit zero target as bodyweight', () => {
+    expect(formatSetTarget({ id: 's1', setIndex: 1, completed: false, targetLoad: 0, targetReps: 8 }, 'kg')).toBe('BW × 8')
+  })
+
+  it('renders the effective bodyweight target after substituting a weighted movement', () => {
+    const set = {
+      id: 's1',
+      setIndex: 1,
+      completed: false,
+      targetLoad: 55,
+      actualLoad: 55,
+      targetRepMin: 8,
+      targetRepMax: 12,
+    }
+    const movement = {
+      movementId: 'lat_pulldown',
+      performedMovementId: 'pull_up',
+    }
+
+    expect(formatSetTarget(set, 'kg', true, movement)).toBe('BW × 8-12')
   })
 })
 
@@ -35,12 +68,12 @@ describe('previousSetShort', () => {
   })
 
   it('renders the matching set position without units', () => {
-    expect(previousSetShort(withSets, 1)).toBe('last 80 × 8')
-    expect(previousSetShort(withSets, 2)).toBe('last 82.5 × 6')
+    expect(previousSetShort(withSets, 1)).toBe('previous 80 × 8')
+    expect(previousSetShort(withSets, 2)).toBe('previous 82.5 × 6')
   })
 
   it('shows BW for loadless sets', () => {
-    expect(previousSetShort(withSets, 3)).toBe('last BW × 12')
+    expect(previousSetShort(withSets, 3)).toBe('previous BW × 12')
   })
 
   it('returns null when the position has no usable reps or does not exist', () => {
@@ -87,7 +120,11 @@ describe('seedLoadForSet', () => {
     return { id: `s${partial.setIndex ?? 1}`, setIndex: 1, completed: false, ...partial } as SetLog
   }
 
-  function slot(sets: SetLog[], previousLoad?: number | null): MovementSlot {
+  function slot(
+    sets: SetLog[],
+    previousLoad?: number | null,
+    movement: Partial<MovementSlot> = {},
+  ): MovementSlot {
     return {
       id: 'm1',
       movementId: 'cable_crunch',
@@ -97,6 +134,7 @@ describe('seedLoadForSet', () => {
       targetSummary: '3 x 8-12',
       sets,
       previous: previousLoad === undefined ? null : previous({ load: previousLoad }),
+      ...movement,
     } as MovementSlot
   }
 
@@ -110,6 +148,51 @@ describe('seedLoadForSet', () => {
   it('prefers the prescribed target over carry-over (percent/state main lifts)', () => {
     const sets = [slotSet({ setIndex: 1, completed: true, actualLoad: 50 }), slotSet({ setIndex: 2, targetLoad: 60 })]
     expect(seedLoadForSet(slot(sets), sets[1]!)).toBe(60)
+  })
+
+  it('does not transfer a cable target when the movement is performed as bodyweight', () => {
+    const set = slotSet({ setIndex: 1, targetLoad: 55 })
+    const substituted = slot([set], undefined, {
+      movementId: 'lat_pulldown',
+      performedMovementId: 'pull_up',
+    })
+
+    expect(seedLoadForSet(substituted, set)).toBe(0)
+  })
+
+  it('ignores an untouched actual load initialized from the target after a bodyweight swap', () => {
+    const set = slotSet({
+      setIndex: 1,
+      targetLoad: 55,
+      actualLoad: 55,
+      completed: false,
+    })
+    const substituted = slot([set], undefined, {
+      movementId: 'lat_pulldown',
+      performedMovementId: 'pull_up',
+    })
+
+    expect(seedLoadForSet(substituted, set)).toBe(0)
+  })
+
+  it('uses weighted bodyweight history instead of a substituted cable target', () => {
+    const set = slotSet({ setIndex: 1, targetLoad: 55 })
+    const substituted = slot([set], 10, {
+      movementId: 'lat_pulldown',
+      performedMovementId: 'pull_up',
+    })
+
+    expect(seedLoadForSet(substituted, set)).toBe(10)
+  })
+
+  it('keeps an explicit target for a bodyweight movement that was prescribed directly', () => {
+    const set = slotSet({ setIndex: 1, targetLoad: 10 })
+    const weightedPullUp = slot([set], undefined, {
+      movementId: 'pull_up',
+      performedMovementId: 'pull_up',
+    })
+
+    expect(seedLoadForSet(weightedPullUp, set)).toBe(10)
   })
 
   it('carries the nearest earlier completed weight for user-selected loads', () => {
@@ -140,6 +223,37 @@ describe('seedLoadForSet', () => {
     const sets = [slotSet({ setIndex: 1 })]
     expect(seedLoadForSet(slot(sets), sets[0]!)).toBe(0)
     expect(seedLoadForSet(slot(sets, null), sets[0]!)).toBe(0)
+  })
+})
+
+describe('getMovementSwapControl', () => {
+  const movement = (
+    role: MovementSlot['role'],
+    completed: boolean,
+  ): Pick<MovementSlot, 'role' | 'sets'> => ({
+    role,
+    sets: [{ id: 's1', setIndex: 1, completed }],
+  })
+
+  it('allows an untouched accessory to be swapped', () => {
+    expect(getMovementSwapControl(movement('accessory', false))).toEqual({
+      disabled: false,
+      title: 'Swap movement',
+    })
+  })
+
+  it('disables swapping after any set is completed and explains how to unlock it', () => {
+    expect(getMovementSwapControl(movement('accessory', true))).toEqual({
+      disabled: true,
+      title: 'Undo completed sets before swapping movement',
+    })
+  })
+
+  it('continues to prevent main-lift swaps', () => {
+    expect(getMovementSwapControl(movement('main', false))).toEqual({
+      disabled: true,
+      title: 'Main lifts cannot be swapped',
+    })
   })
 })
 

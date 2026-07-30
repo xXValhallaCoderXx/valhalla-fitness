@@ -1,6 +1,7 @@
 import { Badge, TextInput } from '@mantine/core'
 import { ChevronRight, Search, Star } from 'lucide-react'
-import { formatCompactDate, formatRelativeTime } from '~/shared/lib/dates'
+import { describeWorkoutDate } from '~/shared/lib/dates'
+import { useAccountClock } from '~/domains/account/components/AccountIdentityProvider'
 import {
   availableIntensities,
   filterSessions,
@@ -10,7 +11,7 @@ import {
 } from '~/domains/history/lib/insights'
 import { AD_HOC_BADGE_LABEL } from '~/domains/session/lib/ad-hoc'
 import type { RecentHistoryEntry } from '~/domains/history'
-import { Caption, EmptyState, Panel, Text } from '~/components'
+import { Caption, EmptyState, EquipmentModeBadge, Panel, Text } from '~/components'
 import { ACCENT_SOFT, ACCENT_TEXT, FilterChip, historySearchInputStyles } from '../insight-format'
 
 export function SessionsTab({
@@ -82,7 +83,13 @@ export function SessionsTab({
 
 function SessionRow({ session, last, onOpen }: { session: RecentHistoryEntry; last: boolean; onOpen: () => void }) {
   const color = intensityColor(session.hardness)
-  const date = session.completedAt ?? session.scheduledDate
+  const clock = useAccountClock()
+  const date = describeWorkoutDate({
+    scheduledDate: session.scheduledDate,
+    completedAt: session.completedAt,
+    timeZone: session.timeZone ?? clock.timeZone,
+    today: clock.today,
+  })
   return (
     <div className="flex gap-4">
       <div className="flex w-3.5 shrink-0 flex-col items-center">
@@ -108,17 +115,19 @@ function SessionRow({ session, last, onOpen }: { session: RecentHistoryEntry; la
             {session.isAdHoc ? (
               <Badge color="accent" variant="light" style={{ flexShrink: 0 }}>{AD_HOC_BADGE_LABEL}</Badge>
             ) : null}
+            <EquipmentModeBadge equipmentMode={session.equipmentMode} className="shrink-0" />
           </div>
           <Caption mt={2} truncate>
             {[session.weekLabel, `${session.movementCount} movements`, `${session.completedSetCount}/${session.plannedSetCount} sets`]
               .filter(Boolean)
               .join(' · ')}
           </Caption>
+          {date.completionLabel ? <Caption mt={2} truncate>{date.completionLabel}</Caption> : null}
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <div className="text-right">
-            <Text size="xs" fw={700}>{formatCompactDate(date)}</Text>
-            <Caption size="0.625rem">{formatRelativeTime(date)}</Caption>
+            <Text size="xs" fw={700}>{date.compactDate}</Text>
+            <Caption size="0.625rem">{date.relativeDate}</Caption>
           </div>
           <ChevronRight size={16} color="var(--mantine-color-dimmed)" />
         </div>

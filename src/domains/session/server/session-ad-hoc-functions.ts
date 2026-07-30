@@ -11,10 +11,8 @@ import {
 } from '~/domains/session/lib/schemas'
 import { getMovementCatalogForSwap } from '~/domains/movement/server/movement-functions'
 import type { Json } from '~/shared/types/database'
-import {
-  getPreviousComparablesBySlotId,
-  getSessionInternal,
-} from '~/domains/session/server/session-read-functions'
+import { getSessionInternal } from '~/domains/session/server/session-read-functions'
+import { getPreviousComparablesBySlotId } from '~/domains/session/server/previous-comparables'
 import { requireSessionUser } from '~/domains/session/server/session-server'
 
 export const addAdHocExerciseFn = createServerFn({ method: 'POST' })

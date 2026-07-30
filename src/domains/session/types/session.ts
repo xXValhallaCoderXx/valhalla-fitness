@@ -1,5 +1,9 @@
 import type { SwapScope } from '~/domains/movement'
 import type { AccessoryProgressionMethod } from '~/domains/program'
+import type {
+  EquipmentModeAdaptation,
+  ProgramEquipmentMode,
+} from '~/domains/program'
 import type { MovementRole, SessionHardness, Unit } from '~/shared/types'
 
 export type SyncState = 'synced' | 'saving' | 'syncFailed'
@@ -23,6 +27,7 @@ export type SetTarget = {
 
 export type SetLog = SetTarget & {
   exerciseLogId?: string
+  /** External resistance: positive = weighted, 0 = explicitly bodyweight/loadless, null = unset or legacy loadless. */
   actualLoad?: number | null
   actualReps?: number | null
   actualRir?: number | null
@@ -51,6 +56,8 @@ export type MovementSlot = {
   notes?: string | null
   isAdded?: boolean
   addedScope?: SwapScope
+  /** Provenance for an automatic programme equipment-mode replacement. */
+  modeAdaptation?: EquipmentModeAdaptation
   /** Optional per-slot rest override (seconds); rides the session snapshot, no DB column. */
   restSeconds?: number
 }
@@ -63,11 +70,16 @@ export type PlannedSession = {
   title: string
   programTitle: string
   templateId: string
+  /** Programme equipment policy frozen when the workout snapshot is created. */
+  equipmentMode?: ProgramEquipmentMode
+  freeWeightPolicyVersionId?: string | null
   weekIndex: number
   weekLabel: string
   /** null for ad-hoc sessions — they have no prescribed intensity. */
   hardness: SessionHardness | null
   scheduledDate: string
+  /** Account IANA timezone used to derive the scheduled workout date. */
+  timeZone?: string | null
   estimatedMinutes: number
   units: Unit
   rounding: number
@@ -113,9 +125,10 @@ export type SessionPr = {
   previousLabel: string | null
 }
 
-/** A prior session's actual result for one set position, used for per-row "last time" ghosts. */
+/** A comparable session's actual result for one set position, used for per-row previous ghosts. */
 export type PreviousComparableSet = {
   setIndex: number
+  /** Derived external resistance; null means bodyweight/loadless. */
   load: number | null
   reps: number | null
   rir: number | null
@@ -124,9 +137,15 @@ export type PreviousComparableSet = {
 export type PreviousComparable = {
   movementId: string
   label: string
+  /** Derived external resistance; null/zero is displayed and ranked as bodyweight. */
   load?: number | null
   reps?: number | null
   rir?: number | null
+  /** Canonical scheduled workout date for calendar display and comparable recency. */
+  workoutDate?: string | null
+  /** IANA timezone captured with the workout snapshot; absent on legacy comparables. */
+  timeZone?: string | null
+  /** Completion timestamp retained as a legacy fallback and operational detail. */
   performedAt?: string | null
   e1rm?: number | null
   setType?: 'top_set' | 'amrap' | 'backoff' | 'best_set' | 'accessory'

@@ -5,4 +5,8 @@ export { BrandLockup, type BrandLockupSize } from './BrandLockup'
 export { SectionLabel } from './SectionLabel'
 export { StatValue } from './StatValue'
 export { Caption } from './Caption'
+export {
+  EquipmentModeBadge,
+  type EquipmentModeBadgeProps,
+} from './EquipmentModeBadge'
 export { toneColor, type Tone } from './tone'

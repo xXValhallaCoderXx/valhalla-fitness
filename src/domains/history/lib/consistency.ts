@@ -17,7 +17,7 @@ export function buildWeeklySessionCounts(sessions: HistorySessionInput[], now: s
   const counts = new Map<string, number>()
   let earliest: Date | null = null
   for (const session of sessions) {
-    const date = parseDate(session.completedAt ?? session.scheduledDate)
+    const date = parseDate(session.scheduledDate)
     if (!date) continue
     const week = startOfWeek(date)
     const key = formatDateKey(week)

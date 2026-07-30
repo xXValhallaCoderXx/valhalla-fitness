@@ -1,8 +1,17 @@
 import { createServerFn } from '@tanstack/react-start'
-import type { AccessoryMovementOption, Movement, MovementReplacementRule } from '~/domains/movement'
+import type {
+  AccessoryMovementOption,
+  Movement,
+  MovementReplacementRule,
+} from '~/domains/movement'
 import type { Tables } from '~/shared/types/database'
 import type { SupabaseServerClient } from '~/shared/server/supabase'
-import { defaultMovementReplacementRules, movementCatalog } from '~/domains/movement/lib/movements'
+import {
+  defaultMovementReplacementRules,
+  isActiveMovement,
+  isFreeWeightMovement,
+  movementCatalog,
+} from '~/domains/movement/lib/movements'
 
 async function requireUser() {
   const { requireUser } = await import('~/shared/server/require-user')
@@ -38,6 +47,16 @@ function mapMovementRow(row: Tables<'movements'>): Movement {
     variationOf: row.variation_of,
     defaultUnit: row.default_unit as Movement['defaultUnit'],
     isCompetition: row.is_competition,
+    status: row.status as Movement['status'],
+    resistanceMode: row.resistance_mode as Movement['resistanceMode'],
+    requiredEquipment: row.required_equipment as Movement['requiredEquipment'],
+    pattern: row.pattern as Movement['pattern'],
+    primaryMuscles: row.primary_muscles as Movement['primaryMuscles'],
+    secondaryMuscles: row.secondary_muscles as Movement['secondaryMuscles'],
+    aliases: row.aliases,
+    loadConvention: row.load_convention as Movement['loadConvention'],
+    replacedByMovementId: row.replaced_by_movement_id,
+    canonicalFreeWeightMovementId: row.canonical_free_weight_movement_id,
   }
 }
 
@@ -60,7 +79,7 @@ export async function getReplacementRulesForSwap(supabase: SupabaseServerClient)
 
 function listAccessoryMovementOptionsFromCatalog(catalog: Record<string, Movement>): AccessoryMovementOption[] {
   return Object.values(catalog)
-    .filter((movement) => !movement.isCompetition)
+    .filter((movement) => isActiveMovement(movement) && !movement.isCompetition)
     .sort((left, right) => left.name.localeCompare(right.name))
     .map((movement) => ({
       movementId: movement.id,
@@ -68,6 +87,7 @@ function listAccessoryMovementOptionsFromCatalog(catalog: Record<string, Movemen
       category: movement.category,
       equipment: movement.equipment,
       defaultUnit: movement.defaultUnit,
+      freeWeightCompatible: isFreeWeightMovement(movement),
     }))
 }
 
@@ -82,6 +102,7 @@ export const listAccessoryMovementOptionsFn = createServerFn({ method: 'GET' })
 // Full catalog for ad-hoc workouts — competition lifts included and surfaced first.
 function listMovementOptionsFromCatalog(catalog: Record<string, Movement>): AccessoryMovementOption[] {
   return Object.values(catalog)
+    .filter(isActiveMovement)
     .sort((left, right) => {
       if (left.isCompetition !== right.isCompetition) return left.isCompetition ? -1 : 1
       return left.name.localeCompare(right.name)
@@ -92,6 +113,7 @@ function listMovementOptionsFromCatalog(catalog: Record<string, Movement>): Acce
       category: movement.category,
       equipment: movement.equipment,
       defaultUnit: movement.defaultUnit,
+      freeWeightCompatible: isFreeWeightMovement(movement),
     }))
 }
 

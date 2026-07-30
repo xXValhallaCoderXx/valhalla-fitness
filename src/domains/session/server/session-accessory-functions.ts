@@ -17,8 +17,13 @@ import {
   reorderSessionAccessoriesInputSchema,
 } from '~/domains/session/lib/schemas'
 import { getMovementCatalogForSwap } from '~/domains/movement/server/movement-functions'
+import {
+  isActiveMovement,
+  isFreeWeightMovement,
+} from '~/domains/movement/lib/movements'
 import type { Json, Tables } from '~/shared/types/database'
 import { getSessionInternal } from '~/domains/session/server/session-read-functions'
+import { getPreviousComparablesBySlotId } from '~/domains/session/server/previous-comparables'
 import { phaseKeyForSnapshot } from '~/domains/session/server/session-server-helpers'
 import { requireSessionUser } from '~/domains/session/server/session-server'
 
@@ -140,9 +145,18 @@ export const addSessionAccessoryFn = createServerFn({ method: 'POST' })
 
     const catalog = await getMovementCatalogForSwap(supabase)
     const movement = catalog[data.movementId]
-    if (!movement || movement.isCompetition) throw new Error('Invalid accessory movement.')
-
     const snapshot = sessionRow.prescription_snapshot as PlannedSession
+    if (!isActiveMovement(movement) || movement.isCompetition) {
+      throw new Error('Invalid accessory movement.')
+    }
+    if (
+      snapshot.equipmentMode === 'free_weight' &&
+      !isFreeWeightMovement(movement)
+    ) {
+      throw new Error(
+        'Free weights only workouts require a free-weight accessory.',
+      )
+    }
     const phaseKey = phaseKeyForSnapshot(snapshot)
     const templateSessionId = templateSessionIdForSnapshot(snapshot, sessionRow)
     const { data: persistedAdditionRows, error: persistedAdditionError } = sessionRow.program_instance_id
@@ -182,6 +196,15 @@ export const addSessionAccessoryFn = createServerFn({ method: 'POST' })
       scope: data.scope,
       progressionMethod: data.progressionMethod,
     })
+    const previousBySlotId = await getPreviousComparablesBySlotId(
+      supabase,
+      user.id,
+      {
+        ...snapshot,
+        movements: [snapshotMovement],
+      },
+    )
+    snapshotMovement.previous = previousBySlotId[sessionSlotId] ?? null
 
     const nextSnapshot: PlannedSession = {
       ...snapshot,

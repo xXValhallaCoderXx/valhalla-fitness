@@ -14,12 +14,12 @@ import {
   startSessionInputSchema,
 } from '~/domains/session/lib/schemas'
 import type { Json } from '~/shared/types/database'
-import { calendarDateInTimeZone } from '~/shared/lib/calendar-date'
+import { calendarDateInTimeZone, resolveIanaTimeZone } from '~/shared/lib/calendar-date'
 import {
-  getPreviousComparablesBySlotId,
   getSessionInternal,
   getTodayInternal,
 } from '~/domains/session/server/session-read-functions'
+import { getPreviousComparablesBySlotId } from '~/domains/session/server/previous-comparables'
 import { requireSessionUser } from '~/domains/session/server/session-server'
 
 export const startSessionFn = createServerFn({ method: 'POST' })
@@ -63,7 +63,8 @@ export const startAdHocSessionFn = createServerFn({ method: 'POST' })
     if (activeRow) return getSessionInternal(activeRow.id)
 
     const profile = await ensureProfile()
-    const scheduledDate = calendarDateInTimeZone(new Date(), data.timeZone ?? profile.timezone)
+    const timeZone = resolveIanaTimeZone(data.timeZone ?? profile.timezone)
+    const scheduledDate = calendarDateInTimeZone(new Date(), timeZone)
 
     let title: string | null = null
     let movements: MovementSlot[] = []
@@ -81,6 +82,7 @@ export const startAdHocSessionFn = createServerFn({ method: 'POST' })
     const snapshot = buildAdHocSnapshot({
       title,
       scheduledDate,
+      timeZone,
       units: (profile.units as Unit) ?? 'kg',
       rounding: Number(profile.rounding) || 2.5,
       movements,

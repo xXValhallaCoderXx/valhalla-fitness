@@ -1,4 +1,5 @@
 import type { Unit } from '~/shared/types'
+import { externalLoadOrNull } from '~/shared/lib/load'
 import { e1rm } from '~/shared/lib/math'
 
 /**
@@ -47,8 +48,9 @@ export function repsLeftLabel(rir: number | null | undefined) {
 export function describeLift(values: LiftValues): SetNotation {
   const { load, reps, repsLabel, rir, units, amrap } = values
   const hasRir = typeof rir === 'number' && Number.isFinite(rir)
+  const externalLoad = externalLoadOrNull(load)
 
-  const loadText = load == null || load === 0 ? 'Bodyweight' : formatWeight(load, units)!
+  const loadText = externalLoad == null ? 'Bodyweight' : formatWeight(externalLoad, units)!
   const repsCore = repsLabel ?? (reps == null ? null : String(reps))
   const repsText = repsCore == null ? '—' : `${repsCore}${amrap ? '+' : ''}`
 
@@ -60,11 +62,12 @@ export function describeLift(values: LiftValues): SetNotation {
 
   const technicalParts: string[] = []
   if (hasRir) technicalParts.push(`RIR ${rir}`)
-  const estimated =
-    values.e1rm != null && values.e1rm > 0
+  const estimated = externalLoad == null
+    ? 0
+    : values.e1rm != null && values.e1rm > 0
       ? values.e1rm
-      : load != null && typeof reps === 'number'
-        ? e1rm(load, reps, hasRir ? rir! : 0)
+      : typeof reps === 'number'
+        ? e1rm(externalLoad, reps, hasRir ? rir! : 0)
         : 0
   if (estimated > 0) {
     technicalParts.push(`e1RM ${formatWeight(Math.round(estimated * 10) / 10, units)}`)
@@ -91,12 +94,15 @@ type DescribableSet = {
 /** Describe a logged set, preferring actual values and falling back to targets. */
 export function describeSet(set: DescribableSet, units?: Unit | string | null): SetNotation {
   const usingActualReps = set.actualReps != null
+  const actualExternalLoad = externalLoadOrNull(set.actualLoad)
   const repsLabel =
     !usingActualReps && set.targetReps == null && set.targetRepMin != null && set.targetRepMax != null
       ? `${set.targetRepMin}-${set.targetRepMax}`
       : undefined
   return describeLift({
-    load: set.actualLoad ?? set.targetLoad,
+    // Once reps are logged, null/zero actual load is a loadless result and
+    // must not inherit a planned cable/barbell target.
+    load: usingActualReps ? set.actualLoad : set.targetLoad ?? set.actualLoad,
     reps: set.actualReps ?? set.targetReps ?? set.targetRepMin ?? null,
     repsLabel,
     rir: set.actualRir,
@@ -104,8 +110,8 @@ export function describeSet(set: DescribableSet, units?: Unit | string | null): 
     // e1RM is only meaningful from actual performance.
     amrap: Boolean(set.isAmrap) && !usingActualReps,
     e1rm:
-      set.actualLoad != null && set.actualReps != null
-        ? e1rm(set.actualLoad, set.actualReps, set.actualRir ?? 0)
+      actualExternalLoad != null && set.actualReps != null
+        ? e1rm(actualExternalLoad, set.actualReps, set.actualRir ?? 0)
         : undefined,
   })
 }

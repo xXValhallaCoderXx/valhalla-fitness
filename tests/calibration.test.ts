@@ -197,6 +197,19 @@ describe('buildCalibration — weekly samples', () => {
       },
     ])
   })
+
+  it('buckets an overnight session by its scheduled workout date', () => {
+    const summary = buildCalibration([
+      planSession(
+        'overnight',
+        '2026-07-06T00:30:00.000Z',
+        pairedSets(3, 2),
+        { scheduledDate: '2026-07-05' },
+      ),
+    ], '2026-07-06T12:00:00.000Z')
+
+    expect(summary.weekly[0].weekStart).toBe('2026-06-29')
+  })
 })
 
 describe('buildCalibration — rirFatigue', () => {

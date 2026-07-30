@@ -5,6 +5,7 @@ import type { ProgramInstance, ProgramOverview } from '~/domains/program'
 import type { ProgramPhaseMap as ProgramPhaseMapModel } from '~/domains/program/lib/program-phase-map'
 import { ProgramPhaseMap } from './ProgramPhaseMap'
 import { ProgramInfoHint } from './ProgramInfoHint'
+import { ProgramEquipmentModeControl } from './ProgramEquipmentModeControl'
 
 /**
  * Program command bar — the page header reimagined: plan identity + Week /
@@ -52,6 +53,12 @@ export function ProgramCommandBar({
               {subtitle}
             </Text>
           ) : null}
+          <div className="mt-4">
+            <ProgramEquipmentModeControl
+              program={program}
+              disabled={overview.hasActiveSession}
+            />
+          </div>
         </div>
 
         <div className="flex gap-2">

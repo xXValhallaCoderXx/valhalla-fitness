@@ -62,6 +62,36 @@ export type Database = {
           },
         ]
       }
+      equipment_mode_policy_versions: {
+        Row: {
+          created_at: string
+          definition: Json
+          definition_checksum: string
+          id: string
+          mode: string
+          schema_version: string
+          version: string
+        }
+        Insert: {
+          created_at?: string
+          definition: Json
+          definition_checksum?: never
+          id?: string
+          mode: string
+          schema_version: string
+          version: string
+        }
+        Update: {
+          created_at?: string
+          definition?: Json
+          definition_checksum?: never
+          id?: string
+          mode?: string
+          schema_version?: string
+          version?: string
+        }
+        Relationships: []
+      }
       exercise_logs: {
         Row: {
           client_mutation_id: string | null
@@ -131,6 +161,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "exercise_logs_session_owner_fkey"
+            columns: ["session_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "exercise_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -188,11 +225,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "feedback_events_decision_owner_fkey"
+            columns: ["decision_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "progression_decisions"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "feedback_events_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "workout_sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_events_session_owner_fkey"
+            columns: ["session_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id", "user_id"]
           },
           {
             foreignKeyName: "feedback_events_user_id_fkey"
@@ -272,33 +323,77 @@ export type Database = {
       }
       movements: {
         Row: {
+          aliases: string[]
+          canonical_free_weight_movement_id: string | null
           category: string
           default_unit: string
           equipment: string[]
           id: string
           is_competition: boolean
+          load_convention: string
           name: string
+          pattern: string
+          primary_muscles: string[]
+          replaced_by_movement_id: string | null
+          required_equipment: string[]
+          resistance_mode: string | null
+          secondary_muscles: string[]
+          status: string
           variation_of: string | null
         }
         Insert: {
+          aliases?: string[]
+          canonical_free_weight_movement_id?: string | null
           category: string
           default_unit?: string
           equipment?: string[]
           id: string
           is_competition?: boolean
+          load_convention: string
           name: string
+          pattern: string
+          primary_muscles?: string[]
+          replaced_by_movement_id?: string | null
+          required_equipment?: string[]
+          resistance_mode?: string | null
+          secondary_muscles?: string[]
+          status?: string
           variation_of?: string | null
         }
         Update: {
+          aliases?: string[]
+          canonical_free_weight_movement_id?: string | null
           category?: string
           default_unit?: string
           equipment?: string[]
           id?: string
           is_competition?: boolean
+          load_convention?: string
           name?: string
+          pattern?: string
+          primary_muscles?: string[]
+          replaced_by_movement_id?: string | null
+          required_equipment?: string[]
+          resistance_mode?: string | null
+          secondary_muscles?: string[]
+          status?: string
           variation_of?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "movements_canonical_free_weight_movement_id_fkey"
+            columns: ["canonical_free_weight_movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_replaced_by_movement_id_fkey"
+            columns: ["replaced_by_movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "movements_variation_of_fkey"
             columns: ["variation_of"]
@@ -316,7 +411,6 @@ export type Database = {
           display_name: string | null
           email: string | null
           equipment_profile: string[]
-          feedback_prompt_dismissed: boolean
           id: string
           live_onboarding_dismissed: boolean
           onboarding_completed: boolean
@@ -336,7 +430,6 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           equipment_profile?: string[]
-          feedback_prompt_dismissed?: boolean
           id: string
           live_onboarding_dismissed?: boolean
           onboarding_completed?: boolean
@@ -356,7 +449,6 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           equipment_profile?: string[]
-          feedback_prompt_dismissed?: boolean
           id?: string
           live_onboarding_dismissed?: boolean
           onboarding_completed?: boolean
@@ -445,7 +537,98 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "program_accessory_additions_program_owner_fkey"
+            columns: ["program_instance_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "program_accessory_additions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_equipment_mode_choices: {
+        Row: {
+          created_at: string
+          equipment_mode: string
+          id: string
+          phase_key: string
+          policy_rule_id: string
+          program_instance_id: string
+          replacement_movement_id: string
+          role: string
+          slot_id: string
+          source_movement_id: string
+          template_session_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          equipment_mode: string
+          id?: string
+          phase_key: string
+          policy_rule_id: string
+          program_instance_id: string
+          replacement_movement_id: string
+          role: string
+          slot_id: string
+          source_movement_id: string
+          template_session_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          equipment_mode?: string
+          id?: string
+          phase_key?: string
+          policy_rule_id?: string
+          program_instance_id?: string
+          replacement_movement_id?: string
+          role?: string
+          slot_id?: string
+          source_movement_id?: string
+          template_session_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_equipment_mode_choices_program_instance_id_fkey"
+            columns: ["program_instance_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_equipment_mode_choices_program_owner_fkey"
+            columns: ["program_instance_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "program_equipment_mode_choices_replacement_movement_id_fkey"
+            columns: ["replacement_movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_equipment_mode_choices_source_movement_id_fkey"
+            columns: ["source_movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_equipment_mode_choices_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -461,10 +644,13 @@ export type Database = {
           current_week_index: number
           customization_status: string
           customization_summary: Json
+          equipment_mode: string
+          free_weight_choices_hash: string | null
+          free_weight_policy_version_id: string | null
           id: string
           rounding: number
-          state_version: number
           start_date: string
+          state_version: number
           status: string
           template_id: string
           template_version_id: string
@@ -480,10 +666,13 @@ export type Database = {
           current_week_index?: number
           customization_status?: string
           customization_summary?: Json
+          equipment_mode?: string
+          free_weight_choices_hash?: string | null
+          free_weight_policy_version_id?: string | null
           id?: string
           rounding: number
-          state_version?: number
           start_date?: string
+          state_version?: number
           status?: string
           template_id: string
           template_version_id: string
@@ -499,10 +688,13 @@ export type Database = {
           current_week_index?: number
           customization_status?: string
           customization_summary?: Json
+          equipment_mode?: string
+          free_weight_choices_hash?: string | null
+          free_weight_policy_version_id?: string | null
           id?: string
           rounding?: number
-          state_version?: number
           start_date?: string
+          state_version?: number
           status?: string
           template_id?: string
           template_version_id?: string
@@ -512,6 +704,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "program_instances_free_weight_policy_version_id_fkey"
+            columns: ["free_weight_policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_mode_policy_versions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "program_instances_template_id_fkey"
             columns: ["template_id"]
@@ -525,6 +724,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "program_template_versions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_instances_template_version_matches_template_fkey"
+            columns: ["template_version_id", "template_id"]
+            isOneToOne: false
+            referencedRelation: "program_template_versions"
+            referencedColumns: ["id", "template_id"]
           },
           {
             foreignKeyName: "program_instances_user_id_fkey"
@@ -597,6 +803,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "program_movement_overrides_program_owner_fkey"
+            columns: ["program_instance_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "program_movement_overrides_replacement_movement_id_fkey"
             columns: ["replacement_movement_id"]
             isOneToOne: false
@@ -611,11 +824,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "program_movement_overrides_source_exercise_owner_fkey"
+            columns: ["source_exercise_log_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_logs"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "program_movement_overrides_source_session_id_fkey"
             columns: ["source_session_id"]
             isOneToOne: false
             referencedRelation: "workout_sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_movement_overrides_source_session_owner_fkey"
+            columns: ["source_session_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id", "user_id"]
           },
           {
             foreignKeyName: "program_movement_overrides_user_id_fkey"
@@ -685,6 +912,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "program_state_values_program_owner_fkey"
+            columns: ["program_instance_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "program_state_values_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -697,7 +931,7 @@ export type Database = {
         Row: {
           created_at: string
           definition: Json
-          definition_checksum: string
+          definition_checksum: string | null
           id: string
           template_id: string
           version: string
@@ -705,7 +939,7 @@ export type Database = {
         Insert: {
           created_at?: string
           definition: Json
-          definition_checksum?: never
+          definition_checksum?: string | null
           id?: string
           template_id: string
           version: string
@@ -713,7 +947,7 @@ export type Database = {
         Update: {
           created_at?: string
           definition?: Json
-          definition_checksum?: never
+          definition_checksum?: string | null
           id?: string
           template_id?: string
           version?: string
@@ -865,7 +1099,59 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "progression_decisions_program_owner_fkey"
+            columns: ["program_instance_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "progression_decisions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_mutation_receipts: {
+        Row: {
+          created_at: string
+          mutation_kind: string
+          payload_hash: string
+          request_id: string
+          resulting_state_version: number
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          mutation_kind: string
+          payload_hash: string
+          request_id: string
+          resulting_state_version: number
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          mutation_kind?: string
+          payload_hash?: string
+          request_id?: string
+          resulting_state_version?: number
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_mutation_receipts_session_id_user_id_fkey"
+            columns: ["session_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "session_mutation_receipts_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -916,6 +1202,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "session_program_change_journal_program_owner_fkey"
+            columns: ["program_instance_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "session_program_change_journal_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
@@ -923,52 +1216,14 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "session_program_change_journal_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      session_mutation_receipts: {
-        Row: {
-          created_at: string
-          mutation_kind: string
-          payload_hash: string
-          request_id: string
-          resulting_state_version: number
-          session_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          mutation_kind: string
-          payload_hash: string
-          request_id: string
-          resulting_state_version: number
-          session_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          mutation_kind?: string
-          payload_hash?: string
-          request_id?: string
-          resulting_state_version?: number
-          session_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "session_mutation_receipts_session_id_user_id_fkey"
+            foreignKeyName: "session_program_change_journal_session_owner_fkey"
             columns: ["session_id", "user_id"]
             isOneToOne: false
             referencedRelation: "workout_sessions"
             referencedColumns: ["id", "user_id"]
           },
           {
-            foreignKeyName: "session_mutation_receipts_user_id_fkey"
+            foreignKeyName: "session_program_change_journal_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1058,6 +1313,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "set_logs_exercise_owner_fkey"
+            columns: ["exercise_log_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_logs"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "set_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -1121,6 +1383,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "workout_sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "substitution_logs_session_owner_fkey"
+            columns: ["session_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id", "user_id"]
           },
           {
             foreignKeyName: "substitution_logs_user_id_fkey"
@@ -1216,6 +1485,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "workout_sessions_program_owner_fkey"
+            columns: ["program_instance_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "workout_sessions_source_owner_fkey"
+            columns: ["source_session_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "workout_sessions_source_session_id_fkey"
             columns: ["source_session_id"]
             isOneToOne: false
@@ -1238,8 +1521,8 @@ export type Database = {
     Functions: {
       add_ad_hoc_exercise_v2: {
         Args: {
-          p_expected_state_version: number
           p_exercise: Json
+          p_expected_state_version: number
           p_intent: Json
           p_next_snapshot: Json
           p_request_id: string
@@ -1250,8 +1533,8 @@ export type Database = {
       }
       add_session_accessory_v2: {
         Args: {
-          p_expected_state_version: number
           p_exercise: Json
+          p_expected_state_version: number
           p_future_addition: Json | null
           p_intent: Json
           p_next_snapshot: Json
@@ -1263,8 +1546,8 @@ export type Database = {
       }
       add_session_set_v2: {
         Args: {
-          p_expected_state_version: number
           p_exercise_log_id: string
+          p_expected_state_version: number
           p_intent: Json
           p_next_snapshot: Json
           p_request_id: string
@@ -1281,16 +1564,46 @@ export type Database = {
         }
         Returns: Json
       }
-      create_custom_program_template_v2: {
+      claim_session_mutation_v2: {
         Args: {
-          p_definition: Json
-          p_template: Json
+          p_expected_state_version: number
+          p_mutation_kind: string
+          p_payload_hash: string
+          p_request_id: string
+          p_session_id: string
         }
+        Returns: number
+      }
+      complete_session_mutation_v2: {
+        Args: {
+          p_expected_state_version: number
+          p_mutation_kind: string
+          p_next_snapshot?: Json
+          p_payload_hash: string
+          p_request_id: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
+      create_custom_program_template_v2: {
+        Args: { p_definition: Json; p_template: Json }
         Returns: string
       }
       delete_own_account: {
         Args: { p_confirmation: string }
         Returns: undefined
+      }
+      derive_previous_comparable_v2: {
+        Args: {
+          p_performed_movement_id: string
+          p_planned_movement_id: string
+          p_role: string
+          p_slot_id: string
+          p_target_scheduled_date: string
+          p_target_snapshot: Json
+          p_user_id: string
+        }
+        Returns: Json
       }
       discard_workout_session: {
         Args: { p_session_id: string }
@@ -1316,23 +1629,42 @@ export type Database = {
         Returns: string
       }
       is_email_allowed: { Args: { check_email: string }; Returns: boolean }
+      insert_program_equipment_mode_choices_v1: {
+        Args: {
+          p_choices: Json
+          p_program_instance_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      normalize_free_weight_choices_v1: {
+        Args: {
+          p_choices: Json
+          p_policy_checksum: string
+          p_policy_version_id: string
+        }
+        Returns: Json
+      }
       refresh_program_customization_summary: {
         Args: { p_program_instance_id: string; p_user_id: string }
         Returns: undefined
       }
-      resolve_progression_decisions_v2: {
+      resolve_program_equipment_source_v1: {
         Args: {
-          p_action: string
-          p_decision_ids: string[]
-          p_request_id: string
+          p_include_future: boolean
+          p_phase_key: string
+          p_program_instance_id: string
+          p_role: string
+          p_slot_id: string
+          p_template_session_id: string
         }
-        Returns: number
+        Returns: string
       }
       remove_ad_hoc_exercise_v2: {
         Args: {
-          p_expected_state_version: number
           p_exercise_log_id: string
           p_exercise_orders: Json
+          p_expected_state_version: number
           p_intent: Json
           p_next_snapshot: Json
           p_request_id: string
@@ -1342,9 +1674,9 @@ export type Database = {
       }
       remove_session_accessory_v2: {
         Args: {
-          p_expected_state_version: number
           p_exercise_log_id: string
           p_exercise_orders: Json
+          p_expected_state_version: number
           p_future_addition_id: string | null
           p_future_remaining_ids: string[] | null
           p_intent: Json
@@ -1365,8 +1697,8 @@ export type Database = {
       }
       reorder_session_accessories_v2: {
         Args: {
-          p_expected_state_version: number
           p_exercise_orders: Json
+          p_expected_state_version: number
           p_future_addition_ids: string[] | null
           p_future_order_indexes: number[] | null
           p_intent: Json
@@ -1375,6 +1707,14 @@ export type Database = {
           p_session_id: string
         }
         Returns: Json
+      }
+      resolve_progression_decisions_v2: {
+        Args: {
+          p_action: string
+          p_decision_ids: string[]
+          p_request_id: string
+        }
+        Returns: number
       }
       session_insert_program_accessory_addition: {
         Args: {
@@ -1429,6 +1769,17 @@ export type Database = {
         }
         Returns: string
       }
+      set_program_equipment_mode_v1: {
+        Args: {
+          p_expected_state_version: number
+          p_free_weight_choices: Json | null
+          p_free_weight_policy_checksum: string | null
+          p_free_weight_policy_version_id: string | null
+          p_program_id: string
+          p_target_mode: string
+        }
+        Returns: Json
+      }
       start_ad_hoc_session_v2: {
         Args: {
           p_client_mutation_id: string
@@ -1456,6 +1807,28 @@ export type Database = {
         }
         Returns: string
       }
+      start_program_v3: {
+        Args: {
+          p_accessory_additions: Json
+          p_current_block_id: string | null
+          p_definition_checksum: string
+          p_equipment_mode: string
+          p_free_weight_choices: Json
+          p_free_weight_policy_checksum: string | null
+          p_free_weight_policy_version_id: string | null
+          p_movement_overrides: Json
+          p_replace_active: boolean
+          p_request_id: string
+          p_rounding: number
+          p_start_date: string
+          p_state_values: Json
+          p_template_id: string
+          p_template_version_id: string
+          p_title: string
+          p_units: string
+        }
+        Returns: string
+      }
       start_session_v2: {
         Args: {
           p_client_mutation_id: string
@@ -1468,36 +1841,54 @@ export type Database = {
         }
         Returns: string
       }
-      upsert_session_set_v2: {
-        Args: {
-          p_actual_load: number | null
-          p_actual_reps: number | null
-          p_actual_rir: number | null
-          p_actual_rpe: number | null
-          p_client_mutation_id: string
-          p_completed: boolean
-          p_expected_state_version: number
-          p_exercise_log_id: string
-          p_note: string | null
-          p_session_id: string
-          p_set_index: number
-        }
-        Returns: Json
-      }
       substitute_session_movement_v2: {
         Args: {
-          p_expected_state_version: number
           p_exercise_log_id: string
+          p_expected_state_version: number
           p_intent: Json
           p_note: string | null
           p_performed_movement_id: string
           p_phase_key: string
+          p_previous?: Json | null
           p_reason: string
           p_request_id: string
           p_scope: string
           p_session_id: string
         }
         Returns: Json
+      }
+      upsert_session_set_v2: {
+        Args: {
+          p_actual_load: number | null
+          p_actual_reps: number | null
+          p_actual_rir: number | null
+          p_actual_rpe: number | null
+          p_client_mutation_id: string | null
+          p_completed: boolean
+          p_exercise_log_id: string
+          p_expected_state_version: number
+          p_note: string | null
+          p_session_id: string
+          p_set_index: number
+        }
+        Returns: Json
+      }
+      validate_previous_comparable_v2: {
+        Args: { p_performed_movement_id: string; p_previous: Json }
+        Returns: undefined
+      }
+      validate_program_equipment_snapshot_v1: {
+        Args: { p_program_instance_id: string; p_snapshot: Json }
+        Returns: undefined
+      }
+      validate_free_weight_choice_completeness_v1: {
+        Args: { p_choices: Json; p_program_instance_id: string }
+        Returns: undefined
+      }
+      validate_session_sets_v2: { Args: { p_sets: Json }; Returns: undefined }
+      validate_session_snapshot_v2: {
+        Args: { p_snapshot: Json }
+        Returns: undefined
       }
     }
     Enums: {
