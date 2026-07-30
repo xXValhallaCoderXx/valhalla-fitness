@@ -45,6 +45,7 @@ export type HistorySessionInput = {
   /** Global session index from the prescription snapshot; used for phase attribution. */
   weekIndex?: number | null
   hardness?: PlannedSession['hardness'] | null
+  equipmentMode?: PlannedSession['equipmentMode']
   estimatedMinutes?: number | null
   movementCount: number
   plannedSetCount: number
@@ -341,6 +342,7 @@ export function buildRecentHistoryEntries(sessions: HistorySessionInput[]): Rece
       programTitle: session.programTitle,
       weekLabel: session.weekLabel,
       hardness: session.hardness,
+      equipmentMode: session.equipmentMode,
       estimatedMinutes: session.estimatedMinutes,
       movementCount: session.movementCount,
       completedSetCount,

@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import type { ProgramSetupOptions } from '~/domains/program'
 import {
   defaultMovementReplacementRules,
+  freeWeightPolicyV1,
   movementCatalog,
 } from '~/domains/movement/lib/movements'
 import {
@@ -15,6 +16,7 @@ import {
 } from '~/domains/movement/server/movement-functions'
 import {
   getLatestTemplateVersion,
+  getLatestFreeWeightPolicyVersion,
   latestTemplateSummaries,
   mapTemplateRow,
 } from '~/domains/program/server/program-template-data'
@@ -60,6 +62,7 @@ export const getProgramSetupOptionsFn = createServerFn({ method: 'GET' })
         definition: getFallbackTemplateDefinition(data.templateId),
         catalog: movementCatalog,
         rules: defaultMovementReplacementRules,
+        freeWeightPolicy: freeWeightPolicyV1,
       })
     }
 
@@ -72,10 +75,17 @@ export const getProgramSetupOptionsFn = createServerFn({ method: 'GET' })
       .single()
     if (templateError) throw new Error(templateError.message)
     const template = mapTemplateRow(templateRow)
-    const [{ definition }, catalog, rules] = await Promise.all([
+    const [{ definition }, catalog, rules, freeWeightPolicy] = await Promise.all([
       getLatestTemplateVersion(supabase, data.templateId),
       getMovementCatalogForSwap(supabase),
       getReplacementRulesForSwap(supabase),
+      getLatestFreeWeightPolicyVersion(supabase),
     ])
-    return buildProgramSetupOptions({ template, definition, catalog, rules })
+    return buildProgramSetupOptions({
+      template,
+      definition,
+      catalog,
+      rules,
+      freeWeightPolicy,
+    })
   })

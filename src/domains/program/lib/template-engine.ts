@@ -12,6 +12,11 @@ import type { MovementSlot, PlannedSession, SetLog } from '~/domains/session'
 import type { MovementRole, Unit } from '~/shared/types'
 import { accessoryProgressionRuleId } from '~/domains/session/lib/accessories'
 import { getMovementName } from '~/domains/movement/lib/movements'
+import {
+  applyEquipmentModeToSlot,
+  resolveEquipmentModeMovement,
+  resolveProgramMovementOverride,
+} from '~/domains/program/lib/equipment-mode'
 import { mround } from '~/domains/program/lib/progression'
 import { convertWeight } from '~/shared/lib/math'
 // Zod parsing stays in `template-engine-schema.ts` so clients that only build
@@ -107,14 +112,23 @@ export function expandSessionFromTemplateDefinition(
     if (!prescription) throw new Error(`Missing ${slot.prescriptionId} prescription`)
     const plannedMovementId = resolveMovementId(slot.movementId, week.phaseKey)
     const slotId = `slot-${session.id}-${slot.id}`
-    const movementId = applyMovementOverride(program.movementOverrides ?? [], {
+    const sourceMovementId = applyMovementOverride(program.movementOverrides ?? [], {
       slotId,
       phaseKey: week.phaseKey,
       role: slot.role,
       movementId: plannedMovementId,
       currentWeekIndex: program.currentWeekIndex,
     })
-    return {
+    const equipmentResolution = resolveEquipmentModeMovement({
+      program,
+      templateSessionId: session.id,
+      slotId,
+      phaseKey: week.phaseKey,
+      role: slot.role,
+      sourceMovementId,
+    })
+    const movementId = equipmentResolution.movementId
+    return applyEquipmentModeToSlot({
       id: slotId,
       slotId,
       phaseKey: week.phaseKey,
@@ -127,14 +141,14 @@ export function expandSessionFromTemplateDefinition(
       sets: prescription.sets.map((set, setIndex) =>
         expandSet(set, setIndex, {
           stateValues: program.stateValues,
-          movementId,
+          movementId: sourceMovementId,
           anchorMovementId: slot.anchorMovementId ?? plannedMovementId,
           rounding: program.rounding,
           units: program.units,
         }),
       ),
       previous: previousBySlotId[slotId] ?? null,
-    }
+    }, equipmentResolution.adaptation)
   })
   const additions = (program.accessoryAdditions ?? [])
     .filter((addition) => {
@@ -160,6 +174,8 @@ export function expandSessionFromTemplateDefinition(
     title: session.title,
     programTitle: program.title,
     templateId: program.templateId,
+    equipmentMode: program.equipmentMode,
+    freeWeightPolicyVersionId: program.freeWeightPolicyVersionId ?? null,
     weekIndex: program.currentWeekIndex,
     weekLabel: week.waveLabel
       ? `${week.phaseLabel.replace(/\s+phase$/i, '')} ${week.waveLabel} · ${week.label}`
@@ -329,12 +345,12 @@ function resolveTargetLoad(
   return mround(Number(state.value) * percent, context.rounding)
 }
 
-function resolveMovementId(movementId: string | { default: string; byPhase?: Record<string, string> }, phaseKey: string) {
+export function resolveMovementId(movementId: string | { default: string; byPhase?: Record<string, string> }, phaseKey: string) {
   if (typeof movementId === 'string') return movementId
   return movementId.byPhase?.[phaseKey] ?? movementId.default
 }
 
-function applyMovementOverride(
+export function applyMovementOverride(
   overrides: ProgramMovementOverride[],
   {
     slotId,
@@ -350,14 +366,13 @@ function applyMovementOverride(
     currentWeekIndex: number
   },
 ) {
-  const override = overrides.find(
-    (item) =>
-      item.slotId === slotId &&
-      (item.phaseKey === phaseKey || item.phaseKey === '*') &&
-      item.role === role &&
-      item.effectiveFromWeekIndex <= currentWeekIndex,
-  )
-  return override?.replacementMovementId ?? movementId
+  return resolveProgramMovementOverride(overrides, {
+    slotId,
+    phaseKey,
+    role,
+    movementId,
+    currentWeekIndex,
+  })
 }
 
 function expandAccessoryAddition(
@@ -396,12 +411,22 @@ function expandAccessoryAddition(
         }),
       )
 
-  return {
+  const equipmentResolution = resolveEquipmentModeMovement({
+    program,
+    templateSessionId: session.id,
+    slotId,
+    phaseKey: week.phaseKey,
+    role: 'accessory',
+    sourceMovementId: addition.movementId,
+  })
+  const movementId = equipmentResolution.movementId
+
+  return applyEquipmentModeToSlot({
     id: slotId,
     slotId,
     phaseKey: week.phaseKey,
-    movementId: addition.movementId,
-    movementName: getMovementName(addition.movementId),
+    movementId,
+    movementName: getMovementName(movementId),
     role: 'accessory',
     orderIndex: baseOrderIndex + additionIndex + 1,
     targetSummary: addition.targetSummary ?? prescription?.targetSummary ?? 'Accessory work',
@@ -412,7 +437,7 @@ function expandAccessoryAddition(
     notes: addition.note ?? null,
     isAdded: true,
     addedScope: 'phase_slot',
-  }
+  }, equipmentResolution.adaptation)
 }
 
 function expandManualAccessorySets(sets: ProgramAccessoryAddition['sets']): SetLog[] {

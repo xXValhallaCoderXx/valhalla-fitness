@@ -1,45 +1,15 @@
-import type { MovementRole, Unit } from '~/shared/types'
-
-export type SwapScope = 'session' | 'phase_slot'
-
-export type Movement = {
-  id: string
-  name: string
-  category: string
-  equipment: string[]
-  variationOf?: string | null
-  defaultUnit: Unit
-  isCompetition: boolean
-}
-
-export type MovementReplacementRule = {
-  id: string
-  sourceMovementId: string
-  replacementMovementId: string
-  role?: MovementRole | null
-  templateId?: string | null
-  phaseKey?: string | null
-  slotId?: string | null
-  relationshipLabel: string
-  allowSessionScope: boolean
-  allowPhaseSlotScope: boolean
-}
-
-export type MovementSwapOption = {
-  movementId: string
-  movementName: string
-  category: string
-  equipment: string[]
-  relationshipLabel: string
-  source: 'rule' | 'catalog' | 'default'
-  ruleId?: string
-  allowedScopes: SwapScope[]
-}
-
-export type AccessoryMovementOption = {
-  movementId: string
-  movementName: string
-  category: string
-  equipment: string[]
-  defaultUnit: Unit
-}
+export type {
+  LoadConvention,
+  Movement,
+  MovementPattern,
+  MovementStatus,
+  MuscleGroup,
+  RequiredEquipment,
+  ResistanceMode,
+} from './types/catalog'
+export type {
+  AccessoryMovementOption,
+  MovementReplacementRule,
+  MovementSwapOption,
+  SwapScope,
+} from './types/options'

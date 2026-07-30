@@ -1,6 +1,6 @@
 import { Badge, Modal } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { Caption, Panel, Text } from '~/components'
+import { Caption, EquipmentModeBadge, Panel, Text } from '~/components'
 import {
   useAccountClock,
   useRequiredAccountId,
@@ -88,9 +88,12 @@ function MovementHistoryCard({ entry }: { entry: MovementHistoryEntry }) {
     <Panel surface="inset" p="sm" data-testid="movement-history-entry">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <Text component="p" size="sm" fw={900} truncate>
-            {entry.sessionTitle}
-          </Text>
+          <div className="flex items-center gap-2">
+            <Text component="p" size="sm" fw={900} truncate>
+              {entry.sessionTitle}
+            </Text>
+            <EquipmentModeBadge equipmentMode={entry.equipmentMode} className="shrink-0" />
+          </div>
           <Caption component="p" mt={2}>
             {entry.programTitle ?? 'Training session'} · {entry.targetSummary}
           </Caption>

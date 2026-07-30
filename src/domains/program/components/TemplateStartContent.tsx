@@ -2,7 +2,13 @@ import { Badge, Button } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import { ArrowLeft, Check, Info } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Caption, ConfirmDialog, Page, PageHeader, Text } from '~/components'
+import {
+  Caption,
+  ConfirmDialog,
+  Page,
+  PageHeader,
+  Text,
+} from '~/components'
 import { defaultsSummary } from '~/domains/program/lib/template-start-utils'
 import type { UserProfile } from '~/domains/account'
 import type { ProgramSetupOptions, ProgramTemplateSummary } from '~/domains/program'
@@ -13,6 +19,7 @@ import { ProgrammeInfoModal } from './TemplateStartInfoModal'
 import { TemplateStartPreview } from './TemplateStartPreview'
 import { DefaultsModal, MissingEstimatesPopover, QuickFactsCard, SetupValuesButton, StartSummaryPanel } from './TemplateStartValues'
 import { useTemplateStartController } from './useTemplateStartController'
+import { TemplateStartEquipmentModeSection } from './TemplateStartEquipmentModeSection'
 
 export function TemplateStartContent({
   template,
@@ -43,6 +50,10 @@ export function TemplateStartContent({
     hasTrainingMaxState,
     hasWorkingLoadState,
     customizationCount,
+    equipmentMode,
+    freeWeightChoices,
+    freeWeightPreview,
+    showEquipmentModePreview,
     movementOverrides,
     accessoryAdditions,
     trainingMaxPercent,
@@ -56,10 +67,14 @@ export function TemplateStartContent({
     setShowSwitchConfirm,
     setShowDefaultsModal,
     setShowProgrammeInfo,
+    setShowEquipmentModePreview,
     updateStateValue,
     updateDerivedStatePercent,
     handleMovementOverrideChange,
     handleAddAccessory,
+    requestEquipmentMode,
+    updateFreeWeightChoice,
+    confirmEquipmentMode,
     handleRemoveAccessory,
     requestStartProgram,
     confirmSwitch,
@@ -101,6 +116,17 @@ export function TemplateStartContent({
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
         <div className="min-w-0 space-y-4">
+          <TemplateStartEquipmentModeSection
+            equipmentMode={equipmentMode}
+            freeWeightChoices={freeWeightChoices}
+            freeWeightPreview={freeWeightPreview}
+            showEquipmentModePreview={showEquipmentModePreview}
+            setShowEquipmentModePreview={setShowEquipmentModePreview}
+            requestEquipmentMode={requestEquipmentMode}
+            updateFreeWeightChoice={updateFreeWeightChoice}
+            confirmEquipmentMode={confirmEquipmentMode}
+          />
+
           <ProgrammeBlocksCard
             mode={mode}
             phases={phases}
@@ -127,6 +153,8 @@ export function TemplateStartContent({
             setupOptions={setupOptions}
             movementOverrides={movementOverrides}
             accessoryAdditions={accessoryAdditions}
+            equipmentMode={equipmentMode}
+            freeWeightChoices={freeWeightChoices}
             onWeekChange={setActiveWeekIndex}
             onMovementOverrideChange={handleMovementOverrideChange}
             onAddAccessory={handleAddAccessory}
@@ -227,7 +255,6 @@ export function TemplateStartContent({
         weekOptions={weekOptions}
         onClose={() => setShowProgrammeInfo(false)}
       />
-
       <ConfirmDialog
         open={showSwitchConfirm}
         title="Replace active programme?"

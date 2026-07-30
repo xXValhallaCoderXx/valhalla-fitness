@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Badge, Button, Card } from '@mantine/core'
+import { Button, Card } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight, Check, Dumbbell, ListChecks, NotebookText, Trophy } from 'lucide-react'
@@ -8,7 +8,7 @@ import { useRequiredAccountId } from '~/domains/account/components/AccountIdenti
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { sessionQueryOptions } from '~/domains/session/queries'
 import type { SessionSummary, WorkoutSession } from '~/domains/session'
-import { Caption, EmptyState, Heading, Page, PageLoadError, PageSkeleton, SectionLabel, Text } from '~/components'
+import { Caption, EmptyState, Page, PageLoadError, PageSkeleton, SectionLabel, Text } from '~/components'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { buildSessionReceipt } from '~/domains/session/lib/session-receipt'
 import { buildWorkoutSummary, topSetCountExplanation } from '~/domains/history/lib/workout-summary'
@@ -20,6 +20,7 @@ import { resolveProgressionDecisionsFn } from '~/domains/program/server/program-
 import { accountQueryKeys } from '~/shared/lib/query-keys'
 import { useStableProgramMutationRequest } from '~/domains/program/lib/useStableProgramMutationRequest'
 import { CompletedWorkCard, PrBanner, ReflectionRow, SummaryStat, WhatChangedCard } from './SessionSummaryDetails'
+import { SessionSummaryHeader } from './SessionSummaryHeader'
 
 export function SessionSummaryPage({
   sessionId,
@@ -134,18 +135,13 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
 
   return (
     <Page className="pb-40 lg:pb-8">
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <SectionLabel>{session.title} · Session summary</SectionLabel>
-          <Heading order={1} size="h2" lh={1.1} mt={4}>{headline}</Heading>
-        </div>
-        <div className="flex items-center gap-2">
-          <Caption fw={600}>
-            {recap.completion.completed} of {recap.completion.planned} sets · {recap.stats.durationMinutes} min
-          </Caption>
-          <Badge color="success">Completed</Badge>
-        </div>
-      </div>
+      <SessionSummaryHeader
+        session={session}
+        headline={headline}
+        completedSets={recap.completion.completed}
+        plannedSets={recap.completion.planned}
+        durationMinutes={recap.stats.durationMinutes}
+      />
 
       {session.prs?.length ? <PrBanner prs={session.prs} units={session.units} /> : null}
 

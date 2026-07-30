@@ -1,8 +1,16 @@
 import type { Movement, MovementReplacementRule } from '~/domains/movement'
-import type { ProgramSetupOptions, ProgramTemplateSummary } from '~/domains/program'
+import type {
+  FreeWeightPolicyVersion,
+  ProgramSetupOptions,
+  ProgramTemplateSummary,
+} from '~/domains/program'
 import type { TemplateDefinition } from '~/domains/program/lib/template-engine'
 import { buildProgramStartPreview } from '~/domains/program/lib/program-start-preview'
-import { buildMovementSwapOptions, getMovementName } from '~/domains/movement/lib/movements'
+import {
+  buildMovementSwapOptions,
+  getMovementName,
+  isFreeWeightMovement,
+} from '~/domains/movement/lib/movements'
 
 function resolveTemplateMovementId(
   movementId: TemplateDefinition['sessions'][number]['slots'][number]['movementId'],
@@ -42,27 +50,35 @@ export function buildProgramSetupOptions({
   definition,
   catalog,
   rules,
+  freeWeightPolicy = null,
 }: {
   template: ProgramTemplateSummary
   definition: TemplateDefinition
   catalog: Record<string, Movement>
   rules: MovementReplacementRule[]
+  freeWeightPolicy?: FreeWeightPolicyVersion | null
 }): ProgramSetupOptions {
   const phases = uniqueTemplatePhases(definition)
   const accessoryCatalog = Object.values(catalog)
-    .filter((movement) => !movement.isCompetition)
+    .filter(
+      (movement) =>
+        !movement.isCompetition && movement.status !== 'deprecated',
+    )
     .sort((left, right) => left.name.localeCompare(right.name))
     .map((movement) => ({
       movementId: movement.id,
       movementName: movement.name,
       category: movement.category,
       equipment: movement.equipment,
+      resistanceMode: movement.resistanceMode,
+      pattern: movement.pattern,
     }))
 
   return {
     templateId: template.id,
     templateName: template.name,
     origin: template.origin,
+    freeWeightPolicy,
     previewWeeks: buildProgramStartPreview({
       templateId: template.id,
       definition,
@@ -144,7 +160,11 @@ export function buildProgramSetupOptions({
           phaseLabel: row.phaseLabel,
           role: slot.role as 'variation' | 'accessory',
           defaultMovementId: row.movementId,
-          defaultMovementName: getMovementName(row.movementId),
+          defaultMovementName:
+            catalog[row.movementId]?.name ?? getMovementName(row.movementId),
+          defaultFreeWeightCompatible: isFreeWeightMovement(
+            catalog[row.movementId],
+          ),
           prescriptionId: slot.prescriptionId,
           targetSummary: row.targetSummary,
           replacementOptions: buildMovementSwapOptions({

@@ -5,6 +5,7 @@ import type {
   ProgressionDecision,
 } from '~/domains/program/types/core'
 import type { ProgramStateType } from '~/domains/program/types/template'
+import type { ProgramEquipmentMode } from '~/domains/program/types/equipment-mode'
 
 export type ProgramRecentSessionSummary = {
   id: string
@@ -13,6 +14,7 @@ export type ProgramRecentSessionSummary = {
   scheduledDate: string
   timeZone?: string | null
   weekLabel?: string | null
+  equipmentMode?: ProgramEquipmentMode
   completedSetCount: number
   plannedSetCount: number
   topSetHighlights: string[]
@@ -54,6 +56,8 @@ export type ProgramAccessoryPlan = {
 
 export type ProgramOverview = {
   activeProgram: ProgramInstance | null
+  /** Any live workout blocks programme-level equipment changes until it ends. */
+  hasActiveSession: boolean
   position: {
     phaseKey: string
     phaseLabel: string

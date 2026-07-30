@@ -3,7 +3,16 @@ import { useIsMutating } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { Activity, ListChecks, RotateCw, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { Heading, Page, PageHeader, Panel, SectionLabel, StatCard, Text } from '~/components'
+import {
+  EquipmentModeBadge,
+  Heading,
+  Page,
+  PageHeader,
+  Panel,
+  SectionLabel,
+  StatCard,
+  Text,
+} from '~/components'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { PendingProgressionReviewModal, PendingReviewAlert } from '~/domains/program/components/PendingReview'
 import type { TodayHistorySupport } from '~/domains/history'
@@ -83,6 +92,7 @@ export function TodayActiveSession({
                 ) : (
                   <Badge color="warning">{session.hardness}</Badge>
                 )}
+                <EquipmentModeBadge equipmentMode={session.equipmentMode} />
                 <StreakBadge history={history} isPending={historyPending} isError={historyError} />
               </div>
               <Heading order={2} size="h3" lh={1.15} className="truncate">

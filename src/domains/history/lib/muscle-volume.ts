@@ -59,6 +59,7 @@ export function buildWeeklyRegionSets(
       const weights = resolveRegionWeights(
         exercise.performedMovementId,
         catalog[exercise.performedMovementId]?.category,
+        catalog[exercise.performedMovementId],
       )
       const entries = Object.entries(weights) as Array<[BodyRegionId, number]>
       const weightSum = entries.reduce((sum, [, weight]) => sum + (weight ?? 0), 0)

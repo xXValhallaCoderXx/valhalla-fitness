@@ -1,7 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import type {
   ProgramAccessoryAddition,
-  ProgramMovementOverride,
+  FreeWeightChoiceDraft,
+  FreeWeightPolicyVersion,
   ProgramSetupOptions,
   ProgramStartAccessoryAdditionInput,
   ProgramStartMovementOverrideInput,
@@ -18,7 +19,21 @@ import {
   buildCustomProgramTemplateDefinition,
   customProgramBuilderInputSchema,
 } from '~/domains/program/lib/custom-templates'
-import { getMovementName } from '~/domains/movement/lib/movements'
+import {
+  getMovementName,
+  movementCatalog,
+} from '~/domains/movement/lib/movements'
+import {
+  buildSetupFreeWeightPreview,
+  choiceMatchesPolicy,
+  freeWeightChoiceKey,
+  isFreeWeightCompatibleMovement,
+  normalizeFreeWeightChoices,
+} from '~/domains/program/lib/equipment-mode'
+import {
+  programAccessoryAdditionId,
+  sanitizeProgramSlotPart,
+} from '~/domains/program/lib/program-accessory-slots'
 import { startProgramInputSchema } from '~/domains/program/lib/schemas'
 import {
   ensureProfile,
@@ -33,6 +48,7 @@ import type { Json } from '~/shared/types/database'
 import { getActiveProgramInternal } from '~/domains/program/server/active-program-functions'
 import {
   getLatestTemplateVersion,
+  getLatestFreeWeightPolicyVersion,
   mapTemplateRow,
 } from '~/domains/program/server/program-template-data'
 import { buildProgramSetupOptions } from '~/domains/program/server/program-setup'
@@ -63,19 +79,13 @@ function validProgramStateValues(
 function normalizeStartMovementOverrides(
   input: ProgramStartMovementOverrideInput[] | undefined,
   setupOptions: ProgramSetupOptions,
-): Array<
-  Omit<
-    ProgramMovementOverride,
-    'id' | 'programInstanceId' | 'effectiveFromWeekIndex'
-  > & { effectiveFromWeekIndex: number }
-> {
+): Array<ProgramStartMovementOverrideInput & {
+  effectiveFromWeekIndex: number
+}> {
   const setupSlots = setupOptions.sessions.flatMap((session) => session.slots)
   const overrides = new Map<
     string,
-    Omit<
-      ProgramMovementOverride,
-      'id' | 'programInstanceId' | 'effectiveFromWeekIndex'
-    > & { effectiveFromWeekIndex: number }
+    ProgramStartMovementOverrideInput & { effectiveFromWeekIndex: number }
   >()
 
   for (const item of input ?? []) {
@@ -115,13 +125,11 @@ function normalizeStartMovementOverrides(
   return Array.from(overrides.values())
 }
 
-function sanitizeSlotPart(value: string) {
-  return value.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-')
-}
-
 function customTemplateId(userId: string, name: string) {
   const slug =
-    sanitizeSlotPart(name.toLowerCase()).replace(/^-|-$/g, '').slice(0, 32) ||
+    sanitizeProgramSlotPart(name.toLowerCase())
+      .replace(/^-|-$/g, '')
+      .slice(0, 32) ||
     'programme'
   return `custom-${userId.slice(0, 8)}-${Date.now().toString(36)}-${slug}`
 }
@@ -199,7 +207,7 @@ function normalizeStartAccessoryAdditions(
     additionsBySession.set(item.sessionId, index)
     return {
       sessionId: item.sessionId,
-      slotId: `added-accessory-${index}-${sanitizeSlotPart(item.movementId)}`,
+      slotId: programAccessoryAdditionId(index, item.movementId),
       phaseKey: item.phaseKey ?? '*',
       movementId: item.movementId,
       prescriptionId: source.prescriptionId,
@@ -208,6 +216,54 @@ function normalizeStartAccessoryAdditions(
       orderIndex: index,
     }
   })
+}
+
+function validateStartFreeWeightChoices({
+  choices,
+  policy,
+  setupOptions,
+  movementOverrides,
+  accessoryAdditions,
+  catalog,
+}: {
+  choices: FreeWeightChoiceDraft[]
+  policy: FreeWeightPolicyVersion
+  setupOptions: ProgramSetupOptions
+  movementOverrides: ProgramStartMovementOverrideInput[]
+  accessoryAdditions: ProgramStartAccessoryAdditionInput[]
+  catalog: typeof movementCatalog
+}) {
+  const preview = buildSetupFreeWeightPreview({
+    setupOptions,
+    movementOverrides,
+    accessoryAdditions,
+    policy,
+    catalog,
+  })
+  if (!preview.canApply || preview.unresolved.length) {
+    throw new Error('FREE_WEIGHT_UNMAPPED')
+  }
+  const expected = new Map(
+    preview.choices.map((choice) => [freeWeightChoiceKey(choice), choice]),
+  )
+  const submitted = new Map(
+    choices.map((choice) => [freeWeightChoiceKey(choice), choice]),
+  )
+  if (submitted.size !== choices.length || submitted.size !== expected.size) {
+    throw new Error('FREE_WEIGHT_CHOICE_STALE')
+  }
+  for (const [key, expectedChoice] of expected) {
+    const choice = submitted.get(key)
+    if (
+      !choice ||
+      choice.sourceMovementId !== expectedChoice.sourceMovementId ||
+      !choiceMatchesPolicy(choice, policy) ||
+      !isFreeWeightCompatibleMovement(choice.replacementMovementId, catalog)
+    ) {
+      throw new Error('FREE_WEIGHT_CHOICE_STALE')
+    }
+  }
+  return normalizeFreeWeightChoices(Array.from(submitted.values()))
 }
 
 export const startProgramFn = createServerFn({ method: 'POST' })
@@ -228,15 +284,17 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       supabase,
       data.templateId,
     )
-    const [catalog, rules] = await Promise.all([
+    const [catalog, rules, freeWeightPolicy] = await Promise.all([
       getMovementCatalogForSwap(supabase),
       getReplacementRulesForSwap(supabase),
+      getLatestFreeWeightPolicyVersion(supabase),
     ])
     const setupOptions = buildProgramSetupOptions({
       template,
       definition: templateVersion.definition,
       catalog,
       rules,
+      freeWeightPolicy,
     })
     const movementOverrides = normalizeStartMovementOverrides(
       data.movementOverrides,
@@ -246,6 +304,30 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       data.accessoryAdditions,
       setupOptions,
     )
+    const equipmentMode = data.equipmentMode ?? 'standard'
+    let freeWeightChoices: FreeWeightChoiceDraft[] = []
+    if (equipmentMode === 'free_weight') {
+      if (
+        data.freeWeightPolicyVersionId !== freeWeightPolicy.id ||
+        data.freeWeightPolicyChecksum !== freeWeightPolicy.checksum
+      ) {
+        throw new Error('FREE_WEIGHT_POLICY_STALE')
+      }
+      freeWeightChoices = validateStartFreeWeightChoices({
+        choices: data.freeWeightChoices ?? [],
+        policy: freeWeightPolicy,
+        setupOptions,
+        movementOverrides,
+        accessoryAdditions: data.accessoryAdditions ?? [],
+        catalog,
+      })
+    } else if (
+      data.freeWeightPolicyVersionId ||
+      data.freeWeightPolicyChecksum ||
+      data.freeWeightChoices?.length
+    ) {
+      throw new Error('VALIDATION_FAILED')
+    }
     const units = (data.units ?? profile.units) as Unit
     const rounding = data.rounding ?? Number(profile.rounding)
     const profileStateDefaults = normalizeProgramStateDefaults(
@@ -268,7 +350,7 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       stateValues,
     )
 
-    const { error } = await supabase.rpc('start_program_v2', {
+    const { error } = await supabase.rpc('start_program_v3', {
       p_request_id: data.requestId,
       p_template_id: data.templateId,
       p_template_version_id: templateVersion.id,
@@ -286,6 +368,13 @@ export const startProgramFn = createServerFn({ method: 'POST' })
       p_movement_overrides: movementOverrides as unknown as Json,
       p_accessory_additions: accessoryAdditions as unknown as Json,
       p_replace_active: data.replaceActiveProgram ?? false,
+      p_equipment_mode: equipmentMode,
+      p_free_weight_policy_version_id:
+        equipmentMode === 'free_weight' ? freeWeightPolicy.id : null,
+      p_free_weight_policy_checksum:
+        equipmentMode === 'free_weight' ? freeWeightPolicy.checksum : null,
+      p_free_weight_choices:
+        freeWeightChoices as unknown as Json,
     })
     if (error) {
       if (error.message.includes('ACTIVE_PROGRAM_EXISTS')) {

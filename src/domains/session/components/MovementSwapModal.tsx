@@ -5,6 +5,10 @@ import { useMemo, useState } from 'react'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { movementSwapOptionsQueryOptions } from '~/domains/session/queries'
+import {
+  canUseMovementSwapPhaseScope,
+  selectVisibleMovementSwapOption,
+} from '~/domains/session/lib/movement-swap-options'
 import { patchMovementInSession } from '~/domains/session/lib/session-cache'
 import { substituteMovementFn } from '~/domains/session/server/session-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
@@ -62,10 +66,16 @@ export function MovementSwapModal({
       )
     })
   }, [options, search])
-  const effectiveSelectedMovementId = selectedMovementId ?? options[0]?.movementId ?? null
-  const selectedOption = options.find((option) => option.movementId === effectiveSelectedMovementId) ?? null
-  // Ad-hoc sessions have no programme slots to persist a swap into.
-  const canUsePhaseScope = Boolean(selectedOption?.allowedScopes.includes('phase_slot')) && !session.isAdHoc
+  const selectedOption = selectVisibleMovementSwapOption(
+    filteredOptions,
+    selectedMovementId,
+  )
+  const effectiveSelectedMovementId = selectedOption?.movementId ?? null
+  const canUsePhaseScope = canUseMovementSwapPhaseScope({
+    option: selectedOption,
+    isAdHoc: Boolean(session.isAdHoc),
+    isAdded: Boolean(movement.isAdded),
+  })
   const effectiveScope: SwapScope = scope === 'phase_slot' && canUsePhaseScope ? 'phase_slot' : 'session'
   const phaseLabel = phaseScopeLabel(session)
 

@@ -149,12 +149,54 @@ const writeBoundary = requireFragments(
   ],
 )
 
+requireFragments(
+  'supabase/migrations/202607300006_equipment_mode_foundations.sql',
+  [
+    'equipment_mode_policy_versions',
+    'program_equipment_mode_choices',
+    'equipment_mode text not null default',
+    'free_weight_policy_version_id',
+    'free_weight_choices_hash',
+    'protect_referenced_equipment_mode_policy_version',
+    'before update or delete on public.equipment_mode_policy_versions',
+  ],
+)
+
+requireFragments(
+  'supabase/migrations/202607300007_equipment_mode_lifecycle.sql',
+  [
+    'normalize_free_weight_choices_v1',
+    'validate_free_weight_choice_completeness_v1',
+    'start_program_v3',
+    'set_program_equipment_mode_v1',
+    'validate_program_equipment_snapshot_v1',
+    'enforce_program_equipment_snapshot',
+    'WORKOUT_IN_PROGRESS',
+    'FREE_WEIGHT_CHOICE_STALE',
+    "replacement.resistance_mode not in (\n          'barbell', 'dumbbell', 'specialty_bar', 'bodyweight'",
+    'before insert or update of program_instance_id, prescription_snapshot',
+  ],
+)
+
+requireFragments(
+  'supabase/migrations/202607300008_expand_movement_catalog.sql',
+  [
+    'free-weight-v1-leg_extension',
+    "'00000000-0000-4000-8000-000000000201'",
+    "where status = 'active'",
+    "where status = 'deprecated'",
+    'MOVEMENT_CATALOG_INCOMPLETE',
+  ],
+)
+
 const databaseTypes = requireFragments('src/shared/types/database.ts', [
   'advance_program_position_v2:',
   'create_custom_program_template_v2:',
   'delete_own_account:',
   'set_session_favorite_v2:',
   'start_program_v2:',
+  'start_program_v3:',
+  'set_program_equipment_mode_v1:',
   'start_session_v2:',
   'start_ad_hoc_session_v2:',
   'finish_session_v2:',
@@ -171,6 +213,8 @@ const databaseTypes = requireFragments('src/shared/types/database.ts', [
   'add_session_set_v2:',
   'substitute_session_movement_v2:',
   'session_mutation_receipts:',
+  'equipment_mode_policy_versions:',
+  'program_equipment_mode_choices:',
   'state_version: number',
   'p_start_date: string',
 ])
@@ -189,7 +233,15 @@ for (const path of [
 const programStartServer = requireFragments(
   'src/domains/program/server/program-start-functions.ts',
   [
-    "supabase.rpc('start_program_v2'",
+    "supabase.rpc('start_program_v3'",
+  ],
+)
+requireFragments(
+  'src/domains/program/server/program-equipment-mode-functions.ts',
+  [
+    "supabase.rpc('set_program_equipment_mode_v1'",
+    'expectedStateVersion',
+    'FREE_WEIGHT_POLICY_STALE',
   ],
 )
 const activeProgramServer = requireFragments(

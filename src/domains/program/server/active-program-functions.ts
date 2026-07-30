@@ -4,6 +4,7 @@ import type {
   ProgramCustomizationSummary,
   ProgramInstance,
   ProgramMovementOverride,
+  ProgramEquipmentModeChoice,
   ProgramStateInput,
   ProgressionDecision,
 } from '~/domains/program'
@@ -75,6 +76,22 @@ function mapProgramAccessoryAddition(
   }
 }
 
+function mapProgramEquipmentModeChoice(
+  row: Tables<'program_equipment_mode_choices'>,
+): ProgramEquipmentModeChoice {
+  return {
+    id: row.id,
+    programInstanceId: row.program_instance_id,
+    templateSessionId: row.template_session_id,
+    slotId: row.slot_id,
+    phaseKey: row.phase_key,
+    role: row.role as ProgramEquipmentModeChoice['role'],
+    sourceMovementId: row.source_movement_id,
+    replacementMovementId: row.replacement_movement_id,
+    policyRuleId: row.policy_rule_id,
+  }
+}
+
 export function mapProgressionDecision(
   row: Tables<'progression_decisions'>,
 ): ProgressionDecision {
@@ -133,6 +150,19 @@ export async function getActiveProgramInternal(): Promise<ProgramInstance | null
     .order('order_index', { ascending: true })
   if (additionError) throw new Error(additionError.message)
 
+  const { data: equipmentModeChoices, error: equipmentModeChoiceError } =
+    await supabase
+      .from('program_equipment_mode_choices')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('program_instance_id', instance.id)
+      .order('template_session_id', { ascending: true })
+      .order('phase_key', { ascending: true })
+      .order('slot_id', { ascending: true })
+  if (equipmentModeChoiceError) {
+    throw new Error(equipmentModeChoiceError.message)
+  }
+
   const templateDefinition = await getPinnedTemplateDefinition(
     supabase,
     instance.template_version_id,
@@ -150,6 +180,12 @@ export async function getActiveProgramInternal(): Promise<ProgramInstance | null
     rounding: Number(instance.rounding),
     currentWeekIndex: instance.current_week_index,
     stateVersion: instance.state_version,
+    equipmentMode:
+      (instance.equipment_mode as ProgramInstance['equipmentMode']) ??
+      'standard',
+    freeWeightPolicyVersionId:
+      instance.free_weight_policy_version_id ?? null,
+    freeWeightChoicesHash: instance.free_weight_choices_hash ?? null,
     customizationStatus: (instance.customization_status ??
       'default') as ProgramInstance['customizationStatus'],
     customizationSummary: normalizeCustomizationSummary(
@@ -167,6 +203,9 @@ export async function getActiveProgramInternal(): Promise<ProgramInstance | null
     movementOverrides: (movementOverrides ?? []).map(mapProgramMovementOverride),
     accessoryAdditions: (accessoryAdditions ?? []).map(
       mapProgramAccessoryAddition,
+    ),
+    equipmentModeChoices: (equipmentModeChoices ?? []).map(
+      mapProgramEquipmentModeChoice,
     ),
     templateDefinition,
   }

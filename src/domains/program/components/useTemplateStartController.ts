@@ -14,14 +14,12 @@ import {
   deriveTemplatePhases,
   templateStructureMode,
 } from '~/domains/program/lib/template-start-phases'
+import { normalizeFreeWeightChoices } from '~/domains/program/lib/equipment-mode'
 import {
-  accessoryDraftClientId,
   compactWeekPreviewOptions,
   hasUsableStateValue,
-  isSetupConfigurableRole,
   missingRequiredLoadMessage,
   stateValuesForProfileTemplate,
-  type AccessoryAdditionDraft,
 } from '~/domains/program/lib/template-start-utils'
 import { startProgramFn } from '~/domains/program/server/program-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
@@ -30,13 +28,11 @@ import { accountQueryKeys } from '~/shared/lib/query-keys'
 import type { UserProfile } from '~/domains/account'
 import type {
   ProgramSetupOptions,
-  ProgramSetupPreviewMovement,
-  ProgramStartAccessoryAdditionInput,
-  ProgramStartMovementOverrideInput,
   ProgramStateInput,
   ProgramTemplateSummary,
 } from '~/domains/program'
 import type { TodayPayload } from '~/domains/session'
+import { useTemplateStartEquipmentMode } from './useTemplateStartEquipmentMode'
 
 export function useTemplateStartController({
   template,
@@ -56,8 +52,15 @@ export function useTemplateStartController({
   const [showDefaultsModal, setShowDefaultsModal] = useState(false)
   const [showProgrammeInfo, setShowProgrammeInfo] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
-  const [movementOverrides, setMovementOverrides] = useState<ProgramStartMovementOverrideInput[]>([])
-  const [accessoryAdditions, setAccessoryAdditions] = useState<AccessoryAdditionDraft[]>([])
+  const equipment = useTemplateStartEquipmentMode({ setupOptions })
+  const {
+    equipmentMode,
+    freeWeightChoices,
+    equipmentModeReviewNeeded,
+    movementOverrides,
+    accessoryAdditions,
+    setShowEquipmentModePreview,
+  } = equipment
   const [trainingMaxPercent, setTrainingMaxPercent] = useState(DEFAULT_TRAINING_MAX_PERCENT)
   const [workingLoadPercent, setWorkingLoadPercent] = useState(DEFAULT_WORKING_LOAD_PERCENT)
   const startRequestId = useRef<string | null>(null)
@@ -71,7 +74,6 @@ export function useTemplateStartController({
   // can jump to any phase even when its movements match the previous phase.
   const activeWeek =
     setupOptions.previewWeeks.find((week) => week.index === activeWeekIndex) ?? setupOptions.previewWeeks[0]
-  const customizationCount = movementOverrides.length + accessoryAdditions.length
   const phases = useMemo(() => deriveTemplatePhases(setupOptions.previewWeeks), [setupOptions.previewWeeks])
   const mode = useMemo(() => templateStructureMode(setupOptions.previewWeeks), [setupOptions.previewWeeks])
   const activePhaseKey = activeWeek?.phaseKey ?? phases[0]?.phaseKey ?? ''
@@ -103,7 +105,6 @@ export function useTemplateStartController({
   )
   const hasTrainingMaxState = visibleState.some((state) => state.type === 'training_max')
   const hasWorkingLoadState = visibleState.some((state) => state.type === 'working_load')
-
   const updateStateValue = (key: string, value: number | null) => {
     setStateValues((current) =>
       current.map((state) => (state.key === key ? { ...state, value } : state)),
@@ -143,6 +144,19 @@ export function useTemplateStartController({
                 phaseKey,
               }))
             : undefined,
+          equipmentMode,
+          freeWeightPolicyVersionId:
+            equipmentMode === 'free_weight'
+              ? setupOptions.freeWeightPolicy?.id
+              : undefined,
+          freeWeightPolicyChecksum:
+            equipmentMode === 'free_weight'
+              ? setupOptions.freeWeightPolicy?.checksum
+              : undefined,
+          freeWeightChoices:
+            equipmentMode === 'free_weight'
+              ? normalizeFreeWeightChoices(freeWeightChoices)
+              : undefined,
           replaceActiveProgram: input.replaceActiveProgram,
         },
       })
@@ -178,36 +192,14 @@ export function useTemplateStartController({
     },
   })
 
-  const handleMovementOverrideChange = (movement: ProgramSetupPreviewMovement, replacementMovementId: string) => {
-    if (!isSetupConfigurableRole(movement.role)) return
-    const role = movement.role
-    setMovementOverrides((current) => {
-      const withoutSlot = current.filter(
-        (override) =>
-          !(override.slotId === movement.slotId && override.phaseKey === movement.setupPhaseKey && override.role === role),
-      )
-      if (replacementMovementId === movement.defaultMovementId) return withoutSlot
-      return [
-        ...withoutSlot,
-        {
-          slotId: movement.slotId,
-          phaseKey: movement.setupPhaseKey,
-          role,
-          originalMovementId: movement.defaultMovementId,
-          replacementMovementId,
-        },
-      ]
-    })
-  }
-
-  const handleAddAccessory = (addition: ProgramStartAccessoryAdditionInput) => {
-    setAccessoryAdditions((current) => [...current, { ...addition, clientId: accessoryDraftClientId(addition) }])
-  }
-
   const requestStartProgram = () => {
     setStartError(null)
     if (missingRequiredState.length) {
       setStartError(missingRequiredLoadMessage(missingRequiredState))
+      return
+    }
+    if (equipmentModeReviewNeeded) {
+      setShowEquipmentModePreview(true)
       return
     }
     if (shouldConfirmProgramStart(today)) {
@@ -242,9 +234,7 @@ export function useTemplateStartController({
     missingRequiredState,
     hasTrainingMaxState,
     hasWorkingLoadState,
-    customizationCount,
-    movementOverrides,
-    accessoryAdditions,
+    ...equipment,
     trainingMaxPercent,
     workingLoadPercent,
     startError,
@@ -258,10 +248,6 @@ export function useTemplateStartController({
     setShowProgrammeInfo,
     updateStateValue,
     updateDerivedStatePercent,
-    handleMovementOverrideChange,
-    handleAddAccessory,
-    handleRemoveAccessory: (clientId: string) =>
-      setAccessoryAdditions((current) => current.filter((addition) => addition.clientId !== clientId)),
     requestStartProgram,
     confirmSwitch,
   }

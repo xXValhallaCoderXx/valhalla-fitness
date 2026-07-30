@@ -1,12 +1,14 @@
 import { ActionIcon, Button, Tooltip } from '@mantine/core'
 import { ChevronLeft, Trash2 } from 'lucide-react'
-import { Caption, Text } from '~/components'
+import { Caption, EquipmentModeBadge, Text } from '~/components'
+import type { PlannedSession } from '~/domains/session'
 
 /** Focus-mode top bar: ‹ Overview · centre context · Finish. */
 export function FocusTopBar({
   onBack,
   centerPrimary,
   centerSecondary,
+  equipmentMode,
   finishLabel,
   finishDisabled,
   onFinish,
@@ -16,6 +18,7 @@ export function FocusTopBar({
   onBack: () => void
   centerPrimary: string
   centerSecondary: string
+  equipmentMode?: PlannedSession['equipmentMode']
   finishLabel: string
   finishDisabled: boolean
   onFinish: () => void
@@ -48,6 +51,7 @@ export function FocusTopBar({
         <Caption component="div" size="0.625rem">
           {centerSecondary}
         </Caption>
+        <EquipmentModeBadge equipmentMode={equipmentMode} mt={3} />
       </div>
 
       <div className="flex shrink-0 items-center gap-1">

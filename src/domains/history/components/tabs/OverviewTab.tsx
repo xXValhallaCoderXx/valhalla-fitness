@@ -17,7 +17,7 @@ import type {
   RecentHistoryEntry,
 } from '~/domains/history'
 import type { ProgramOverview } from '~/domains/program'
-import { Caption, EmptyState, Heading, Panel, SectionLabel, Text } from '~/components'
+import { Caption, EmptyState, EquipmentModeBadge, Heading, Panel, SectionLabel, Text } from '~/components'
 import { CalibrationCard } from '../cards/CalibrationCard'
 import { ConsistencyCard } from '../cards/ConsistencyCard'
 import { MilestonesStrip } from '../cards/MilestonesStrip'
@@ -230,9 +230,12 @@ function RecentMiniRow({ session, onOpen }: { session: RecentHistoryEntry; onOpe
     >
       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: ACCENT_TEXT[color] }} />
       <div className="min-w-0 flex-1">
-        <Text size="sm" fw={700} truncate>
-          {session.title}
-        </Text>
+        <div className="flex items-center gap-2">
+          <Text size="sm" fw={700} truncate>
+            {session.title}
+          </Text>
+          <EquipmentModeBadge equipmentMode={session.equipmentMode} className="shrink-0" />
+        </div>
         <Caption truncate>{session.weekLabel ?? session.programTitle ?? 'Session'}</Caption>
         {date.completionLabel ? <Caption truncate>{date.completionLabel}</Caption> : null}
       </div>

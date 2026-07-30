@@ -1,7 +1,7 @@
 import { Badge, Card, Group } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
-import { Caption, SectionLabel, Text } from '~/components'
+import { Caption, EquipmentModeBadge, SectionLabel, Text } from '~/components'
 import type { ProgramOverview } from '~/domains/program'
 import { useAccountClock } from '~/domains/account/components/AccountIdentityProvider'
 import { describeWorkoutDate } from '~/shared/lib/dates'
@@ -31,9 +31,12 @@ export function RecentProgramSessions({ overview }: { overview: ProgramOverview 
                 style={index === 0 ? undefined : { borderTop: '1px solid var(--mantine-color-default-border)' }}
               >
                 <div className="min-w-0">
-                  <Text size="sm" fw={700} truncate>
-                    {session.title}
-                  </Text>
+                  <div className="flex items-center gap-2">
+                    <Text size="sm" fw={700} truncate>
+                      {session.title}
+                    </Text>
+                    <EquipmentModeBadge equipmentMode={session.equipmentMode} className="shrink-0" />
+                  </div>
                   <Caption mt={1} truncate>
                     {date.compactDate} · {date.relativeDate}
                   </Caption>

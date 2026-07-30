@@ -1,4 +1,4 @@
-import type { SubstitutionReason } from '~/domains/session'
+import type { PlannedSession, SubstitutionReason } from '~/domains/session'
 import type { MovementRole, SessionHardness, Unit } from '~/shared/types'
 
 export type RecentHistoryEntry = {
@@ -10,6 +10,7 @@ export type RecentHistoryEntry = {
   programTitle?: string | null
   weekLabel?: string | null
   hardness?: SessionHardness | null
+  equipmentMode?: PlannedSession['equipmentMode']
   estimatedMinutes?: number | null
   movementCount: number
   completedSetCount: number
@@ -45,6 +46,7 @@ export type MovementHistoryEntry = {
   completedAt?: string | null
   timeZone?: string | null
   units?: Unit | null
+  equipmentMode?: PlannedSession['equipmentMode']
   plannedMovementId: string
   performedMovementId: string
   performedMovementName: string

@@ -1,5 +1,9 @@
 import type { SwapScope } from '~/domains/movement'
 import type { AccessoryProgressionMethod } from '~/domains/program'
+import type {
+  EquipmentModeAdaptation,
+  ProgramEquipmentMode,
+} from '~/domains/program'
 import type { MovementRole, SessionHardness, Unit } from '~/shared/types'
 
 export type SyncState = 'synced' | 'saving' | 'syncFailed'
@@ -52,6 +56,8 @@ export type MovementSlot = {
   notes?: string | null
   isAdded?: boolean
   addedScope?: SwapScope
+  /** Provenance for an automatic programme equipment-mode replacement. */
+  modeAdaptation?: EquipmentModeAdaptation
   /** Optional per-slot rest override (seconds); rides the session snapshot, no DB column. */
   restSeconds?: number
 }
@@ -64,6 +70,9 @@ export type PlannedSession = {
   title: string
   programTitle: string
   templateId: string
+  /** Programme equipment policy frozen when the workout snapshot is created. */
+  equipmentMode?: ProgramEquipmentMode
+  freeWeightPolicyVersionId?: string | null
   weekIndex: number
   weekLabel: string
   /** null for ad-hoc sessions — they have no prescribed intensity. */

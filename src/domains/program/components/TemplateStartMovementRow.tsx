@@ -2,19 +2,32 @@ import { Badge, Button } from '@mantine/core'
 import { ArrowLeftRight, ArrowUp, Lock, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 import { Caption, Panel, Text } from '~/components'
-import { getMovementName } from '~/domains/movement/lib/movements'
+import {
+  getMovementName,
+  isFreeWeightMovement,
+  movementCatalog,
+} from '~/domains/movement/lib/movements'
 import { isSetupConfigurableRole } from '~/domains/program/lib/template-start-utils'
-import type { ProgramSetupPreviewMovement, ProgramStartMovementOverrideInput } from '~/domains/program'
+import type {
+  FreeWeightChoiceDraft,
+  ProgramEquipmentMode,
+  ProgramSetupPreviewMovement,
+  ProgramStartMovementOverrideInput,
+} from '~/domains/program'
 
 export function TemplateStartMovementRow({
   movement,
   movementOverrides,
+  equipmentMode,
+  freeWeightChoices,
   editable = false,
   phaseChanged = false,
   onMovementOverrideChange,
 }: {
   movement: ProgramSetupPreviewMovement
   movementOverrides: ProgramStartMovementOverrideInput[]
+  equipmentMode: ProgramEquipmentMode
+  freeWeightChoices: FreeWeightChoiceDraft[]
   editable?: boolean
   phaseChanged?: boolean
   onMovementOverrideChange: (movement: ProgramSetupPreviewMovement, replacementMovementId: string) => void
@@ -22,11 +35,31 @@ export function TemplateStartMovementRow({
   const override = movementOverrides.find(
     (item) => item.slotId === movement.slotId && item.phaseKey === movement.setupPhaseKey && item.role === movement.role,
   )
-  const selectedMovementId = override?.replacementMovementId ?? movement.defaultMovementId
+  const sourceMovementId =
+    override?.replacementMovementId ?? movement.defaultMovementId
+  const modeChoice =
+    equipmentMode === 'free_weight'
+      ? freeWeightChoices.find(
+          (choice) =>
+            choice.slotId === movement.slotId &&
+            choice.phaseKey === movement.phaseKey &&
+            choice.role === movement.role &&
+            choice.sourceMovementId === sourceMovementId,
+        )
+      : undefined
+  const selectedMovementId =
+    modeChoice?.replacementMovementId ?? sourceMovementId
   const selectedMovementName = selectedMovementId === movement.defaultMovementId
     ? movement.defaultMovementName
     : getMovementName(selectedMovementId)
-  const canSwap = isSetupConfigurableRole(movement.role) && movement.replacementOptions.length > 0
+  const replacementOptions =
+    equipmentMode === 'free_weight'
+      ? movement.replacementOptions.filter(
+          (option) => option.freeWeightCompatible,
+        )
+      : movement.replacementOptions
+  const canSwap =
+    isSetupConfigurableRole(movement.role) && replacementOptions.length > 0
   const changed = Boolean(override)
   const [swapOpen, setSwapOpen] = useState(false)
 
@@ -50,6 +83,11 @@ export function TemplateStartMovementRow({
               <Badge color="action" size="xs" leftSection={<ArrowUp size={10} />}>Updated</Badge>
             ) : null}
             {changed ? <Badge color="warning" size="xs">Changed</Badge> : null}
+            {modeChoice ? (
+              <Badge color="action" size="xs">
+                Free-weight swap
+              </Badge>
+            ) : null}
           </div>
           <Text mt={2} size="sm" fw={800} truncate>{selectedMovementName}</Text>
           {changed ? (
@@ -96,8 +134,14 @@ export function TemplateStartMovementRow({
             aria-label={`Choose a replacement for ${movement.defaultMovementName}`}
             onChange={(event) => onMovementOverrideChange(movement, event.target.value)}
           >
-            <option value={movement.defaultMovementId}>Default: {movement.defaultMovementName}</option>
-            {movement.replacementOptions.map((option) => (
+            {equipmentMode !== 'free_weight' ||
+            (movement.defaultFreeWeightCompatible ??
+              isFreeWeightMovement(
+                movementCatalog[movement.defaultMovementId],
+              )) ? (
+              <option value={movement.defaultMovementId}>Default: {movement.defaultMovementName}</option>
+            ) : null}
+            {replacementOptions.map((option) => (
               <option key={option.movementId} value={option.movementId}>
                 {option.movementName}
               </option>

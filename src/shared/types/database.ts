@@ -62,6 +62,36 @@ export type Database = {
           },
         ]
       }
+      equipment_mode_policy_versions: {
+        Row: {
+          created_at: string
+          definition: Json
+          definition_checksum: string
+          id: string
+          mode: string
+          schema_version: string
+          version: string
+        }
+        Insert: {
+          created_at?: string
+          definition: Json
+          definition_checksum?: never
+          id?: string
+          mode: string
+          schema_version: string
+          version: string
+        }
+        Update: {
+          created_at?: string
+          definition?: Json
+          definition_checksum?: never
+          id?: string
+          mode?: string
+          schema_version?: string
+          version?: string
+        }
+        Relationships: []
+      }
       exercise_logs: {
         Row: {
           client_mutation_id: string | null
@@ -293,33 +323,77 @@ export type Database = {
       }
       movements: {
         Row: {
+          aliases: string[]
+          canonical_free_weight_movement_id: string | null
           category: string
           default_unit: string
           equipment: string[]
           id: string
           is_competition: boolean
+          load_convention: string
           name: string
+          pattern: string
+          primary_muscles: string[]
+          replaced_by_movement_id: string | null
+          required_equipment: string[]
+          resistance_mode: string | null
+          secondary_muscles: string[]
+          status: string
           variation_of: string | null
         }
         Insert: {
+          aliases?: string[]
+          canonical_free_weight_movement_id?: string | null
           category: string
           default_unit?: string
           equipment?: string[]
           id: string
           is_competition?: boolean
+          load_convention: string
           name: string
+          pattern: string
+          primary_muscles?: string[]
+          replaced_by_movement_id?: string | null
+          required_equipment?: string[]
+          resistance_mode?: string | null
+          secondary_muscles?: string[]
+          status?: string
           variation_of?: string | null
         }
         Update: {
+          aliases?: string[]
+          canonical_free_weight_movement_id?: string | null
           category?: string
           default_unit?: string
           equipment?: string[]
           id?: string
           is_competition?: boolean
+          load_convention?: string
           name?: string
+          pattern?: string
+          primary_muscles?: string[]
+          replaced_by_movement_id?: string | null
+          required_equipment?: string[]
+          resistance_mode?: string | null
+          secondary_muscles?: string[]
+          status?: string
           variation_of?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "movements_canonical_free_weight_movement_id_fkey"
+            columns: ["canonical_free_weight_movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_replaced_by_movement_id_fkey"
+            columns: ["replaced_by_movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "movements_variation_of_fkey"
             columns: ["variation_of"]
@@ -478,6 +552,90 @@ export type Database = {
           },
         ]
       }
+      program_equipment_mode_choices: {
+        Row: {
+          created_at: string
+          equipment_mode: string
+          id: string
+          phase_key: string
+          policy_rule_id: string
+          program_instance_id: string
+          replacement_movement_id: string
+          role: string
+          slot_id: string
+          source_movement_id: string
+          template_session_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          equipment_mode: string
+          id?: string
+          phase_key: string
+          policy_rule_id: string
+          program_instance_id: string
+          replacement_movement_id: string
+          role: string
+          slot_id: string
+          source_movement_id: string
+          template_session_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          equipment_mode?: string
+          id?: string
+          phase_key?: string
+          policy_rule_id?: string
+          program_instance_id?: string
+          replacement_movement_id?: string
+          role?: string
+          slot_id?: string
+          source_movement_id?: string
+          template_session_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_equipment_mode_choices_program_instance_id_fkey"
+            columns: ["program_instance_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_equipment_mode_choices_program_owner_fkey"
+            columns: ["program_instance_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "program_equipment_mode_choices_replacement_movement_id_fkey"
+            columns: ["replacement_movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_equipment_mode_choices_source_movement_id_fkey"
+            columns: ["source_movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_equipment_mode_choices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       program_instances: {
         Row: {
           client_mutation_id: string | null
@@ -486,6 +644,9 @@ export type Database = {
           current_week_index: number
           customization_status: string
           customization_summary: Json
+          equipment_mode: string
+          free_weight_choices_hash: string | null
+          free_weight_policy_version_id: string | null
           id: string
           rounding: number
           start_date: string
@@ -505,6 +666,9 @@ export type Database = {
           current_week_index?: number
           customization_status?: string
           customization_summary?: Json
+          equipment_mode?: string
+          free_weight_choices_hash?: string | null
+          free_weight_policy_version_id?: string | null
           id?: string
           rounding: number
           start_date?: string
@@ -524,6 +688,9 @@ export type Database = {
           current_week_index?: number
           customization_status?: string
           customization_summary?: Json
+          equipment_mode?: string
+          free_weight_choices_hash?: string | null
+          free_weight_policy_version_id?: string | null
           id?: string
           rounding?: number
           start_date?: string
@@ -537,6 +704,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "program_instances_free_weight_policy_version_id_fkey"
+            columns: ["free_weight_policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_mode_policy_versions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "program_instances_template_id_fkey"
             columns: ["template_id"]
@@ -1455,9 +1629,36 @@ export type Database = {
         Returns: string
       }
       is_email_allowed: { Args: { check_email: string }; Returns: boolean }
+      insert_program_equipment_mode_choices_v1: {
+        Args: {
+          p_choices: Json
+          p_program_instance_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      normalize_free_weight_choices_v1: {
+        Args: {
+          p_choices: Json
+          p_policy_checksum: string
+          p_policy_version_id: string
+        }
+        Returns: Json
+      }
       refresh_program_customization_summary: {
         Args: { p_program_instance_id: string; p_user_id: string }
         Returns: undefined
+      }
+      resolve_program_equipment_source_v1: {
+        Args: {
+          p_include_future: boolean
+          p_phase_key: string
+          p_program_instance_id: string
+          p_role: string
+          p_slot_id: string
+          p_template_session_id: string
+        }
+        Returns: string
       }
       remove_ad_hoc_exercise_v2: {
         Args: {
@@ -1568,6 +1769,17 @@ export type Database = {
         }
         Returns: string
       }
+      set_program_equipment_mode_v1: {
+        Args: {
+          p_expected_state_version: number
+          p_free_weight_choices: Json | null
+          p_free_weight_policy_checksum: string | null
+          p_free_weight_policy_version_id: string | null
+          p_program_id: string
+          p_target_mode: string
+        }
+        Returns: Json
+      }
       start_ad_hoc_session_v2: {
         Args: {
           p_client_mutation_id: string
@@ -1582,6 +1794,28 @@ export type Database = {
           p_accessory_additions: Json
           p_current_block_id: string | null
           p_definition_checksum: string
+          p_movement_overrides: Json
+          p_replace_active: boolean
+          p_request_id: string
+          p_rounding: number
+          p_start_date: string
+          p_state_values: Json
+          p_template_id: string
+          p_template_version_id: string
+          p_title: string
+          p_units: string
+        }
+        Returns: string
+      }
+      start_program_v3: {
+        Args: {
+          p_accessory_additions: Json
+          p_current_block_id: string | null
+          p_definition_checksum: string
+          p_equipment_mode: string
+          p_free_weight_choices: Json
+          p_free_weight_policy_checksum: string | null
+          p_free_weight_policy_version_id: string | null
           p_movement_overrides: Json
           p_replace_active: boolean
           p_request_id: string
@@ -1641,6 +1875,14 @@ export type Database = {
       }
       validate_previous_comparable_v2: {
         Args: { p_performed_movement_id: string; p_previous: Json }
+        Returns: undefined
+      }
+      validate_program_equipment_snapshot_v1: {
+        Args: { p_program_instance_id: string; p_snapshot: Json }
+        Returns: undefined
+      }
+      validate_free_weight_choice_completeness_v1: {
+        Args: { p_choices: Json; p_program_instance_id: string }
         Returns: undefined
       }
       validate_session_sets_v2: { Args: { p_sets: Json }; Returns: undefined }

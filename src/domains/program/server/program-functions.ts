@@ -18,3 +18,7 @@ export {
   createCustomProgramTemplateFn,
   startProgramFn,
 } from '~/domains/program/server/program-start-functions'
+export {
+  previewProgramEquipmentModeFn,
+  setProgramEquipmentModeFn,
+} from '~/domains/program/server/program-equipment-mode-functions'

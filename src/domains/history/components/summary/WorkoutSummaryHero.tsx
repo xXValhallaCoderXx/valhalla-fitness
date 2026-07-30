@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Heading, InfoHint, SectionLabel, Text } from '~/components'
+import { EquipmentModeBadge, Heading, InfoHint, SectionLabel, Text } from '~/components'
 import {
   topSetCountExplanation,
   type WorkoutSummaryModel,
@@ -33,6 +33,7 @@ export function WorkoutSummaryHero({ model, session }: { model: WorkoutSummaryMo
             ) : session.isAdHoc ? (
               <Chip tone="action">{AD_HOC_BADGE_LABEL}</Chip>
             ) : null}
+            <EquipmentModeBadge equipmentMode={session.equipmentMode} />
             <Chip>{date.fullDate} · {date.relativeDate}</Chip>
             {date.completionLabel ? <Chip>{date.completionLabel}</Chip> : null}
           </div>

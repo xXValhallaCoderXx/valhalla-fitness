@@ -11,7 +11,7 @@ import {
 } from '~/domains/history/lib/insights'
 import { AD_HOC_BADGE_LABEL } from '~/domains/session/lib/ad-hoc'
 import type { RecentHistoryEntry } from '~/domains/history'
-import { Caption, EmptyState, Panel, Text } from '~/components'
+import { Caption, EmptyState, EquipmentModeBadge, Panel, Text } from '~/components'
 import { ACCENT_SOFT, ACCENT_TEXT, FilterChip, historySearchInputStyles } from '../insight-format'
 
 export function SessionsTab({
@@ -115,6 +115,7 @@ function SessionRow({ session, last, onOpen }: { session: RecentHistoryEntry; la
             {session.isAdHoc ? (
               <Badge color="accent" variant="light" style={{ flexShrink: 0 }}>{AD_HOC_BADGE_LABEL}</Badge>
             ) : null}
+            <EquipmentModeBadge equipmentMode={session.equipmentMode} className="shrink-0" />
           </div>
           <Caption mt={2} truncate>
             {[session.weekLabel, `${session.movementCount} movements`, `${session.completedSetCount}/${session.plannedSetCount} sets`]

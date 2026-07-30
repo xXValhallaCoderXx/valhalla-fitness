@@ -1,6 +1,11 @@
-import type { MovementSwapOption } from '~/domains/movement'
+import type {
+  MovementPattern,
+  MovementSwapOption,
+  ResistanceMode,
+} from '~/domains/movement'
 import type { MovementRole, SessionHardness } from '~/shared/types'
 import type { ProgramTemplateOrigin } from '~/domains/program/types/template'
+import type { FreeWeightPolicyVersion } from '~/domains/program/types/equipment-mode'
 
 export type ProgramStartMovementOverrideInput = {
   slotId: string
@@ -27,6 +32,7 @@ export type ProgramSetupSlotOption = {
   role: Extract<MovementRole, 'variation' | 'accessory'>
   defaultMovementId: string
   defaultMovementName: string
+  defaultFreeWeightCompatible?: boolean
   prescriptionId: string
   targetSummary: string
   replacementOptions: MovementSwapOption[]
@@ -49,6 +55,7 @@ export type ProgramSetupPreviewMovement = {
   roleLabel: string
   defaultMovementId: string
   defaultMovementName: string
+  defaultFreeWeightCompatible?: boolean
   targetSummary: string
   progressionRuleId?: string | null
   replacementOptions: MovementSwapOption[]
@@ -91,10 +98,13 @@ export type ProgramSetupOptions = {
   origin: ProgramTemplateOrigin
   sessions: ProgramSetupSessionOption[]
   previewWeeks: ProgramSetupPreviewWeek[]
+  freeWeightPolicy: FreeWeightPolicyVersion | null
   accessoryCatalog: Array<{
     movementId: string
     movementName: string
     category: string
     equipment: string[]
+    resistanceMode?: ResistanceMode | null
+    pattern?: MovementPattern | null
   }>
 }

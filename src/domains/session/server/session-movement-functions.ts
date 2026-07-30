@@ -1,7 +1,10 @@
 import { createServerFn } from '@tanstack/react-start'
 import type { MovementSwapOption } from '~/domains/movement'
 import type { MovementSlot, PlannedSession } from '~/domains/session'
-import { buildMovementSwapOptions } from '~/domains/movement/lib/movements'
+import {
+  buildMovementSwapOptions,
+  isFreeWeightMovement,
+} from '~/domains/movement/lib/movements'
 import {
   getMovementCatalogForSwap,
   getReplacementRulesForSwap,
@@ -80,6 +83,7 @@ async function getSwapOptionsForContext(
     providedCatalog ?? getMovementCatalogForSwap(supabase),
     getReplacementRulesForSwap(supabase),
   ])
+  const freeWeightOnly = context.snapshot.equipmentMode === 'free_weight'
   const options = buildMovementSwapOptions({
     movementId: context.exerciseRow.planned_movement_id,
     role: context.role,
@@ -88,10 +92,17 @@ async function getSwapOptionsForContext(
     slotId: context.slotId,
     catalog,
     rules,
-  }).filter((option) => option.movementId !== context.exerciseRow.performed_movement_id)
+  }).filter(
+    (option) =>
+      option.movementId !== context.exerciseRow.performed_movement_id &&
+      (!freeWeightOnly || isFreeWeightMovement(catalog[option.movementId])),
+  )
   if (context.exerciseRow.performed_movement_id !== context.exerciseRow.planned_movement_id) {
     const plannedMovement = catalog[context.exerciseRow.planned_movement_id]
-    if (plannedMovement) {
+    if (
+      plannedMovement &&
+      (!freeWeightOnly || isFreeWeightMovement(plannedMovement))
+    ) {
       options.unshift({
         movementId: plannedMovement.id,
         movementName: plannedMovement.name,
@@ -100,6 +111,7 @@ async function getSwapOptionsForContext(
         relationshipLabel: 'Default for this slot',
         source: 'default',
         allowedScopes: ['session', 'phase_slot'],
+        freeWeightCompatible: isFreeWeightMovement(plannedMovement),
       })
     }
   }
@@ -133,6 +145,10 @@ export const substituteMovementFn = createServerFn({ method: 'POST' })
       .eq('user_id', user.id)
       .single()
     if (sessionStateError) throw new Error(sessionStateError.message)
+    const context = await getSwapContext(supabase, user.id, data.sessionId, data.exerciseLogId)
+    if (scope === 'phase_slot' && context.movement.isAdded) {
+      throw new Error('Added accessories can only be swapped for this session.')
+    }
     if (
       sessionState.status !== 'in_progress' ||
       Number(sessionState.state_version) !== data.expectedStateVersion
@@ -153,7 +169,6 @@ export const substituteMovementFn = createServerFn({ method: 'POST' })
       if (replayError) throw new Error(replayError.message)
       return getSessionInternal(data.sessionId)
     }
-    const context = await getSwapContext(supabase, user.id, data.sessionId, data.exerciseLogId)
 
     if (context.role === 'main') {
       throw new Error('Main lifts cannot be swapped.')
@@ -168,6 +183,14 @@ export const substituteMovementFn = createServerFn({ method: 'POST' })
     const catalog = await getMovementCatalogForSwap(supabase)
     const replacementMovement = catalog[data.performedMovementId]
     if (!replacementMovement) throw new Error('Unknown replacement movement.')
+    if (
+      context.snapshot.equipmentMode === 'free_weight' &&
+      !isFreeWeightMovement(replacementMovement)
+    ) {
+      throw new Error(
+        'Free weights only workouts require a free-weight replacement.',
+      )
+    }
     if (context.exerciseRow.performed_movement_id === data.performedMovementId) {
       throw new Error('This movement is already selected.')
     }

@@ -1,12 +1,20 @@
 import { ActionIcon, Badge, Button, Tooltip, VisuallyHidden } from '@mantine/core'
 import { ArrowRight, Dumbbell, Lock, Play, Plus } from 'lucide-react'
-import { Caption, Heading, Page, Panel, Text } from '~/components'
+import {
+  Caption,
+  EquipmentModeBadge,
+  Heading,
+  Page,
+  Panel,
+  Text,
+} from '~/components'
 import { intensityColor } from '~/domains/history/lib/insights'
 import type { TodayHistorySupport } from '~/domains/history'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { PendingProgressionReviewModal, PendingReviewAlert, PendingReviewGate } from '~/domains/program/components/PendingReview'
 import { formatPreviousHero } from '~/domains/session/lib/today-numbers'
 import type { ProgressionDecision } from '~/domains/program'
+import { ProgramEquipmentModeControl } from '~/domains/program'
 import type { PlannedSession, TodayPayload } from '~/domains/session'
 import { TodayWorkoutLedger } from '../TodayWorkoutLedger'
 import { RecoveryCheckPanel, StreakBadge } from './TodayPanels'
@@ -68,6 +76,9 @@ export function TodayPlannedSession({
               {plannedSession.hardness ? (
                 <Badge color={intensityColor(plannedSession.hardness)}>{plannedSession.hardness}</Badge>
               ) : null}
+              <EquipmentModeBadge
+                equipmentMode={plannedSession.equipmentMode}
+              />
               <StreakBadge history={history} isPending={historyPending} isError={historyError} />
             </div>
             <Heading mt="xs" order={2} size="h3" lh={1.15}>{plannedSession.title}</Heading>
@@ -85,6 +96,15 @@ export function TodayPlannedSession({
               <Heading mt="xs" order={3} size="h4" lh={1.15} className="truncate">{main.movementName}</Heading>
               <Text mt={2} size="sm" tone="dimmed">{main.targetSummary}</Text>
               {heroLastLine ? <Caption mt={6} truncate>{heroLastLine}</Caption> : null}
+            </Panel>
+          ) : null}
+
+          {data.activeProgram ? (
+            <Panel surface="inset" p="sm">
+              <ProgramEquipmentModeControl
+                program={data.activeProgram}
+                compact
+              />
             </Panel>
           ) : null}
 

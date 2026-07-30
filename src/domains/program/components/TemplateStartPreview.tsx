@@ -11,6 +11,8 @@ import type {
   ProgramSetupPreviewMovement,
   ProgramStartAccessoryAdditionInput,
   ProgramStartMovementOverrideInput,
+  FreeWeightChoiceDraft,
+  ProgramEquipmentMode,
 } from '~/domains/program'
 import type { Unit } from '~/shared/types'
 import { TemplateStartDayCard } from './TemplateStartDayCard'
@@ -27,6 +29,8 @@ export function TemplateStartPreview({
   setupOptions,
   movementOverrides,
   accessoryAdditions,
+  equipmentMode,
+  freeWeightChoices,
   onWeekChange,
   onMovementOverrideChange,
   onAddAccessory,
@@ -43,6 +47,8 @@ export function TemplateStartPreview({
   setupOptions: ProgramSetupOptions
   movementOverrides: ProgramStartMovementOverrideInput[]
   accessoryAdditions: AccessoryAdditionDraft[]
+  equipmentMode: ProgramEquipmentMode
+  freeWeightChoices: FreeWeightChoiceDraft[]
   onWeekChange: (weekIndex: number) => void
   onMovementOverrideChange: (movement: ProgramSetupPreviewMovement, replacementMovementId: string) => void
   onAddAccessory: (addition: ProgramStartAccessoryAdditionInput) => void
@@ -106,6 +112,8 @@ export function TemplateStartPreview({
             setupOptions={setupOptions}
             movementOverrides={movementOverrides}
             accessoryAdditions={accessoryAdditions}
+            equipmentMode={equipmentMode}
+            freeWeightChoices={freeWeightChoices}
             changedSlots={changedSlots}
             onMovementOverrideChange={onMovementOverrideChange}
             onAddAccessory={onAddAccessory}

@@ -50,6 +50,18 @@ const accessoryAdditionSchema = z
   })
   .strict()
 
+const freeWeightChoiceSchema = z
+  .object({
+    templateSessionId: z.string().trim().min(1).max(200),
+    slotId: z.string().trim().min(1).max(200),
+    phaseKey: z.string().trim().min(1).max(200),
+    role: z.enum(['main', 'variation', 'accessory', 'warmup', 'event']),
+    sourceMovementId: z.string().trim().min(1).max(200),
+    replacementMovementId: z.string().trim().min(1).max(200),
+    policyRuleId: z.string().trim().min(1).max(200),
+  })
+  .strict()
+
 export const startProgramInputSchema = z
   .object({
     requestId,
@@ -67,7 +79,35 @@ export const startProgramInputSchema = z
     stateValues: z.array(programStateSchema).max(500).optional(),
     movementOverrides: z.array(movementOverrideSchema).max(500).optional(),
     accessoryAdditions: z.array(accessoryAdditionSchema).max(500).optional(),
+    equipmentMode: z.enum(['standard', 'free_weight']).optional(),
+    freeWeightPolicyVersionId: z.string().uuid().optional(),
+    freeWeightPolicyChecksum: z
+      .string()
+      .regex(/^[0-9a-f]{32}$/)
+      .optional(),
+    freeWeightChoices: z.array(freeWeightChoiceSchema).max(1_000).optional(),
     replaceActiveProgram: z.boolean().optional(),
+  })
+  .strict()
+
+export const previewProgramEquipmentModeInputSchema = z
+  .object({
+    programId: z.string().uuid(),
+    targetMode: z.enum(['standard', 'free_weight']),
+  })
+  .strict()
+
+export const setProgramEquipmentModeInputSchema = z
+  .object({
+    programId: z.string().uuid(),
+    targetMode: z.enum(['standard', 'free_weight']),
+    expectedStateVersion: z.number().int().nonnegative(),
+    freeWeightPolicyVersionId: z.string().uuid().optional(),
+    freeWeightPolicyChecksum: z
+      .string()
+      .regex(/^[0-9a-f]{32}$/)
+      .optional(),
+    freeWeightChoices: z.array(freeWeightChoiceSchema).max(1_000).optional(),
   })
   .strict()
 
@@ -92,4 +132,10 @@ export const resolveProgressionDecisionInputSchema = z
   .strict()
 
 export type StartProgramInput = z.infer<typeof startProgramInputSchema>
+export type PreviewProgramEquipmentModeInput = z.infer<
+  typeof previewProgramEquipmentModeInputSchema
+>
+export type SetProgramEquipmentModeInput = z.infer<
+  typeof setProgramEquipmentModeInputSchema
+>
 export type ResolveProgressionDecisionsInput = z.infer<typeof resolveProgressionDecisionsInputSchema>

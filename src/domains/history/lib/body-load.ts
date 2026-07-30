@@ -2,6 +2,7 @@ import type { BodyLoadRegion, BodyLoadSummary, BodyRegionId, BodyLoadTier } from
 import type { Movement } from '~/domains/movement'
 import type { MovementRole } from '~/shared/types'
 import { movementCatalog } from '~/domains/movement/lib/movements'
+import { regionWeightsFromMovementMetadata } from '~/domains/history/lib/movement-region-metadata'
 import { isCalendarDate } from '~/shared/lib/calendar-date'
 
 export type BodyLoadWork = {
@@ -219,7 +220,7 @@ export function calculateBodyLoad(
     const recencyWeight = recencyWeights[Math.min(daysAgo, recencyWeights.length - 1)] ?? 0.1
     const roleWeight = roleWeights[item.role] ?? 1
     const movement = catalog[item.movementId]
-    const weights = resolveRegionWeights(item.movementId, item.category ?? movement?.category)
+    const weights = resolveRegionWeights(item.movementId, item.category ?? movement?.category, movement)
     const baseScore = item.completedSets * roleWeight * recencyWeight
 
     for (const [regionId, regionWeight] of Object.entries(weights) as Array<[BodyRegionId, number]>) {
@@ -268,8 +269,16 @@ export function calculateBodyLoad(
   }
 }
 
-export function resolveRegionWeights(movementId: string, category?: string | null): RegionWeights {
-  return compoundMovementWeights[movementId] ?? categoryFallbackWeights[category ?? ''] ?? {}
+export function resolveRegionWeights(
+  movementId: string,
+  category?: string | null,
+  movement: Movement | undefined = movementCatalog[movementId],
+): RegionWeights {
+  const metadataWeights = regionWeightsFromMovementMetadata(movement)
+  return compoundMovementWeights[movementId]
+    ?? (Object.keys(metadataWeights).length ? metadataWeights : undefined)
+    ?? categoryFallbackWeights[category ?? '']
+    ?? {}
 }
 
 function tierForImpact(impactPercent: number): BodyLoadTier {

@@ -3,23 +3,41 @@ import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Caption, SectionLabel, Text } from '~/components'
 import type { ProgramSetupOptions, ProgramStartAccessoryAdditionInput } from '~/domains/program'
+import type { ProgramEquipmentMode } from '~/domains/program'
 
 export function TemplateStartAccessoryForm({
   setupSession,
   setupOptions,
+  equipmentMode,
   onAddAccessory,
 }: {
   setupSession: ProgramSetupOptions['sessions'][number]
   setupOptions: ProgramSetupOptions
+  equipmentMode: ProgramEquipmentMode
   onAddAccessory: (addition: ProgramStartAccessoryAdditionInput) => void
 }) {
   const [open, setOpen] = useState(false)
   const [sourceSlotId, setSourceSlotId] = useState(setupSession.accessoryPrescriptions[0]?.sourceSlotId ?? '')
-  const [movementId, setMovementId] = useState(setupOptions.accessoryCatalog[0]?.movementId ?? '')
+  const availableMovements =
+    equipmentMode === 'free_weight'
+      ? setupOptions.accessoryCatalog.filter((movement) =>
+          ['barbell', 'dumbbell', 'specialty_bar', 'bodyweight'].includes(
+            movement.resistanceMode ?? '',
+          ),
+        )
+      : setupOptions.accessoryCatalog
+  const [movementId, setMovementId] = useState(
+    availableMovements[0]?.movementId ?? '',
+  )
+  const effectiveMovementId = availableMovements.some(
+    (movement) => movement.movementId === movementId,
+  )
+    ? movementId
+    : availableMovements[0]?.movementId ?? ''
   const effectiveSourceSlotId = setupSession.accessoryPrescriptions.some((item) => item.sourceSlotId === sourceSlotId)
     ? sourceSlotId
     : setupSession.accessoryPrescriptions[0]?.sourceSlotId ?? ''
-  const canAdd = Boolean(effectiveSourceSlotId && movementId)
+  const canAdd = Boolean(effectiveSourceSlotId && effectiveMovementId)
 
   return (
     <div
@@ -70,10 +88,10 @@ export function TemplateStartAccessoryForm({
                 backgroundColor: 'var(--vf-surface-2)',
                 fontSize: 'var(--mantine-font-size-sm)',
               }}
-              value={movementId}
+              value={effectiveMovementId}
               onChange={(event) => setMovementId(event.target.value)}
             >
-              {setupOptions.accessoryCatalog.map((movement) => (
+              {availableMovements.map((movement) => (
                 <option key={movement.movementId} value={movement.movementId}>
                   {movement.movementName}
                 </option>
@@ -87,7 +105,7 @@ export function TemplateStartAccessoryForm({
               onAddAccessory({
                 sessionId: setupSession.id,
                 sourceSlotId: effectiveSourceSlotId,
-                movementId,
+                movementId: effectiveMovementId,
               })
               setOpen(false)
             }}

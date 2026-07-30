@@ -258,6 +258,53 @@ const DEMO_USERS = [
     liveOnboardingDismissed: true,
     seedAccessoryAdditions: true,
   },
+  {
+    // Dedicated to equipment-mode e2e. The spec restores all-equipment mode
+    // and discards its workout, so successful reruns return this account here.
+    email: `demo.equipment@${DEMO_EMAIL_DOMAIN}`,
+    displayName: 'Quinn Equipment',
+    title: 'Quinn - Equipment Mode',
+    templateId: 'generic_alternating_5x5_lp',
+    units: 'kg',
+    rounding: 2.5,
+    sex: 'female',
+    bodyweightKg: 66,
+    completedSessions: 0,
+    activeSession: false,
+    equipmentProfile: ['barbell', 'plates', 'rack', 'bench', 'dumbbells', 'machine', 'cable', 'bodyweight'],
+    stateKind: 'working_load',
+    startValues: {
+      squat: 60,
+      bench_press: 37.5,
+      overhead_press: 25,
+      deadlift: 80,
+      barbell_row: 40,
+    },
+    currentValues: {
+      squat: 60,
+      bench_press: 37.5,
+      overhead_press: 25,
+      deadlift: 80,
+      barbell_row: 40,
+    },
+    oneRepMaxes: {
+      squat: 90,
+      bench_press: 57.5,
+      deadlift: 120,
+      overhead_press: 40,
+      barbell_row: 62.5,
+    },
+    baseAccessories: {
+      lat_pulldown: 42.5,
+      seated_cable_row: 45,
+      hamstring_curl: 30,
+      cable_crunch: 30,
+    },
+    acceptedDecisions: [],
+    pendingDecisions: [],
+    liveOnboardingDismissed: true,
+    seedAccessoryAdditions: false,
+  },
 
   // ---- Onboarding test accounts (onboarding_completed = false) ----
   {

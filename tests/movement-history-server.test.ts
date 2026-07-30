@@ -88,6 +88,7 @@ function session(
   id: string,
   scheduledDate: string,
   completedAt: string,
+  equipmentMode?: 'standard' | 'free_weight',
 ): TestRow {
   return {
     id,
@@ -99,6 +100,7 @@ function session(
     prescription_snapshot: {
       title: `Session ${id}`,
       units: 'kg',
+      equipmentMode,
       movements: [],
     },
   }
@@ -161,7 +163,7 @@ function client(tables: TestTables) {
 describe('movement history server query', () => {
   it('selects literal performed movement matches instead of planned movement matches', async () => {
     const { client: supabase } = client({
-      workout_sessions: [session('session-1', '2026-07-30', '2026-07-30T10:00:00Z')],
+      workout_sessions: [session('session-1', '2026-07-30', '2026-07-30T10:00:00Z', 'free_weight')],
       exercise_logs: [
         exercise('planned-only', 'session-1', 'squat', 'front_squat'),
         exercise('performed-match', 'session-1', 'front_squat', 'squat'),
@@ -179,6 +181,7 @@ describe('movement history server query', () => {
       plannedMovementId: 'front_squat',
       performedMovementId: 'squat',
       performedMovementName: 'Squat',
+      equipmentMode: 'free_weight',
     })
   })
 

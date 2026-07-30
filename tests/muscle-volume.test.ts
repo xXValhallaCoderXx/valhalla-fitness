@@ -144,6 +144,16 @@ describe('buildWeeklyRegionSets', () => {
         equipment: [],
         defaultUnit: 'kg',
         isCompetition: false,
+        status: 'active',
+        resistanceMode: 'dumbbell',
+        requiredEquipment: ['dumbbells'],
+        pattern: 'horizontal_push',
+        primaryMuscles: [],
+        secondaryMuscles: [],
+        aliases: [],
+        loadConvention: 'implement_weight',
+        replacedByMovementId: null,
+        canonicalFreeWeightMovementId: null,
       },
     }
     const weekly = buildWeeklyRegionSets(

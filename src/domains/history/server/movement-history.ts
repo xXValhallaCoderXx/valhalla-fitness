@@ -88,6 +88,7 @@ export async function getMovementHistoryEntries(
           completedAt: session.completed_at,
           timeZone: snapshot?.timeZone ?? null,
           units: snapshot?.units ?? null,
+          equipmentMode: snapshot?.equipmentMode,
           plannedMovementId: exercise.planned_movement_id,
           performedMovementId: exercise.performed_movement_id,
           performedMovementName: getMovementName(exercise.performed_movement_id),

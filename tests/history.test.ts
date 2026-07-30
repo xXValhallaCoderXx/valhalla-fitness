@@ -17,6 +17,7 @@ const sessions: HistorySessionInput[] = [
     units: 'kg',
     weekLabel: 'Week 1',
     hardness: 'Medium',
+    equipmentMode: 'free_weight',
     estimatedMinutes: 60,
     movementCount: 2,
     plannedSetCount: 4,
@@ -149,6 +150,17 @@ describe('history aggregation', () => {
     expect(calculateCompletedVolumeInUnits([{ completed: true, actualLoad: 220.462262185, actualReps: 1 }], 'lb', 'kg')).toBeCloseTo(100)
     expect(dashboard.overview.units).toBe('kg')
     expect(dashboard.overview.completedVolume).toBeCloseTo(600)
+  })
+
+  it('preserves equipment mode in recent completed-session read models', () => {
+    const dashboard = buildHistoryDashboard({
+      sessions,
+      substitutions: [],
+      now: new Date('2026-06-22T12:00:00.000Z'),
+    })
+
+    expect(dashboard.recentSessions[0]?.equipmentMode).toBe('free_weight')
+    expect(dashboard.recentSessions[1]?.equipmentMode).toBeUndefined()
   })
 
   it('normalizes mixed session units before ranking best sets', () => {

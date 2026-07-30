@@ -47,7 +47,15 @@ export function AddAccessoryModal({
     ...accessoryMovementOptionsQueryOptions(userId),
     enabled: open,
   })
-  const options = useMemo(() => optionsQuery.data ?? [], [optionsQuery.data])
+  const options = useMemo(
+    () =>
+      (optionsQuery.data ?? []).filter(
+        (option) =>
+          session.equipmentMode !== 'free_weight' ||
+          option.freeWeightCompatible,
+      ),
+    [optionsQuery.data, session.equipmentMode],
+  )
   const categoryFilters = useMemo(() => buildAccessoryCategoryFilters(options), [options])
   const filteredOptions = useMemo(() => {
     const query = search.trim().toLowerCase()

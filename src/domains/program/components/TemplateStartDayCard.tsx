@@ -2,6 +2,7 @@ import { Badge, Button } from '@mantine/core'
 import { Trash2 } from 'lucide-react'
 import { Caption, Panel, Text } from '~/components'
 import { getMovementName } from '~/domains/movement/lib/movements'
+import { programAccessoryAdditionSlotId } from '~/domains/program/lib/program-accessory-slots'
 import type { AccessoryAdditionDraft } from '~/domains/program/lib/template-start-utils'
 import type {
   ProgramSetupOptions,
@@ -9,6 +10,8 @@ import type {
   ProgramSetupPreviewSession,
   ProgramStartAccessoryAdditionInput,
   ProgramStartMovementOverrideInput,
+  FreeWeightChoiceDraft,
+  ProgramEquipmentMode,
 } from '~/domains/program'
 import type { Unit } from '~/shared/types'
 import { TemplateStartAccessoryForm } from './TemplateStartAccessoryForm'
@@ -20,6 +23,8 @@ export function TemplateStartDayCard({
   setupOptions,
   movementOverrides,
   accessoryAdditions,
+  equipmentMode,
+  freeWeightChoices,
   changedSlots,
   onMovementOverrideChange,
   onAddAccessory,
@@ -30,6 +35,8 @@ export function TemplateStartDayCard({
   setupOptions: ProgramSetupOptions
   movementOverrides: ProgramStartMovementOverrideInput[]
   accessoryAdditions: AccessoryAdditionDraft[]
+  equipmentMode: ProgramEquipmentMode
+  freeWeightChoices: FreeWeightChoiceDraft[]
   changedSlots: Set<string>
   onMovementOverrideChange: (movement: ProgramSetupPreviewMovement, replacementMovementId: string) => void
   onAddAccessory: (addition: ProgramStartAccessoryAdditionInput) => void
@@ -61,14 +68,34 @@ export function TemplateStartDayCard({
             key={`${movement.slotId}-${movement.phaseKey}`}
             movement={movement}
             movementOverrides={movementOverrides}
+            equipmentMode={equipmentMode}
+            freeWeightChoices={freeWeightChoices}
             editable
             phaseChanged={changedSlots.has(movement.slotId)}
             onMovementOverrideChange={onMovementOverrideChange}
           />
         ))}
 
-        {sessionAdditions.map((addition) => {
+        {sessionAdditions.map((addition, additionIndex) => {
           const source = setupSession?.accessoryPrescriptions.find((item) => item.sourceSlotId === addition.sourceSlotId)
+          const additionSlotId = programAccessoryAdditionSlotId(
+            addition.sessionId,
+            additionIndex + 1,
+            addition.movementId,
+          )
+          const modeChoice =
+            equipmentMode === 'free_weight'
+              ? freeWeightChoices.find(
+                  (choice) =>
+                    choice.templateSessionId === session.id &&
+                    choice.phaseKey === session.movements[0]?.phaseKey &&
+                    choice.role === 'accessory' &&
+                    choice.sourceMovementId === addition.movementId &&
+                    choice.slotId === additionSlotId,
+                )
+              : undefined
+          const displayMovementId =
+            modeChoice?.replacementMovementId ?? addition.movementId
           return (
             <Panel
               key={addition.clientId}
@@ -81,8 +108,15 @@ export function TemplateStartDayCard({
               }}
             >
               <div className="min-w-0">
-                <Badge color="action" size="xs">Added accessory</Badge>
-                <Text mt={4} size="sm" fw={800} truncate>{getMovementName(addition.movementId)}</Text>
+                <div className="flex flex-wrap gap-2">
+                  <Badge color="action" size="xs">Added accessory</Badge>
+                  {modeChoice ? (
+                    <Badge color="action" size="xs">
+                      Free-weight swap
+                    </Badge>
+                  ) : null}
+                </div>
+                <Text mt={4} size="sm" fw={800} truncate>{getMovementName(displayMovementId)}</Text>
                 <Caption truncate>
                   {source?.targetSummary ?? 'Accessory work'} - {units}
                 </Caption>
@@ -99,6 +133,7 @@ export function TemplateStartDayCard({
           <TemplateStartAccessoryForm
             setupSession={setupSession}
             setupOptions={setupOptions}
+            equipmentMode={equipmentMode}
             onAddAccessory={onAddAccessory}
           />
         ) : null}
