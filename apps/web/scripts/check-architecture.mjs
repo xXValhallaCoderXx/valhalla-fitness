@@ -12,6 +12,9 @@ const existingOversizedComponents = new Set()
 
 function walk(directory) {
   return readdirSync(directory).flatMap((name) => {
+    // node_modules can appear under packages/* and its pnpm symlinks lead into
+    // the store, where vendored src/*.ts would be scanned as ours.
+    if (name === 'node_modules' || name.startsWith('.')) return []
     const path = join(directory, name)
     return statSync(path).isDirectory() ? walk(path) : [path]
   })
@@ -274,19 +277,41 @@ for (const path of componentFiles) {
 }
 
 // Workspace packages must stay framework-free: they are shared with the native
-// app, so no web/native UI runtimes, no data clients, and no app-alias imports.
+// app, so no web/native UI runtimes and no app-alias imports. @sheetless/data is
+// the one package allowed to know about Supabase — and only its types: value
+// imports would bundle a second supabase-js into whichever app forgets to dedupe.
 const packagesRoot = join(repoRoot, '../../packages')
 const packageSources = walk(packagesRoot).filter(
   (path) => ['.ts', '.tsx'].includes(extname(path)) && path.includes(`${sep}src${sep}`),
 )
-const bannedPackageImport =
+const defaultBannedPackageImport =
   /from\s+['"](?:(react|react-dom|react-native|@mantine|@tanstack|@supabase|@dnd-kit|driver\.js|lucide-react|tailwind|clsx)[/'"]|~\/)/
+const dataBannedPackageImport =
+  /from\s+['"](?:(react|react-dom|react-native|@mantine|@tanstack|@dnd-kit|driver\.js|lucide-react|tailwind|clsx)[/'"]|~\/|apps\/)/
+const nonTypeSupabaseImport = /(?:^|\n)\s*(?:import\s+(?!type\b)[^'"]*|export\s+(?!type\b)[^'"]*)from\s+['"]@supabase/
 for (const path of packageSources) {
   const contents = readFileSync(path, 'utf8')
-  const match = contents.match(bannedPackageImport)
+  const packageName = relative(packagesRoot, path).split(sep)[0]
+  const banned = packageName === 'data' ? dataBannedPackageImport : defaultBannedPackageImport
+  const match = contents.match(banned)
   if (match) {
     failures.push(
       `${relative(join(repoRoot, '../..'), path)} imports a framework/app dependency banned in packages/* (${match[0].slice(5)})`,
+    )
+  }
+  if (packageName === 'data' && nonTypeSupabaseImport.test(contents)) {
+    failures.push(
+      `${relative(join(repoRoot, '../..'), path)} value-imports @supabase — packages/data may import Supabase types only`,
+    )
+  }
+  if (packageName === 'domain' && /from\s+['"]@sheetless\/data/.test(contents)) {
+    failures.push(
+      `${relative(join(repoRoot, '../..'), path)} imports @sheetless/data — domain sits below data and may not depend on it`,
+    )
+  }
+  if (/from\s+['"][^'"]*apps\//.test(contents)) {
+    failures.push(
+      `${relative(join(repoRoot, '../..'), path)} imports from apps/ — packages may never depend on an app shell`,
     )
   }
 }
