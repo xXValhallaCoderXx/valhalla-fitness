@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { isEmailAllowed, normalizeEmail, resolveMagicLinkDecision } from '../src/domains/account/server/allowlist'
+import { isEmailAllowed, normalizeEmail, resolveMagicLinkDecision } from '@sheetless/data/account/allowlist'
 import { allowlistNeutralMessage, defaultMagicLinkSentMessage } from '@sheetless/domain/shared/auth-config'
 
 function rpcClient(response: { data: unknown; error: { message: string } | null }) {

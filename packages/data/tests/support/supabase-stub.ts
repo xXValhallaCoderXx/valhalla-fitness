@@ -164,11 +164,16 @@ export class TestSupabase {
         const list = Array.isArray(rows) ? rows : [rows]
         stub.tables[table] = [...(stub.tables[table] ?? []), ...list]
         stub.insertCalls.push({ table, rows: list })
-        return Object.assign(new TestQuery(table, stub), {
-          async select() {
-            return { data: list, error: null }
-          },
-        })
+        const inserted = {
+          select: () => inserted,
+          single: async () =>
+            list.length === 1
+              ? { data: list[0], error: null }
+              : { data: null, error: { message: `expected 1 row, got ${list.length}` } },
+          maybeSingle: async () => ({ data: list[0] ?? null, error: null }),
+          then: <T>(resolve: (value: QueryResult) => T) => resolve({ data: list, error: null }),
+        }
+        return inserted
       },
     })
   }
