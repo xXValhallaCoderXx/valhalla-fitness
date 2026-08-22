@@ -37,10 +37,8 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: theme.backgroundElevated },
-        headerTintColor: theme.text,
-        headerTitleStyle: { fontFamily, fontWeight: '800' },
-        headerShadowVisible: false,
+        // Screens render their own PageHeader — a native header would double the title.
+        headerShown: false,
         tabBarActiveTintColor: theme.tones.action.text,
         tabBarInactiveTintColor: theme.textMuted,
         tabBarStyle: {

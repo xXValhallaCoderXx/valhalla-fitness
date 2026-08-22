@@ -1,6 +1,6 @@
 import '@/lib/uuid-polyfill'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router'
 import { Redirect, Stack, useSegments } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
@@ -15,12 +15,23 @@ SplashScreen.preventAutoHideAsync()
 const queryClient = createQueryClient()
 
 function AuthGate() {
-  const { status } = useSession()
+  const { status, user } = useSession()
   const segments = useSegments()
+  const lastUserId = useRef<string | null>(null)
 
   useEffect(() => {
     if (status !== 'restoring') SplashScreen.hideAsync()
   }, [status])
+
+  // Account-scoped cache hygiene: never let one account's data serve another
+  // (mirrors web's transitionAccountCache).
+  useEffect(() => {
+    const nextUserId = user?.id ?? null
+    if (lastUserId.current !== null && lastUserId.current !== nextUserId) {
+      queryClient.clear()
+    }
+    lastUserId.current = nextUserId
+  }, [user?.id])
 
   // Hold the splash — rendering nothing avoids a flash of the wrong screen
   // on warm starts while the stored session restores.
