@@ -263,7 +263,7 @@ if (programServer.includes('?? crypto.randomUUID()')) {
 }
 
 const sessionLifecycleServer = requireFragments(
-  'apps/web/src/domains/session/server/session-lifecycle-functions.ts',
+  'packages/data/src/session/lifecycle.ts',
   [
     "supabase.rpc('start_session_v2'",
     "supabase.rpc('start_ad_hoc_session_v2'",
@@ -271,13 +271,13 @@ const sessionLifecycleServer = requireFragments(
   ],
 )
 const sessionCompletionServer = requireFragments(
-  'apps/web/src/domains/session/server/session-completion-functions.ts',
+  'packages/data/src/session/completion.ts',
   [
     "supabase.rpc('finish_session_v2'",
   ],
 )
 const sessionSetServer = requireFragments(
-  'apps/web/src/domains/session/server/session-set-functions.ts',
+  'packages/data/src/session/sets.ts',
   [
     "supabase.rpc('upsert_session_set_v2'",
     "supabase.rpc('add_session_set_v2'",

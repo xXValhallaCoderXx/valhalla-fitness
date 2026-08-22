@@ -27,7 +27,7 @@ function walk(directory) {
     // Dot-dirs (.git, .expo, .claude, …) are tool state, never product docs —
     // except .github, which carries required agent instructions.
     if (name.startsWith('.') && name !== '.github') return []
-    if (['node_modules', 'dist'].includes(name)) return []
+    if (['node_modules', 'dist', 'test-results', 'playwright-report'].includes(name)) return []
     const path = join(directory, name)
     return statSync(path).isDirectory() ? walk(path) : [path]
   })
