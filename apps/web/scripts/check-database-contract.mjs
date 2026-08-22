@@ -245,14 +245,14 @@ requireFragments(
   ],
 )
 const activeProgramServer = requireFragments(
-  'apps/web/src/domains/program/server/active-program-functions.ts',
+  'packages/data/src/program/active-program.ts',
   [
     'advance_program_position_v2',
     'resolve_progression_decisions_v2',
   ],
 )
 const programTemplateData = requireFragments(
-  'apps/web/src/domains/program/server/program-template-data.ts',
+  'packages/data/src/program/template-data.ts',
   [
     "throw new Error('PINNED_TEMPLATE_INVALID')",
   ],
