@@ -5,7 +5,7 @@ import {
   accountQueryKeys,
   authQueryKeys,
   publicQueryKeys,
-} from '../src/shared/lib/query-keys'
+} from '@sheetless/domain/shared/query-keys'
 
 describe('account query keys', () => {
   it('isolates account-owned data by authenticated subject', () => {

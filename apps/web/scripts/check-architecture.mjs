@@ -1,7 +1,7 @@
 /* global console, process */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { extname, join, relative } from 'node:path'
+import { extname, join, relative, sep } from 'node:path'
 
 const repoRoot = process.cwd()
 const failures = []
@@ -270,6 +270,24 @@ for (const path of componentFiles) {
     warnings.push(`${file} remains above the 300-line component gate (${lines})`)
   } else {
     failures.push(`${file} has ${lines} lines and exceeds the 300-line component gate`)
+  }
+}
+
+// Workspace packages must stay framework-free: they are shared with the native
+// app, so no web/native UI runtimes, no data clients, and no app-alias imports.
+const packagesRoot = join(repoRoot, '../../packages')
+const packageSources = walk(packagesRoot).filter(
+  (path) => ['.ts', '.tsx'].includes(extname(path)) && path.includes(`${sep}src${sep}`),
+)
+const bannedPackageImport =
+  /from\s+['"](?:(react|react-dom|react-native|@mantine|@tanstack|@supabase|@dnd-kit|driver\.js|lucide-react|tailwind|clsx)[/'"]|~\/)/
+for (const path of packageSources) {
+  const contents = readFileSync(path, 'utf8')
+  const match = contents.match(bannedPackageImport)
+  if (match) {
+    failures.push(
+      `${relative(join(repoRoot, '../..'), path)} imports a framework/app dependency banned in packages/* (${match[0].slice(5)})`,
+    )
   }
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { MovementSlot, PreviousComparable, SetLog } from '~/domains/session'
+import type { MovementSlot, PreviousComparable, SetLog } from '@sheetless/domain/session/types'
 import {
   formatPreviousShort,
   formatSetTarget,

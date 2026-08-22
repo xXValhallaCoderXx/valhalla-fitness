@@ -189,7 +189,7 @@ requireFragments(
   ],
 )
 
-const databaseTypes = requireFragments('apps/web/src/shared/types/database.ts', [
+const databaseTypes = requireFragments('packages/domain/src/shared/types/database.ts', [
   'advance_program_position_v2:',
   'create_custom_program_template_v2:',
   'delete_own_account:',
@@ -221,7 +221,7 @@ const databaseTypes = requireFragments('apps/web/src/shared/types/database.ts', 
 
 for (const path of [
   'supabase/migrations/202607280001_release_integrity_foundations.sql',
-  'apps/web/src/shared/types/database.ts',
+  'packages/domain/src/shared/types/database.ts',
   'apps/web/src/domains/account/server/data-rights-functions.ts',
   'apps/web/scripts/audit-release-integrity.mjs',
 ]) {

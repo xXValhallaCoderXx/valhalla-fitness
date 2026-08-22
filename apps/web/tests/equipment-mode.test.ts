@@ -3,7 +3,7 @@ import {
   defaultMovementReplacementRules,
   freeWeightPolicyV1,
   movementCatalog,
-} from '../src/domains/movement/lib/movements'
+} from '@sheetless/domain/movement/movements'
 import {
   applyEquipmentModeToSlot,
   buildActiveProgramEquipmentModePreview,
@@ -12,12 +12,12 @@ import {
   freeWeightChoiceKey,
   resolveEquipmentModeMovement,
   resolveProgramMovementOverride,
-} from '../src/domains/program/lib/equipment-mode'
+} from '@sheetless/domain/program/equipment-mode'
 import {
   freeWeightChoicesNeedReview,
   reconcileFreeWeightChoices,
 } from '../src/domains/program/components/useTemplateStartEquipmentMode'
-import { programAccessoryAdditionSlotId } from '../src/domains/program/lib/program-accessory-slots'
+import { programAccessoryAdditionSlotId } from '@sheetless/domain/program/program-accessory-slots'
 import type {
   FreeWeightChoiceDraft,
   ProgramInstance,
@@ -28,9 +28,9 @@ import type { MovementSlot } from '../src/domains/session'
 import {
   listFallbackTemplateDefinitions,
   templateCatalog,
-} from '../src/domains/program/lib/templates'
+} from '@sheetless/domain/program/templates'
 import { buildProgramSetupOptions } from '../src/domains/program/server/program-setup'
-import { expandSessionFromTemplateDefinition } from '../src/domains/program/lib/template-engine'
+import { expandSessionFromTemplateDefinition } from '@sheetless/domain/program/template-engine'
 
 const slotIdentity = {
   templateSessionId: 'pull-day',

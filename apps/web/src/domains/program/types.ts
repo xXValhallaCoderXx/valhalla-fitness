@@ -1,5 +1,1 @@
-export type * from './types/template'
-export type * from './types/core'
-export type * from './types/setup'
-export type * from './types/overview'
-export type * from './types/equipment-mode'
+export type * from '@sheetless/domain/program/types'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { HistoryBestSet } from '~/domains/history'
+import type { HistoryBestSet } from '@sheetless/domain/history/types'
 import {
   formatBestSetPrimary,
   formatE1rm,

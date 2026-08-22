@@ -1,11 +1,16 @@
 import type { AccentColor } from '~/domains/history/lib/insights'
-import type { BodyLoadRegion, HistoryBestSet } from '~/domains/history'
-import type { Unit } from '~/shared/types'
+import type { BodyLoadRegion } from '~/domains/history'
 import { Text } from '~/components'
-import { externalLoadOrNull, isPositiveLoad } from '~/shared/lib/load'
 
 export { HISTORY_TAB_VALUES } from '~/domains/history/lib/history-tabs'
 export type { HistoryTab } from '~/domains/history/lib/history-tabs'
+export {
+  formatBestSetPrimary,
+  formatE1rm,
+  formatLoad,
+  formatNumber,
+  hasDisplayE1rm,
+} from '@sheetless/domain/history/insight-format'
 
 /** Mantine palette names → themed CSS variables for dots, stripes, and rings. */
 export const ACCENT_TEXT: Record<AccentColor, string> = {
@@ -65,30 +70,3 @@ export function toneForTier(tier: BodyLoadRegion['tier']) {
   return 'dimmed'
 }
 
-export function formatBestSetPrimary(set: HistoryBestSet) {
-  const externalLoad = externalLoadOrNull(set.load)
-  const load = externalLoad == null ? 'Bodyweight' : `${formatNumber(externalLoad)} ${set.units ?? ''}`.trim()
-  const reps = `${set.reps ?? '-'}${set.type === 'amrap' ? '+' : ''}`
-  return `${load} × ${reps} reps`
-}
-
-export function hasDisplayE1rm(
-  set: HistoryBestSet,
-): set is HistoryBestSet & { load: number; e1rm: number } {
-  return isPositiveLoad(set.load) && isPositiveLoad(set.e1rm)
-}
-
-export function formatE1rm(set: HistoryBestSet) {
-  return hasDisplayE1rm(set) ? `${formatNumber(set.e1rm)} ${set.units ?? ''}`.trim() : '—'
-}
-
-export function formatLoad(value?: number | null, units?: Unit | null) {
-  if (!value) return `0 ${units ?? ''}`.trim()
-  return `${formatNumber(value)} ${units ?? ''}`.trim()
-}
-
-export function formatNumber(value: number) {
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: Number.isInteger(value) ? 0 : 1,
-  }).format(value)
-}

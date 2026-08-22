@@ -1,0 +1,24 @@
+{
+  "name": "@sheetless/domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./shared/types": "./src/shared/types/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sheetless/tokens": "workspace:*",
+    "dayjs": "^1.11.21",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.21",
+    "typescript": "6.0.3",
+    "vitest": "4.0.15"
+  }
+}

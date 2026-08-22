@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { MovementSlot, SetLog, WorkoutSession } from '~/domains/session'
+import type { MovementSlot, SetLog, WorkoutSession } from '@sheetless/domain/session/types'
 import {
   advanceAfterLog,
   exerciseNeighbors,

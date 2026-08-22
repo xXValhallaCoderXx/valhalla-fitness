@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { isEmailAllowed, normalizeEmail, resolveMagicLinkDecision } from '../src/domains/account/server/allowlist'
-import { allowlistNeutralMessage, defaultMagicLinkSentMessage } from '../src/shared/lib/auth-config'
+import { allowlistNeutralMessage, defaultMagicLinkSentMessage } from '@sheetless/domain/shared/auth-config'
 
 function rpcClient(response: { data: unknown; error: { message: string } | null }) {
   return { rpc: vi.fn(async () => response) }

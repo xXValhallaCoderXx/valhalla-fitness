@@ -1,7 +1,7 @@
-export type { Database } from './database'
 export type {
+  Database,
   MovementRole,
   ProgramStateDefaults,
   SessionHardness,
   Unit,
-} from './training-primitives'
+} from '@sheetless/domain/shared/types'

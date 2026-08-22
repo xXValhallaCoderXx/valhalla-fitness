@@ -8,7 +8,7 @@ import {
   deleteAccountInputSchema,
   isAccountDeleteConfirmed,
   serializeAccountExport,
-} from '../src/domains/account/lib/data-rights'
+} from '@sheetless/domain/account/data-rights'
 
 describe('account data rights', () => {
   it('requires the destructive confirmation phrase exactly', () => {
