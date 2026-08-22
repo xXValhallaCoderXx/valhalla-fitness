@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "native",
-    "slug": "native",
-    "version": "1.0.0",
+    "name": "Sheetless",
+    "slug": "sheetless",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "native",
+    "scheme": "sheetless",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
@@ -28,7 +28,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#2f98b3",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
