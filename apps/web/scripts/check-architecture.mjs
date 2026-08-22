@@ -239,6 +239,20 @@ for (const root of importScanRoots) {
 }
 
 const serverModuleBudgets = new Map([
+  ['src/domains/account/server/auth-functions.ts', 300],
+  ['src/domains/account/server/profile-functions.ts', 90],
+  ['src/domains/account/server/bodyweight-functions.ts', 40],
+  ['src/domains/account/server/data-rights-functions.ts', 40],
+  ['src/domains/feedback/server/feedback-functions.ts', 40],
+  ['src/domains/history/server/history-functions.ts', 40],
+  ['src/domains/history/server/movement-history.ts', 10],
+  ['src/domains/movement/server/movement-functions.ts', 45],
+  ['src/domains/program/server/active-program-functions.ts', 60],
+  ['src/domains/program/server/program-template-functions.ts', 60],
+  ['src/domains/program/server/program-start-functions.ts', 20],
+  ['src/domains/program/server/program-equipment-mode-functions.ts', 25],
+  ['src/domains/session/server/favorite-functions.ts', 20],
+  ['src/domains/session/server/previous-comparables.ts', 10],
   ['src/domains/program/server/program-functions.ts', 40],
   ['src/domains/session/server/session-functions.ts', 40],
   ['src/domains/session/server/session-read-functions.ts', 60],

@@ -86,3 +86,21 @@ Never commit real secrets. Keep local values in `.env` and mirror required keys 
 Workout saving is online-only. Keep optimistic edits in the account-scoped React Query cache with
 explicit saving/failure/retry states. Do not add a durable local database or offline replay queue
 without an explicit product/architecture decision in `README.md`.
+
+## Workspace & Data-Access Architecture (expo-refactor)
+
+The repo is a pnpm workspace: `apps/web` (TanStack Start), `apps/native` (Expo), and shared
+packages consumed as TypeScript source. Layering is `@sheetless/domain` < `@sheetless/data` <
+apps, enforced by `architecture:check`:
+
+- `packages/domain` — pure, framework-free training logic and types. May not import React,
+  UI runtimes, `@supabase`, `@tanstack`, or `~/` aliases.
+- `packages/data` — every data-access function, shaped `fn(ctx: UserContext, input)` where
+  `UserContext = { supabase, user }`. May import `@supabase/supabase-js` **types only**.
+  Auth acquisition never lives here: web builds ctx from its cookie server client
+  (`requireUser`), native from its stored session.
+- App server files are thin `createServerFn` wrappers. A wrapper that also exports plain
+  helpers must load `@sheetless/data` via dynamic import inside function bodies — a static
+  import survives the client transform and bloats the browser bundle.
+- Old `apps/web` import paths resolve through one-line re-export shims onto the packages;
+  retire shims opportunistically, never at the cost of a noisy diff.
