@@ -676,8 +676,13 @@ If Railway selects an incompatible Node version despite the repository pin, set
 To re-gate Magic Link:
 
 1. Set `AUTH_ALLOWLIST_ENABLED=true` on Railway.
-2. Disable new-user signup in Supabase.
-3. Provision allowed users from a trusted local shell with the service-role key:
+2. Set `app_config.auth_allowlist_enabled` to `true` in the database. Signup gating is enforced
+   there by the `before_user_created` auth hook (`hook_before_user_created`); client-side checks
+   are UX only, so every client — including the native app — is bound by it. The hosted project
+   must have the hook enabled once in the dashboard (Auth → Hooks); locally it is on via
+   `supabase/config.toml`.
+3. Disable new-user signup in Supabase.
+4. Provision allowed users from a trusted local shell with the service-role key:
 
 ```sh
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm provision:allowed add someone@example.com "note"
