@@ -1,11 +1,6 @@
-export type Tone =
-  | 'default'
-  | 'dimmed'
-  | 'action'
-  | 'success'
-  | 'warning'
-  | 'danger'
-  | 'accent'
+import type { Tone } from '@sheetless/tokens'
+
+export type { Tone }
 
 const TONE_VARS: Record<Tone, string> = {
   default: 'var(--mantine-color-text)',
@@ -17,7 +12,7 @@ const TONE_VARS: Record<Tone, string> = {
   accent: 'var(--vf-accent-text)',
 }
 
-/** Resolve a semantic tone to its themed CSS color variable. */
+/** Resolve a semantic tone to its themed CSS color variable (the web resolver). */
 export function toneColor(tone?: Tone): string | undefined {
   return tone ? TONE_VARS[tone] : undefined
 }
