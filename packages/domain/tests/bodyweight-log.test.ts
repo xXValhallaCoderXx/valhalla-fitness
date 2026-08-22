@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeBodyweightLog } from '../src/domains/account/server/bodyweight-functions'
+import { normalizeBodyweightLog } from '@sheetless/domain/account/bodyweight'
 
 const now = '2026-07-05T14:30:00.000Z'
 

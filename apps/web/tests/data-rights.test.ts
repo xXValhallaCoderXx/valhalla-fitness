@@ -69,7 +69,7 @@ describe('account data rights', () => {
 
 describe('account export coverage', () => {
   const source = readFileSync(
-    resolve(process.cwd(), 'src/domains/account/server/data-rights-functions.ts'),
+    resolve(process.cwd(), '../../packages/data/src/account/data-rights.ts'),
     'utf8',
   )
 

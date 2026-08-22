@@ -222,7 +222,7 @@ const databaseTypes = requireFragments('packages/domain/src/shared/types/databas
 for (const path of [
   'supabase/migrations/202607280001_release_integrity_foundations.sql',
   'packages/domain/src/shared/types/database.ts',
-  'apps/web/src/domains/account/server/data-rights-functions.ts',
+  'packages/data/src/account/data-rights.ts',
   'apps/web/scripts/audit-release-integrity.mjs',
 ]) {
   if (read(path).includes('program_anchors')) {
@@ -231,13 +231,13 @@ for (const path of [
 }
 
 const programStartServer = requireFragments(
-  'apps/web/src/domains/program/server/program-start-functions.ts',
+  'packages/data/src/program/start.ts',
   [
     "supabase.rpc('start_program_v3'",
   ],
 )
 requireFragments(
-  'apps/web/src/domains/program/server/program-equipment-mode-functions.ts',
+  'packages/data/src/program/equipment-mode.ts',
   [
     "supabase.rpc('set_program_equipment_mode_v1'",
     'expectedStateVersion',

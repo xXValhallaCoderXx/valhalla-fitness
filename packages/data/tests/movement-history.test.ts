@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { getMovementHistoryEntries } from '../src/domains/history/server/movement-history'
-import type { SupabaseServerClient } from '../src/shared/server/supabase'
+import { getMovementHistoryEntries } from '@sheetless/data/history/movement-history'
+import type { DataClient } from '@sheetless/data/shared/context'
 
 type TestRow = Record<string, unknown>
 type TestTables = Record<string, TestRow[]>
@@ -156,7 +156,7 @@ function client(tables: TestTables) {
   const supabase = new TestSupabase(tables)
   return {
     supabase,
-    client: supabase as unknown as SupabaseServerClient,
+    client: supabase as unknown as DataClient,
   }
 }
 
