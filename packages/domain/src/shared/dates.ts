@@ -108,12 +108,17 @@ export function formatCompletionDateTime(
     day: 'numeric',
     year: 'numeric',
   }).format(date)
+  // Newer CLDR data (e.g. Hermes on Android 16) separates time from AM/PM with
+  // U+202F narrow no-break space; older ICU uses U+0020. Normalize so the label
+  // is byte-identical on every engine.
   const timeLabel = new Intl.DateTimeFormat('en-US', {
     timeZone: resolvedTimeZone,
     hour: 'numeric',
     minute: '2-digit',
     timeZoneName: 'shortOffset',
-  }).format(date)
+  })
+    .format(date)
+    .replace(/[\u202f\u00a0]/g, ' ')
   return `Completed ${dateLabel} at ${timeLabel}`
 }
 

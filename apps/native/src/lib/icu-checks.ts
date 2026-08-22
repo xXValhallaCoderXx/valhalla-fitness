@@ -27,12 +27,17 @@ export type IcuCheckReport = {
   allPass: boolean
 }
 
+function escapeNonAscii(value: string): string {
+  // Make invisible/exotic characters visible in expected-vs-actual diffs.
+  return value.replace(/[^\x20-\x7e]/g, (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`)
+}
+
 function show(value: unknown): string {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
-  if (typeof value === 'string') return value
+  if (typeof value === 'string') return escapeNonAscii(value)
   try {
-    return JSON.stringify(value)
+    return escapeNonAscii(JSON.stringify(value))
   } catch {
     return String(value)
   }
@@ -57,7 +62,14 @@ export function runIcuChecks(): IcuCheckReport {
       actual = `threw: ${error instanceof Error ? error.message : String(error)}`
       pass = false
     }
-    results.push({ name, expected: show(expected), actual: show(actual), pass })
+    const expectedShown = show(expected)
+    const actualShown = show(actual)
+    results.push({
+      name,
+      expected: pass ? expectedShown : `${expectedShown} [len=${expectedShown.length}]`,
+      actual: pass ? actualShown : `${actualShown} [len=${actualShown.length}]`,
+      pass,
+    })
   }
 
   const checkThrows = (name: string, expectedMessage: string, run: () => unknown) => {
