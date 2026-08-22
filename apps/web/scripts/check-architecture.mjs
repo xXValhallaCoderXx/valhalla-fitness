@@ -245,9 +245,9 @@ const serverModuleBudgets = new Map([
   ['src/domains/session/server/session-lifecycle-functions.ts', 60],
   ['src/domains/session/server/session-completion-functions.ts', 40],
   ['src/domains/session/server/session-set-functions.ts', 40],
-  ['src/domains/session/server/session-accessory-functions.ts', 550],
-  ['src/domains/session/server/session-ad-hoc-functions.ts', 250],
-  ['src/domains/session/server/session-movement-functions.ts', 225],
+  ['src/domains/session/server/session-accessory-functions.ts', 40],
+  ['src/domains/session/server/session-ad-hoc-functions.ts', 40],
+  ['src/domains/session/server/session-movement-functions.ts', 40],
   ['src/domains/session/server/session-server.ts', 40],
   ['src/domains/session/server/session-server-helpers.ts', 40],
 ])

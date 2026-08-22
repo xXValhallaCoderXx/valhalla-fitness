@@ -284,7 +284,7 @@ const sessionSetServer = requireFragments(
   ],
 )
 const sessionAccessoryServer = requireFragments(
-  'apps/web/src/domains/session/server/session-accessory-functions.ts',
+  'packages/data/src/session/accessories.ts',
   [
     "supabase.rpc('add_session_accessory_v2'",
     "supabase.rpc('reorder_session_accessories_v2'",
@@ -292,14 +292,14 @@ const sessionAccessoryServer = requireFragments(
   ],
 )
 const sessionAdHocServer = requireFragments(
-  'apps/web/src/domains/session/server/session-ad-hoc-functions.ts',
+  'packages/data/src/session/ad-hoc-exercises.ts',
   [
     "supabase.rpc('add_ad_hoc_exercise_v2'",
     "supabase.rpc('remove_ad_hoc_exercise_v2'",
   ],
 )
 const sessionMovementServer = requireFragments(
-  'apps/web/src/domains/session/server/session-movement-functions.ts',
+  'packages/data/src/session/movements.ts',
   [
     "supabase.rpc('substitute_session_movement_v2'",
   ],
@@ -327,7 +327,7 @@ for (const legacyRpc of [
 }
 
 const favoriteServer = requireFragments(
-  'apps/web/src/domains/session/server/favorite-functions.ts',
+  'packages/data/src/session/favorites.ts',
   ["supabase.rpc('set_session_favorite_v2'"],
 )
 const lifecycleWriteSources = sourceFilesUnder('apps/web/src/domains')
