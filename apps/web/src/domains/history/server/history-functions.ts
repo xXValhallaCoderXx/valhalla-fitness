@@ -27,7 +27,6 @@ import { getMovementName } from '~/domains/movement/lib/movements'
 import { externalLoadOrNull } from '~/shared/lib/load'
 import { formatNumber } from '~/shared/lib/set-notation'
 import type { SupabaseServerClient } from '~/shared/server/supabase'
-import { mapProgressionDecision } from '~/domains/program/server/program-functions'
 import { favoriteLineageKeys, sessionLineageKey } from '~/domains/session/lib/ad-hoc'
 import { getTodayInternal } from '~/domains/session/server/session-functions'
 import { getMovementHistoryEntries } from '~/domains/history/server/movement-history'
@@ -286,6 +285,9 @@ async function getAcceptedDecisionsInternal(supabase: SupabaseServerClient, user
       .order('id', { ascending: false })
       .range(from, to),
   )
+  // Dynamic: this module exports plain helpers, so a static @sheetless/data
+  // import would survive the client transform and bloat the client bundle.
+  const { mapProgressionDecision } = await import('@sheetless/data/program/active-program')
   return rows.map(mapProgressionDecision)
 }
 

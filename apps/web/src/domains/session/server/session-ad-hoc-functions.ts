@@ -9,7 +9,9 @@ import {
   addAdHocExerciseInputSchema,
   removeAdHocExerciseInputSchema,
 } from '~/domains/session/lib/schemas'
-import { getMovementCatalogForSwap } from '~/domains/movement/server/movement-functions'
+import {
+  getMovementCatalogForSwap,
+} from '@sheetless/data/movement/catalog'
 import type { Json } from '~/shared/types/database'
 import { getSessionInternal } from '~/domains/session/server/session-read-functions'
 import { getPreviousComparablesBySlotId } from '~/domains/session/server/previous-comparables'

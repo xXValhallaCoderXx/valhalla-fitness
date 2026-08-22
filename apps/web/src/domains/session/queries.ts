@@ -1,5 +1,8 @@
 import { queryOptions } from '@tanstack/react-query'
-import { listAccessoryMovementOptionsFn, listMovementOptionsFn } from '~/domains/movement/server/movement-functions'
+import {
+  listAccessoryMovementOptionsFn,
+  listMovementOptionsFn,
+} from '~/domains/movement/server/movement-functions'
 import { listFavoriteWorkoutsFn } from '~/domains/session/server/favorite-functions'
 import {
   getSessionFn,

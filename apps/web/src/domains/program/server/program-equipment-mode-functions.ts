@@ -13,7 +13,9 @@ import {
   previewProgramEquipmentModeInputSchema,
   setProgramEquipmentModeInputSchema,
 } from '~/domains/program/lib/schemas'
-import { getMovementCatalogForSwap } from '~/domains/movement/server/movement-functions'
+import {
+  getMovementCatalogForSwap,
+} from '@sheetless/data/movement/catalog'
 import { getActiveProgramInternal } from '~/domains/program/server/active-program-functions'
 import {
   getFreeWeightPolicyVersionById,

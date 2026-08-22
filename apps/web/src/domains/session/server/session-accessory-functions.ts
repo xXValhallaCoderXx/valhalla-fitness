@@ -16,7 +16,9 @@ import {
   removeSessionAccessoryInputSchema,
   reorderSessionAccessoriesInputSchema,
 } from '~/domains/session/lib/schemas'
-import { getMovementCatalogForSwap } from '~/domains/movement/server/movement-functions'
+import {
+  getMovementCatalogForSwap,
+} from '@sheetless/data/movement/catalog'
 import {
   isActiveMovement,
   isFreeWeightMovement,

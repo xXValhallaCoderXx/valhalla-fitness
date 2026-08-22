@@ -4,11 +4,8 @@ export {
   getActiveProgramFn,
   getActiveProgramInternal,
   getPendingDecisionsInternal,
-  mapProgressionDecision,
-  normalizeCustomizationSummary,
   resolveProgressionDecisionFn,
   resolveProgressionDecisionsFn,
-  updateProgramCurrentWeekIndex,
 } from '~/domains/program/server/active-program-functions'
 export {
   getProgramSetupOptionsFn,

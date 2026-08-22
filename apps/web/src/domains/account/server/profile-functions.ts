@@ -1,22 +1,10 @@
 import { createServerFn } from '@tanstack/react-start'
 import {
-  completeOnboarding,
-  dismissLiveOnboarding,
-  dismissPostWorkoutFeedback,
-  getMe,
-  ensureProfile as ensureProfileData,
-  updateSettings,
-  updateSex,
-  updateTimezone,
-} from '@sheetless/data/account/profile'
-import {
   updateSettingsInputSchema,
   updateSexInputSchema,
   updateTimezoneInputSchema,
 } from '~/domains/account/lib/schemas'
 import type { UserProfile } from '~/domains/account'
-
-export { normalizeProgramStateDefaults } from '@sheetless/data/account/profile'
 
 async function requireUser() {
   const { requireUser } = await import('~/shared/server/require-user')
@@ -28,14 +16,23 @@ async function hasSupabaseEnv() {
   return hasSupabaseEnv()
 }
 
+// @sheetless/data is loaded dynamically: this module exports the plain
+// ensureProfile helper alongside server fns, so a static import would survive
+// the client transform and pull the data package into the client bundle.
+async function profileData() {
+  return import('@sheetless/data/account/profile')
+}
+
 /** Web-signature shim: acquires the cookie-authenticated context itself. */
 export async function ensureProfile() {
-  return ensureProfileData(await requireUser())
+  const { ensureProfile } = await profileData()
+  return ensureProfile(await requireUser())
 }
 
 export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promise<UserProfile | null> => {
   if (!(await hasSupabaseEnv())) return null
   try {
+    const { getMe } = await profileData()
     return await getMe(await requireUser())
   } catch (error) {
     if (error instanceof Error && error.message === 'Not authenticated') return null
@@ -43,23 +40,38 @@ export const getMeFn = createServerFn({ method: 'GET' }).handler(async (): Promi
   }
 })
 
-export const completeOnboardingFn = createServerFn({ method: 'POST' }).handler(async () =>
-  completeOnboarding(await requireUser()))
+export const completeOnboardingFn = createServerFn({ method: 'POST' }).handler(async () => {
+  const { completeOnboarding } = await profileData()
+  return completeOnboarding(await requireUser())
+})
 
-export const dismissLiveOnboardingFn = createServerFn({ method: 'POST' }).handler(async () =>
-  dismissLiveOnboarding(await requireUser()))
+export const dismissLiveOnboardingFn = createServerFn({ method: 'POST' }).handler(async () => {
+  const { dismissLiveOnboarding } = await profileData()
+  return dismissLiveOnboarding(await requireUser())
+})
 
-export const dismissPostWorkoutFeedbackFn = createServerFn({ method: 'POST' }).handler(async () =>
-  dismissPostWorkoutFeedback(await requireUser()))
+export const dismissPostWorkoutFeedbackFn = createServerFn({ method: 'POST' }).handler(async () => {
+  const { dismissPostWorkoutFeedback } = await profileData()
+  return dismissPostWorkoutFeedback(await requireUser())
+})
 
 export const updateSettingsFn = createServerFn({ method: 'POST' })
   .validator((data) => updateSettingsInputSchema.parse(data))
-  .handler(async ({ data }) => updateSettings(await requireUser(), data))
+  .handler(async ({ data }) => {
+    const { updateSettings } = await profileData()
+    return updateSettings(await requireUser(), data)
+  })
 
 export const updateSexFn = createServerFn({ method: 'POST' })
   .validator((data) => updateSexInputSchema.parse(data))
-  .handler(async ({ data }) => updateSex(await requireUser(), data))
+  .handler(async ({ data }) => {
+    const { updateSex } = await profileData()
+    return updateSex(await requireUser(), data)
+  })
 
 export const updateTimezoneFn = createServerFn({ method: 'POST' })
   .validator((data) => updateTimezoneInputSchema.parse(data))
-  .handler(async ({ data }) => updateTimezone(await requireUser(), data))
+  .handler(async ({ data }) => {
+    const { updateTimezone } = await profileData()
+    return updateTimezone(await requireUser(), data)
+  })

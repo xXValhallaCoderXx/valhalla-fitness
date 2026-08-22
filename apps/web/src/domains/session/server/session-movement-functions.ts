@@ -8,7 +8,7 @@ import {
 import {
   getMovementCatalogForSwap,
   getReplacementRulesForSwap,
-} from '~/domains/movement/server/movement-functions'
+} from '@sheetless/data/movement/catalog'
 import {
   sessionExerciseInputSchema,
   substituteMovementInputSchema,

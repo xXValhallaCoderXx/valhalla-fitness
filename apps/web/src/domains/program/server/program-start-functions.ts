@@ -35,14 +35,12 @@ import {
   sanitizeProgramSlotPart,
 } from '~/domains/program/lib/program-accessory-slots'
 import { startProgramInputSchema } from '~/domains/program/lib/schemas'
-import {
-  ensureProfile,
-  normalizeProgramStateDefaults,
-} from '~/domains/account/server/profile-functions'
+import { ensureProfile } from '~/domains/account/server/profile-functions'
+import { normalizeProgramStateDefaults } from '@sheetless/data/account/profile'
 import {
   getMovementCatalogForSwap,
   getReplacementRulesForSwap,
-} from '~/domains/movement/server/movement-functions'
+} from '@sheetless/data/movement/catalog'
 import { calendarDateInTimeZone } from '~/shared/lib/calendar-date'
 import type { Json } from '~/shared/types/database'
 import { getActiveProgramInternal } from '~/domains/program/server/active-program-functions'
