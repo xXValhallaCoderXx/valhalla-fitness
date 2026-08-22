@@ -1,0 +1,27 @@
+{
+  "name": "@sheetless/data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sheetless/domain": "workspace:*",
+    "dayjs": "^1.11.21",
+    "zod": "4.4.3"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "2.112.3"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "2.112.3",
+    "@types/node": "22.19.21",
+    "typescript": "6.0.3",
+    "vitest": "4.0.15"
+  }
+}

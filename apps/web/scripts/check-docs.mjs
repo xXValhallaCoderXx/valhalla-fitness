@@ -24,7 +24,10 @@ const deletedDocumentNames = [
 
 function walk(directory) {
   return readdirSync(directory).flatMap((name) => {
-    if (['.git', '.output', 'node_modules'].includes(name)) return []
+    // Dot-dirs (.git, .expo, .claude, …) are tool state, never product docs —
+    // except .github, which carries required agent instructions.
+    if (name.startsWith('.') && name !== '.github') return []
+    if (['node_modules', 'dist'].includes(name)) return []
     const path = join(directory, name)
     return statSync(path).isDirectory() ? walk(path) : [path]
   })

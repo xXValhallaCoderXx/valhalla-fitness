@@ -7,7 +7,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@sheetless/domain": "workspace:*",
     "@sheetless/tokens": "workspace:*",
-    "@supabase/supabase-js": "^2.112.3",
+    "@supabase/supabase-js": "2.112.3",
     "aes-js": "^3.1.2",
     "expo": "~57.0.15",
     "expo-constants": "~57.0.13",
