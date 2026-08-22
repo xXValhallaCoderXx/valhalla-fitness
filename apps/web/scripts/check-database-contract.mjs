@@ -189,7 +189,7 @@ requireFragments(
   ],
 )
 
-const databaseTypes = requireFragments('src/shared/types/database.ts', [
+const databaseTypes = requireFragments('apps/web/src/shared/types/database.ts', [
   'advance_program_position_v2:',
   'create_custom_program_template_v2:',
   'delete_own_account:',
@@ -221,9 +221,9 @@ const databaseTypes = requireFragments('src/shared/types/database.ts', [
 
 for (const path of [
   'supabase/migrations/202607280001_release_integrity_foundations.sql',
-  'src/shared/types/database.ts',
-  'src/domains/account/server/data-rights-functions.ts',
-  'scripts/audit-release-integrity.mjs',
+  'apps/web/src/shared/types/database.ts',
+  'apps/web/src/domains/account/server/data-rights-functions.ts',
+  'apps/web/scripts/audit-release-integrity.mjs',
 ]) {
   if (read(path).includes('program_anchors')) {
     failures.push(`${path} references retired program_anchors storage`)
@@ -231,13 +231,13 @@ for (const path of [
 }
 
 const programStartServer = requireFragments(
-  'src/domains/program/server/program-start-functions.ts',
+  'apps/web/src/domains/program/server/program-start-functions.ts',
   [
     "supabase.rpc('start_program_v3'",
   ],
 )
 requireFragments(
-  'src/domains/program/server/program-equipment-mode-functions.ts',
+  'apps/web/src/domains/program/server/program-equipment-mode-functions.ts',
   [
     "supabase.rpc('set_program_equipment_mode_v1'",
     'expectedStateVersion',
@@ -245,14 +245,14 @@ requireFragments(
   ],
 )
 const activeProgramServer = requireFragments(
-  'src/domains/program/server/active-program-functions.ts',
+  'apps/web/src/domains/program/server/active-program-functions.ts',
   [
     'advance_program_position_v2',
     'resolve_progression_decisions_v2',
   ],
 )
 const programTemplateData = requireFragments(
-  'src/domains/program/server/program-template-data.ts',
+  'apps/web/src/domains/program/server/program-template-data.ts',
   [
     "throw new Error('PINNED_TEMPLATE_INVALID')",
   ],
@@ -263,7 +263,7 @@ if (programServer.includes('?? crypto.randomUUID()')) {
 }
 
 const sessionLifecycleServer = requireFragments(
-  'src/domains/session/server/session-lifecycle-functions.ts',
+  'apps/web/src/domains/session/server/session-lifecycle-functions.ts',
   [
     "supabase.rpc('start_session_v2'",
     "supabase.rpc('start_ad_hoc_session_v2'",
@@ -271,20 +271,20 @@ const sessionLifecycleServer = requireFragments(
   ],
 )
 const sessionCompletionServer = requireFragments(
-  'src/domains/session/server/session-completion-functions.ts',
+  'apps/web/src/domains/session/server/session-completion-functions.ts',
   [
     "supabase.rpc('finish_session_v2'",
   ],
 )
 const sessionSetServer = requireFragments(
-  'src/domains/session/server/session-set-functions.ts',
+  'apps/web/src/domains/session/server/session-set-functions.ts',
   [
     "supabase.rpc('upsert_session_set_v2'",
     "supabase.rpc('add_session_set_v2'",
   ],
 )
 const sessionAccessoryServer = requireFragments(
-  'src/domains/session/server/session-accessory-functions.ts',
+  'apps/web/src/domains/session/server/session-accessory-functions.ts',
   [
     "supabase.rpc('add_session_accessory_v2'",
     "supabase.rpc('reorder_session_accessories_v2'",
@@ -292,14 +292,14 @@ const sessionAccessoryServer = requireFragments(
   ],
 )
 const sessionAdHocServer = requireFragments(
-  'src/domains/session/server/session-ad-hoc-functions.ts',
+  'apps/web/src/domains/session/server/session-ad-hoc-functions.ts',
   [
     "supabase.rpc('add_ad_hoc_exercise_v2'",
     "supabase.rpc('remove_ad_hoc_exercise_v2'",
   ],
 )
 const sessionMovementServer = requireFragments(
-  'src/domains/session/server/session-movement-functions.ts',
+  'apps/web/src/domains/session/server/session-movement-functions.ts',
   [
     "supabase.rpc('substitute_session_movement_v2'",
   ],
@@ -327,10 +327,10 @@ for (const legacyRpc of [
 }
 
 const favoriteServer = requireFragments(
-  'src/domains/session/server/favorite-functions.ts',
+  'apps/web/src/domains/session/server/favorite-functions.ts',
   ["supabase.rpc('set_session_favorite_v2'"],
 )
-const lifecycleWriteSources = sourceFilesUnder('src/domains')
+const lifecycleWriteSources = sourceFilesUnder('apps/web/src/domains')
   .map(read)
   .join('\n')
 const lifecycleTablePattern = [

@@ -107,7 +107,7 @@ describe('self-delete migration hardening', () => {
   const sql = readFileSync(
     resolve(
       process.cwd(),
-      'supabase/migrations/202607280004_account_self_service_delete.sql',
+      '../../supabase/migrations/202607280004_account_self_service_delete.sql',
     ),
     'utf8',
   ).toLowerCase()
