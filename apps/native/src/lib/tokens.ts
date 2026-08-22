@@ -11,7 +11,7 @@
  *    --vf-surface-*, --vf-<tone>-soft/-border/-text, focus ring/outline.
  *  - rem-based fontSizes/spacing/radius converted at 16px/rem.
  */
-import { Platform, useColorScheme } from 'react-native'
+import { Platform, useColorScheme, type ViewStyle } from 'react-native'
 import type { Tone, ToneFamily } from '@sheetless/tokens'
 
 export type { Tone }
@@ -225,4 +225,20 @@ export function useTokens(): Tokens {
   const scheme = useColorScheme()
   const theme = scheme === 'light' ? themes.light : themes.dark
   return { theme, isDark: theme.scheme === 'dark', radii, spacing, fontSizes }
+}
+
+/**
+ * Elevated-card shadow, per platform: real box-shadow on web, elevation on
+ * Android (0 in dark, where the visible cardBorder carries the depth — mirrors
+ * the web's dark --vf-card-border approach), shadow props on iOS.
+ */
+export function cardShadow(theme: Theme): ViewStyle {
+  if (Platform.OS === 'web') return { boxShadow: theme.shadowCard } as ViewStyle
+  if (Platform.OS === 'android') return { elevation: theme.scheme === 'light' ? 3 : 0 }
+  return {
+    shadowColor: '#081114',
+    shadowOpacity: theme.scheme === 'light' ? 0.1 : 0.45,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+  }
 }
