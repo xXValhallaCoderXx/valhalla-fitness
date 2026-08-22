@@ -28,7 +28,7 @@ import {
   type Theme,
   type Tone,
   type ToneName,
-} from '../lib/tokens'
+} from '@/lib/tokens'
 
 // ---------------------------------------------------------------------------
 // Mini primitives (SpikeText / SpikeHeading / SpikeCaption / SpikePanel / …)
