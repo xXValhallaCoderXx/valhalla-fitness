@@ -16,6 +16,8 @@ import {
   firstActionableSetIndex,
   upcomingMovements,
 } from '@sheetless/domain/session/live-focus-utils'
+import type { User } from '@supabase/supabase-js'
+import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
 import { Button, PageHeader, Panel, Screen, Text } from '@/components'
 import { useSession } from '@/lib/session-provider'
 import { spacing, useTokens } from '@/lib/tokens'
@@ -25,6 +27,8 @@ import { FocusSetCard, type SetDraft } from '@/features/session/FocusSetCard'
 import { FocusSetProgressBar } from '@/features/session/FocusSetProgressBar'
 import { FocusTopBar } from '@/features/session/FocusTopBar'
 import { sessionQueryOptions } from '@/features/session/queries'
+import { useAddExerciseSet } from '@/features/session/useAddExerciseSet'
+import { useSetLogMutation } from '@/features/session/useSetLogMutation'
 
 export default function LiveSessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
@@ -60,10 +64,10 @@ export default function LiveSessionScreen() {
     )
   }
 
-  return <FocusView session={session.data} />
+  return <FocusView user={user!} session={session.data} />
 }
 
-function FocusView({ session }: { session: WorkoutSession }) {
+function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
   const { theme } = useTokens()
   const insets = useSafeAreaInsets()
 
@@ -88,6 +92,20 @@ function FocusView({ session }: { session: WorkoutSession }) {
     if (activeMovement) setSelectedSetIndex(firstActionableSetIndex(activeMovement))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMovementId])
+
+  const selectedSetForHooks =
+    activeMovement?.sets.find((set) => set.setIndex === selectedSetIndex) ?? activeMovement?.sets[0]
+  const setLog = useSetLogMutation(
+    user,
+    session,
+    activeMovement ?? session.movements[0] ?? ({} as never),
+    selectedSetForHooks?.setIndex ?? 1,
+  )
+  const addSet = useAddExerciseSet(
+    user,
+    session,
+    activeMovement ?? session.movements[0] ?? ({} as never),
+  )
 
   if (!activeMovement) {
     return (
@@ -119,16 +137,39 @@ function FocusView({ session }: { session: WorkoutSession }) {
 
   const handleLogged = (nextSession: WorkoutSession, loggedSetIndex: number) => {
     const result = advanceAfterLog(nextSession, activeMovement.id, loggedSetIndex)
+    // sessionComplete needs no navigation — the all-done banner appears and the
+    // user finishes with an explicit tap (deliberately not web's auto-open modal).
     if (result.kind === 'sessionComplete') return
     if (result.movementId !== activeMovement.id) setActiveMovementId(result.movementId)
     setSelectedSetIndex(result.setIndex)
   }
 
-  // L3 wires the optimistic set-log mutation; render-only for now.
-  const logSet = (_draft: SetDraft) => {
-    void _draft
-    void handleLogged
+  const saveFailed = selectedSet?.syncState === 'syncFailed'
+  const isSaving = setLog.isPending || selectedSet?.syncState === 'saving'
+
+  const logSet = (draft: SetDraft) => {
+    if (!selectedSet || isSaving) return
+    // A retry of a failed save reuses the set's clientMutationId so the RPC dedupes it.
+    const completed = saveFailed ? selectedSet.completed : true
+    setLog.mutate(
+      {
+        movementSlotId: activeMovement.id,
+        setIndex: selectedSet.setIndex,
+        actualLoad: draft.actualLoad,
+        actualReps: draft.actualReps,
+        actualRir: draft.actualRir,
+        completed,
+        clientMutationId: saveFailed
+          ? selectedSet.clientMutationId ?? crypto.randomUUID()
+          : crypto.randomUUID(),
+      },
+      { onSuccess: (nextSession) => handleLogged(nextSession, selectedSet.setIndex) },
+    )
   }
+
+  const allComplete =
+    session.movements.length > 0 &&
+    session.movements.every((movement) => movement.sets.every((set) => set.completed))
 
   return (
     <View style={{ backgroundColor: theme.background, flex: 1, paddingTop: insets.top }}>
@@ -163,6 +204,24 @@ function FocusView({ session }: { session: WorkoutSession }) {
         }}
         keyboardShouldPersistTaps="handled"
       >
+        {allComplete ? (
+          <Panel
+            style={{
+              backgroundColor: theme.tones.success.soft,
+              borderColor: theme.tones.success.border,
+              gap: 2,
+              padding: spacing.md,
+            }}
+          >
+            <Text weight={800} style={{ color: theme.tones.success.text }}>
+              All sets logged — great work.
+            </Text>
+            <Text size="sm" tone="dimmed">
+              Finish when you're ready to wrap up and review the session.
+            </Text>
+          </Panel>
+        ) : null}
+
         <FocusExerciseHeader
           movement={activeMovement}
           units={session.units}
@@ -187,11 +246,42 @@ function FocusView({ session }: { session: WorkoutSession }) {
             setNumber={setNumber}
             setTotal={setTotal}
             suggestedRir={suggestedRirBySetIndex[selectedSet.setIndex]}
-            isSaving={false}
-            saveFailed={selectedSet.syncState === 'syncFailed'}
+            isSaving={Boolean(isSaving)}
+            saveFailed={saveFailed}
             onLogSet={logSet}
             onRirSelected={carryRirToNextSet}
           />
+        ) : null}
+
+        {setLog.isError && !saveFailed ? (
+          <Text size="sm" tone="danger">
+            {getApiErrorMessage(setLog.error, 'Unable to save this set. Retry when your connection is stable.')}
+          </Text>
+        ) : null}
+
+        {activeMovement.role === 'accessory' ? (
+          <Button
+            label="Add set"
+            variant="default"
+            fullWidth
+            loading={addSet.isPending}
+            onPress={() =>
+              addSet.mutate(undefined, {
+                onSuccess: (nextSession) => {
+                  const nextMovement = nextSession.movements.find(
+                    (movement) => movement.id === activeMovement.id,
+                  )
+                  const newSetIndex = nextMovement?.sets.at(-1)?.setIndex
+                  if (newSetIndex) setSelectedSetIndex(newSetIndex)
+                },
+              })
+            }
+          />
+        ) : null}
+        {addSet.isError ? (
+          <Text size="sm" tone="danger">
+            {getApiErrorMessage(addSet.error, 'Unable to add another set.')}
+          </Text>
         ) : null}
 
         <FocusComingUp movements={coming} onJumpTo={setActiveMovementId} />
