@@ -7,6 +7,7 @@ export type TestTables = Record<string, TestRow[]>
 export type RpcCall = { fn: string; args: Record<string, unknown> | undefined }
 export type InsertCall = { table: string; rows: TestRow[] }
 export type UpdateCall = { table: string; values: TestRow; filters: Array<[string, unknown]> }
+export type RangeCall = { table: string; from: number; to: number }
 
 type QueryResult = { data: unknown; error: null | { message: string } }
 
@@ -132,6 +133,7 @@ class TestQuery implements PromiseLike<QueryResult> {
   }
 
   async range(from: number, to: number): Promise<QueryResult> {
+    this.stub.rangeCalls.push({ table: this.table, from, to })
     const { data } = this.run()
     return { data: (data as TestRow[]).slice(from, to + 1), error: null }
   }
@@ -148,6 +150,7 @@ export class TestSupabase {
   readonly rpcCalls: RpcCall[] = []
   readonly insertCalls: InsertCall[] = []
   readonly updateCalls: UpdateCall[] = []
+  readonly rangeCalls: RangeCall[] = []
   /** Queue results for rpc calls by function name; default is `{ data: null }`. */
   readonly rpcResults = new Map<string, unknown>()
 

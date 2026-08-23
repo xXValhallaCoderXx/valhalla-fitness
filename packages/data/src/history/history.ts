@@ -317,11 +317,14 @@ async function getProfileHistoryContext(
   }
 }
 
-export async function getHistoryDashboard(ctx: UserContext): Promise<HistoryDashboardWithInsights> {
+export async function getHistoryDashboard(
+  ctx: UserContext,
+  options: { limit?: number } = {},
+): Promise<HistoryDashboardWithInsights> {
     const { supabase, user } = ctx
     const generatedAt = new Date()
     const [history, bodyweightEntries, profile] = await Promise.all([
-      getHistoryInputs(supabase, user.id),
+      getHistoryInputs(supabase, user.id, { limit: options.limit }),
       getBodyweightEntriesInternal(supabase, user.id),
       getProfileHistoryContext(supabase, user.id),
     ])
