@@ -1,5 +1,6 @@
-import { Linking, View } from 'react-native'
+import { View } from 'react-native'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { router } from 'expo-router'
 import {
   buildCatalogueItems,
   type CatalogueItem,
@@ -14,7 +15,6 @@ import { ActiveProgramBand } from './ActiveProgramBand'
 import { TemplateCard } from './TemplateCard'
 import { templatesQueryOptions } from './queries'
 
-const WEB_TEMPLATE_BASE = 'https://www.sheetless.fitness/templates'
 const complexityOrder: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 }
 
 export function TemplatesScreen() {
@@ -54,7 +54,8 @@ export function TemplatesScreen() {
   const custom = available.filter((template) => template.origin === 'user_created')
   const builtInItems = buildCatalogueItems(builtIn)
   const customItems = buildCatalogueItems(custom)
-  const openTemplate = (templateId: string) => Linking.openURL(`${WEB_TEMPLATE_BASE}/${templateId}/start`)
+  const openTemplate = (templateId: string) =>
+    router.push({ pathname: '/template/[templateId]', params: { templateId } })
 
   return (
     <Screen>
