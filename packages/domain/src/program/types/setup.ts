@@ -1,6 +1,7 @@
 import type {
   MovementPattern,
   MovementSwapOption,
+  RequiredEquipment,
   ResistanceMode,
 } from '@sheetless/domain/movement/types'
 import type { MovementRole, SessionHardness } from '@sheetless/domain/shared/types'
@@ -104,6 +105,7 @@ export type ProgramSetupOptions = {
     movementName: string
     category: string
     equipment: string[]
+    requiredEquipment: RequiredEquipment[]
     resistanceMode?: ResistanceMode | null
     pattern?: MovementPattern | null
   }>

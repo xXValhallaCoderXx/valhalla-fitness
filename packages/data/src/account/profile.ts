@@ -4,6 +4,7 @@ import {
   updateSexInputSchema,
   updateTimezoneInputSchema,
 } from '@sheetless/domain/account/schemas'
+import { normalizeEquipmentProfile } from '@sheetless/domain/account/equipment-profile'
 import { defaultProgramStateDefaults } from '@sheetless/domain/program/program-state-defaults'
 import { normalizeIanaTimeZone } from '@sheetless/domain/shared/calendar-date'
 import type { Sex, ThemePreference, UserProfile } from '@sheetless/domain/account/types'
@@ -61,7 +62,9 @@ export async function getMe(ctx: UserContext): Promise<UserProfile> {
     displayName: profile.display_name as string | null,
     units: profile.units as Unit,
     rounding: Number(profile.rounding),
-    equipmentProfile: (profile.equipment_profile ?? []) as UserProfile['equipmentProfile'],
+    equipmentProfile: normalizeEquipmentProfile(
+      (profile.equipment_profile ?? []) as string[],
+    ),
     themePreference: (profile.theme_preference ?? 'system') as ThemePreference,
     timezone: normalizeIanaTimeZone(profile.timezone),
     programStateDefaults: normalizeProgramStateDefaults(profile.program_state_defaults, profile.units as Unit),
@@ -98,7 +101,7 @@ export async function updateSettings(ctx: UserContext, data: z.infer<typeof upda
   return updateProfile(ctx, {
     units: parsed.units,
     rounding: parsed.rounding,
-    equipment_profile: parsed.equipmentProfile,
+    equipment_profile: normalizeEquipmentProfile(parsed.equipmentProfile),
     theme_preference: parsed.themePreference,
     program_state_defaults: programStateDefaults,
     ...(parsed.sex !== undefined ? { sex: parsed.sex } : {}),

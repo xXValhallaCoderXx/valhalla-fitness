@@ -2,6 +2,8 @@ import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { toggleEquipmentProfileItem } from '@sheetless/domain/account/equipment-profile'
+import type { RequiredEquipment } from '@sheetless/domain/movement/types'
 import { Page } from '~/components'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import {
@@ -164,9 +166,9 @@ export function SettingsForm({ me }: { me: UserProfile }) {
     setProgramStateDefaults((current) => ({ ...current, [key]: value }))
   }
 
-  const toggleEquipment = (item: string) => {
+  const toggleEquipment = (item: RequiredEquipment) => {
     setEquipmentProfile((current) =>
-      current.includes(item) ? current.filter((value) => value !== item) : [...current, item],
+      toggleEquipmentProfileItem(current, item),
     )
   }
 

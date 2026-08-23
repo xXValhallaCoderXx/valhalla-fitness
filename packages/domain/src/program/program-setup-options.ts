@@ -70,6 +70,7 @@ export function buildProgramSetupOptions({
       movementName: movement.name,
       category: movement.category,
       equipment: movement.equipment,
+      requiredEquipment: movement.requiredEquipment,
       resistanceMode: movement.resistanceMode,
       pattern: movement.pattern,
     }))

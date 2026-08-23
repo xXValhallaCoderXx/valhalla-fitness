@@ -107,6 +107,7 @@ async function getSwapOptionsForContext(
         movementName: plannedMovement.name,
         category: plannedMovement.category,
         equipment: plannedMovement.equipment,
+        requiredEquipment: plannedMovement.requiredEquipment,
         relationshipLabel: 'Default for this slot',
         source: 'default',
         allowedScopes: ['session', 'phase_slot'],

@@ -1,3 +1,4 @@
+import type { RequiredEquipment } from './catalog'
 import type { MovementRole, Unit } from '@sheetless/domain/shared/types'
 
 export type SwapScope = 'session' | 'phase_slot'
@@ -20,6 +21,7 @@ export type MovementSwapOption = {
   movementName: string
   category: string
   equipment: string[]
+  requiredEquipment: RequiredEquipment[]
   relationshipLabel: string
   source: 'rule' | 'catalog' | 'default'
   ruleId?: string
@@ -32,6 +34,7 @@ export type AccessoryMovementOption = {
   movementName: string
   category: string
   equipment: string[]
+  requiredEquipment: RequiredEquipment[]
   defaultUnit: Unit
   freeWeightCompatible: boolean
 }

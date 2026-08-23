@@ -1,5 +1,6 @@
 import { Badge, Button, Select } from '@mantine/core'
 import { Scale } from 'lucide-react'
+import type { RequiredEquipment } from '@sheetless/domain/movement/types'
 import { Caption, PageHeader, Panel, SectionLabel, Text } from '~/components'
 import type { Sex, ThemePreference } from '~/domains/account'
 import type { ProgramStateDefaults, Unit } from '~/shared/types'
@@ -32,7 +33,7 @@ export type SettingsActions = {
   onSexChange: (sex: Sex | null) => void
   onUpdateDefault: (key: string, value: number | null) => void
   onOpenCalculator: () => void
-  onToggleEquipment: (item: string) => void
+  onToggleEquipment: (item: RequiredEquipment) => void
   onDiscard: () => void
   onSave: () => void
 }

@@ -20,6 +20,7 @@ import { spacing } from '@/lib/tokens'
 import { AccountSection } from './AccountSection'
 import { BodyStrengthSection } from './BodyStrengthSection'
 import { DataSyncSection } from './DataSyncSection'
+import { EquipmentSection } from './EquipmentSection'
 import { PreferencesSection } from './PreferencesSection'
 import { SettingsDialogs, type DestructiveIntent } from './SettingsDialogs'
 import { SettingsSaveFooter } from './SettingsSaveFooter'
@@ -195,7 +196,7 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
                 <Badge tone="action">Online only</Badge>
               </View>
               <Text size="xs" tone="dimmed">
-                Tune appearance, training defaults, body profile, data, and account controls.
+                Tune appearance, training defaults, equipment, body profile, data, and account controls.
               </Text>
               {save.isSuccess && !draft.dirty ? (
                 <Text size="sm" tone="success">Settings saved.</Text>
@@ -235,6 +236,12 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
               disabled={controlsDisabled}
               onInputChange={draft.setEstimateInput}
               onValueChange={draft.setEstimateValue}
+            />
+
+            <EquipmentSection
+              equipmentProfile={draft.values.equipmentProfile}
+              disabled={controlsDisabled}
+              onToggle={draft.toggleEquipment}
             />
 
             <DataSyncSection

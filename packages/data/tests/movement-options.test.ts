@@ -61,8 +61,12 @@ describe('movement option lists', () => {
       movementName: 'Chest Fly',
       defaultUnit: 'kg',
       freeWeightCompatible: true,
+      requiredEquipment: ['dumbbells'],
     })
-    expect(options[1]).toMatchObject({ freeWeightCompatible: false })
+    expect(options[1]).toMatchObject({
+      freeWeightCompatible: false,
+      requiredEquipment: ['cable'],
+    })
   })
 
   it('includes competition lifts first in the full ad-hoc catalogue', async () => {
@@ -91,6 +95,11 @@ describe('movement option lists', () => {
       'bench_press',
       'squat',
       'cable_row',
+    ])
+    expect(options.map((option) => option.requiredEquipment)).toEqual([
+      ['barbell'],
+      ['barbell'],
+      ['cable'],
     ])
   })
 })

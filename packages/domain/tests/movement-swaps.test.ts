@@ -51,6 +51,10 @@ describe('movement swap options', () => {
         ?.freeWeightCompatible,
     ).toBe(true)
     expect(
+      options.find((option) => option.movementId === 'goblet_squat')
+        ?.requiredEquipment,
+    ).toEqual(['dumbbells'])
+    expect(
       options.find((option) => option.movementId === 'hack_squat')
         ?.freeWeightCompatible,
     ).toBe(false)

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Sex, ThemePreference, UserProfile } from '@sheetless/domain/account/types'
+import { toggleEquipmentProfileItem } from '@sheetless/domain/account/equipment-profile'
 import {
   convertProgramStateDefaults,
   oneRepMaxKeys,
@@ -175,6 +176,11 @@ export function useSettingsDraft(profile: UserProfile) {
       updateValues((current) => ({ ...current, autoStartTimer })),
     setDefaultRestSeconds: (defaultRestSeconds: number) =>
       updateValues((current) => ({ ...current, defaultRestSeconds })),
+    toggleEquipment: (item: Parameters<typeof toggleEquipmentProfileItem>[1]) =>
+      updateValues((current) => ({
+        ...current,
+        equipmentProfile: toggleEquipmentProfileItem(current.equipmentProfile, item),
+      })),
     setEstimateInput,
     setEstimateValue,
     discard,

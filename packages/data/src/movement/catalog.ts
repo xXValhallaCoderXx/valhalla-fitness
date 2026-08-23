@@ -75,6 +75,7 @@ export function listAccessoryMovementOptionsFromCatalog(catalog: Record<string, 
       movementName: movement.name,
       category: movement.category,
       equipment: movement.equipment,
+      requiredEquipment: movement.requiredEquipment,
       defaultUnit: movement.defaultUnit,
       freeWeightCompatible: isFreeWeightMovement(movement),
     }))
@@ -100,6 +101,7 @@ export function listMovementOptionsFromCatalog(catalog: Record<string, Movement>
       movementName: movement.name,
       category: movement.category,
       equipment: movement.equipment,
+      requiredEquipment: movement.requiredEquipment,
       defaultUnit: movement.defaultUnit,
       freeWeightCompatible: isFreeWeightMovement(movement),
     }))

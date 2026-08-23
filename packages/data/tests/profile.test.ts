@@ -78,6 +78,28 @@ describe('getMe', () => {
     })
     expect((await getMe(ctx)).timezone).toBeNull()
   })
+
+  it('normalizes legacy equipment aliases without dropping unknown values', async () => {
+    const { ctx } = makeStubCtx({
+      profiles: [{
+        id: 'user-1',
+        units: 'kg',
+        rounding: 2.5,
+        equipment_profile: [
+          'specialty_bars',
+          'future_station',
+          'specialty_bar',
+          'blocks',
+        ],
+      }],
+    })
+
+    expect((await getMe(ctx)).equipmentProfile).toEqual([
+      'specialty_bar',
+      'future_station',
+      'box',
+    ])
+  })
 })
 
 describe('updateTimezone', () => {
@@ -192,6 +214,34 @@ describe('updateSettings', () => {
       onboardingCompleted: true,
     } as never)).rejects.toThrow()
     expect(stub.updateCalls).toHaveLength(0)
+  })
+
+  it('writes canonical equipment identifiers while retaining unknown values', async () => {
+    const { ctx, stub } = makeStubCtx({
+      profiles: [{ id: 'user-1', units: 'kg', rounding: 2.5 }],
+    })
+
+    const profile = await updateSettings(ctx, {
+      units: 'kg',
+      rounding: 2.5,
+      equipmentProfile: [
+        ' specialty_bars ',
+        'specialty_bar',
+        'blocks',
+        'future_station',
+      ],
+      themePreference: 'system',
+      programStateDefaults: {},
+    })
+
+    expect(stub.updateCalls[0]?.values).toMatchObject({
+      equipment_profile: ['specialty_bar', 'box', 'future_station'],
+    })
+    expect(profile.equipmentProfile).toEqual([
+      'specialty_bar',
+      'box',
+      'future_station',
+    ])
   })
 })
 
