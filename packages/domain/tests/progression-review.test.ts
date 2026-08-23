@@ -40,7 +40,14 @@ describe('reviewDecisionView', () => {
 
   it('falls back to the recommendation for a qualitative (no-numbers) decision', () => {
     const view = reviewDecisionView(
-      decision({ previousValue: null, recommendedValue: null, rationale: null, recommendation: 'Add load next time', stateType: null }),
+      decision({
+        previousValue: null,
+        recommendedValue: null,
+        rationale: null,
+        inputSummary: '',
+        recommendation: 'Add load next time',
+        stateType: null,
+      }),
       'kg',
     )
     expect(view.isNumeric).toBe(false)
@@ -48,6 +55,19 @@ describe('reviewDecisionView', () => {
     expect(view.deltaLabel).toBeNull()
     expect(view.kindLabel).toBeNull()
     expect(view.reason).toBe('Add load next time')
+  })
+
+  it('uses the persisted input summary when a later review has no rationale', () => {
+    const view = reviewDecisionView(
+      decision({
+        rationale: null,
+        inputSummary: 'Completed every prescribed rep with two reps in reserve.',
+        recommendation: 'Add load next time',
+      }),
+      'kg',
+    )
+
+    expect(view.reason).toBe('Completed every prescribed rep with two reps in reserve.')
   })
 })
 

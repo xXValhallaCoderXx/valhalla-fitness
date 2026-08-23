@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { router } from 'expo-router'
 import { buildWorkoutSummary } from '@sheetless/domain/history/workout-summary'
@@ -20,6 +20,13 @@ export function SessionSummaryScreen({ sessionId }: { sessionId: string }) {
       ? queryClient.getQueryData<SessionSummary>(accountQueryKeys.summary(user.id, sessionId))
       : undefined,
   ).current
+  useEffect(() => {
+    if (!user) return
+    queryClient.removeQueries({
+      queryKey: accountQueryKeys.summary(user.id, sessionId),
+      exact: true,
+    })
+  }, [queryClient, sessionId, user])
   const session = useQuery({
     ...sessionQueryOptions(user!, sessionId),
     enabled: Boolean(user && sessionId),

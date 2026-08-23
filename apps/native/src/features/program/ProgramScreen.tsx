@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { router } from 'expo-router'
 import { buildProgramPhaseMap } from '@sheetless/domain/program/program-phase-map'
@@ -5,16 +6,18 @@ import { buildProgramTimeline } from '@sheetless/domain/program/program-timeline
 import { buildProgramTrajectory } from '@sheetless/domain/program/program-trajectory'
 import { Button, EmptyState, PageHeader, Panel, Screen, SettingsHeaderAction, Text } from '@/components'
 import { useSession } from '@/lib/session-provider'
-import { spacing, useTokens } from '@/lib/tokens'
+import { spacing } from '@/lib/tokens'
 import { programOverviewQueryOptions } from './queries'
 import { ProgramHeader } from './ProgramHeader'
 import { ProgramPhaseMap } from './ProgramPhaseMap'
 import { ProgramTimeline } from './ProgramTimeline'
 import { ProgramDetails } from './ProgramDetails'
+import { ProgressionReviewAlert } from './ProgressionReviewAlert'
+import { ProgressionReviewSheet } from './ProgressionReviewSheet'
 
 export function ProgramScreen() {
   const { user } = useSession()
-  const { theme } = useTokens()
+  const [reviewOpen, setReviewOpen] = useState(false)
   const overview = useQuery({
     ...programOverviewQueryOptions(user!),
     enabled: Boolean(user),
@@ -78,18 +81,21 @@ export function ProgramScreen() {
   return (
     <Screen>
       <ProgramHeader overview={overview.data} phaseMap={phaseMap} action={settingsAction} />
-      {overview.data.pendingDecisions.length ? (
-        <Panel
-          surface="inset"
-          style={{ borderColor: theme.tones.warning.border, gap: 3, padding: spacing.md }}
-        >
-          <Text size="sm" tone="warning" weight={800}>Progression review pending</Text>
-          <Text size="sm" tone="dimmed">Review load changes on sheetless.fitness.</Text>
-        </Panel>
-      ) : null}
+      <ProgressionReviewAlert
+        decisions={overview.data.pendingDecisions}
+        onReview={() => setReviewOpen(true)}
+      />
       <ProgramPhaseMap phaseMap={phaseMap} />
       <ProgramTimeline trajectory={trajectory} />
       <ProgramDetails overview={overview.data} />
+      <ProgressionReviewSheet
+        open={reviewOpen}
+        decisions={overview.data.pendingDecisions}
+        units={program.units}
+        user={user!}
+        contextLabel={program.title}
+        onClose={() => setReviewOpen(false)}
+      />
     </Screen>
   )
 }

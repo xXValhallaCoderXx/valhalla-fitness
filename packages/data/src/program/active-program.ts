@@ -278,8 +278,9 @@ export async function updateProgramCurrentWeekIndex(
 
 export async function resolveProgressionDecision(
   ctx: UserContext,
-  data: z.infer<typeof resolveProgressionDecisionInputSchema>,
+  input: z.infer<typeof resolveProgressionDecisionInputSchema>,
 ) {
+  const data = resolveProgressionDecisionInputSchema.parse(input)
   const { supabase, user } = ctx
   const { data: decision, error } = await supabase
     .from('progression_decisions')
@@ -303,8 +304,19 @@ export async function resolveProgressionDecision(
 
 export async function resolveProgressionDecisions(
   ctx: UserContext,
-  data: z.infer<typeof resolveProgressionDecisionsInputSchema>,
+  input: z.infer<typeof resolveProgressionDecisionsInputSchema>,
 ) {
+  const data = resolveProgressionDecisionsInputSchema.parse(input)
+  const { data: ownedDecisions, error: ownershipError } = await ctx.supabase
+    .from('progression_decisions')
+    .select('id')
+    .in('id', data.decisionIds)
+    .eq('user_id', ctx.user.id)
+  if (ownershipError) throw new Error(ownershipError.message)
+  if ((ownedDecisions ?? []).length !== data.decisionIds.length) {
+    throw new Error('Progression decision not found.')
+  }
+
   const { error } = await ctx.supabase.rpc('resolve_progression_decisions_v2', {
     p_decision_ids: data.decisionIds,
     p_action: data.action,

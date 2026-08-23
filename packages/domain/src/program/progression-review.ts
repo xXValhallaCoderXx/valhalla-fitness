@@ -4,7 +4,7 @@ import { formatWeight } from '@sheetless/domain/shared/set-notation'
 
 /**
  * Display model for the Progression Review v2 modal — turns a decision into a "Now → Next block (+delta)"
- * view, or falls back to its recommendation text when there are no numeric loads (qualitative accessory
+ * view, or falls back to persisted coaching context when there are no numeric loads (qualitative accessory
  * autoregulation). Pure + testable.
  */
 export type ReviewDecisionView = {
@@ -41,8 +41,19 @@ function formatDelta(value: number, units: Unit | string): string {
 }
 
 export function reviewDecisionView(decision: ProgressionDecision, units: Unit | string): ReviewDecisionView {
-  const { id, movementName, previousValue, recommendedValue, recommendation, rationale, stateType } = decision
-  const reason = (rationale ?? recommendation) || ''
+  const {
+    id,
+    movementName,
+    previousValue,
+    recommendedValue,
+    recommendation,
+    rationale,
+    inputSummary,
+    stateType,
+  } = decision
+  // Finish-time decisions carry rationale, while persisted rows from the
+  // current schema retain the input summary and recommendation.
+  const reason = rationale?.trim() || inputSummary.trim() || recommendation.trim()
   const kindLabel = progressionKindLabel(stateType)
   const isNumeric =
     typeof previousValue === 'number' &&
