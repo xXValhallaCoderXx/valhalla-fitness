@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const ACCOUNT_DELETE_CONFIRMATION = 'DELETE MY ACCOUNT'
-export const ACCOUNT_EXPORT_SCHEMA_VERSION = '2026-07-28'
+export const ACCOUNT_EXPORT_SCHEMA_VERSION = '2026-08-24'
 export const deleteAccountInputSchema = z
   .object({
     confirmation: z.literal(ACCOUNT_DELETE_CONFIRMATION),

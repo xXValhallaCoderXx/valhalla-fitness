@@ -64,13 +64,13 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Progression | **Shipped** | Recommendations are calculated from completed work, stored as decisions, and require explicit accept/later/dismiss handling. |
 | Ad-hoc sessions and favourites | **Shipped** | Users can start unprogrammed workouts, repeat prior sessions, and save/reuse favourites while retaining comparable history. |
 | Programme and Insights views | **Shipped** | Programme position, timeline, loads, decisions, recent sessions, e1RM, DOTS/bodyweight-multiple fallbacks, trends, consistency, calibration, muscle-set estimates, records, and history are data-backed. |
-| Body profile | **Partial** | Bodyweight history and sex can be stored from Insights/Settings. Units, sex, and bodyweight are not yet collected in first-run onboarding, and Overview has no dedicated bodyweight trend chart. |
+| Body profile | **Partial** | Web and native Settings support units, sex, bodyweight history, saved strength estimates, and a known-set 1RM calculator. Units, sex, and bodyweight are not yet collected in first-run onboarding, and Overview has no dedicated bodyweight trend chart. |
 | Exercise catalogue | **Shipped; media deferred** | The catalogue stores 151 movements (140 active and 11 resolvable deprecated aliases) with resistance mode, required equipment, pattern, primary/secondary muscles, aliases, load convention, and replacement lineage. Instructions, external IDs, and media are not yet included. |
 | Feedback | **Shipped** | Global and post-workout feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
-| Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, Settings, template/history drill-ins, logging, finish/recap/decisions, SecureStore auth, haptics, keep-awake, and rest notifications. Programs exposes all 14 built-in variants through six families and supports core setup, preview, and active-program start/replacement. Native Find My Plan, custom-programme creation, equipment conversion, setup-time substitutions, and accessory additions remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
+| Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, profile/settings, template/history drill-ins, logging, finish/recap/decisions, SecureStore auth, haptics, keep-awake, and rest notifications. Native Settings includes appearance, units, rest preferences, bodyweight, strength estimates, JSON sharing, legal/account actions, and deletion. Programs exposes all 14 built-in variants through six families and supports core setup, preview, and active-program start/replacement. Native Find My Plan, custom-programme creation, equipment conversion, setup-time substitutions, accessory additions, and walkthrough replay remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
 | Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Failed sets must be retried before finishing. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
-| Privacy, deletion, and export | **Shipped; deployment/review pending** | Public Privacy, Terms, and account-deletion routes, paginated machine-readable account export, and confirmed self-service account deletion are available. Production must deploy the public deletion page, apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
+| Privacy, deletion, and export | **Shipped; deployment/review pending** | Public Privacy, Terms, and account-deletion routes, paginated machine-readable account export, native JSON sharing, and confirmed self-service account deletion are available. Production must deploy the public deletion page, apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
 
 ### Beta work order
 
@@ -118,7 +118,8 @@ practice. The Android app remains internal-track gated until both standalone APK
 ### Navigation and routes
 
 The primary mobile navigation is **Today**, **Plan**, **Insights**, and **Programs**. Web settings and
-account actions live in the user menu; native Settings opens from the gear action on Today.
+account actions live in the user menu; native Settings opens from the consistent header action on
+all four tabs rather than occupying a fifth primary tab.
 
 | Route | Purpose |
 | --- | --- |
@@ -131,12 +132,15 @@ account actions live in the user menu; native Settings opens from the gear actio
 | `/templates/:templateId/start` | Programme setup, customization, preview, and start. |
 | `/sessions/:sessionId` | Live workout overview/focus logging. `?tour=live` forces walkthrough replay. |
 | `/sessions/:sessionId/summary` | Completed work, reflection, PRs, and progression decisions. |
-| `/settings` | Units, appearance, timer preferences, body profile, account, and walkthrough replay. |
+| `/settings` | Units, appearance, timer preferences, body profile, strength estimates, data export, and account actions. |
 | `/account-deletion` | Public signed-out instructions and fallback request path for permanent account deletion. |
 | `/privacy`, `/terms` | Public privacy notice and terms for the beta. |
 
 The table uses canonical web paths. Expo Router exposes the corresponding native detail routes as
 `/session/[sessionId]`, `/session/[sessionId]/summary`, `/template/[templateId]`, and `/settings`.
+Web Settings additionally exposes equipment-profile editing and walkthrough replay. Those controls
+remain absent from native until their corresponding equipment-aware and onboarding experiences are
+implemented there; native saves preserve the existing equipment profile unchanged.
 
 ### Onboarding
 
@@ -777,6 +781,11 @@ adb reverse tcp:8081 tcp:8081
 pnpm exec expo start --dev-client --localhost
 ```
 
+For local Android iteration with a connected emulator or wireless-debugging device, build the
+ignored native project directly with `pnpm --filter sheetless-native exec expo run:android`. Native
+dependency changes such as `expo-sharing` or `expo-file-system` require this development-client
+rebuild once; subsequent TypeScript and UI changes use Metro/Fast Refresh.
+
 Keep `apps/native/.env` ignored and aligned with the development EAS values. With the local Supabase
 stack and Mailpit running, record a physical-device pass for:
 
@@ -785,8 +794,9 @@ stack and Mailpit running, record a physical-device pass for:
 - Today streak, logger movement history, Plan/Insights session drill-ins, and Hermes-rendered dates.
 - Set edits, retry/error state, blocked finish, lost-response recovery, recap, and progression
   Apply/Keep/Apply-all.
-- Settings persistence, sign-out/sign-in, and successful deletion using only a disposable local
-  account.
+- Settings Save/Discard and dirty-leave protection, system/light/dark persistence, kg/lb estimate
+  conversion, bodyweight add/replace/delete, JSON sharing, legal links, sign-out/sign-in, and
+  successful deletion using only a disposable local account.
 - SecureStore session recovery after force-stop and reboot, haptics, session keep-awake, and a
   locked-screen rest notification.
 

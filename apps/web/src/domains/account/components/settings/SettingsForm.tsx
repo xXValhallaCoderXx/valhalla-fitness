@@ -7,6 +7,7 @@ import { useRequiredAccountId } from '~/domains/account/components/AccountIdenti
 import {
   buildLiftOptions,
   calculateOneRepMaxFromKnownSet,
+  convertProgramStateDefaults,
   firstUnsetKey,
   hasLoadDefault,
   nextUnsetKey,
@@ -153,9 +154,10 @@ export function SettingsForm({ me }: { me: UserProfile }) {
   }
 
   const handleUnitsChange = (nextUnits: Unit) => {
-    const currentWasUnitDefault = sameNumberRecord(programStateDefaults, defaultProgramStateDefaults(units))
+    setProgramStateDefaults((current) =>
+      convertProgramStateDefaults(current, units, nextUnits, rounding),
+    )
     setUnits(nextUnits)
-    if (currentWasUnitDefault) setProgramStateDefaults(defaultProgramStateDefaults(nextUnits))
   }
 
   const updateProgramStateDefault = (key: string, value: number | null) => {

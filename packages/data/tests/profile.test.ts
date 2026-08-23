@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { ensureProfile, getMe, updateTimezone } from '@sheetless/data/account/profile'
+import {
+  ensureProfile,
+  getMe,
+  updateSettings,
+  updateSex,
+  updateTimezone,
+} from '@sheetless/data/account/profile'
 import { makeStubCtx, makeStubUser } from './support/supabase-stub'
 
 describe('ensureProfile', () => {
@@ -80,11 +86,122 @@ describe('updateTimezone', () => {
       profiles: [{ id: 'user-1', units: 'kg', rounding: 2.5, timezone: 'UTC' }],
     })
 
-    const me = await updateTimezone(ctx, { timezone: 'Asia/Singapore' })
+    const me = await updateTimezone(ctx, { timezone: ' Asia/Singapore ' })
 
     expect(stub.updateCalls).toEqual([
       { table: 'profiles', values: { timezone: 'Asia/Singapore' }, filters: [['id', 'user-1']] },
     ])
     expect(me.timezone).toBe('Asia/Singapore')
+  })
+
+  it('rejects invalid input before issuing an update', async () => {
+    const { ctx, stub } = makeStubCtx({
+      profiles: [{ id: 'user-1', units: 'kg', rounding: 2.5, timezone: 'UTC' }],
+    })
+
+    await expect(updateTimezone(ctx, { timezone: 'Mars/Olympus' })).rejects.toThrow()
+    expect(stub.updateCalls).toHaveLength(0)
+  })
+})
+
+describe('updateSettings', () => {
+  it('writes the full settings payload while preserving unrelated profile fields', async () => {
+    const { ctx, stub } = makeStubCtx({
+      profiles: [{
+        id: 'user-1',
+        email: 'user-1@test.local',
+        display_name: 'Test Lifter',
+        units: 'kg',
+        rounding: 2.5,
+        equipment_profile: ['barbell'],
+        theme_preference: 'system',
+        program_state_defaults: {},
+        timezone: 'Asia/Singapore',
+        onboarding_completed: true,
+        live_onboarding_dismissed: true,
+        post_workout_feedback_dismissed: true,
+        sex: null,
+        auto_start_timer: true,
+        default_rest_seconds: 120,
+      }],
+    })
+
+    const profile = await updateSettings(ctx, {
+      units: 'lb',
+      rounding: 5,
+      equipmentProfile: [' cable '],
+      themePreference: 'dark',
+      programStateDefaults: { squat_one_rep_max: 225 },
+      sex: 'female',
+      autoStartTimer: false,
+      defaultRestSeconds: 180,
+    })
+
+    expect(stub.updateCalls).toHaveLength(1)
+    expect(stub.updateCalls[0]?.values).toMatchObject({
+      units: 'lb',
+      rounding: 5,
+      equipment_profile: ['cable'],
+      theme_preference: 'dark',
+      program_state_defaults: { squat_one_rep_max: 225 },
+      sex: 'female',
+      auto_start_timer: false,
+      default_rest_seconds: 180,
+    })
+    expect(stub.updateCalls[0]?.values).not.toHaveProperty('timezone')
+    expect(stub.updateCalls[0]?.values).not.toHaveProperty('onboarding_completed')
+    expect(stub.updateCalls[0]?.values).not.toHaveProperty('live_onboarding_dismissed')
+    expect(stub.updateCalls[0]?.values).not.toHaveProperty('post_workout_feedback_dismissed')
+    expect(profile).toMatchObject({
+      units: 'lb',
+      rounding: 5,
+      equipmentProfile: ['cable'],
+      themePreference: 'dark',
+      timezone: 'Asia/Singapore',
+      onboardingCompleted: true,
+      liveOnboardingDismissed: true,
+      postWorkoutFeedbackDismissed: true,
+      sex: 'female',
+      autoStartTimer: false,
+      defaultRestSeconds: 180,
+    })
+  })
+
+  it('rejects malformed and over-posted settings before issuing an update', async () => {
+    const { ctx, stub } = makeStubCtx({
+      profiles: [{ id: 'user-1', units: 'kg', rounding: 2.5 }],
+    })
+    const valid = {
+      units: 'kg' as const,
+      rounding: 2.5,
+      equipmentProfile: ['barbell'],
+      themePreference: 'system' as const,
+      programStateDefaults: { squat_one_rep_max: 100 },
+    }
+
+    await expect(updateSettings(ctx, {
+      ...valid,
+      equipmentProfile: ['barbell', ' barbell '],
+    })).rejects.toThrow()
+    await expect(updateSettings(ctx, {
+      ...valid,
+      defaultRestSeconds: 29,
+    })).rejects.toThrow()
+    await expect(updateSettings(ctx, {
+      ...valid,
+      onboardingCompleted: true,
+    } as never)).rejects.toThrow()
+    expect(stub.updateCalls).toHaveLength(0)
+  })
+})
+
+describe('updateSex', () => {
+  it('rejects unsupported values before issuing an update', async () => {
+    const { ctx, stub } = makeStubCtx({
+      profiles: [{ id: 'user-1', units: 'kg', rounding: 2.5, sex: null }],
+    })
+
+    await expect(updateSex(ctx, { sex: 'unsupported' } as never)).rejects.toThrow()
+    expect(stub.updateCalls).toHaveLength(0)
   })
 })

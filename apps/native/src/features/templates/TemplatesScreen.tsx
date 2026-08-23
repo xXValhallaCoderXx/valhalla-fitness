@@ -9,7 +9,16 @@ import type { ProgramOverview } from '@sheetless/domain/program/types'
 import { getActiveProgram } from '@sheetless/data/program/active-program'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { queryStaleTimes } from '@sheetless/domain/shared/query-stale-times'
-import { Caption, EmptyState, PageHeader, Panel, Screen, SectionLabel, Text } from '@/components'
+import {
+  Caption,
+  EmptyState,
+  PageHeader,
+  Panel,
+  Screen,
+  SectionLabel,
+  SettingsHeaderAction,
+  Text,
+} from '@/components'
 import { buildUserContext } from '@/lib/account'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
@@ -29,11 +38,12 @@ export function TemplatesScreen() {
     staleTime: queryStaleTimes.program,
     enabled: Boolean(user),
   })
+  const settingsAction = <SettingsHeaderAction testID="programs-settings" />
 
   if (templates.isPending) {
     return (
       <Screen>
-        <PageHeader title="Programs" subtitle="Structured plans for your next cycle." />
+        <PageHeader title="Programs" subtitle="Structured plans for your next cycle." actions={settingsAction} />
         <Panel style={{ padding: spacing.md }}><Text tone="dimmed">Loading programmes…</Text></Panel>
       </Screen>
     )
@@ -41,7 +51,7 @@ export function TemplatesScreen() {
   if (templates.isError) {
     return (
       <Screen>
-        <PageHeader title="Programs" />
+        <PageHeader title="Programs" actions={settingsAction} />
         <EmptyState title="Programs could not load">
           {templates.error instanceof Error ? templates.error.message : 'Try again in a moment.'}
         </EmptyState>
@@ -70,7 +80,12 @@ export function TemplatesScreen() {
 
   return (
     <Screen>
-      <PageHeader title="Programs" eyebrow="Choose a plan" subtitle="Structured plans for your next cycle." />
+      <PageHeader
+        title="Programs"
+        eyebrow="Choose a plan"
+        subtitle="Structured plans for your next cycle."
+        actions={settingsAction}
+      />
       {activeTemplate ? (
         <ActiveProgramBand
           template={activeTemplate}

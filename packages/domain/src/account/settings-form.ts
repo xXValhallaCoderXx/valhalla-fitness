@@ -1,5 +1,5 @@
 import { getMovementName } from '@sheetless/domain/movement/movements'
-import { e1rm, mround } from '@sheetless/domain/shared/math'
+import { convertWeight, e1rm, mround } from '@sheetless/domain/shared/math'
 import { formatWeight } from '@sheetless/domain/shared/set-notation'
 import type { ProgramStateDefaults, Unit } from '@sheetless/domain/shared/types'
 
@@ -30,6 +30,34 @@ export function sameNumberRecord(left: ProgramStateDefaults, right: ProgramState
     if ((left[key] ?? null) !== (right[key] ?? null)) return false
   }
   return true
+}
+
+/**
+ * Convert saved programme load defaults when the account display unit changes.
+ * Active programmes keep their own unit snapshot; these values seed future
+ * programmes only.
+ */
+export function convertProgramStateDefaults(
+  defaults: ProgramStateDefaults,
+  sourceUnits: Unit,
+  targetUnits: Unit,
+  targetRounding: number,
+): ProgramStateDefaults {
+  if (sourceUnits === targetUnits) return { ...defaults }
+
+  const minimumLoad = Number.isFinite(targetRounding) && targetRounding > 0
+    ? targetRounding
+    : null
+
+  return Object.fromEntries(
+    Object.entries(defaults).map(([key, value]) => {
+      if (!hasLoadDefault(value)) return [key, value]
+
+      const converted = convertWeight(value, sourceUnits, targetUnits)
+      const rounded = mround(converted, targetRounding)
+      return [key, rounded > 0 ? rounded : (minimumLoad ?? converted)]
+    }),
+  )
 }
 
 export function hasLoadDefault(value: number | null | undefined): value is number {

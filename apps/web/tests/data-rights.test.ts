@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   ACCOUNT_DELETE_CONFIRMATION,
+  ACCOUNT_EXPORT_SCHEMA_VERSION,
   accountExportFilename,
   buildAccountExportIdentity,
   deleteAccountInputSchema,
@@ -60,6 +61,7 @@ describe('account data rights', () => {
   })
 
   it('creates a dated, formatted JSON download', () => {
+    expect(ACCOUNT_EXPORT_SCHEMA_VERSION).toBe('2026-08-24')
     expect(accountExportFilename('2026-07-28T12:34:56.000Z')).toBe(
       'sheetless-account-export-2026-07-28.json',
     )
@@ -84,6 +86,7 @@ describe('account export coverage', () => {
       'program_state_values',
       'program_movement_overrides',
       'program_accessory_additions',
+      'program_equipment_mode_choices',
       'workout_sessions',
       'exercise_logs',
       'set_logs',

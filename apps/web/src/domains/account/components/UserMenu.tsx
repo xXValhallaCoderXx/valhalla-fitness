@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { BetaFeedbackModal } from '~/domains/feedback/components/BetaFeedbackModal'
 import { initialsFrom } from '~/domains/account/lib/initials'
+import { convertProgramStateDefaults } from '~/domains/account/lib/settings-form'
 import { meQueryOptions } from '~/domains/account/queries'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { updateSettingsFn } from '~/domains/account/server/profile-functions'
@@ -32,7 +33,12 @@ export function UserMenu({ user }: { user: AuthUser }) {
           rounding: me.rounding,
           equipmentProfile: me.equipmentProfile,
           themePreference: me.themePreference,
-          programStateDefaults: me.programStateDefaults,
+          programStateDefaults: convertProgramStateDefaults(
+            me.programStateDefaults,
+            me.units,
+            units,
+            me.rounding,
+          ),
         },
       })
     },

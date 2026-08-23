@@ -11,8 +11,9 @@
  *    --vf-surface-*, --vf-<tone>-soft/-border/-text, focus ring/outline.
  *  - rem-based fontSizes/spacing/radius converted at 16px/rem.
  */
-import { Platform, useColorScheme, type ViewStyle } from 'react-native'
+import { Platform, type ViewStyle } from 'react-native'
 import type { Tone, ToneFamily } from '@sheetless/tokens'
+import { useSheetlessTheme } from '@/lib/theme-provider'
 
 export type { Tone }
 
@@ -217,13 +218,10 @@ export interface Tokens {
   fontSizes: typeof fontSizes
 }
 
-/**
- * Scheme-aware tokens. Defaults to dark when the scheme is unknown, matching
- * the spike's dark-first assumption.
- */
+/** Scheme-aware tokens resolved from the saved preference, draft preview, or OS. */
 export function useTokens(): Tokens {
-  const scheme = useColorScheme()
-  const theme = scheme === 'light' ? themes.light : themes.dark
+  const { effectiveScheme } = useSheetlessTheme()
+  const theme = themes[effectiveScheme]
   return { theme, isDark: theme.scheme === 'dark', radii, spacing, fontSizes }
 }
 

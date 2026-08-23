@@ -6,6 +6,11 @@ export type TestTables = Record<string, TestRow[]>
 
 export type RpcCall = { fn: string; args: Record<string, unknown> | undefined }
 export type InsertCall = { table: string; rows: TestRow[] }
+export type UpsertCall = {
+  table: string
+  rows: TestRow[]
+  options: { onConflict?: string } | undefined
+}
 export type UpdateCall = { table: string; values: TestRow; filters: Array<[string, unknown]> }
 export type RangeCall = { table: string; from: number; to: number }
 
@@ -147,8 +152,10 @@ class TestQuery implements PromiseLike<QueryResult> {
 }
 
 export class TestSupabase {
+  readonly fromCalls: string[] = []
   readonly rpcCalls: RpcCall[] = []
   readonly insertCalls: InsertCall[] = []
+  readonly upsertCalls: UpsertCall[] = []
   readonly updateCalls: UpdateCall[] = []
   readonly rangeCalls: RangeCall[] = []
   /** Queue results for rpc calls by function name; default is `{ data: null }`. */
@@ -160,6 +167,7 @@ export class TestSupabase {
   ) {}
 
   from(table: string) {
+    this.fromCalls.push(table)
     const stub = this
     const query = new TestQuery(table, this)
     return Object.assign(query, {
@@ -177,6 +185,39 @@ export class TestSupabase {
           then: <T>(resolve: (value: QueryResult) => T) => resolve({ data: list, error: null }),
         }
         return inserted
+      },
+      upsert(rows: TestRow | TestRow[], options?: { onConflict?: string }) {
+        const list = Array.isArray(rows) ? rows : [rows]
+        const conflictColumns = options?.onConflict?.split(',').map((column) => column.trim()) ?? []
+        const storedRows = stub.tables[table] ?? []
+        const results = list.map((row) => {
+          const existing = conflictColumns.length
+            ? storedRows.find((candidate) =>
+                conflictColumns.every((column) => candidate[column] === row[column]))
+            : undefined
+          if (existing) {
+            Object.assign(existing, row)
+            return existing
+          }
+          const inserted = {
+            ...row,
+            id: row.id ?? `stub-${table}-${storedRows.length + 1}`,
+          }
+          storedRows.push(inserted)
+          return inserted
+        })
+        stub.tables[table] = storedRows
+        stub.upsertCalls.push({ table, rows: list, options })
+        const upserted = {
+          select: () => upserted,
+          single: async () =>
+            results.length === 1
+              ? { data: results[0], error: null }
+              : { data: null, error: { message: `expected 1 row, got ${results.length}` } },
+          maybeSingle: async () => ({ data: results[0] ?? null, error: null }),
+          then: <T>(resolve: (value: QueryResult) => T) => resolve({ data: results, error: null }),
+        }
+        return upserted
       },
     })
   }

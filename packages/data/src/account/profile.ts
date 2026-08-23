@@ -92,24 +92,27 @@ export function dismissPostWorkoutFeedback(ctx: UserContext) {
   return updateProfile(ctx, { post_workout_feedback_dismissed: true })
 }
 
-export function updateSettings(ctx: UserContext, data: z.infer<typeof updateSettingsInputSchema>) {
-  const programStateDefaults = normalizeProgramStateDefaults(data.programStateDefaults, data.units)
+export async function updateSettings(ctx: UserContext, data: z.infer<typeof updateSettingsInputSchema>) {
+  const parsed = updateSettingsInputSchema.parse(data)
+  const programStateDefaults = normalizeProgramStateDefaults(parsed.programStateDefaults, parsed.units)
   return updateProfile(ctx, {
-    units: data.units,
-    rounding: data.rounding,
-    equipment_profile: data.equipmentProfile,
-    theme_preference: data.themePreference,
+    units: parsed.units,
+    rounding: parsed.rounding,
+    equipment_profile: parsed.equipmentProfile,
+    theme_preference: parsed.themePreference,
     program_state_defaults: programStateDefaults,
-    ...(data.sex !== undefined ? { sex: data.sex } : {}),
-    ...(data.autoStartTimer !== undefined ? { auto_start_timer: data.autoStartTimer } : {}),
-    ...(data.defaultRestSeconds !== undefined ? { default_rest_seconds: data.defaultRestSeconds } : {}),
+    ...(parsed.sex !== undefined ? { sex: parsed.sex } : {}),
+    ...(parsed.autoStartTimer !== undefined ? { auto_start_timer: parsed.autoStartTimer } : {}),
+    ...(parsed.defaultRestSeconds !== undefined ? { default_rest_seconds: parsed.defaultRestSeconds } : {}),
   })
 }
 
-export function updateSex(ctx: UserContext, data: z.infer<typeof updateSexInputSchema>) {
-  return updateProfile(ctx, { sex: data.sex })
+export async function updateSex(ctx: UserContext, data: z.infer<typeof updateSexInputSchema>) {
+  const parsed = updateSexInputSchema.parse(data)
+  return updateProfile(ctx, { sex: parsed.sex })
 }
 
-export function updateTimezone(ctx: UserContext, data: z.infer<typeof updateTimezoneInputSchema>) {
-  return updateProfile(ctx, { timezone: data.timezone })
+export async function updateTimezone(ctx: UserContext, data: z.infer<typeof updateTimezoneInputSchema>) {
+  const parsed = updateTimezoneInputSchema.parse(data)
+  return updateProfile(ctx, { timezone: parsed.timezone })
 }

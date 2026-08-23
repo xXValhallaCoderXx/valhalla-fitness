@@ -12,6 +12,7 @@ export interface ButtonProps {
   tone?: ToneName
   disabled?: boolean
   loading?: boolean
+  selected?: boolean
   fullWidth?: boolean
   leftSection?: React.ReactNode
   style?: StyleProp<ViewStyle>
@@ -26,6 +27,7 @@ export function Button({
   tone = 'action',
   disabled = false,
   loading = false,
+  selected,
   fullWidth = false,
   leftSection,
   style,
@@ -53,7 +55,7 @@ export function Button({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled: inactive, busy: loading }}
+      accessibilityState={{ disabled: inactive, busy: loading, selected }}
       disabled={inactive}
       onPress={onPress}
       testID={testID}

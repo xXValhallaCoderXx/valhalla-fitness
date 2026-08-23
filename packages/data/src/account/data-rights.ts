@@ -45,6 +45,7 @@ export async function exportAccountData(ctx: UserContext) {
     programStateValues,
     programMovementOverrides,
     programAccessoryAdditions,
+    programEquipmentModeChoices,
     workoutSessions,
     exerciseLogs,
     setLogs,
@@ -75,6 +76,9 @@ export async function exportAccountData(ctx: UserContext) {
     ),
     readAllRows<TableRow<'program_accessory_additions'>>((from, to) =>
       supabase.from('program_accessory_additions').select('*').eq('user_id', user.id).order('id').range(from, to),
+    ),
+    readAllRows<TableRow<'program_equipment_mode_choices'>>((from, to) =>
+      supabase.from('program_equipment_mode_choices').select('*').eq('user_id', user.id).order('id').range(from, to),
     ),
     readAllRows<TableRow<'workout_sessions'>>((from, to) =>
       supabase.from('workout_sessions').select('*').eq('user_id', user.id).order('id').range(from, to),
@@ -130,6 +134,7 @@ export async function exportAccountData(ctx: UserContext) {
       program_state_values: programStateValues,
       program_movement_overrides: programMovementOverrides,
       program_accessory_additions: programAccessoryAdditions,
+      program_equipment_mode_choices: programEquipmentModeChoices,
       workout_sessions: workoutSessions,
       exercise_logs: exerciseLogs,
       set_logs: setLogs,
@@ -144,12 +149,19 @@ export async function deleteOwnAccount(
   ctx: UserContext,
   data: z.infer<typeof deleteAccountInputSchema>,
 ) {
-  if (!isAccountDeleteConfirmed(data.confirmation)) {
-    throw new Error(`Enter ${ACCOUNT_DELETE_CONFIRMATION} exactly to delete your account.`)
+  const parsed = deleteAccountInputSchema.safeParse(data)
+  if (!parsed.success) {
+    const candidate: unknown = data
+    const confirmation = typeof candidate === 'object' && candidate !== null && 'confirmation' in candidate
+      ? (candidate as { confirmation?: unknown }).confirmation
+      : null
+    if (typeof confirmation !== 'string' || !isAccountDeleteConfirmed(confirmation)) {
+      throw new Error(`Enter ${ACCOUNT_DELETE_CONFIRMATION} exactly to delete your account.`)
+    }
+    throw parsed.error
   }
-
   const { error } = await ctx.supabase.rpc('delete_own_account', {
-    p_confirmation: data.confirmation,
+    p_confirmation: parsed.data.confirmation,
   })
   if (error) throw new Error(error.message)
 

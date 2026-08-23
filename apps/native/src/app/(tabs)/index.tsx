@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { router } from 'expo-router'
-import { Pressable, View } from 'react-native'
-import { Settings } from 'lucide-react-native'
+import { View } from 'react-native'
 import { startSession } from '@sheetless/data/session/lifecycle'
 import { getToday } from '@sheetless/data/session/reads'
 import { browserIanaTimeZone } from '@sheetless/domain/shared/calendar-date'
@@ -20,6 +19,7 @@ import {
   Panel,
   Screen,
   SectionLabel,
+  SettingsHeaderAction,
   StatCard,
   Text,
 } from '@/components'
@@ -66,14 +66,7 @@ export default function TodayScreen() {
   const settingsAction = (
     <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
       {streakLabel ? <Badge tone="warning">{streakLabel}</Badge> : null}
-      <Pressable
-        accessibilityLabel="Open settings"
-        onPress={() => router.push('/settings')}
-        style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: spacing.xs })}
-        testID="today-settings"
-      >
-        <Settings color={theme.textMuted} size={21} />
-      </Pressable>
+      <SettingsHeaderAction testID="today-settings" />
     </View>
   )
 

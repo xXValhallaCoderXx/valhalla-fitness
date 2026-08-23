@@ -3,7 +3,7 @@ import { router } from 'expo-router'
 import { buildProgramPhaseMap } from '@sheetless/domain/program/program-phase-map'
 import { buildProgramTimeline } from '@sheetless/domain/program/program-timeline'
 import { buildProgramTrajectory } from '@sheetless/domain/program/program-trajectory'
-import { Button, EmptyState, PageHeader, Panel, Screen, Text } from '@/components'
+import { Button, EmptyState, PageHeader, Panel, Screen, SettingsHeaderAction, Text } from '@/components'
 import { useSession } from '@/lib/session-provider'
 import { spacing, useTokens } from '@/lib/tokens'
 import { programOverviewQueryOptions } from './queries'
@@ -19,11 +19,12 @@ export function ProgramScreen() {
     ...programOverviewQueryOptions(user!),
     enabled: Boolean(user),
   })
+  const settingsAction = <SettingsHeaderAction testID="plan-settings" />
 
   if (overview.isPending) {
     return (
       <Screen>
-        <PageHeader title="Plan" subtitle="Your active program, week by week." />
+        <PageHeader title="Plan" subtitle="Your active program, week by week." actions={settingsAction} />
         <Panel style={{ padding: spacing.md }}><Text tone="dimmed">Loading your plan…</Text></Panel>
       </Screen>
     )
@@ -31,7 +32,7 @@ export function ProgramScreen() {
   if (overview.isError) {
     return (
       <Screen>
-        <PageHeader title="Plan" />
+        <PageHeader title="Plan" actions={settingsAction} />
         <EmptyState title="Your plan could not load">
           {overview.error instanceof Error ? overview.error.message : 'Try again in a moment.'}
         </EmptyState>
@@ -43,7 +44,7 @@ export function ProgramScreen() {
   if (!program) {
     return (
       <Screen>
-        <PageHeader title="Plan" subtitle="Your active program, week by week." />
+        <PageHeader title="Plan" subtitle="Your active program, week by week." actions={settingsAction} />
         <EmptyState
           title="No active program"
           action={
@@ -76,7 +77,7 @@ export function ProgramScreen() {
 
   return (
     <Screen>
-      <ProgramHeader overview={overview.data} phaseMap={phaseMap} />
+      <ProgramHeader overview={overview.data} phaseMap={phaseMap} action={settingsAction} />
       {overview.data.pendingDecisions.length ? (
         <Panel
           surface="inset"

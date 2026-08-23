@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { resolveInsightGating } from '@sheetless/domain/history/insight-state'
 import type { TodayPayload } from '@sheetless/domain/session/types/read-models'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
-import { EmptyState, PageHeader, Panel, Screen, Text } from '@/components'
+import { EmptyState, PageHeader, Panel, Screen, SettingsHeaderAction, Text } from '@/components'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import {
@@ -18,11 +18,16 @@ export function InsightsScreen() {
   const dashboard = useQuery({ ...historyDashboardQueryOptions(user!), enabled: Boolean(user) })
   const recent = useQuery({ ...recentHistoryQueryOptions(user!), enabled: Boolean(user) })
   const support = useQuery({ ...todayHistorySupportQueryOptions(user!), enabled: Boolean(user) })
+  const settingsAction = <SettingsHeaderAction testID="insights-settings" />
 
   if (dashboard.isPending) {
     return (
       <Screen>
-        <PageHeader title="Insights" subtitle="Chartless signals from your recent training." />
+        <PageHeader
+          title="Insights"
+          subtitle="Chartless signals from your recent training."
+          actions={settingsAction}
+        />
         <Panel style={{ padding: spacing.md }}><Text tone="dimmed">Loading recent training…</Text></Panel>
       </Screen>
     )
@@ -30,7 +35,7 @@ export function InsightsScreen() {
   if (dashboard.isError) {
     return (
       <Screen>
-        <PageHeader title="Insights" />
+        <PageHeader title="Insights" actions={settingsAction} />
         <EmptyState title="Insights could not load">
           {dashboard.error instanceof Error ? dashboard.error.message : 'Try again in a moment.'}
         </EmptyState>
@@ -56,7 +61,12 @@ export function InsightsScreen() {
 
   return (
     <Screen>
-      <PageHeader title="Insights" eyebrow="Logged work" subtitle="Chartless signals from your recent training." />
+      <PageHeader
+        title="Insights"
+        eyebrow="Logged work"
+        subtitle="Chartless signals from your recent training."
+        actions={settingsAction}
+      />
       <InsightsTabs
         data={dashboard.data}
         gating={gating}

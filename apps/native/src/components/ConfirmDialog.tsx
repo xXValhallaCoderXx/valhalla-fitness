@@ -35,6 +35,7 @@ export function ConfirmDialog({
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onCancel}>
       <Pressable
+        accessible={false}
         onPress={isPending ? undefined : onCancel}
         style={{
           backgroundColor: 'rgba(6, 12, 14, 0.55)',
@@ -44,8 +45,9 @@ export function ConfirmDialog({
         }}
       >
         {/* Inner pressable swallows taps so only the backdrop dismisses. */}
-        <Pressable onPress={() => {}} style={{ cursor: 'auto' }}>
+        <Pressable accessible={false} onPress={() => {}} style={{ cursor: 'auto' }}>
           <View
+            accessibilityViewIsModal
             style={{
               backgroundColor: theme.surface,
               borderColor: theme.cardBorder,

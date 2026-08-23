@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import type {
+import {
   bodyweightLogInputSchema,
   deleteBodyweightEntryInputSchema,
 } from '@sheetless/domain/account/schemas'
@@ -29,6 +29,7 @@ export async function logBodyweight(
   data: z.infer<typeof bodyweightLogInputSchema>,
 ): Promise<BodyweightEntry> {
   const { supabase, user } = ctx
+  const parsed = bodyweightLogInputSchema.parse(data)
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('timezone')
@@ -36,7 +37,7 @@ export async function logBodyweight(
     .single()
   if (profileError) throw new Error(profileError.message)
   const { recordedOn, weightKg } = normalizeBodyweightLog(
-    data,
+    parsed,
     new Date().toISOString(),
     profile.timezone,
   )
@@ -57,7 +58,12 @@ export async function deleteBodyweightEntry(
   data: z.infer<typeof deleteBodyweightEntryInputSchema>,
 ) {
   const { supabase, user } = ctx
-  const { error } = await supabase.from('bodyweight_entries').delete().eq('id', data.id).eq('user_id', user.id)
+  const parsed = deleteBodyweightEntryInputSchema.parse(data)
+  const { error } = await supabase
+    .from('bodyweight_entries')
+    .delete()
+    .eq('id', parsed.id)
+    .eq('user_id', user.id)
   if (error) throw new Error(error.message)
   return { ok: true as const }
 }
