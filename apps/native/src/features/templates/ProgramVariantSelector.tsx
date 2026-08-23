@@ -6,10 +6,12 @@ import { spacing } from '@/lib/tokens'
 export function ProgramVariantSelector({
   members,
   selectedTemplateId,
+  disabled = false,
   onSelect,
 }: {
   members: ProgramTemplateSummary[]
   selectedTemplateId: string
+  disabled?: boolean
   onSelect: (templateId: string) => void
 }) {
   if (members.length <= 1) return null
@@ -32,7 +34,7 @@ export function ProgramVariantSelector({
             key={member.id}
             label={member.variantShortLabel ?? `${member.daysPerWeek} days`}
             variant={member.id === selectedTemplateId ? 'filled' : 'default'}
-            disabled={!member.available}
+            disabled={disabled || !member.available}
             onPress={() => onSelect(member.id)}
             testID={`program-variant-${member.id}`}
           />
