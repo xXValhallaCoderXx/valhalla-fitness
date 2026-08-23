@@ -4,6 +4,7 @@ import { useMe } from '@/lib/account'
 import { getSupabase } from '@/lib/supabase'
 import { spacing } from '@/lib/tokens'
 import { TimerSettingsCard } from './TimerSettingsCard'
+import { DeleteAccountCard } from './DeleteAccountCard'
 
 export function SettingsScreen() {
   const me = useMe()
@@ -48,6 +49,7 @@ export function SettingsScreen() {
         {signOutError ? <Text size="sm" tone="danger">{signOutError}</Text> : null}
         <Button label="Sign out" variant="default" loading={signingOut} onPress={signOut} />
       </Panel>
+      <DeleteAccountCard />
     </Screen>
   )
 }
