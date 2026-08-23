@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { router } from 'expo-router'
-import { View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Settings } from 'lucide-react-native'
 import { startSession } from '@sheetless/data/session/lifecycle'
 import { getToday } from '@sheetless/data/session/reads'
 import { browserIanaTimeZone } from '@sheetless/domain/shared/calendar-date'
@@ -55,11 +56,21 @@ export default function TodayScreen() {
 
   const openSession = (sessionId: string) =>
     router.push({ pathname: '/session/[sessionId]', params: { sessionId } })
+  const settingsAction = (
+    <Pressable
+      accessibilityLabel="Open settings"
+      onPress={() => router.push('/settings')}
+      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: spacing.xs })}
+      testID="today-settings"
+    >
+      <Settings color={theme.textMuted} size={21} />
+    </Pressable>
+  )
 
   if (me.isPending || today.isPending) {
     return (
       <Screen>
-        <PageHeader title="Today" />
+        <PageHeader title="Today" actions={settingsAction} />
         <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
           <Text tone="dimmed">Loading your training day…</Text>
         </Panel>
@@ -70,7 +81,7 @@ export default function TodayScreen() {
   if (today.isError) {
     return (
       <Screen>
-        <PageHeader title="Today" />
+        <PageHeader title="Today" actions={settingsAction} />
         <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
           <Text tone="danger" size="sm">
             {today.error instanceof Error ? today.error.message : 'The screen could not load.'}
@@ -95,6 +106,7 @@ export default function TodayScreen() {
       <Screen>
         <PageHeader
           title="Today"
+          actions={settingsAction}
           eyebrow={program ? `${program.title} · ${active.weekLabel ?? ''}` : 'Ad-hoc workout'}
           subtitle="A workout is currently in progress."
         />
@@ -124,7 +136,11 @@ export default function TodayScreen() {
   if (!program || !planned) {
     return (
       <Screen>
-        <PageHeader title="Today" subtitle={`Signed in as ${me.data?.email ?? user?.email ?? ''}.`} />
+        <PageHeader
+          title="Today"
+          actions={settingsAction}
+          subtitle={`Signed in as ${me.data?.email ?? user?.email ?? ''}.`}
+        />
         <EmptyState title="No active program">
           Choose a training template on sheetless.fitness to generate your daily sessions — or log a
           one-off workout there.
@@ -142,6 +158,7 @@ export default function TodayScreen() {
     <Screen>
       <PageHeader
         title="Today"
+        actions={settingsAction}
         eyebrow={`${program.title} · ${planned.weekLabel ?? ''}`}
         subtitle={data?.completedSession ? 'Today’s planned session is already completed.' : undefined}
       />
