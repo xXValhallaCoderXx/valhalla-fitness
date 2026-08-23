@@ -1,6 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useIsMutating } from '@tanstack/react-query'
-import { router } from 'expo-router'
+import { useEffect, useState } from 'react'
 import { ScrollView, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { User } from '@supabase/supabase-js'
@@ -23,10 +21,7 @@ import { FocusSetProgressBar } from './FocusSetProgressBar'
 import { FocusTopBar } from './FocusTopBar'
 import { AddSetAction, WorkoutCompleteBanner } from './FocusWorkoutActions'
 import { useAddExerciseSet } from './useAddExerciseSet'
-import { useDiscardWorkout } from './useDiscardWorkout'
-import { useFinishSession } from './useFinishSession'
 import { useSetLogMutation } from './useSetLogMutation'
-import { WorkoutLifecycleSheets } from './WorkoutLifecycleSheets'
 import { WorkoutManagementSheets } from './WorkoutManagementSheets'
 import { WorkoutToolsPanel } from './WorkoutToolsPanel'
 import { useWorkoutManagement } from './useWorkoutManagement'
@@ -34,47 +29,52 @@ import { useWorkoutManagement } from './useWorkoutManagement'
 export function PopulatedFocusWorkoutView({
   user,
   session,
+  activeMovementId,
   notes,
+  sessionBusy,
+  finishBlocked,
   onNotesChange,
+  onSelectMovement,
+  onShowOverview,
+  onRename,
+  onFinish,
+  onDiscard,
 }: {
   user: User
   session: WorkoutSession
+  activeMovementId: string
   notes: string
+  sessionBusy: boolean
+  finishBlocked: boolean
   onNotesChange: (notes: string) => void
+  onSelectMovement: (movementId: string | null) => void
+  onShowOverview: () => void
+  onRename: () => void
+  onFinish: () => void
+  onDiscard: () => void
 }) {
   const { theme } = useTokens()
   const insets = useSafeAreaInsets()
-  const defaultMovementId = useMemo(() => {
-    const ordered = [...session.movements].sort((a, b) => a.orderIndex - b.orderIndex)
-    return ordered.find((movement) => movement.sets.some((set) => !set.completed))?.id ?? ordered[0]?.id ?? null
-    // Default once per mount — navigation state must not jump when the session refetches.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  const [activeMovementId, setActiveMovementId] = useState<string | null>(defaultMovementId)
   const activeMovement = (
     session.movements.find((movement) => movement.id === activeMovementId) ?? session.movements[0]
   )!
-  const [selectedSetIndex, setSelectedSetIndex] = useState(() => firstActionableSetIndex(activeMovement))
-  const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<Record<number, number | undefined>>({})
-  const [discardOpen, setDiscardOpen] = useState(false)
-  const [finishOpen, setFinishOpen] = useState(false)
+  const [selectedSetIndex, setSelectedSetIndex] = useState(() =>
+    firstActionableSetIndex(activeMovement),
+  )
+  const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<
+    Record<number, number | undefined>
+  >({})
 
   useEffect(() => {
     setSelectedSetIndex(firstActionableSetIndex(activeMovement))
+    // The selected movement ID is the navigation boundary for set focus.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMovementId])
 
-  const selectedSetForHooks =
-    activeMovement.sets.find((set) => set.setIndex === selectedSetIndex) ?? activeMovement.sets[0]
-  const setLog = useSetLogMutation(user, session, activeMovement, selectedSetForHooks?.setIndex ?? 1)
+  const selectedSet = activeMovement.sets.find((set) => set.setIndex === selectedSetIndex)
+    ?? activeMovement.sets[0]
+  const setLog = useSetLogMutation(user, session, activeMovement, selectedSet?.setIndex ?? 1)
   const addSet = useAddExerciseSet(user, session, activeMovement)
-  const discard = useDiscardWorkout(user, session.sessionId, () => setDiscardOpen(false))
-  const finish = useFinishSession(user, session, notes)
-  const activeSessionMutations = useIsMutating({
-    predicate: (mutation) => mutation.options.scope?.id === `session:${session.sessionId}`,
-  })
-  const sessionBusy = activeSessionMutations > 0
-  const selectedSet = selectedSetForHooks
   const setTotal = activeMovement.sets.length
   const setNumber = selectedSet
     ? activeMovement.sets.findIndex((set) => set.setIndex === selectedSet.setIndex) + 1
@@ -89,7 +89,7 @@ export function PopulatedFocusWorkoutView({
     notes,
     disabled: sessionBusy,
     onNotesChange,
-    onSelectMovement: setActiveMovementId,
+    onSelectMovement,
   })
 
   const carryRirToNextSet = (setIndex: number, value: number) => {
@@ -97,14 +97,12 @@ export function PopulatedFocusWorkoutView({
     if (!nextSet || typeof nextSet.actualRir === 'number') return
     setSuggestedRirBySetIndex((current) => ({ ...current, [nextSet.setIndex]: value }))
   }
-
   const handleLogged = (nextSession: WorkoutSession, loggedSetIndex: number) => {
     const result = advanceAfterLog(nextSession, activeMovement.id, loggedSetIndex)
     if (result.kind === 'sessionComplete') return
-    if (result.movementId !== activeMovement.id) setActiveMovementId(result.movementId)
+    if (result.movementId !== activeMovement.id) onSelectMovement(result.movementId)
     setSelectedSetIndex(result.setIndex)
   }
-
   const saveFailed = selectedSet?.syncState === 'syncFailed'
   const isSaving = setLog.isPending || selectedSet?.syncState === 'saving'
   const logSet = (draft: SetDraft) => {
@@ -124,16 +122,9 @@ export function PopulatedFocusWorkoutView({
       { onSuccess: (nextSession) => handleLogged(nextSession, selectedSet.setIndex) },
     )
   }
-
-  const allComplete = session.movements.every((movement) => movement.sets.every((set) => set.completed))
-  const incompleteSetCount = session.movements.reduce(
-    (count, movement) => count + movement.sets.filter((set) => !set.completed).length,
-    0,
+  const allComplete = session.movements.every((movement) =>
+    movement.sets.every((set) => set.completed),
   )
-  const hasUnsettledSet = session.movements.some((movement) =>
-    movement.sets.some((set) => set.syncState === 'saving' || set.syncState === 'syncFailed'),
-  )
-  const finishBlocked = hasUnsettledSet || sessionBusy
   const addSetError = addSet.isError
     ? getApiErrorMessage(addSet.error, 'Unable to add another set.')
     : null
@@ -141,18 +132,20 @@ export function PopulatedFocusWorkoutView({
   return (
     <View style={{ backgroundColor: theme.background, flex: 1, paddingTop: insets.top }}>
       <FocusTopBar
-        onBack={() => router.replace('/(tabs)')}
+        onBack={onShowOverview}
         backDisabled={sessionBusy}
-        centerPrimary={activeMovement.movementName}
+        backLabel="Overview"
+        centerPrimary={activeMovement.performedMovementName ?? activeMovement.movementName}
         centerSecondary={`${session.title} · Set ${setNumber} of ${setTotal}`}
         equipmentMode={session.equipmentMode}
         finishLabel="Finish"
         finishDisabled={finishBlocked}
-        onFinish={() => setFinishOpen(true)}
+        onFinish={onFinish}
+        renameDisabled={sessionBusy}
+        onRename={session.isAdHoc && session.status === 'in_progress' ? onRename : undefined}
         discardDisabled={sessionBusy}
-        onDiscard={() => setDiscardOpen(true)}
+        onDiscard={onDiscard}
       />
-
       <View style={{ backgroundColor: theme.surface2, height: 4 }}>
         <View
           style={{
@@ -172,18 +165,14 @@ export function PopulatedFocusWorkoutView({
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <WorkoutCompleteBanner
-          visible={allComplete}
-          disabled={finishBlocked}
-          onFinish={() => setFinishOpen(true)}
-        />
+        <WorkoutCompleteBanner visible={allComplete} disabled={finishBlocked} onFinish={onFinish} />
         <FocusExerciseHeader
           movement={activeMovement}
           units={session.units}
           hasPrev={hasPrev}
           hasNext={hasNext}
-          onPrev={() => prevId && setActiveMovementId(prevId)}
-          onNext={() => nextId && setActiveMovementId(nextId)}
+          onPrev={() => prevId && onSelectMovement(prevId)}
+          onNext={() => nextId && onSelectMovement(nextId)}
         />
         <FocusMovementTools {...management.movementTools} />
         <FocusSetProgressBar
@@ -218,39 +207,19 @@ export function PopulatedFocusWorkoutView({
           disabled={sessionBusy}
           isPending={addSet.isPending}
           error={addSetError}
-          onAdd={() =>
-            addSet.mutate(undefined, {
-              onSuccess: (nextSession) => {
-                const nextMovement = nextSession.movements.find((movement) => movement.id === activeMovement.id)
-                const newSetIndex = nextMovement?.sets.at(-1)?.setIndex
-                if (newSetIndex) setSelectedSetIndex(newSetIndex)
-              },
-            })
-          }
+          onAdd={() => addSet.mutate(undefined, {
+            onSuccess: (nextSession) => {
+              const nextMovement = nextSession.movements.find(
+                (movement) => movement.id === activeMovement.id,
+              )
+              const newSetIndex = nextMovement?.sets.at(-1)?.setIndex
+              if (newSetIndex) setSelectedSetIndex(newSetIndex)
+            },
+          })}
         />
-        <FocusComingUp movements={coming} onJumpTo={setActiveMovementId} />
+        <FocusComingUp movements={coming} onJumpTo={onSelectMovement} />
         <WorkoutToolsPanel {...management.workoutTools} />
       </ScrollView>
-
-      <WorkoutLifecycleSheets
-        session={session}
-        discardOpen={discardOpen}
-        discardPending={discard.isPending}
-        discardError={discard.isError
-          ? getApiErrorMessage(discard.error, 'Unable to discard this workout.')
-          : null}
-        onDiscard={() => {
-          if (!sessionBusy) discard.mutate()
-        }}
-        onCloseDiscard={() => setDiscardOpen(false)}
-        finishOpen={finishOpen}
-        finishPending={finish.isPending}
-        finishError={finish.errorMessage}
-        finishBlocked={finishBlocked}
-        incompleteSetCount={incompleteSetCount}
-        onFinish={finish.mutate}
-        onCloseFinish={() => setFinishOpen(false)}
-      />
       <WorkoutManagementSheets controller={management} />
     </View>
   )

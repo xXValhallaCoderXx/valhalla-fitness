@@ -45,7 +45,7 @@ export function useDiscardWorkout(user: User, sessionId: string, onDiscarded?: (
     ])
 
     onDiscarded?.()
-    router.replace('/(tabs)')
+    router.dismissTo('/(tabs)')
   }
 
   return useMutation({

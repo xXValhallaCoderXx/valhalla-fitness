@@ -35,6 +35,7 @@ export function useWorkoutManagement({
   disabled,
   onNotesChange,
   onSelectMovement,
+  onAddedMovement,
 }: {
   user: User
   session: WorkoutSession
@@ -44,6 +45,7 @@ export function useWorkoutManagement({
   disabled: boolean
   onNotesChange: (notes: string) => void
   onSelectMovement: (movementId: string | null) => void
+  onAddedMovement?: (movementId: string) => void
 }) {
   const [swapOpen, setSwapOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
@@ -88,7 +90,7 @@ export function useWorkoutManagement({
     user,
     session,
     onAdded: (movementId) => {
-      if (movementId) onSelectMovement(movementId)
+      if (movementId) (onAddedMovement ?? onSelectMovement)(movementId)
       setAddOpen(false)
     },
   })
@@ -102,7 +104,7 @@ export function useWorkoutManagement({
     user,
     session,
     onAdded: (movementId) => {
-      if (movementId) onSelectMovement(movementId)
+      if (movementId) (onAddedMovement ?? onSelectMovement)(movementId)
       setAddOpen(false)
     },
   })
@@ -137,6 +139,12 @@ export function useWorkoutManagement({
       disabled,
       onAddMovement: () => setAddOpen(true),
       onNotes: () => setNotesOpen(true),
+    },
+    overviewTools: {
+      onRemoveMovement: (target: MovementSlot) => {
+        setRemovalTarget(target)
+        setRemoveOpen(true)
+      },
     },
     sheets: {
       swap: {
