@@ -6,6 +6,7 @@ import {
   type CatalogueItem,
 } from '@sheetless/domain/program/template-families'
 import type { ProgramOverview } from '@sheetless/domain/program/types'
+import type { TodayPayload } from '@sheetless/domain/session/types/read-models'
 import { getActiveProgram } from '@sheetless/data/program/active-program'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { queryStaleTimes } from '@sheetless/domain/shared/query-stale-times'
@@ -23,6 +24,7 @@ import { buildUserContext } from '@/lib/account'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { ActiveProgramBand } from './ActiveProgramBand'
+import { FavoriteWorkoutsSection } from './FavoriteWorkoutsSection'
 import { TemplateCard } from './TemplateCard'
 import { templatesQueryOptions } from './queries'
 
@@ -60,6 +62,7 @@ export function TemplatesScreen() {
   }
 
   const overview = queryClient.getQueryData<ProgramOverview>(accountQueryKeys.programOverview(user!.id))
+  const today = queryClient.getQueryData<TodayPayload>(accountQueryKeys.today(user!.id))
   const activeTemplateId = activeProgram.data?.templateId ?? null
   const activeTemplate = activeTemplateId
     ? templates.data.find((template) => template.id === activeTemplateId) ?? null
@@ -105,6 +108,10 @@ export function TemplatesScreen() {
           Built-in programs are original Sheetless programming tools and are not official or affiliated templates.
         </Caption>
       </Panel>
+      <FavoriteWorkoutsSection
+        user={user!}
+        activeSessionId={today?.activeSession?.sessionId ?? null}
+      />
       <TemplateSection
         title="Sheetless library"
         items={builtInItems}

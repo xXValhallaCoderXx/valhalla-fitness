@@ -17,6 +17,7 @@ export interface ButtonProps {
   leftSection?: React.ReactNode
   style?: StyleProp<ViewStyle>
   testID?: string
+  accessibilityLabel?: string
 }
 
 /** Pressable button — mirrors web Mantine `Button` variants used in the app. */
@@ -32,6 +33,7 @@ export function Button({
   leftSection,
   style,
   testID,
+  accessibilityLabel,
 }: ButtonProps) {
   const { theme } = useTokens()
   const colors = theme.tones[tone]
@@ -55,6 +57,7 @@ export function Button({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled: inactive, busy: loading, selected }}
       disabled={inactive}
       onPress={onPress}

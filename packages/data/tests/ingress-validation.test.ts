@@ -17,6 +17,8 @@ import {
   substituteMovement,
 } from '@sheetless/data/session/movements'
 import { finishSession } from '@sheetless/data/session/completion'
+import { setSessionFavorite } from '@sheetless/data/session/favorites'
+import { renameSession, startAdHocSession } from '@sheetless/data/session/lifecycle'
 import { addExerciseSet, upsertSetLog } from '@sheetless/data/session/sets'
 import type { UserContext } from '@sheetless/data/shared/context'
 import { makeStubCtx } from './support/supabase-stub'
@@ -163,6 +165,32 @@ const overpostedCases: IngressCase[] = [
     } as never),
   },
   {
+    name: 'ad-hoc session start',
+    run: (ctx) => startAdHocSession(ctx, {
+      clientMutationId: 'start-ad-hoc-1',
+      unexpected: true,
+    } as never),
+  },
+  {
+    name: 'session rename',
+    run: (ctx) => renameSession(ctx, {
+      sessionId,
+      title: 'Push day',
+      requestId: 'rename-1',
+      expectedStateVersion: 1,
+      unexpected: true,
+    } as never),
+  },
+  {
+    name: 'session favourite',
+    run: (ctx) => setSessionFavorite(ctx, {
+      sessionId,
+      favorite: true,
+      title: 'Push day',
+      unexpected: true,
+    } as never),
+  },
+  {
     name: 'single progression resolution',
     run: (ctx) => resolveProgressionDecision(ctx, {
       decisionId,
@@ -182,9 +210,46 @@ const overpostedCases: IngressCase[] = [
   },
 ]
 
+const malformedAdHocCases: IngressCase[] = [
+  {
+    name: 'ad-hoc session source',
+    run: (ctx) => startAdHocSession(ctx, {
+      clientMutationId: 'start-ad-hoc-1',
+      sourceSessionId: 'not-a-session-id',
+    } as never),
+  },
+  {
+    name: 'session rename title',
+    run: (ctx) => renameSession(ctx, {
+      sessionId,
+      title: '   ',
+      requestId: 'rename-1',
+      expectedStateVersion: 1,
+    }),
+  },
+  {
+    name: 'favourite without a name',
+    run: (ctx) => setSessionFavorite(ctx, {
+      sessionId,
+      favorite: true,
+    } as never),
+  },
+]
+
 describe('data mutation ingress validation', () => {
   for (const testCase of overpostedCases) {
     it(`rejects overposted ${testCase.name} input before database access`, async () => {
+      const { ctx, stub } = makeStubCtx({})
+
+      await expect(testCase.run(ctx)).rejects.toThrow()
+
+      expect(stub.fromCalls).toEqual([])
+      expect(stub.rpcCalls).toEqual([])
+    })
+  }
+
+  for (const testCase of malformedAdHocCases) {
+    it(`rejects malformed ${testCase.name} input before database access`, async () => {
       const { ctx, stub } = makeStubCtx({})
 
       await expect(testCase.run(ctx)).rejects.toThrow()

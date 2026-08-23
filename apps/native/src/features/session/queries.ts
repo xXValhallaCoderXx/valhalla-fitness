@@ -4,6 +4,7 @@ import {
   listAccessoryMovementOptions,
   listMovementOptions,
 } from '@sheetless/data/movement/catalog'
+import { listFavoriteWorkouts } from '@sheetless/data/session/favorites'
 import { listMovementSwapOptions } from '@sheetless/data/session/movements'
 import { getSession, getToday } from '@sheetless/data/session/reads'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
@@ -23,6 +24,14 @@ export function sessionQueryOptions(user: User, sessionId: string) {
     queryKey: accountQueryKeys.session(user.id, sessionId),
     queryFn: () => getSession(buildUserContext(user), sessionId),
     staleTime: queryStaleTimes.session,
+  })
+}
+
+export function favoriteWorkoutsQueryOptions(user: User) {
+  return queryOptions({
+    queryKey: accountQueryKeys.favoriteWorkouts(user.id),
+    queryFn: () => listFavoriteWorkouts(buildUserContext(user)),
+    staleTime: queryStaleTimes.history,
   })
 }
 

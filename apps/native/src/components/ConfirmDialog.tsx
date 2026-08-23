@@ -14,6 +14,7 @@ export interface ConfirmDialogProps {
   /** Tone of the confirm button; 'danger' for destructive actions. */
   tone?: 'action' | 'danger'
   isPending?: boolean
+  confirmDisabled?: boolean
   error?: string | null
   onConfirm: () => void
   onCancel: () => void
@@ -27,6 +28,7 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   tone = 'action',
   isPending = false,
+  confirmDisabled = false,
   error,
   onConfirm,
   onCancel,
@@ -98,6 +100,7 @@ export function ConfirmDialog({
                   tone={tone}
                   fullWidth
                   loading={isPending}
+                  disabled={confirmDisabled}
                   style={{ minHeight: 44 }}
                   onPress={onConfirm}
                   testID="confirm-dialog-confirm"

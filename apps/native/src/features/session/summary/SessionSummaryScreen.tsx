@@ -10,6 +10,7 @@ import { sessionQueryOptions } from '@/features/session/queries'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { WorkoutSummaryRecap } from './WorkoutSummaryRecap'
+import { AdHocSessionActions } from './AdHocSessionActions'
 import { SummaryDecisions } from './SummaryDecisions'
 
 export function SessionSummaryScreen({ sessionId }: { sessionId: string }) {
@@ -70,7 +71,8 @@ export function SessionSummaryScreen({ sessionId }: { sessionId: string }) {
         />
       ) : null}
       <WorkoutSummaryRecap session={session.data} recap={recap} />
-      <Button label="Back to Today" fullWidth onPress={() => router.replace('/(tabs)')} />
+      <AdHocSessionActions user={user!} session={session.data} />
+      <Button label="Back to Today" fullWidth onPress={() => router.dismissTo('/(tabs)')} />
     </Screen>
   )
 }
