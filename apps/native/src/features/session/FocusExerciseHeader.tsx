@@ -4,7 +4,7 @@
  * plate-calculator/history tool buttons are deferred to a later increment.
  */
 import { Pressable, View } from 'react-native'
-import { ChevronLeft, ChevronRight } from 'lucide-react-native'
+import { ChevronLeft, ChevronRight, History } from 'lucide-react-native'
 import type { MovementSlot } from '@sheetless/domain/session/types/session'
 import type { Unit } from '@sheetless/domain/shared/types'
 import { formatPreviousShort } from '@sheetless/domain/session/live-session-utils'
@@ -18,6 +18,7 @@ export function FocusExerciseHeader({
   hasNext,
   onPrev,
   onNext,
+  onHistory,
 }: {
   movement: MovementSlot
   units: Unit
@@ -25,6 +26,7 @@ export function FocusExerciseHeader({
   hasNext: boolean
   onPrev: () => void
   onNext: () => void
+  onHistory: () => void
 }) {
   const { theme } = useTokens()
   const swapped = movement.performedMovementId && movement.performedMovementId !== movement.movementId
@@ -68,6 +70,24 @@ export function FocusExerciseHeader({
           </Text>
         </View>
       ) : null}
+
+      <Pressable
+        accessibilityLabel={`Open ${movement.performedMovementName ?? movement.movementName} history`}
+        onPress={onHistory}
+        style={({ pressed }) => ({
+          alignItems: 'center',
+          alignSelf: 'center',
+          flexDirection: 'row',
+          gap: 5,
+          marginTop: spacing.xs,
+          opacity: pressed ? 0.6 : 1,
+          padding: 5,
+        })}
+        testID="focus-history"
+      >
+        <History color={theme.tones.action.text} size={15} />
+        <Text size="sm" tone="action" weight={700}>History</Text>
+      </Pressable>
     </View>
   )
 }

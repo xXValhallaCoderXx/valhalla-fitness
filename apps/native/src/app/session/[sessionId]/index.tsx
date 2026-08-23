@@ -34,6 +34,7 @@ import { useDiscardWorkout } from '@/features/session/useDiscardWorkout'
 import { FinishWorkoutSheet } from '@/features/session/FinishWorkoutSheet'
 import { useFinishSession } from '@/features/session/useFinishSession'
 import { useSetLogMutation } from '@/features/session/useSetLogMutation'
+import { MovementHistorySheet } from '@/features/history/MovementHistorySheet'
 
 export default function LiveSessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
@@ -119,6 +120,7 @@ function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
   )
   const [discardOpen, setDiscardOpen] = useState(false)
   const [finishOpen, setFinishOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const discard = useDiscardWorkout(user, session.sessionId, () => setDiscardOpen(false))
   const finish = useFinishSession(user, session)
   const activeSessionMutations = useIsMutating({
@@ -262,6 +264,7 @@ function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
           hasNext={hasNext}
           onPrev={() => prevId && setActiveMovementId(prevId)}
           onNext={() => nextId && setActiveMovementId(nextId)}
+          onHistory={() => setHistoryOpen(true)}
         />
 
         <FocusSetProgressBar
@@ -349,6 +352,12 @@ function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
         onFinish={(reflection) => {
           if (!finishBlocked) finish.mutate(reflection)
         }}
+      />
+      <MovementHistorySheet
+        open={historyOpen}
+        movement={activeMovement}
+        user={user}
+        onClose={() => setHistoryOpen(false)}
       />
     </View>
   )
