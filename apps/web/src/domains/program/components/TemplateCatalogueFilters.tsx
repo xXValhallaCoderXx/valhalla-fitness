@@ -1,14 +1,12 @@
 import { Button, TextInput } from '@mantine/core'
 import { Search } from 'lucide-react'
+import {
+  CATALOGUE_GOAL_FILTERS,
+  CATALOGUE_LEVEL_FILTERS,
+  type CatalogueGoalFilter,
+  type CatalogueLevelFilter,
+} from '@sheetless/domain/program/catalogue-filters'
 import { SectionLabel } from '~/components'
-
-const LEVEL_FILTERS = ['All', 'Beginner', 'Intermediate', 'Advanced'] as const
-const GOAL_FILTERS = [
-  { value: 'all', label: 'All' },
-  { value: 'simple', label: 'Simple' },
-  { value: 'strength', label: 'Strength' },
-  { value: 'muscle', label: 'Muscle' },
-] as const
 
 export function TemplateCatalogueFilters({
   level,
@@ -18,11 +16,11 @@ export function TemplateCatalogueFilters({
   onGoalChange,
   onQueryChange,
 }: {
-  level: string
-  goal: string
+  level: CatalogueLevelFilter
+  goal: CatalogueGoalFilter
   query: string
-  onLevelChange: (level: string) => void
-  onGoalChange: (goal: string) => void
+  onLevelChange: (level: CatalogueLevelFilter) => void
+  onGoalChange: (goal: CatalogueGoalFilter) => void
   onQueryChange: (query: string) => void
 }) {
   return (
@@ -40,7 +38,7 @@ export function TemplateCatalogueFilters({
       </div>
       <div className="space-y-2">
         <FilterRow label="Level">
-          {LEVEL_FILTERS.map((option) => (
+          {CATALOGUE_LEVEL_FILTERS.map((option) => (
             <Button
               key={option}
               size="xs"
@@ -54,7 +52,7 @@ export function TemplateCatalogueFilters({
           ))}
         </FilterRow>
         <FilterRow label="Goal">
-          {GOAL_FILTERS.map((option) => (
+          {CATALOGUE_GOAL_FILTERS.map((option) => (
             <Button
               key={option.value}
               size="xs"

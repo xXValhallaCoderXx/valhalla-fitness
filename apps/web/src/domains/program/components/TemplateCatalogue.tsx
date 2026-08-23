@@ -3,7 +3,12 @@ import { notifications } from '@mantine/notifications'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import { Layers3, Plus, Star, Wrench } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import {
+  filterCatalogueItems,
+  type CatalogueGoalFilter,
+  type CatalogueLevelFilter,
+} from '@sheetless/domain/program/catalogue-filters'
 import { track } from '~/shared/lib/analytics'
 import { Caption, EmptyState, Page, PageHeader, Panel } from '~/components'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
@@ -13,7 +18,6 @@ import { programOverviewQueryOptions } from '~/domains/program/queries'
 import type { ProgramTemplateSummary } from '~/domains/program'
 import type { TodayPayload } from '~/domains/session'
 import { buildCatalogueItems, type CatalogueItem } from '~/domains/program/lib/template-families'
-import { GOAL_OPTIONS } from '~/domains/program/lib/recommend-plan'
 import { FindMyPlanModal } from './FindMyPlanModal'
 import { TemplateCard, TemplateGrid } from './TemplateCard'
 import { accountQueryKeys } from '~/shared/lib/query-keys'
@@ -38,8 +42,8 @@ export function TemplateCatalogue({
   const userId = useRequiredAccountId()
   const router = useRouter()
   const builderTitleId = useId()
-  const [levelFilter, setLevelFilter] = useState<string>('All')
-  const [goalFilter, setGoalFilter] = useState<string>('all')
+  const [levelFilter, setLevelFilter] = useState<CatalogueLevelFilter>('All')
+  const [goalFilter, setGoalFilter] = useState<CatalogueGoalFilter>('all')
   const [query, setQuery] = useState('')
   const [showBuilder, setShowBuilder] = useState(false)
   const [showFinder, setShowFinder] = useState(false)
@@ -74,30 +78,10 @@ export function TemplateCatalogue({
     .sort((left, right) => (COMPLEXITY_ORDER[left.complexity] ?? 1) - (COMPLEXITY_ORDER[right.complexity] ?? 1))
   const customAvailable = availableTemplates.filter((template) => template.origin === 'user_created')
 
-  // Group into family cards first, THEN filter — so a family stays whole and shows when ANY of its
-  // variants fits the chosen level/goal, instead of fragmenting into partial cards.
-  const goalTags = useMemo(
-    () => GOAL_OPTIONS.find((goal) => goal.value === goalFilter)?.tags.map((tag) => tag.toLowerCase()) ?? [],
-    [goalFilter],
-  )
-  const matchesItem = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const memberMatches = (member: ProgramTemplateSummary) => {
-      const levelOk = levelFilter === 'All' || member.complexity === levelFilter
-      const goalOk = goalFilter === 'all' || member.tags.some((tag) => goalTags.includes(tag.toLowerCase()))
-      return levelOk && goalOk
-    }
-    return (item: CatalogueItem) => {
-      const members = item.kind === 'family' ? item.members : [item.template]
-      const familyText = item.kind === 'family' ? `${item.family.name} ${item.family.tagline ?? ''}` : ''
-      const haystack =
-        `${familyText} ${members.map((m) => `${m.name} ${m.description} ${m.tags.join(' ')}`).join(' ')}`.toLowerCase()
-      return members.some(memberMatches) && haystack.includes(q)
-    }
-  }, [levelFilter, goalFilter, goalTags, query])
-
-  const builtInItems = buildCatalogueItems(builtInAvailable).filter(matchesItem)
-  const customItems = buildCatalogueItems(customAvailable).filter(matchesItem)
+  // Group first so a match keeps every schedule variant visible on its family card.
+  const filters = { level: levelFilter, goal: goalFilter, query }
+  const builtInItems = filterCatalogueItems(buildCatalogueItems(builtInAvailable), filters)
+  const customItems = filterCatalogueItems(buildCatalogueItems(customAvailable), filters)
   // Header badge counts the whole library (collapsed cards), independent of the active filters.
   const catalogueCount = buildCatalogueItems(templates).length
 
