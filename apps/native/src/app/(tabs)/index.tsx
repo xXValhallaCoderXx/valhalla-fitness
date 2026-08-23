@@ -9,6 +9,7 @@ import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { queryStaleTimes } from '@sheetless/domain/shared/query-stale-times'
 import { countCompletedSets, nextIncompleteSetLabel } from '@sheetless/domain/session/today-page'
 import { countPlannedSets, formatPreviousHero } from '@sheetless/domain/session/today-numbers'
+import { streakBadgeLabel } from '@sheetless/domain/history/consistency'
 import {
   Badge,
   Button,
@@ -26,6 +27,7 @@ import { buildUserContext, useMe } from '@/lib/account'
 import { useSession } from '@/lib/session-provider'
 import { useTimezoneSync } from '@/lib/use-timezone-sync'
 import { spacing, useTokens } from '@/lib/tokens'
+import { todayHistorySupportQueryOptions } from '@/features/history/queries'
 
 export default function TodayScreen() {
   const { user } = useSession()
@@ -39,6 +41,10 @@ export default function TodayScreen() {
     queryFn: () => getToday(buildUserContext(user!), me.data?.timezone ?? undefined),
     enabled: Boolean(user) && me.isSuccess,
     staleTime: queryStaleTimes.today,
+  })
+  const historySupport = useQuery({
+    ...todayHistorySupportQueryOptions(user!),
+    enabled: Boolean(user && (today.data?.activeSession || today.data?.plannedSession)),
   })
 
   const startMutation = useMutation({
@@ -56,15 +62,19 @@ export default function TodayScreen() {
 
   const openSession = (sessionId: string) =>
     router.push({ pathname: '/session/[sessionId]', params: { sessionId } })
+  const streakLabel = streakBadgeLabel(historySupport.data?.consistency)
   const settingsAction = (
-    <Pressable
-      accessibilityLabel="Open settings"
-      onPress={() => router.push('/settings')}
-      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: spacing.xs })}
-      testID="today-settings"
-    >
-      <Settings color={theme.textMuted} size={21} />
-    </Pressable>
+    <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
+      {streakLabel ? <Badge tone="warning">{streakLabel}</Badge> : null}
+      <Pressable
+        accessibilityLabel="Open settings"
+        onPress={() => router.push('/settings')}
+        style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: spacing.xs })}
+        testID="today-settings"
+      >
+        <Settings color={theme.textMuted} size={21} />
+      </Pressable>
+    </View>
   )
 
   if (me.isPending || today.isPending) {
