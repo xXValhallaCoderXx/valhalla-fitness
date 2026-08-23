@@ -10,6 +10,7 @@ import { sessionQueryOptions } from '@/features/session/queries'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { WorkoutSummaryRecap } from './WorkoutSummaryRecap'
+import { SummaryDecisions } from './SummaryDecisions'
 
 export function SessionSummaryScreen({ sessionId }: { sessionId: string }) {
   const { user } = useSession()
@@ -54,9 +55,14 @@ export function SessionSummaryScreen({ sessionId }: { sessionId: string }) {
         title={summaryHeadline(recap.completion.completed, recap.completion.planned)}
         subtitle={`${recap.completion.completed} of ${recap.completion.planned} sets · ${recap.stats.durationMinutes} min`}
       />
+      {finishSummary?.decisions.length ? (
+        <SummaryDecisions
+          decisions={finishSummary.decisions}
+          units={session.data.units}
+          user={user!}
+        />
+      ) : null}
       <WorkoutSummaryRecap session={session.data} recap={recap} />
-      {/* Decisions only exist in the finish-time cache; direct revisits intentionally skip them. */}
-      {finishSummary?.decisions.length ? null : null}
       <Button label="Back to Today" fullWidth onPress={() => router.replace('/(tabs)')} />
     </Screen>
   )
