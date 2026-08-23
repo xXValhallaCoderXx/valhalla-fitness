@@ -68,7 +68,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Exercise catalogue | **Shipped; media deferred** | The catalogue stores 151 movements (140 active and 11 resolvable deprecated aliases) with resistance mode, required equipment, pattern, primary/secondary muscles, aliases, load convention, and replacement lineage. Instructions, external IDs, and media are not yet included. |
 | Feedback | **Shipped** | Global and post-workout feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
-| Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, profile/settings, template/history drill-ins, logging, finish/recap, persistent progression review, SecureStore auth, haptics, keep-awake, and rest notifications. Native supports blank/ad-hoc starts, Repeat and favourites, workout rename, Focus/Overview navigation, programme-added accessory ordering, movement swaps, session- and phase-scoped live accessories, resumed ad-hoc exercise management, notes, movement history, and plate calculation. Programs exposes all 14 built-in variants through six families, catalogue search/filters, Find My Plan, core setup, preview, and active-program start/replacement. Native Settings includes appearance, units, rest preferences, bodyweight, strength estimates, JSON sharing, legal/account actions, and deletion. Custom-programme creation, equipment conversion, setup-time substitutions/accessories, and walkthrough replay remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
+| Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, profile/settings, template/history drill-ins, logging, finish/recap, persistent progression review, SecureStore auth, haptics, keep-awake, and rest notifications. Native supports blank/ad-hoc starts, Repeat and favourites, workout rename, Focus/Overview navigation, programme-added accessory ordering, movement swaps, session- and phase-scoped live accessories, resumed ad-hoc exercise management, notes, movement history, and plate calculation. Programs exposes all 14 built-in variants through six families, catalogue search/filters, Find My Plan, equipment-aware setup-time substitutions/accessories, free-weight review, active-program start/replacement, and reversible active-plan equipment conversion. Native Settings includes appearance, units, rest preferences, bodyweight, strength estimates, equipment profile, JSON sharing, legal/account actions, and deletion. Custom-programme creation and walkthrough replay remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
 | Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Failed sets must be retried before finishing. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
 | Privacy, deletion, and export | **Shipped; deployment/review pending** | Public Privacy, Terms, and account-deletion routes, paginated machine-readable account export, native JSON sharing, and confirmed self-service account deletion are available. Production must deploy the public deletion page, apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
 
@@ -100,20 +100,17 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 - Warm-up generation and user-editable set types.
 - Supersets/circuits and body measurements beyond bodyweight.
 - Persisted Find My Plan answers.
-- Native custom-programme creation, equipment conversion, setup-time substitutions/accessories,
-  and walkthrough replay.
+- Native custom-programme creation and walkthrough replay.
 - Wearables, Health integrations, social features, public leaderboards, and coaching marketplace.
 - AI-generated workouts, autonomous substitutions, readiness automation, and injury/pain gating.
 
 #### Native migration milestones
 
-1. Port equipment-aware programme setup/conversion, including setup-time substitutions and
-   accessories.
-2. Port custom-programme creation and management.
-3. Add richer Insights ranges, charts, and bodyweight trends without weakening bounded-history
+1. Port custom-programme creation and management.
+2. Add richer Insights ranges, charts, and bodyweight trends without weakening bounded-history
    queries.
-4. Port first-run onboarding and the optional live walkthrough/replay.
-5. Finish Google auth, feedback/history search, and remaining Android release polish.
+3. Port first-run onboarding and the optional live walkthrough/replay.
+4. Finish Google auth, feedback/history search, and remaining Android release polish.
 
 ### Recorded release posture
 
@@ -142,15 +139,14 @@ all four tabs rather than occupying a fifth primary tab.
 | `/templates/:templateId/start` | Programme setup, customization, preview, and start. |
 | `/sessions/:sessionId` | Live workout overview/focus logging. `?tour=live` forces walkthrough replay. |
 | `/sessions/:sessionId/summary` | Completed work, reflection, PRs, and progression decisions. |
-| `/settings` | Units, appearance, timer preferences, body profile, strength estimates, data export, and account actions. |
+| `/settings` | Units, appearance, timer preferences, equipment profile, body profile, strength estimates, data export, and account actions. |
 | `/account-deletion` | Public signed-out instructions and fallback request path for permanent account deletion. |
 | `/privacy`, `/terms` | Public privacy notice and terms for the beta. |
 
 The table uses canonical web paths. Expo Router exposes the corresponding native detail routes as
 `/session/[sessionId]`, `/session/[sessionId]/summary`, `/template/[templateId]`, and `/settings`.
-Web Settings additionally exposes equipment-profile editing and walkthrough replay. Those controls
-remain absent from native until their corresponding equipment-aware and onboarding experiences are
-implemented there; native saves preserve the existing equipment profile unchanged.
+Web Settings additionally exposes walkthrough replay. That control remains absent from native until
+the corresponding onboarding experience is implemented there.
 
 ### Onboarding
 
@@ -726,23 +722,25 @@ produce installable APKs; production produces the AAB required by Google Play. S
 [EAS build configuration](https://docs.expo.dev/eas/json/) and
 [APK profile guidance](https://docs.expo.dev/build-reference/apk/).
 
-The repository is ready for Expo project linkage, but no Expo project, signing identity, or hosted
-Supabase values should be selected by assumption. Run all EAS commands from `apps/native` and stop
-if `whoami` is not the intended owner:
+The repository is linked to the committed Sheetless Expo project owned by `xxvalhallacoderxx`, but
+the signing identity and hosted Supabase values must still be verified rather than assumed. Run all
+EAS commands from `apps/native` and stop if `whoami` is not the intended owner or the project details
+do not match `apps/native/app.json`:
 
 ```sh
 cd apps/native
 pnpm dlx eas-cli@latest login
 pnpm dlx eas-cli@latest whoami
-pnpm dlx eas-cli@latest init
+pnpm dlx eas-cli@latest project:info
 pnpm dlx eas-cli@latest config --platform android --profile development
 ```
 
-`eas init` creates or selects Sheetless and writes `expo.extra.eas.projectId`. Review and commit that
-linkage before building. Let EAS manage the Android keystore, then back up the resulting credential
-through the Expo credential controls. A device that already has `fitness.sheetless.app` signed by a
-different key cannot accept `adb install -r`; uninstalling it resolves the conflict but permanently
-removes that installation's SecureStore session and app-local data.
+Do not run `eas init` again unless deliberately relinking the repository to another project; review
+and commit any linkage change before building. Let EAS manage the Android keystore, then back up the
+resulting credential through the Expo credential controls. A device that already has
+`fitness.sheetless.app` signed by a different key cannot accept `adb install -r`; uninstalling it
+resolves the conflict but permanently removes that installation's SecureStore session and app-local
+data.
 
 ### EAS public environment
 
@@ -813,8 +811,16 @@ stack and Mailpit running, record a physical-device pass for:
 - Programme search/level/goal filters, custom templates without family metadata, and the complete
   Find My Plan question/edit/alternative/preview flow, including preview-network failure.
 - Settings Save/Discard and dirty-leave protection, system/light/dark persistence, kg/lb estimate
-  conversion, bodyweight add/replace/delete, JSON sharing, legal links, sign-out/sign-in, and
-  successful deletion using only a disposable local account.
+  conversion, equipment-profile selection/clearing/persistence, bodyweight add/replace/delete, JSON
+  sharing, legal links, sign-out/sign-in, and successful deletion using only a disposable local
+  account.
+- Programme setup in both equipment modes: equipment-profile-filtered variation/accessory choices,
+  locked main lifts, repeated setup accessories, all-phase free-weight review, re-review after a
+  setup change, dirty-leave protection, replacement of an active programme, and retry after a
+  simulated lost response.
+- Active-plan conversion in both directions, including alternative selection, a stale-review retry,
+  exact lost-response replay, and the in-progress-workout guard. Confirm future session snapshots
+  retain the mode and that free-weight sessions reject machine/cable live additions and swaps.
 - SecureStore session recovery after force-stop and reboot, haptics, session keep-awake, and a
   locked-screen rest notification.
 
