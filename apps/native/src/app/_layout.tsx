@@ -46,6 +46,7 @@ function AuthGate() {
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="auth" options={{ headerShown: false }} />
+      <Stack.Screen name="session/[sessionId]/index" options={{ headerShown: false }} />
       <Stack.Screen name="(dev)/icu" options={{ title: 'Dev · Hermes ICU' }} />
       <Stack.Screen name="(dev)/tokens" options={{ title: 'Dev · Tokens' }} />
     </Stack>

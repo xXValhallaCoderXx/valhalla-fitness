@@ -1,6 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { router } from 'expo-router'
 import { View } from 'react-native'
+import { startSession } from '@sheetless/data/session/lifecycle'
 import { getToday } from '@sheetless/data/session/reads'
+import { browserIanaTimeZone } from '@sheetless/domain/shared/calendar-date'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { queryStaleTimes } from '@sheetless/domain/shared/query-stale-times'
 import { countCompletedSets, nextIncompleteSetLabel } from '@sheetless/domain/session/today-page'
@@ -27,6 +30,7 @@ export default function TodayScreen() {
   const { user } = useSession()
   const { theme } = useTokens()
   const me = useMe()
+  const queryClient = useQueryClient()
   useTimezoneSync()
 
   const today = useQuery({
@@ -35,6 +39,22 @@ export default function TodayScreen() {
     enabled: Boolean(user) && me.isSuccess,
     staleTime: queryStaleTimes.today,
   })
+
+  const startMutation = useMutation({
+    mutationFn: () =>
+      startSession(buildUserContext(user!), {
+        clientMutationId: crypto.randomUUID(),
+        timeZone: browserIanaTimeZone() ?? undefined,
+      }),
+    onSuccess: (session) => {
+      queryClient.setQueryData(accountQueryKeys.session(user!.id, session.sessionId), session)
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(user!.id) })
+      router.push({ pathname: '/session/[sessionId]', params: { sessionId: session.sessionId } })
+    },
+  })
+
+  const openSession = (sessionId: string) =>
+    router.push({ pathname: '/session/[sessionId]', params: { sessionId } })
 
   if (me.isPending || today.isPending) {
     return (
@@ -90,9 +110,12 @@ export default function TodayScreen() {
             <StatCard label="Completed sets" value={`${done}/${total}`} />
             <StatCard label="Next up" value={nextIncompleteSetLabel(active) ?? 'All done'} tone="action" />
           </View>
-          <Caption>
-            Live logging lands in the next milestone — resume this workout on the web for now.
-          </Caption>
+          <Button
+            label="Resume workout"
+            fullWidth
+            onPress={() => openSession(active.sessionId)}
+            testID="today-resume"
+          />
         </Panel>
       </Screen>
     )
@@ -172,8 +195,20 @@ export default function TodayScreen() {
 
         <StatCard label="Planned sets" value={String(countPlannedSets(planned))} />
 
-        <Button label="Start workout" fullWidth disabled testID="today-start" />
-        <Caption>Starting and logging land in the next milestone — start on the web for now.</Caption>
+        <Button
+          label={data?.completedSession ? 'Start next session' : 'Start workout'}
+          fullWidth
+          loading={startMutation.isPending}
+          onPress={() => startMutation.mutate()}
+          testID="today-start"
+        />
+        {startMutation.isError ? (
+          <Text tone="danger" size="sm">
+            {startMutation.error instanceof Error
+              ? startMutation.error.message
+              : 'The workout could not start.'}
+          </Text>
+        ) : null}
       </Panel>
     </Screen>
   )
