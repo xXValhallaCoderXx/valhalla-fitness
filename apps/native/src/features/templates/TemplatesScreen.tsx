@@ -31,8 +31,10 @@ import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { ActiveProgramBand } from './ActiveProgramBand'
 import { FavoriteWorkoutsSection } from './FavoriteWorkoutsSection'
+import { FindMyPlanSheet } from './FindMyPlanSheet'
 import { TemplateCatalogueFilters } from './TemplateCatalogueFilters'
 import { TemplateCard } from './TemplateCard'
+import { TemplateFinderPrompt } from './TemplateFinderPrompt'
 import { templatesQueryOptions } from './queries'
 
 const complexityOrder: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 }
@@ -41,6 +43,7 @@ export function TemplatesScreen() {
   const { user } = useSession()
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState(DEFAULT_CATALOGUE_FILTERS)
+  const [finderOpen, setFinderOpen] = useState(false)
   const templates = useQuery({ ...templatesQueryOptions(user!), enabled: Boolean(user) })
   const activeProgram = useQuery({
     queryKey: accountQueryKeys.activeProgram(user!.id),
@@ -115,6 +118,7 @@ export function TemplatesScreen() {
           </Caption>
         </Panel>
       ) : null}
+      <TemplateFinderPrompt onOpen={() => setFinderOpen(true)} />
       <TemplateCatalogueFilters filters={filters} onChange={setFilters} />
       <Panel surface="inset" style={{ padding: spacing.sm }}>
         <Caption>
@@ -148,6 +152,13 @@ export function TemplatesScreen() {
             : 'Check back after the catalogue refreshes.'}
         </EmptyState>
       ) : null}
+      <FindMyPlanSheet
+        open={finderOpen}
+        user={user!}
+        templates={templates.data}
+        onClose={() => setFinderOpen(false)}
+        onViewTemplate={openTemplate}
+      />
     </Screen>
   )
 }
