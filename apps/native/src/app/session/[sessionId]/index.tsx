@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { router, useLocalSearchParams } from 'expo-router'
 import { ScrollView, View } from 'react-native'
+import { useKeepAwake } from 'expo-keep-awake'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { WorkoutSession } from '@sheetless/domain/session/types/session'
 import { sessionCompletion } from '@sheetless/domain/session/session-cache'
@@ -27,6 +28,7 @@ import { FocusSetCard, type SetDraft } from '@/features/session/FocusSetCard'
 import { FocusSetProgressBar } from '@/features/session/FocusSetProgressBar'
 import { FocusTopBar } from '@/features/session/FocusTopBar'
 import { sessionQueryOptions } from '@/features/session/queries'
+import { RestTimerProvider } from '@/features/session/RestTimerProvider'
 import { useAddExerciseSet } from '@/features/session/useAddExerciseSet'
 import { useDiscardWorkout } from '@/features/session/useDiscardWorkout'
 import { useSetLogMutation } from '@/features/session/useSetLogMutation'
@@ -34,6 +36,8 @@ import { useSetLogMutation } from '@/features/session/useSetLogMutation'
 export default function LiveSessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
   const { user } = useSession()
+  // Screen stays on for the whole workout, loading states included.
+  useKeepAwake()
 
   const session = useQuery({
     ...sessionQueryOptions(user!, sessionId),
@@ -65,7 +69,11 @@ export default function LiveSessionScreen() {
     )
   }
 
-  return <FocusView user={user!} session={session.data} />
+  return (
+    <RestTimerProvider>
+      <FocusView user={user!} session={session.data} />
+    </RestTimerProvider>
+  )
 }
 
 function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
