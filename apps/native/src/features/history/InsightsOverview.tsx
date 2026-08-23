@@ -9,6 +9,7 @@ import { dataLifecycleLabels } from '@sheetless/domain/history/insight-state'
 import { formatNumber } from '@sheetless/domain/shared/set-notation'
 import { Badge, Caption, EmptyState, Panel, SectionLabel, StatCard, Text } from '@/components'
 import { spacing } from '@/lib/tokens'
+import { InsightSignals } from './InsightSignals'
 
 export function InsightsOverview({
   data,
@@ -68,6 +69,8 @@ export function InsightsOverview({
           />
         </View>
       </Panel>
+
+      <InsightSignals insights={data.insights} gating={gating} />
 
       <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
         <SectionLabel>Latest sessions · recent training</SectionLabel>
