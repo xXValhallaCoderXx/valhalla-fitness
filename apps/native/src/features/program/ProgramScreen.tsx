@@ -4,11 +4,15 @@ import { buildProgramTimeline } from '@sheetless/domain/program/program-timeline
 import { buildProgramTrajectory } from '@sheetless/domain/program/program-trajectory'
 import { EmptyState, PageHeader, Panel, Screen, Text } from '@/components'
 import { useSession } from '@/lib/session-provider'
-import { spacing } from '@/lib/tokens'
+import { spacing, useTokens } from '@/lib/tokens'
 import { programOverviewQueryOptions } from './queries'
+import { ProgramHeader } from './ProgramHeader'
+import { ProgramPhaseMap } from './ProgramPhaseMap'
+import { ProgramTimeline } from './ProgramTimeline'
 
 export function ProgramScreen() {
   const { user } = useSession()
+  const { theme } = useTokens()
   const overview = useQuery({
     ...programOverviewQueryOptions(user!),
     enabled: Boolean(user),
@@ -61,14 +65,18 @@ export function ProgramScreen() {
 
   return (
     <Screen>
-      <PageHeader
-        title={program.title}
-        eyebrow="Your plan"
-        subtitle={`${phaseMap.currentPhaseLabel ?? 'Current phase'} · Week ${trajectory.currentWeekNumber}`}
-      />
-      <Panel style={{ padding: spacing.md }}>
-        <Text tone="dimmed">Your full timeline is ready.</Text>
-      </Panel>
+      <ProgramHeader overview={overview.data} phaseMap={phaseMap} />
+      {overview.data.pendingDecisions.length ? (
+        <Panel
+          surface="inset"
+          style={{ borderColor: theme.tones.warning.border, gap: 3, padding: spacing.md }}
+        >
+          <Text size="sm" tone="warning" weight={800}>Progression review pending</Text>
+          <Text size="sm" tone="dimmed">Review load changes on sheetless.fitness.</Text>
+        </Panel>
+      ) : null}
+      <ProgramPhaseMap phaseMap={phaseMap} />
+      <ProgramTimeline trajectory={trajectory} />
     </Screen>
   )
 }
