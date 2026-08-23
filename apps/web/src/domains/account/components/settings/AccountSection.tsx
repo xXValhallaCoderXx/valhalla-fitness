@@ -77,6 +77,10 @@ export function AccountSection({ email }: { email: string }) {
         <Panel p="md">
           <SectionLabel>Legal & privacy</SectionLabel>
           <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+            <Anchor component={Link} to="/account-deletion" size="sm" fw={700}>
+              <Trash2 size={14} className="mr-1 inline" />
+              Account deletion
+            </Anchor>
             <Anchor component={Link} to="/privacy" size="sm" fw={700}>
               <ShieldCheck size={14} className="mr-1 inline" />
               Privacy policy

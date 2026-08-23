@@ -51,6 +51,7 @@ export function LegalDocument({
         <div className="mx-auto flex max-w-[800px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Caption component="p">© 2026 Sheetless</Caption>
           <div className="flex flex-wrap gap-4">
+            <Anchor component={Link} to="/account-deletion" size="sm">Delete account</Anchor>
             <Anchor component={Link} to="/privacy" size="sm">Privacy</Anchor>
             <Anchor component={Link} to="/terms" size="sm">Terms</Anchor>
             <Anchor href={`mailto:${LEGAL_CONTACT_EMAIL}`} size="sm">Contact</Anchor>

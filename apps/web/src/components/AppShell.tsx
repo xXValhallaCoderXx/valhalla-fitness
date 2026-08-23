@@ -23,6 +23,7 @@ export function AppShell({ user, children }: { user: AuthUser | null; children: 
   const isChromeless =
     pathname === '/' ||
     pathname.startsWith('/auth') ||
+    pathname === '/account-deletion' ||
     pathname === '/privacy' ||
     pathname === '/terms'
 
