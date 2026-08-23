@@ -5,7 +5,7 @@ spreadsheet in the gym.
 
 **Document authority:** this README is the sole human-facing source for the product, current release
 status, architecture, training-plan DSL, development workflow, testing, and production runbook.
-It was last reconciled with the repository on **2026-07-30**. Machine-specific implementation
+It was last reconciled with the repository on **2026-08-23**. Machine-specific implementation
 instructions remain in `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, and
 `.github/instructions/`.
 
@@ -50,7 +50,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 
 | Area | Status | Current behavior and remaining work |
 | --- | --- | --- |
-| Authentication | **Shipped; production setup pending** | Magic Link and Google OAuth are the production methods. Password auth remains for local development and E2E only. Google, Resend SMTP, callback URLs, and live delivery still require dashboard verification. |
+| Authentication | **Shipped; production setup pending** | Web supports Magic Link and Google OAuth; native uses the six-digit code carried by the same Magic Link email. Password auth remains local/E2E only. Google, Resend SMTP, the hosted auth hook/template, callback URLs, and live delivery still require dashboard verification. |
 | Programme catalogue | **Shipped** | Fourteen concrete built-ins are grouped into six presentation families: Beginner Linear Strength, Intermediate Strength, Powerbuilding, Training Max Wave, Classic Volume Strength, and Bodybuilding Splits. |
 | Custom programmes | **Shipped** | Users can create constrained programmes from supported methodologies, including logger-only mode. Definitions are validated before storage. |
 | Programme start | **Shipped** | Units, rounding, required state values, allowed movement replacements, accessory additions, equipment mode, preview, and active-program replacement are supported. |
@@ -58,7 +58,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Today | **Shipped** | Planned, active/resume, completed, onboarding, and pending-progression states are supported. |
 | Live workout logging | **Shipped** | Optimistic load, reps, RIR, completion, sync state, notes in the model, focus/overview layouts, swaps, and accessory additions are supported. The live UI does not currently expose RPE entry. |
 | Previous comparable | **Partial** | Prior results match the movement actually performed, prefer the same programme slot/template, and retain per-set history. The chronological movement-history view remains literal. The planned tap-to-fill interaction is not implemented. |
-| Rest timer | **Partial** | Auto-start on genuine set completion, role-based defaults, global opt-out, wall-clock correction, `+15`, skip, audio, and vibration are implemented. Reload persistence, per-movement defaults, `-15`, wake lock, and notifications are not. |
+| Rest timer | **Partial** | Auto-start on genuine set completion, role-based defaults, global opt-out, wall-clock correction, `+15`, skip, audio, and vibration are implemented. Native keeps the screen awake during a session and schedules a local rest notification; Android locked-screen delivery and exact-alarm behavior remain device gates. Reload persistence, per-movement defaults, and `-15` are not implemented. |
 | Plate calculator | **Shipped** | Kg/lb plate loading is available from both live-session layouts. Saved bar/plate inventory and equipment gating are not implemented. |
 | Session PRs | **Partial** | Heaviest-load, estimated-1RM, and rep-at-weight PRs are calculated at finish and shown in the summary. There is no live inline celebration or separate lifetime `personal_records` table. |
 | Progression | **Shipped** | Recommendations are calculated from completed work, stored as decisions, and require explicit accept/later/dismiss handling. |
@@ -68,8 +68,9 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Exercise catalogue | **Shipped; media deferred** | The catalogue stores 151 movements (140 active and 11 resolvable deprecated aliases) with resistance mode, required equipment, pattern, primary/secondary muscles, aliases, load convention, and replacement lineage. Instructions, external IDs, and media are not yet included. |
 | Feedback | **Shipped** | Global and post-workout feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
+| Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, Settings, template/history drill-ins, logging, finish/recap/decisions, SecureStore auth, haptics, keep-awake, and rest notifications. Development, preview, and production EAS profiles are configured; EAS project linkage and the physical development/hosted-preview passes remain release gates. |
 | Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Failed sets must be retried before finishing. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
-| Privacy, deletion, and export | **Shipped; production review pending** | Public Privacy and Terms routes, paginated machine-readable account export, and confirmed self-service account deletion are available. Production must apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
+| Privacy, deletion, and export | **Shipped; deployment/review pending** | Public Privacy, Terms, and account-deletion routes, paginated machine-readable account export, and confirmed self-service account deletion are available. Production must deploy the public deletion page, apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
 
 ### Beta work order
 
@@ -82,6 +83,8 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
    schedule, and working contact inbox.
 4. Keep every save-status surface explicit that beta is online-only while preserving transient
    saving, failed, and retry states.
+5. Link the native app to the intended Expo project, complete the development-APK and hosted-preview
+   Android passes, and verify the public deletion URL before creating the Play internal release.
 
 #### P1 — beta quality
 
@@ -103,16 +106,17 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 ### Recorded release posture
 
 Sheetless targets a **public self-serve beta**. Self-service deletion, machine-readable export, and
-public Privacy and Terms surfaces are part of that release posture and are implemented. They remain
-deployment-gated until the database migrations are applied and the operator has verified the legal
-copy, contact inbox, provider agreements, and actual retention practice.
+public Privacy, Terms, and account-deletion surfaces are part of that release posture and are
+implemented. They remain deployment-gated until the database migrations are applied and the
+operator has verified the legal copy, contact inbox, provider agreements, and actual retention
+practice. The Android app remains internal-track gated until both standalone APK passes are recorded.
 
 ## Product surface
 
 ### Navigation and routes
 
-The primary mobile navigation is **Today**, **Plan**, **Insights**, and **Programs**. Settings and
-account actions live in the user menu.
+The primary mobile navigation is **Today**, **Plan**, **Insights**, and **Programs**. Web settings and
+account actions live in the user menu; native Settings opens from the gear action on Today.
 
 | Route | Purpose |
 | --- | --- |
@@ -126,7 +130,11 @@ account actions live in the user menu.
 | `/sessions/:sessionId` | Live workout overview/focus logging. `?tour=live` forces walkthrough replay. |
 | `/sessions/:sessionId/summary` | Completed work, reflection, PRs, and progression decisions. |
 | `/settings` | Units, appearance, timer preferences, body profile, account, and walkthrough replay. |
+| `/account-deletion` | Public signed-out instructions and fallback request path for permanent account deletion. |
 | `/privacy`, `/terms` | Public privacy notice and terms for the beta. |
+
+The table uses canonical web paths. Expo Router exposes the corresponding native detail routes as
+`/session/[sessionId]`, `/session/[sessionId]/summary`, `/template/[templateId]`, and `/settings`.
 
 ### Onboarding
 
@@ -139,47 +147,39 @@ account actions live in the user menu.
 
 ### Stack
 
-- **Runtime:** TanStack Start, Vite, React 19, TypeScript
-- **Routing:** TanStack Router file routes
+- **Web runtime:** TanStack Start, Vite, React 19, TypeScript
+- **Native runtime:** Expo SDK 57, React Native, TypeScript
+- **Routing:** TanStack Router file routes on web; Expo Router typed routes on native
 - **Server boundary:** TanStack `createServerFn`
 - **Remote data/cache:** TanStack React Query
 - **Authentication/database:** Supabase Auth and Postgres with RLS
 - **UI:** Mantine and app theme tokens; Tailwind v4 for layout only
 - **Validation:** Zod
 - **Tests:** Vitest and Playwright
-- **Deployment:** Nitro Node output on Railway
+- **Deployment:** Nitro Node output on Railway; EAS Build and Google Play for Android
 
 ### Repository layout
 
-Code is organized by product domain:
+This is a pnpm workspace. Shared business and data logic sits below both application runtimes:
 
 ```text
-src/
-  routes/                  thin TanStack file-route adapters
-  domains/
-    account/
-    program/
-    session/
-    history/
-    movement/
-    onboarding/
-  shared/
-    lib/
-    server/
-    types/
-  components/
-    atoms/
-    molecules/
-  styles/
-tests/                      Vitest unit/domain tests
-tests/e2e/                  Playwright browser flows
+apps/web/                   TanStack Start app and thin server wrappers
+  src/routes/               thin file-route adapters
+  src/domains/              web domain UI and server boundaries
+  tests/                    Vitest tests
+  tests/e2e/                Playwright browser flows
+apps/native/                Expo application
+  src/app/                  typed route adapters
+  src/features/             native domain screens and components
+packages/domain/            pure framework-free training logic and types
+packages/data/              authenticated Supabase data access
+packages/tokens/            shared design tokens
 supabase/migrations/        append-only schema migrations
-scripts/                    demo, verification, reporting, and export utilities
 ```
 
-Routes extract URL/context data and render a domain component. Domain folders own their UI, server
-functions, query options, types, and pure logic. Cross-domain helpers move to `src/shared/*` only
-when genuinely reused.
+Web routes extract URL/context data and render a domain component. Native route files render feature
+screens. `@sheetless/domain` remains pure; `@sheetless/data` accepts an authenticated user context
+from either the web cookie client or native SecureStore session and never acquires auth itself.
 
 ### Runtime data boundaries
 
@@ -647,6 +647,8 @@ If Railway selects an incompatible Node version despite the repository pin, set
 
 - [x] Record the public-beta account deletion/export posture in this README.
 - [x] Publish Privacy and Terms routes/content.
+- [x] Implement the signed-out `/account-deletion` route and link it from account/legal surfaces.
+- [ ] Deploy and verify `https://www.sheetless.fitness/account-deletion` with empty browser storage.
 - [ ] Confirm `privacy@sheetless.fitness` works and legal/operator review is complete.
 - [ ] Verify account export and destructive deletion end to end against a disposable hosted user.
 - [ ] `pnpm verify`, local migration application, and `pnpm db:test` are green on `main`.
@@ -698,19 +700,188 @@ pnpm start
 
 Nitro reads Railway's `PORT` value at runtime.
 
+## Android release and internal-track runbook
+
+The Android application ID is permanently **`fitness.sheetless.app`**. Do not change it after the
+Play app is created: Play treats another ID as another app. `apps/native/app.json` owns the visible
+`expo.version`; bump it deliberately for a user-visible release. EAS owns the Android `versionCode`
+remotely, and the production profile increments it automatically. Development and preview profiles
+produce installable APKs; production produces the AAB required by Google Play. See Expo's
+[EAS build configuration](https://docs.expo.dev/eas/json/) and
+[APK profile guidance](https://docs.expo.dev/build-reference/apk/).
+
+The repository is ready for Expo project linkage, but no Expo project, signing identity, or hosted
+Supabase values should be selected by assumption. Run all EAS commands from `apps/native` and stop
+if `whoami` is not the intended owner:
+
+```sh
+cd apps/native
+pnpm dlx eas-cli@latest login
+pnpm dlx eas-cli@latest whoami
+pnpm dlx eas-cli@latest init
+pnpm dlx eas-cli@latest config --platform android --profile development
+```
+
+`eas init` creates or selects Sheetless and writes `expo.extra.eas.projectId`. Review and commit that
+linkage before building. Let EAS manage the Android keystore, then back up the resulting credential
+through the Expo credential controls. A device that already has `fitness.sheetless.app` signed by a
+different key cannot accept `adb install -r`; uninstalling it resolves the conflict but permanently
+removes that installation's SecureStore session and app-local data.
+
+### EAS public environment
+
+Each build profile selects its matching named EAS environment. Store only these public client
+values there, following Expo's
+[named-environment model](https://docs.expo.dev/eas/environment-variables/usage/):
+
+```text
+EXPO_PUBLIC_SUPABASE_URL
+EXPO_PUBLIC_SUPABASE_ANON_KEY
+EXPO_PUBLIC_AUTH_ALLOWLIST_ENABLED=false
+EXPO_PUBLIC_AUTH_PASSWORD_ENABLED=false
+```
+
+The auth flags are committed in `eas.json`. Set the URL and anon key after linkage, using localhost
+for `development` and the hosted project for `preview` and `production`:
+
+```sh
+pnpm dlx eas-cli@latest env:set development --name EXPO_PUBLIC_SUPABASE_URL --value http://127.0.0.1:54321 --visibility plaintext
+pnpm dlx eas-cli@latest env:set development --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value '<local-anon-key>' --visibility plaintext
+pnpm dlx eas-cli@latest env:set preview --name EXPO_PUBLIC_SUPABASE_URL --value 'https://<project-ref>.supabase.co' --visibility plaintext
+pnpm dlx eas-cli@latest env:set preview --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value '<hosted-anon-key>' --visibility plaintext
+pnpm dlx eas-cli@latest env:set production --name EXPO_PUBLIC_SUPABASE_URL --value 'https://<project-ref>.supabase.co' --visibility plaintext
+pnpm dlx eas-cli@latest env:set production --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value '<hosted-anon-key>' --visibility plaintext
+```
+
+Never place the service-role key, database URI, SMTP credentials, Android keystore, or Google Play
+service-account JSON in an EAS public environment or the repository. The anon key is intentionally
+public; RLS remains the authorization boundary.
+
+Before a hosted native build, enable the `before_user_created` auth hook against
+`public.hook_before_user_created` and make the hosted Magic Link email template include both
+`{{ .ConfirmationURL }}` and the six-digit `{{ .Token }}`. Native signs in by verifying that token.
+Confirm open-beta policy is disabled at both layers: the two client flags above are `false`, and
+`app_config.auth_allowlist_enabled` is `false` in the hosted database.
+
+### Development APK gate
+
+Build and install the development client outside Expo Go:
+
+```sh
+pnpm dlx eas-cli@latest build --platform android --profile development
+adb install -r /absolute/path/to/sheetless-development.apk
+adb reverse tcp:54321 tcp:54321
+adb reverse tcp:8081 tcp:8081
+pnpm exec expo start --dev-client --localhost
+```
+
+Keep `apps/native/.env` ignored and aligned with the development EAS values. With the local Supabase
+stack and Mailpit running, record a physical-device pass for:
+
+- Mailpit OTP sign-in and all four tabs.
+- Built-in and custom templates, including entries without family metadata, and template preview.
+- Today streak, logger movement history, Plan/Insights session drill-ins, and Hermes-rendered dates.
+- Set edits, retry/error state, blocked finish, lost-response recovery, recap, and progression
+  Apply/Keep/Apply-all.
+- Settings persistence, sign-out/sign-in, and successful deletion using only a disposable local
+  account.
+- SecureStore session recovery after force-stop and reboot, haptics, session keep-awake, and a
+  locked-screen rest notification.
+
+On Android 14, test Alarms & reminders in both states. A fresh install normally starts with exact
+alarm access denied: the timer must degrade without crashing. Then manually grant access in system
+settings and confirm delivery at the requested time. Record the observed tolerance; do not claim
+unconditional exact delivery from emulator, web export, or the granted-only case. Android documents
+the default-denied behavior and required degradation in its
+[exact-alarm guidance](https://developer.android.com/about/versions/14/changes/schedule-exact-alarms).
+
+### Public web and hosted preview gate
+
+Promote the exact green `main` commit through the protected database workflow and Railway process;
+do not deploy a newer unverified head. Before any Play submission, verify these signed out:
+
+```sh
+curl --fail --location https://www.sheetless.fitness/privacy
+curl --fail --location https://www.sheetless.fitness/account-deletion
+```
+
+The deletion page must identify Sheetless and prominently support sign in → Settings → Delete
+account, with the privacy inbox as a fallback request channel. Configure these Play Console URLs:
+
+```text
+Privacy policy: https://www.sheetless.fitness/privacy
+Account deletion: https://www.sheetless.fitness/account-deletion
+```
+
+This public page remains mandatory even with in-app deletion under Google Play's
+[account-deletion requirements](https://support.google.com/googleplay/android-developer/answer/13327111).
+
+Build the hosted preview APK only after the auth hook, OTP template, SMTP delivery, URL, and anon key
+are verified. Install it with Metro stopped and no ADB port reversals:
+
+```sh
+pnpm dlx eas-cli@latest build --platform android --profile preview
+adb install -r /absolute/path/to/sheetless-preview.apk
+```
+
+Repeat OTP sign-in, the four-tab/template tour, a complete workout, finish/decisions, history
+drill-ins, settings persistence, sign-out/sign-in, and a force-stop/reboot session check against the
+hosted project. Preview is not accepted if it silently depends on Metro or localhost.
+
+### Play Console internal track
+
+Create the Play Console app as **Sheetless** with package `fitness.sheetless.app`, enable Play App
+Signing, and select the internal testing track. Add the initial tester email list (Google accounts;
+the internal track supports up to 100 testers) and keep the app in draft until setup is complete.
+Follow Google's [internal-testing guidance](https://support.google.com/googleplay/android-developer/answer/9845334)
+for tester access and rollout behavior.
+
+Complete and review, rather than guessing, each console declaration:
+
+- App access: give review instructions for the emailed six-digit OTP flow and any restricted access.
+- Data Safety: inventory the actual email/account identifiers, training/health data, app activity,
+  diagnostics, encryption in transit, sharing, retention, export, and deletion behavior.
+- Content rating, target audience, ads declaration, category, developer/contact details, and countries.
+- Store assets: app icon, feature graphic, phone screenshots, short/full descriptions, and support
+  contact.
+- Privacy and account-deletion URLs from the public gate above.
+
+For EAS Submit, create a least-privilege Google service account for this Play app, grant only the
+required release permissions, and upload its JSON through the EAS Android credential flow:
+
+```sh
+pnpm dlx eas-cli@latest credentials --platform android
+```
+
+Keep the downloaded JSON outside the repository, remove stray copies after upload, and rotate or
+revoke it if exposed. Production AAB creation and submission are intentionally user-run final steps:
+
+```sh
+pnpm dlx eas-cli@latest build --platform android --profile production
+pnpm dlx eas-cli@latest submit --platform android --profile production --latest
+```
+
+The configured submission target is the internal track. Confirm the uploaded package, signing
+certificates, version name/code, tester availability, release notes, and hosted end-to-end smoke
+before promotion. Promote the same tested artifact from internal to broader tracks in Play Console;
+do not rebuild an untested binary for production. Expo's
+[Android submission guide](https://docs.expo.dev/submit/android/) is the authority for current EAS
+credential and submission behavior.
+
 ## Known beta limitations
 
 - A network connection is required to open and use workout routes; the installed PWA is not an
   offline workout logger.
 - Optimistic changes exist only in memory until Supabase confirms them. Failed set saves stay
   visibly flagged for retry, and reloading can discard an unconfirmed edit.
-- Rest-timer state does not survive reload and is not a true locked-screen timer.
+- Rest-timer state does not survive reload. Native locked-screen notifications and Android exactness
+  are release gates, not yet a general reliability claim.
 - Previous-set ghosts do not yet fill the current set on tap.
 - PR feedback occurs at workout finish, not immediately after the set.
 - Exercise instructions, muscle metadata, and media are absent.
 - Bodyweight and sex are collected after onboarding rather than during initial setup.
-- Privacy, Terms, deletion, and export require hosted migration verification and production
-  legal/operator review before opening sign-up.
+- Privacy, Terms, deletion, and export require hosted migration verification, public deletion-page
+  deployment, and production legal/operator review before opening sign-up.
 
 ## Documentation maintenance
 
