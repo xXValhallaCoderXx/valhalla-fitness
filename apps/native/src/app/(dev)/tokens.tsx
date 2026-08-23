@@ -30,7 +30,7 @@ export default function TokensScreen() {
   const [code, setCode] = useState('12345')
 
   return (
-    <Screen>
+    <Screen padTop={false}>
       <PageHeader
         eyebrow="Sheetless styleguide"
         title="Components"

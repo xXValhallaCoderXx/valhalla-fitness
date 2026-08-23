@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router'
 import { View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CalendarDays, History, Layers3, ListChecks, type LucideIcon } from 'lucide-react-native'
 import { fontFamily, useTokens } from '@/lib/tokens'
 
@@ -34,6 +35,7 @@ const TABS: Array<{ name: string; title: string; Icon: LucideIcon }> = [
 
 export default function TabsLayout() {
   const { theme } = useTokens()
+  const insets = useSafeAreaInsets()
   return (
     <Tabs
       screenOptions={{
@@ -45,7 +47,8 @@ export default function TabsLayout() {
           backgroundColor: theme.backgroundElevated,
           borderTopColor: theme.border,
           borderTopWidth: 1,
-          height: 64,
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom,
         },
         tabBarLabelStyle: {
           fontFamily,

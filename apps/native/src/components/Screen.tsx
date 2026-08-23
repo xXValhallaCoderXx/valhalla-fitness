@@ -8,11 +8,13 @@ export interface ScreenProps {
   scroll?: boolean
   /** Content column cap, mirroring the web `Page` gutter wrapper. */
   maxWidth?: number
+  /** Set false under a native navigation header, which already consumes the top inset. */
+  padTop?: boolean
   style?: StyleProp<ViewStyle>
 }
 
-/** Route shell: themed background, safe-area bottom padding, centered column. */
-export function Screen({ children, scroll = true, maxWidth = 560, style }: ScreenProps) {
+/** Route shell: themed background, safe-area padding, centered column. */
+export function Screen({ children, scroll = true, maxWidth = 560, padTop = true, style }: ScreenProps) {
   const { theme } = useTokens()
   const insets = useSafeAreaInsets()
   const content: StyleProp<ViewStyle> = [
@@ -22,6 +24,7 @@ export function Screen({ children, scroll = true, maxWidth = 560, style }: Scree
       maxWidth,
       padding: spacing.md,
       paddingBottom: spacing.md + insets.bottom,
+      paddingTop: spacing.md + (padTop ? insets.top : 0),
       width: '100%',
     },
     style,
