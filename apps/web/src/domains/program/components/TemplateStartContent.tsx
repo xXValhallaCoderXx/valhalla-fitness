@@ -137,6 +137,7 @@ export function TemplateStartContent({
             activePhaseKey={activePhaseKey}
             changedSlots={changedSlots}
             units={me.units}
+            equipmentProfile={me.equipmentProfile}
             setupOptions={setupOptions}
             movementOverrides={movementOverrides}
             accessoryAdditions={accessoryAdditions}

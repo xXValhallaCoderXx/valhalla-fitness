@@ -20,6 +20,7 @@ import { TemplateStartMovementRow } from './TemplateStartMovementRow'
 export function TemplateStartDayCard({
   session,
   units,
+  equipmentProfile,
   setupOptions,
   movementOverrides,
   accessoryAdditions,
@@ -32,6 +33,7 @@ export function TemplateStartDayCard({
 }: {
   session: ProgramSetupPreviewSession
   units: Unit
+  equipmentProfile: readonly string[]
   setupOptions: ProgramSetupOptions
   movementOverrides: ProgramStartMovementOverrideInput[]
   accessoryAdditions: AccessoryAdditionDraft[]
@@ -68,6 +70,7 @@ export function TemplateStartDayCard({
             key={`${movement.slotId}-${movement.phaseKey}`}
             movement={movement}
             movementOverrides={movementOverrides}
+            equipmentProfile={equipmentProfile}
             equipmentMode={equipmentMode}
             freeWeightChoices={freeWeightChoices}
             editable
@@ -133,6 +136,7 @@ export function TemplateStartDayCard({
           <TemplateStartAccessoryForm
             setupSession={setupSession}
             setupOptions={setupOptions}
+            equipmentProfile={equipmentProfile}
             equipmentMode={equipmentMode}
             onAddAccessory={onAddAccessory}
           />

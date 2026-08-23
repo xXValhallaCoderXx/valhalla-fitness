@@ -1,6 +1,7 @@
 import { Button } from '@mantine/core'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
+import { isEquipmentProfileCompatible } from '@sheetless/domain/account/equipment-profile'
 import { Caption, SectionLabel, Text } from '~/components'
 import type { ProgramSetupOptions, ProgramStartAccessoryAdditionInput } from '~/domains/program'
 import type { ProgramEquipmentMode } from '~/domains/program'
@@ -8,24 +9,30 @@ import type { ProgramEquipmentMode } from '~/domains/program'
 export function TemplateStartAccessoryForm({
   setupSession,
   setupOptions,
+  equipmentProfile,
   equipmentMode,
   onAddAccessory,
 }: {
   setupSession: ProgramSetupOptions['sessions'][number]
   setupOptions: ProgramSetupOptions
+  equipmentProfile: readonly string[]
   equipmentMode: ProgramEquipmentMode
   onAddAccessory: (addition: ProgramStartAccessoryAdditionInput) => void
 }) {
   const [open, setOpen] = useState(false)
   const [sourceSlotId, setSourceSlotId] = useState(setupSession.accessoryPrescriptions[0]?.sourceSlotId ?? '')
+  const profileCompatibleMovements = setupOptions.accessoryCatalog.filter(
+    (movement) =>
+      isEquipmentProfileCompatible(movement.requiredEquipment, equipmentProfile),
+  )
   const availableMovements =
     equipmentMode === 'free_weight'
-      ? setupOptions.accessoryCatalog.filter((movement) =>
+      ? profileCompatibleMovements.filter((movement) =>
           ['barbell', 'dumbbell', 'specialty_bar', 'bodyweight'].includes(
             movement.resistanceMode ?? '',
           ),
         )
-      : setupOptions.accessoryCatalog
+      : profileCompatibleMovements
   const [movementId, setMovementId] = useState(
     availableMovements[0]?.movementId ?? '',
   )

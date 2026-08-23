@@ -16,7 +16,7 @@ import {
 import {
   freeWeightChoicesNeedReview,
   reconcileFreeWeightChoices,
-} from '../src/domains/program/components/useTemplateStartEquipmentMode'
+} from '@sheetless/domain/program/template-start-equipment'
 import { programAccessoryAdditionSlotId } from '@sheetless/domain/program/program-accessory-slots'
 import type {
   FreeWeightChoiceDraft,

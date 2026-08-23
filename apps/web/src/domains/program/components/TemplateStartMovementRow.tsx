@@ -1,6 +1,7 @@
 import { Badge, Button } from '@mantine/core'
 import { ArrowLeftRight, ArrowUp, Lock, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
+import { isEquipmentProfileCompatible } from '@sheetless/domain/account/equipment-profile'
 import { Caption, Panel, Text } from '~/components'
 import {
   getMovementName,
@@ -18,6 +19,7 @@ import type {
 export function TemplateStartMovementRow({
   movement,
   movementOverrides,
+  equipmentProfile,
   equipmentMode,
   freeWeightChoices,
   editable = false,
@@ -26,6 +28,7 @@ export function TemplateStartMovementRow({
 }: {
   movement: ProgramSetupPreviewMovement
   movementOverrides: ProgramStartMovementOverrideInput[]
+  equipmentProfile: readonly string[]
   equipmentMode: ProgramEquipmentMode
   freeWeightChoices: FreeWeightChoiceDraft[]
   editable?: boolean
@@ -52,12 +55,16 @@ export function TemplateStartMovementRow({
   const selectedMovementName = selectedMovementId === movement.defaultMovementId
     ? movement.defaultMovementName
     : getMovementName(selectedMovementId)
+  const profileCompatibleReplacementOptions = movement.replacementOptions.filter(
+    (option) =>
+      isEquipmentProfileCompatible(option.requiredEquipment, equipmentProfile),
+  )
   const replacementOptions =
     equipmentMode === 'free_weight'
-      ? movement.replacementOptions.filter(
+      ? profileCompatibleReplacementOptions.filter(
           (option) => option.freeWeightCompatible,
         )
-      : movement.replacementOptions
+      : profileCompatibleReplacementOptions
   const canSwap =
     isSetupConfigurableRole(movement.role) && replacementOptions.length > 0
   const changed = Boolean(override)

@@ -26,6 +26,7 @@ export function TemplateStartPreview({
   activePhaseKey,
   changedSlots,
   units,
+  equipmentProfile,
   setupOptions,
   movementOverrides,
   accessoryAdditions,
@@ -44,6 +45,7 @@ export function TemplateStartPreview({
   activePhaseKey: string
   changedSlots: Set<string>
   units: Unit
+  equipmentProfile: readonly string[]
   setupOptions: ProgramSetupOptions
   movementOverrides: ProgramStartMovementOverrideInput[]
   accessoryAdditions: AccessoryAdditionDraft[]
@@ -109,6 +111,7 @@ export function TemplateStartPreview({
             key={`${activeWeek.index}-${session.id}`}
             session={session}
             units={units}
+            equipmentProfile={equipmentProfile}
             setupOptions={setupOptions}
             movementOverrides={movementOverrides}
             accessoryAdditions={accessoryAdditions}
