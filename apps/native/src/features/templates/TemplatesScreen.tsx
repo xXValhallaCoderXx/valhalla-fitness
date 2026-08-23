@@ -1,6 +1,11 @@
+import { useState } from 'react'
 import { View } from 'react-native'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { router } from 'expo-router'
+import {
+  DEFAULT_CATALOGUE_FILTERS,
+  filterCatalogueItems,
+} from '@sheetless/domain/program/catalogue-filters'
 import {
   buildCatalogueItems,
   type CatalogueItem,
@@ -12,6 +17,7 @@ import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { queryStaleTimes } from '@sheetless/domain/shared/query-stale-times'
 import {
   Caption,
+  Button,
   EmptyState,
   PageHeader,
   Panel,
@@ -25,6 +31,7 @@ import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { ActiveProgramBand } from './ActiveProgramBand'
 import { FavoriteWorkoutsSection } from './FavoriteWorkoutsSection'
+import { TemplateCatalogueFilters } from './TemplateCatalogueFilters'
 import { TemplateCard } from './TemplateCard'
 import { templatesQueryOptions } from './queries'
 
@@ -33,6 +40,7 @@ const complexityOrder: Record<string, number> = { Beginner: 0, Intermediate: 1, 
 export function TemplatesScreen() {
   const { user } = useSession()
   const queryClient = useQueryClient()
+  const [filters, setFilters] = useState(DEFAULT_CATALOGUE_FILTERS)
   const templates = useQuery({ ...templatesQueryOptions(user!), enabled: Boolean(user) })
   const activeProgram = useQuery({
     queryKey: accountQueryKeys.activeProgram(user!.id),
@@ -70,14 +78,18 @@ export function TemplatesScreen() {
   const activePosition = overview && activeProgram.data && overview.activeProgram?.id === activeProgram.data.id
     ? overview.position
     : undefined
-  const builtInCount = templates.data.filter((template) => template.origin !== 'user_created').length
   const available = templates.data.filter((template) => template.id !== activeTemplateId)
   const builtIn = available
     .filter((template) => template.origin !== 'user_created')
     .sort((left, right) => (complexityOrder[left.complexity] ?? 1) - (complexityOrder[right.complexity] ?? 1))
   const custom = available.filter((template) => template.origin === 'user_created')
-  const builtInItems = buildCatalogueItems(builtIn)
-  const customItems = buildCatalogueItems(custom)
+  const builtInItems = filterCatalogueItems(buildCatalogueItems(builtIn), filters)
+  const customItems = filterCatalogueItems(buildCatalogueItems(custom), filters)
+  const visibleBuiltInPlanCount = builtInItems.reduce(
+    (count, item) => count + (item.kind === 'family' ? item.members.length : 1),
+    0,
+  )
+  const filtersActive = filters.query.trim() !== '' || filters.level !== 'All' || filters.goal !== 'all'
   const openTemplate = (templateId: string) =>
     router.push({ pathname: '/template/[templateId]', params: { templateId } })
 
@@ -103,6 +115,7 @@ export function TemplatesScreen() {
           </Caption>
         </Panel>
       ) : null}
+      <TemplateCatalogueFilters filters={filters} onChange={setFilters} />
       <Panel surface="inset" style={{ padding: spacing.sm }}>
         <Caption>
           Built-in programs are original Sheetless programming tools and are not official or affiliated templates.
@@ -115,12 +128,25 @@ export function TemplatesScreen() {
       <TemplateSection
         title="Sheetless library"
         items={builtInItems}
-        planCount={builtInCount}
+        visiblePlanCount={visibleBuiltInPlanCount}
         onOpen={openTemplate}
       />
       {customItems.length ? <TemplateSection title="Custom" items={customItems} onOpen={openTemplate} /> : null}
       {!builtInItems.length && !customItems.length ? (
-        <EmptyState title="No programs available">Check back after the catalogue refreshes.</EmptyState>
+        <EmptyState
+          title={activeTemplate ? 'No other matching programs' : 'No matching programs'}
+          action={filtersActive ? (
+            <Button
+              label="Clear filters"
+              variant="default"
+              onPress={() => setFilters(DEFAULT_CATALOGUE_FILTERS)}
+            />
+          ) : undefined}
+        >
+          {filtersActive
+            ? 'Adjust the search, level, or goal to see more templates.'
+            : 'Check back after the catalogue refreshes.'}
+        </EmptyState>
       ) : null}
     </Screen>
   )
@@ -129,21 +155,24 @@ export function TemplatesScreen() {
 function TemplateSection({
   title,
   items,
-  planCount,
+  visiblePlanCount,
   onOpen,
 }: {
   title: string
   items: CatalogueItem[]
-  planCount?: number
+  visiblePlanCount?: number
   onOpen: (templateId: string) => void
 }) {
   if (!items.length) return null
-  const count = planCount ?? items.length
   return (
     <View style={{ gap: spacing.sm }}>
       <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between' }}>
         <SectionLabel>{title}</SectionLabel>
-        <Caption>{count} {count === 1 ? 'plan' : 'plans'}</Caption>
+        <Caption>
+          {visiblePlanCount == null
+            ? `${items.length} ${items.length === 1 ? 'plan' : 'plans'}`
+            : `${items.length} ${items.length === 1 ? 'card' : 'cards'} · ${visiblePlanCount} ${visiblePlanCount === 1 ? 'plan' : 'plans'}`}
+        </Caption>
       </View>
       {items.map((item) => (
         <TemplateCard
