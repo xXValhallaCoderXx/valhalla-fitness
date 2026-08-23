@@ -151,9 +151,18 @@ export default function TodayScreen() {
           actions={settingsAction}
           subtitle={`Signed in as ${me.data?.email ?? user?.email ?? ''}.`}
         />
-        <EmptyState title="No active program">
-          Choose a training template on sheetless.fitness to generate your daily sessions — or log a
-          one-off workout there.
+        <EmptyState
+          title="No active program"
+          action={
+            <Button
+              label="Browse programs"
+              onPress={() => router.navigate('/(tabs)/templates')}
+              testID="today-browse-programs"
+            />
+          }
+        >
+          Choose a plan in Programs to generate your daily sessions. One-off workouts remain on the
+          web for now.
         </EmptyState>
       </Screen>
     )

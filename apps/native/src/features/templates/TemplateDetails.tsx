@@ -40,7 +40,7 @@ export function TemplateFacts({
             ? `${template.requiredState.length} starting strength ${template.requiredState.length === 1 ? 'value' : 'values'} required.`
             : 'No starting strength values required.'}
         </Caption>
-        <Caption>Variation and accessory choices are managed on the web before starting.</Caption>
+        <Caption>Enter the required values below to start with the programme defaults.</Caption>
       </Panel>
     </>
   )

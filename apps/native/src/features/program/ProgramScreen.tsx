@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
+import { router } from 'expo-router'
 import { buildProgramPhaseMap } from '@sheetless/domain/program/program-phase-map'
 import { buildProgramTimeline } from '@sheetless/domain/program/program-timeline'
 import { buildProgramTrajectory } from '@sheetless/domain/program/program-trajectory'
-import { EmptyState, PageHeader, Panel, Screen, Text } from '@/components'
+import { Button, EmptyState, PageHeader, Panel, Screen, Text } from '@/components'
 import { useSession } from '@/lib/session-provider'
 import { spacing, useTokens } from '@/lib/tokens'
 import { programOverviewQueryOptions } from './queries'
@@ -43,7 +44,16 @@ export function ProgramScreen() {
     return (
       <Screen>
         <PageHeader title="Plan" subtitle="Your active program, week by week." />
-        <EmptyState title="No active program">
+        <EmptyState
+          title="No active program"
+          action={
+            <Button
+              label="Browse programs"
+              onPress={() => router.navigate('/(tabs)/templates')}
+              testID="plan-browse-programs"
+            />
+          }
+        >
           Browse Programs to choose a structured training plan.
         </EmptyState>
       </Screen>

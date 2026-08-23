@@ -23,7 +23,9 @@ export function TemplateCard({
 }) {
   const { theme } = useTokens()
   const isFamily = item.kind === 'family'
-  const template = isFamily ? item.members[0] : item.template
+  const template = isFamily
+    ? item.members.find((member) => member.available) ?? item.members[0]
+    : item.template
   const title = isFamily ? item.family.name : template.name
   const description = isFamily ? item.family.tagline ?? item.family.description : template.description
   const complexity = isFamily ? complexityRangeLabel(item.members) : template.complexity

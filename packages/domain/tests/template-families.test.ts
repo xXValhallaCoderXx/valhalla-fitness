@@ -10,6 +10,7 @@ import {
 } from '@sheetless/domain/program/template-families'
 
 const catalogIds = new Set(templateCatalog.map((template) => template.id))
+const builtInTemplates = templateCatalog.filter((template) => template.origin === 'system_default')
 
 describe('templateFamilies config', () => {
   it('references only real templates and unique member ids', () => {
@@ -35,10 +36,22 @@ describe('templateFamilies config', () => {
     }
   })
 
-  it('covers every built-in template exactly once', () => {
-    const builtIns = templateCatalog.filter((template) => template.origin !== 'user_created')
-    for (const template of builtIns) {
+  it('groups all 14 built-in variants into 6 families exactly once', () => {
+    const memberIds = templateFamilies.flatMap((family) => family.members.map((member) => member.id))
+    const builtInIds = builtInTemplates.map((template) => template.id)
+
+    expect(builtInTemplates).toHaveLength(14)
+    expect(templateFamilies).toHaveLength(6)
+    expect(memberIds).toHaveLength(14)
+    expect(new Set(memberIds).size).toBe(14)
+    expect([...memberIds].sort()).toEqual([...builtInIds].sort())
+
+    for (const template of builtInTemplates) {
       expect(familyByTemplateId.has(template.id), `${template.id} belongs to a family`).toBe(true)
+      expect(
+        familyMembersForTemplate(template.id, templateCatalog).some((member) => member.id === template.id),
+        `${template.id} is reachable from its family`,
+      ).toBe(true)
     }
   })
 
@@ -52,7 +65,7 @@ describe('templateFamilies config', () => {
 
 describe('buildCatalogueItems', () => {
   it('collapses the full catalogue into 6 items (5 families + 1 single-member family)', () => {
-    const items = buildCatalogueItems(templateCatalog.filter((template) => template.origin !== 'user_created'))
+    const items = buildCatalogueItems(builtInTemplates)
     expect(items).toHaveLength(6)
     const familyItems = items.filter((item) => item.kind === 'family')
     expect(familyItems).toHaveLength(5)
@@ -63,7 +76,7 @@ describe('buildCatalogueItems', () => {
   })
 
   it('orders items by family sortOrder', () => {
-    const items = buildCatalogueItems(templateCatalog.filter((template) => template.origin !== 'user_created'))
+    const items = buildCatalogueItems(builtInTemplates)
     const firstFamily = items[0]
     expect(firstFamily.kind === 'family' && firstFamily.family.id).toBe('beginner_linear_strength')
   })

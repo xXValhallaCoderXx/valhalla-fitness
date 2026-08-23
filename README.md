@@ -68,7 +68,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Exercise catalogue | **Shipped; media deferred** | The catalogue stores 151 movements (140 active and 11 resolvable deprecated aliases) with resistance mode, required equipment, pattern, primary/secondary muscles, aliases, load convention, and replacement lineage. Instructions, external IDs, and media are not yet included. |
 | Feedback | **Shipped** | Global and post-workout feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
-| Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, Settings, template/history drill-ins, logging, finish/recap/decisions, SecureStore auth, haptics, keep-awake, and rest notifications. Development, preview, and production EAS profiles are configured; EAS project linkage and the physical development/hosted-preview passes remain release gates. |
+| Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, Settings, template/history drill-ins, logging, finish/recap/decisions, SecureStore auth, haptics, keep-awake, and rest notifications. Programs exposes all 14 built-in variants through six families and supports core setup, preview, and active-program start/replacement. Native Find My Plan, custom-programme creation, equipment conversion, setup-time substitutions, and accessory additions remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
 | Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Failed sets must be retried before finishing. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
 | Privacy, deletion, and export | **Shipped; deployment/review pending** | Public Privacy, Terms, and account-deletion routes, paginated machine-readable account export, and confirmed self-service account deletion are available. Production must deploy the public deletion page, apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
 
@@ -100,6 +100,8 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 - Warm-up generation and user-editable set types.
 - Supersets/circuits and body measurements beyond bodyweight.
 - Persisted Find My Plan answers.
+- Native Find My Plan, custom-programme creation, equipment conversion, setup-time substitutions,
+  and accessory additions.
 - Wearables, Health integrations, social features, public leaderboards, and coaching marketplace.
 - AI-generated workouts, autonomous substitutions, readiness automation, and injury/pain gating.
 
