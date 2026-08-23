@@ -355,7 +355,8 @@ function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
       />
       <MovementHistorySheet
         open={historyOpen}
-        movement={activeMovement}
+        movementId={activeMovement.performedMovementId ?? activeMovement.movementId}
+        movementName={activeMovement.performedMovementName ?? activeMovement.movementName}
         user={user}
         onClose={() => setHistoryOpen(false)}
       />

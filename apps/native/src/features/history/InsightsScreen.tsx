@@ -10,7 +10,7 @@ import {
   recentHistoryQueryOptions,
   todayHistorySupportQueryOptions,
 } from './queries'
-import { InsightsOverview } from './InsightsOverview'
+import { InsightsTabs } from './InsightsTabs'
 
 export function InsightsScreen() {
   const { user } = useSession()
@@ -57,11 +57,12 @@ export function InsightsScreen() {
   return (
     <Screen>
       <PageHeader title="Insights" eyebrow="Logged work" subtitle="Chartless signals from your recent training." />
-      <InsightsOverview
+      <InsightsTabs
         data={dashboard.data}
         gating={gating}
         recent={recent.data ?? dashboard.data.recentSessions}
         support={support.data}
+        user={user!}
       />
       {recent.isError || support.isError ? (
         <Text size="xs" tone="warning">Some supporting recent-training details could not refresh.</Text>

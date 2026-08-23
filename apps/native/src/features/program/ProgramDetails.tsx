@@ -1,8 +1,11 @@
-import { View } from 'react-native'
+import { useState } from 'react'
+import { Pressable, View } from 'react-native'
 import type { ProgramOverview } from '@sheetless/domain/program/types'
 import { createAccountClock, describeWorkoutDate } from '@sheetless/domain/shared/dates'
 import { formatNumber } from '@sheetless/domain/shared/set-notation'
 import { Badge, Caption, Panel, SectionLabel, Text } from '@/components'
+import { SessionSummarySheet } from '@/features/history/SessionSummarySheet'
+import { useSession } from '@/lib/session-provider'
 import { spacing, useTokens } from '@/lib/tokens'
 
 export function ProgramDetails({ overview }: { overview: ProgramOverview }) {
@@ -45,43 +48,58 @@ function CurrentLoads({ overview }: { overview: ProgramOverview }) {
 }
 
 function RecentSessions({ overview }: { overview: ProgramOverview }) {
+  const { user } = useSession()
   const { theme } = useTokens()
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   return (
-    <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
-      <SectionLabel>Recent sessions</SectionLabel>
-      {overview.recentSessions.slice(0, 3).map((session, index) => {
-        const clock = createAccountClock({ timeZone: session.timeZone })
-        const date = describeWorkoutDate({
-          scheduledDate: session.scheduledDate,
-          completedAt: session.completedAt,
-          timeZone: session.timeZone,
-          today: clock.today,
-        })
-        const complete = session.plannedSetCount > 0 && session.completedSetCount >= session.plannedSetCount
-        return (
-          <View
-            key={session.id}
-            style={{
-              alignItems: 'center',
-              borderTopColor: theme.border,
-              borderTopWidth: index ? 1 : 0,
-              flexDirection: 'row',
-              gap: spacing.sm,
-              paddingTop: index ? spacing.sm : 0,
-            }}
-          >
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text size="sm" weight={800} numberOfLines={1}>{session.title}</Text>
-              <Caption>{date.compactDate} · {date.relativeDate}</Caption>
-              {session.topSetHighlights[0] ? <Caption numberOfLines={1}>{session.topSetHighlights[0]}</Caption> : null}
-            </View>
-            <Badge tone={complete ? 'success' : 'warning'}>
-              {session.completedSetCount}/{session.plannedSetCount}
-            </Badge>
-          </View>
-        )
-      })}
-      {overview.recentSessions.length === 0 ? <Caption>No completed sessions for this program yet.</Caption> : null}
-    </Panel>
+    <>
+      <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
+        <SectionLabel>Recent sessions</SectionLabel>
+        {overview.recentSessions.slice(0, 3).map((session, index) => {
+          const clock = createAccountClock({ timeZone: session.timeZone })
+          const date = describeWorkoutDate({
+            scheduledDate: session.scheduledDate,
+            completedAt: session.completedAt,
+            timeZone: session.timeZone,
+            today: clock.today,
+          })
+          const complete = session.plannedSetCount > 0 && session.completedSetCount >= session.plannedSetCount
+          return (
+            <Pressable key={session.id} onPress={() => setSelectedSessionId(session.id)}>
+              {({ pressed }) => (
+                <View
+                  style={{
+                    alignItems: 'center',
+                    borderTopColor: theme.border,
+                    borderTopWidth: index ? 1 : 0,
+                    flexDirection: 'row',
+                    gap: spacing.sm,
+                    opacity: pressed ? 0.7 : 1,
+                    paddingTop: index ? spacing.sm : 0,
+                  }}
+                >
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text size="sm" weight={800} numberOfLines={1}>{session.title}</Text>
+                    <Caption>{date.compactDate} · {date.relativeDate}</Caption>
+                    {session.topSetHighlights[0] ? <Caption numberOfLines={1}>{session.topSetHighlights[0]}</Caption> : null}
+                  </View>
+                  <Badge tone={complete ? 'success' : 'warning'}>
+                    {session.completedSetCount}/{session.plannedSetCount}
+                  </Badge>
+                </View>
+              )}
+            </Pressable>
+          )
+        })}
+        {overview.recentSessions.length === 0 ? <Caption>No completed sessions for this program yet.</Caption> : null}
+      </Panel>
+      {user ? (
+        <SessionSummarySheet
+          sessionId={selectedSessionId}
+          user={user}
+          onClose={() => setSelectedSessionId(null)}
+        />
+      ) : null}
+    </>
   )
 }

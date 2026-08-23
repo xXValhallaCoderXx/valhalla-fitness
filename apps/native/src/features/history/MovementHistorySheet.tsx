@@ -1,7 +1,6 @@
 import { Modal, Pressable, ScrollView, View } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
-import type { MovementSlot } from '@sheetless/domain/session/types/session'
 import { createAccountClock, describeWorkoutDate } from '@sheetless/domain/shared/dates'
 import { describeLift } from '@sheetless/domain/shared/set-notation'
 import { Badge, Button, Caption, Heading, Panel, Text } from '@/components'
@@ -12,18 +11,18 @@ const HISTORY_LIMIT = 12
 
 export function MovementHistorySheet({
   open,
-  movement,
+  movementId,
+  movementName,
   user,
   onClose,
 }: {
   open: boolean
-  movement: MovementSlot
+  movementId: string
+  movementName: string
   user: User
   onClose: () => void
 }) {
   const { theme } = useTokens()
-  const movementId = movement.performedMovementId ?? movement.movementId
-  const movementName = movement.performedMovementName ?? movement.movementName
   const history = useQuery({
     ...movementHistoryQueryOptions(user, movementId),
     enabled: open,
