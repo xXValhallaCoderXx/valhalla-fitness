@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native'
 import { ChevronDown, ChevronRight } from 'lucide-react-native'
 import type { ProgramTrajectory } from '@sheetless/domain/program/program-trajectory'
 import { Badge, Caption, Panel, SectionLabel, Text } from '@/components'
+import { formatNumber } from '@sheetless/domain/shared/set-notation'
 import { spacing, useTokens } from '@/lib/tokens'
 
 export function ProgramTimeline({ trajectory }: { trajectory: ProgramTrajectory }) {
@@ -53,6 +54,7 @@ export function ProgramTimeline({ trajectory }: { trajectory: ProgramTrajectory 
                     style={{
                       alignItems: 'center',
                       flexDirection: 'row',
+                      flexWrap: 'wrap',
                       gap: spacing.sm,
                       paddingVertical: 6,
                     }}
@@ -62,13 +64,57 @@ export function ProgramTimeline({ trajectory }: { trajectory: ProgramTrajectory 
                     </Badge>
                     <Caption style={{ flex: 1 }}>{week.sessionsDone}/{week.sessionsTotal} sessions</Caption>
                     {week.isProjected ? <Caption>Projected</Caption> : null}
+                    {week.targets.length ? (
+                      <View style={{ flexBasis: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                        {week.targets.map((target) => (
+                          <Badge key={target.movementId} tone={week.isProjected ? 'action' : 'neutral'}>
+                            {target.label} {formatNumber(target.load)}
+                          </Badge>
+                        ))}
+                      </View>
+                    ) : null}
                   </View>
                 ))}
+                {phase.banked ? (
+                  <TargetValues
+                    label={`Banked by week ${phase.banked.atWeekNumber}`}
+                    tone="success"
+                    values={phase.banked.values}
+                  />
+                ) : null}
+                {phase.projected ? (
+                  <TargetValues
+                    label={`If targets hit · week ${phase.projected.byWeekNumber}`}
+                    tone="action"
+                    values={phase.projected.values}
+                  />
+                ) : null}
               </View>
             ) : null}
           </Panel>
         )
       })}
+    </Panel>
+  )
+}
+
+function TargetValues({
+  label,
+  tone,
+  values,
+}: {
+  label: string
+  tone: 'action' | 'success'
+  values: Array<{ movementId: string; label: string; value: number }>
+}) {
+  return (
+    <Panel surface="inset" style={{ gap: 5, marginTop: spacing.xs, padding: spacing.sm }}>
+      <Caption tone={tone}>{label}</Caption>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+        {values.map((value) => (
+          <Badge key={value.movementId} tone={tone}>{value.label} {formatNumber(value.value)}</Badge>
+        ))}
+      </View>
     </Panel>
   )
 }

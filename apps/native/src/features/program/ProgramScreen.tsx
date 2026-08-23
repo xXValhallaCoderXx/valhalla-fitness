@@ -9,6 +9,7 @@ import { programOverviewQueryOptions } from './queries'
 import { ProgramHeader } from './ProgramHeader'
 import { ProgramPhaseMap } from './ProgramPhaseMap'
 import { ProgramTimeline } from './ProgramTimeline'
+import { ProgramDetails } from './ProgramDetails'
 
 export function ProgramScreen() {
   const { user } = useSession()
@@ -77,6 +78,7 @@ export function ProgramScreen() {
       ) : null}
       <ProgramPhaseMap phaseMap={phaseMap} />
       <ProgramTimeline trajectory={trajectory} />
+      <ProgramDetails overview={overview.data} />
     </Screen>
   )
 }
