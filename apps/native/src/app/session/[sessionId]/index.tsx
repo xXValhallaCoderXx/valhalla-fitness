@@ -4,7 +4,7 @@
  * Mutation wiring lands in L3; this commit is the full render layer.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useIsMutating, useQuery } from '@tanstack/react-query'
 import { router, useLocalSearchParams } from 'expo-router'
 import { ScrollView, View } from 'react-native'
 import { useKeepAwake } from 'expo-keep-awake'
@@ -31,6 +31,8 @@ import { sessionQueryOptions } from '@/features/session/queries'
 import { RestTimerProvider } from '@/features/session/RestTimerProvider'
 import { useAddExerciseSet } from '@/features/session/useAddExerciseSet'
 import { useDiscardWorkout } from '@/features/session/useDiscardWorkout'
+import { FinishWorkoutSheet } from '@/features/session/FinishWorkoutSheet'
+import { useFinishSession } from '@/features/session/useFinishSession'
 import { useSetLogMutation } from '@/features/session/useSetLogMutation'
 
 export default function LiveSessionScreen() {
@@ -116,7 +118,12 @@ function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
     activeMovement ?? session.movements[0] ?? ({} as never),
   )
   const [discardOpen, setDiscardOpen] = useState(false)
+  const [finishOpen, setFinishOpen] = useState(false)
   const discard = useDiscardWorkout(user, session.sessionId, () => setDiscardOpen(false))
+  const finish = useFinishSession(user, session)
+  const activeSessionMutations = useIsMutating({
+    predicate: (mutation) => mutation.options.scope?.id === `session:${session.sessionId}`,
+  })
 
   if (!activeMovement) {
     return (
@@ -181,6 +188,14 @@ function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
   const allComplete =
     session.movements.length > 0 &&
     session.movements.every((movement) => movement.sets.every((set) => set.completed))
+  const incompleteSetCount = session.movements.reduce(
+    (count, movement) => count + movement.sets.filter((set) => !set.completed).length,
+    0,
+  )
+  const hasUnsettledSet = session.movements.some((movement) =>
+    movement.sets.some((set) => set.syncState === 'saving' || set.syncState === 'syncFailed'),
+  )
+  const finishBlocked = hasUnsettledSet || activeSessionMutations > 0
 
   return (
     <View style={{ backgroundColor: theme.background, flex: 1, paddingTop: insets.top }}>
@@ -190,8 +205,8 @@ function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
         centerSecondary={`${session.title} · Set ${setNumber} of ${setTotal}`}
         equipmentMode={session.equipmentMode}
         finishLabel="Finish"
-        finishDisabled
-        onFinish={() => {}}
+        finishDisabled={finishBlocked}
+        onFinish={() => setFinishOpen(true)}
         discardDisabled={discard.isPending}
         onDiscard={() => setDiscardOpen(true)}
       />
@@ -230,6 +245,13 @@ function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
             <Text size="sm" tone="dimmed">
               Finish when you're ready to wrap up and review the session.
             </Text>
+            <Button
+              label="Finish workout"
+              fullWidth
+              disabled={finishBlocked}
+              onPress={() => setFinishOpen(true)}
+              testID="focus-finish-complete"
+            />
           </Panel>
         ) : null}
 
@@ -317,6 +339,17 @@ function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
           ? 'This permanently deletes the workout and all of its logs. It will not appear in your history.'
           : 'This permanently deletes this attempt, including its logs, notes, exercise changes, and future phase edits made during the workout. The same planned workout will remain next.'}
       </ConfirmDialog>
+
+      <FinishWorkoutSheet
+        open={finishOpen}
+        incompleteSetCount={incompleteSetCount}
+        isPending={finish.isPending}
+        error={finish.errorMessage}
+        onCancel={() => setFinishOpen(false)}
+        onFinish={(reflection) => {
+          if (!finishBlocked) finish.mutate(reflection)
+        }}
+      />
     </View>
   )
 }

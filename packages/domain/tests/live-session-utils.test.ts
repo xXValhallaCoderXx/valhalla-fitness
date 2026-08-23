@@ -8,7 +8,7 @@ import {
   resolveSetRir,
   seedLoadForSet,
   seedRepsForSet,
-} from '../src/domains/session/components/live-session-utils'
+} from '@sheetless/domain/session/live-session-utils'
 
 function previous(extra: Partial<PreviousComparable> = {}): PreviousComparable {
   return { movementId: 'm1', label: 'Last comparable: 90 kg × 5 @ RIR 3 · e1RM 111 kg - 2026-06-29', ...extra }

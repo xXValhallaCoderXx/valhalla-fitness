@@ -7,7 +7,7 @@ import {
   nextIncompleteSetIndex,
   setSegments,
   upcomingMovements,
-} from '../src/domains/session/components/live-focus-utils'
+} from '@sheetless/domain/session/live-focus-utils'
 
 function set(setIndex: number, completed: boolean, extra: Partial<SetLog> = {}): SetLog {
   return { id: `set-${setIndex}`, setIndex, targetLoad: 100, targetReps: 5, completed, ...extra }
