@@ -1,5 +1,8 @@
 import type { z } from 'zod'
-import type { UserContext } from '../shared/context'
+import {
+  isActiveMovement,
+  isFreeWeightMovement,
+} from '@sheetless/domain/movement/movements'
 import type { Movement, SwapScope } from '@sheetless/domain/movement/types'
 import type { AccessoryProgressionMethod } from '@sheetless/domain/program/types'
 import type { MovementSlot, PlannedSession, SetTarget, WorkoutSession } from '@sheetless/domain/session/types'
@@ -17,14 +20,9 @@ import {
   removeSessionAccessoryInputSchema,
   reorderSessionAccessoriesInputSchema,
 } from '@sheetless/domain/session/schemas'
-import {
-  getMovementCatalogForSwap,
-} from '../movement/catalog'
-import {
-  isActiveMovement,
-  isFreeWeightMovement,
-} from '@sheetless/domain/movement/movements'
 import type { Json, Tables } from '@sheetless/domain/shared/types/database'
+import { getMovementCatalogForSwap } from '../movement/catalog'
+import type { UserContext } from '../shared/context'
 import { getSession } from './reads'
 import { getPreviousComparablesBySlotId } from './previous-comparables'
 import { phaseKeyForSnapshot } from './helpers'
@@ -98,8 +96,9 @@ function nextAccessorySlotIds(templateSessionId: string, usedSlotIds: Set<string
 
 export async function addSessionAccessory(
   ctx: UserContext,
-  data: z.infer<typeof addSessionAccessoryInputSchema>,
+  input: z.infer<typeof addSessionAccessoryInputSchema>,
 ): Promise<WorkoutSession> {
+    const data = addSessionAccessoryInputSchema.parse(input)
     if (!isAccessoryProgressionMethod(data.progressionMethod)) throw new Error('Invalid accessory progression method.')
     const repTarget = parseAccessoryRepTarget(data.repTarget)
     if (!repTarget) throw new Error('Enter a valid rep target, such as 8-12 or 15.')
@@ -276,11 +275,9 @@ function matchingProgramAccessoryAddition(
 
 export async function reorderSessionAccessories(
   ctx: UserContext,
-  data: z.infer<typeof reorderSessionAccessoriesInputSchema>,
+  input: z.infer<typeof reorderSessionAccessoriesInputSchema>,
 ): Promise<WorkoutSession> {
-    if (!Array.isArray(data.orderedSlotIds) || data.orderedSlotIds.some((slotId) => typeof slotId !== 'string')) {
-      throw new Error('Invalid accessory order.')
-    }
+    const data = reorderSessionAccessoriesInputSchema.parse(input)
 
     const { supabase, user } = ctx
     const { data: sessionRow, error: sessionError } = await supabase
@@ -380,8 +377,9 @@ export async function reorderSessionAccessories(
 
 export async function removeSessionAccessory(
   ctx: UserContext,
-  data: z.infer<typeof removeSessionAccessoryInputSchema>,
+  input: z.infer<typeof removeSessionAccessoryInputSchema>,
 ): Promise<WorkoutSession> {
+    const data = removeSessionAccessoryInputSchema.parse(input)
     if (data.scope !== 'session' && data.scope !== 'phase_slot') throw new Error('Invalid accessory scope.')
 
     const { supabase, user } = ctx

@@ -107,8 +107,9 @@ async function getPriorBestsByMovement(
 
 export async function finishSession(
   ctx: UserContext,
-  data: z.infer<typeof finishSessionInputSchema>,
+  input: z.infer<typeof finishSessionInputSchema>,
 ): Promise<SessionSummary> {
+  const data = finishSessionInputSchema.parse(input)
   const { supabase, user } = ctx
   const session = await getSession(ctx, data.sessionId)
   if (session.status === 'completed') {

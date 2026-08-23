@@ -119,8 +119,9 @@ async function getSwapOptionsForContext(
 
 export async function listMovementSwapOptions(
   ctx: UserContext,
-  data: z.infer<typeof sessionExerciseInputSchema>,
+  input: z.infer<typeof sessionExerciseInputSchema>,
 ): Promise<MovementSwapOption[]> {
+    const data = sessionExerciseInputSchema.parse(input)
     const { supabase, user } = ctx
     const context = await getSwapContext(supabase, user.id, data.sessionId, data.exerciseLogId)
     return getSwapOptionsForContext(supabase, context)
@@ -128,8 +129,9 @@ export async function listMovementSwapOptions(
 
 export async function substituteMovement(
   ctx: UserContext,
-  data: z.infer<typeof substituteMovementInputSchema>,
+  input: z.infer<typeof substituteMovementInputSchema>,
 ) {
+    const data = substituteMovementInputSchema.parse(input)
     const { supabase, user } = ctx
     const scope = data.scope ?? 'session'
     const intent = {

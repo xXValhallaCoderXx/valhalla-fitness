@@ -23,7 +23,13 @@ export interface TextInputProps {
   autoFocus?: boolean
   secureTextEntry?: boolean
   maxLength?: number
+  multiline?: boolean
+  numberOfLines?: number
   textAlign?: TextStyle['textAlign']
+  textAlignVertical?: TextStyle['textAlignVertical']
+  blurOnSubmit?: RNTextInputProps['blurOnSubmit']
+  returnKeyType?: RNTextInputProps['returnKeyType']
+  accessibilityLabel?: string
   editable?: boolean
   onSubmitEditing?: () => void
   containerStyle?: StyleProp<ViewStyle>
@@ -43,7 +49,13 @@ export function TextInput({
   autoFocus,
   secureTextEntry,
   maxLength,
+  multiline,
+  numberOfLines,
   textAlign,
+  textAlignVertical,
+  blurOnSubmit,
+  returnKeyType,
+  accessibilityLabel,
   editable = true,
   onSubmitEditing,
   containerStyle,
@@ -67,6 +79,12 @@ export function TextInput({
         autoFocus={autoFocus}
         secureTextEntry={secureTextEntry}
         maxLength={maxLength}
+        multiline={multiline}
+        numberOfLines={numberOfLines}
+        textAlignVertical={textAlignVertical}
+        blurOnSubmit={blurOnSubmit}
+        returnKeyType={returnKeyType}
+        accessibilityLabel={accessibilityLabel}
         editable={editable}
         onSubmitEditing={onSubmitEditing}
         onFocus={() => setFocused(true)}
@@ -85,6 +103,7 @@ export function TextInput({
             paddingHorizontal: 12,
             paddingVertical: 8,
             textAlign,
+            textAlignVertical,
           },
           // Focus-ring halo only exists as box-shadow; native gets border swap only.
           Platform.OS === 'web' && focused && !error

@@ -33,7 +33,14 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const { theme } = useTokens()
   return (
-    <Modal visible={open} transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal
+      visible={open}
+      transparent
+      animationType="fade"
+      onRequestClose={() => {
+        if (!isPending) onCancel()
+      }}
+    >
       <Pressable
         accessible={false}
         onPress={isPending ? undefined : onCancel}
@@ -48,6 +55,9 @@ export function ConfirmDialog({
         <Pressable accessible={false} onPress={() => {}} style={{ cursor: 'auto' }}>
           <View
             accessibilityViewIsModal
+            onAccessibilityEscape={() => {
+              if (!isPending) onCancel()
+            }}
             style={{
               backgroundColor: theme.surface,
               borderColor: theme.cardBorder,
@@ -73,7 +83,14 @@ export function ConfirmDialog({
             ) : null}
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs }}>
               <View style={{ flex: 1 }}>
-                <Button label={cancelLabel} variant="default" fullWidth disabled={isPending} onPress={onCancel} />
+                <Button
+                  label={cancelLabel}
+                  variant="default"
+                  fullWidth
+                  disabled={isPending}
+                  style={{ minHeight: 44 }}
+                  onPress={onCancel}
+                />
               </View>
               <View style={{ flex: 1 }}>
                 <Button
@@ -81,6 +98,7 @@ export function ConfirmDialog({
                   tone={tone}
                   fullWidth
                   loading={isPending}
+                  style={{ minHeight: 44 }}
                   onPress={onConfirm}
                   testID="confirm-dialog-confirm"
                 />

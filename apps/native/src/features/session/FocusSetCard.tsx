@@ -28,6 +28,7 @@ export function FocusSetCard({
   setTotal,
   suggestedRir,
   isSaving,
+  disabled,
   saveFailed,
   onLogSet,
   onRirSelected,
@@ -39,6 +40,7 @@ export function FocusSetCard({
   setTotal: number
   suggestedRir?: number
   isSaving: boolean
+  disabled?: boolean
   saveFailed: boolean
   onLogSet: (draft: SetDraft) => void
   onRirSelected: (setIndex: number, value: number) => void
@@ -62,6 +64,7 @@ export function FocusSetCard({
 
   const ctaLabel = saveFailed ? 'Retry save' : set.completed ? 'Update set' : 'Log set'
   const previousLine = previousSetShort(movement.previous, set.setIndex)
+  const controlsDisabled = isSaving || disabled
 
   return (
     <View
@@ -99,7 +102,7 @@ export function FocusSetCard({
           step={session.rounding}
           onAdjust={adjustLoad}
           onType={(value) => setDraft((current) => ({ ...current, actualLoad: Math.max(0, value) }))}
-          disabled={isSaving}
+          disabled={controlsDisabled}
         />
         <FocusStepper
           label="Reps"
@@ -107,11 +110,11 @@ export function FocusSetCard({
           step={1}
           onAdjust={adjustReps}
           onType={(value) => setDraft((current) => ({ ...current, actualReps: Math.max(0, value) }))}
-          disabled={isSaving}
+          disabled={controlsDisabled}
         />
         <FocusRirRow
           value={effectiveActualRir}
-          disabled={isSaving}
+          disabled={controlsDisabled}
           onChange={(value) => {
             setDraft((current) => ({ ...current, actualRir: value }))
             onRirSelected(set.setIndex, value)
@@ -128,7 +131,7 @@ export function FocusSetCard({
           label={ctaLabel}
           fullWidth
           loading={isSaving}
-          disabled={isSaving}
+          disabled={controlsDisabled}
           onPress={() =>
             onLogSet({
               actualLoad: Number(draft.actualLoad),

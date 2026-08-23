@@ -68,7 +68,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Exercise catalogue | **Shipped; media deferred** | The catalogue stores 151 movements (140 active and 11 resolvable deprecated aliases) with resistance mode, required equipment, pattern, primary/secondary muscles, aliases, load convention, and replacement lineage. Instructions, external IDs, and media are not yet included. |
 | Feedback | **Shipped** | Global and post-workout feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
-| Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, profile/settings, template/history drill-ins, logging, finish/recap/decisions, SecureStore auth, haptics, keep-awake, and rest notifications. Native Settings includes appearance, units, rest preferences, bodyweight, strength estimates, JSON sharing, legal/account actions, and deletion. Programs exposes all 14 built-in variants through six families and supports core setup, preview, and active-program start/replacement. Native Find My Plan, custom-programme creation, equipment conversion, setup-time substitutions, accessory additions, and walkthrough replay remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
+| Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, profile/settings, template/history drill-ins, logging, finish/recap, persistent progression review, SecureStore auth, haptics, keep-awake, and rest notifications. The focused logger supports allowed movement swaps, session- and phase-scoped live accessories, resumed ad-hoc exercise management, session notes, movement history, and plate calculation. Native Settings includes appearance, units, rest preferences, bodyweight, strength estimates, JSON sharing, legal/account actions, and deletion. Programs exposes all 14 built-in variants through six families and supports core setup, preview, and active-program start/replacement. Native blank/ad-hoc start, Find My Plan, custom-programme creation, equipment conversion, setup-time substitutions/accessories, overview/reorder/rename tools, and walkthrough replay remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
 | Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Failed sets must be retried before finishing. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
 | Privacy, deletion, and export | **Shipped; deployment/review pending** | Public Privacy, Terms, and account-deletion routes, paginated machine-readable account export, native JSON sharing, and confirmed self-service account deletion are available. Production must deploy the public deletion page, apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
 
@@ -100,10 +100,23 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 - Warm-up generation and user-editable set types.
 - Supersets/circuits and body measurements beyond bodyweight.
 - Persisted Find My Plan answers.
-- Native Find My Plan, custom-programme creation, equipment conversion, setup-time substitutions,
-  and accessory additions.
+- Native blank/ad-hoc start, Find My Plan, custom-programme creation, equipment conversion,
+  setup-time substitutions/accessories, and live overview/reorder/rename tools.
 - Wearables, Health integrations, social features, public leaderboards, and coaching marketplace.
 - AI-generated workouts, autonomous substitutions, readiness automation, and injury/pain gating.
+
+#### Native migration milestones
+
+1. Add native blank/ad-hoc start, Repeat, favourites, and workout rename; reuse the shipped movement
+   picker and add live overview/reorder tools where they improve longer workouts.
+2. Port Find My Plan plus programme-catalogue search and filters.
+3. Port equipment-aware programme setup/conversion, including setup-time substitutions and
+   accessories.
+4. Port custom-programme creation and management.
+5. Add richer Insights ranges, charts, and bodyweight trends without weakening bounded-history
+   queries.
+6. Port first-run onboarding and the optional live walkthrough/replay.
+7. Finish Google auth, feedback/history search, and remaining Android release polish.
 
 ### Recorded release posture
 
@@ -792,8 +805,11 @@ stack and Mailpit running, record a physical-device pass for:
 - Mailpit OTP sign-in and all four tabs.
 - Built-in and custom templates, including entries without family metadata, and template preview.
 - Today streak, logger movement history, Plan/Insights session drill-ins, and Hermes-rendered dates.
-- Set edits, retry/error state, blocked finish, lost-response recovery, recap, and progression
-  Apply/Keep/Apply-all.
+- Set edits, retry/error state, blocked finish, lost-response recovery, recap, and persistent
+  progression Apply/Keep/Apply-all from both Today and Plan; unresolved decisions must still block a
+  planned Start after force-stop/reopen while Resume remains available.
+- Allowed movement swaps, session- and phase-scoped accessory add/remove, resumed ad-hoc exercise
+  add/remove (including its empty state), notes carried into recap, and kg/lb plate calculations.
 - Settings Save/Discard and dirty-leave protection, system/light/dark persistence, kg/lb estimate
   conversion, bodyweight add/replace/delete, JSON sharing, legal links, sign-out/sign-in, and
   successful deletion using only a disposable local account.

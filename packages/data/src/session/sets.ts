@@ -10,8 +10,9 @@ import type { UserContext } from '../shared/context'
 
 export async function upsertSetLog(
   ctx: UserContext,
-  data: z.infer<typeof upsertSetLogInputSchema>,
+  input: z.infer<typeof upsertSetLogInputSchema>,
 ): Promise<WorkoutSession> {
+  const data = upsertSetLogInputSchema.parse(input)
   const { error } = await ctx.supabase.rpc('upsert_session_set_v2', {
     p_session_id: data.sessionId,
     p_exercise_log_id: data.exerciseLogId,
@@ -61,8 +62,9 @@ function snapshotSetFromTarget(target: SetTarget): SetLog {
 
 export async function addExerciseSet(
   ctx: UserContext,
-  data: z.infer<typeof addExerciseSetInputSchema>,
+  input: z.infer<typeof addExerciseSetInputSchema>,
 ): Promise<WorkoutSession> {
+  const data = addExerciseSetInputSchema.parse(input)
   const { supabase, user } = ctx
   const { data: sessionRow, error: sessionError } = await supabase
     .from('workout_sessions')

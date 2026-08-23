@@ -1,5 +1,8 @@
 import type { z } from 'zod'
-import type { UserContext } from '../shared/context'
+import {
+  isActiveMovement,
+  isFreeWeightMovement,
+} from '@sheetless/domain/movement/movements'
 import type { PlannedSession, WorkoutSession } from '@sheetless/domain/session/types'
 import {
   AD_HOC_DEFAULT_SET_COUNT,
@@ -10,17 +13,17 @@ import {
   addAdHocExerciseInputSchema,
   removeAdHocExerciseInputSchema,
 } from '@sheetless/domain/session/schemas'
-import {
-  getMovementCatalogForSwap,
-} from '../movement/catalog'
 import type { Json } from '@sheetless/domain/shared/types/database'
+import { getMovementCatalogForSwap } from '../movement/catalog'
+import type { UserContext } from '../shared/context'
 import { getSession } from './reads'
 import { getPreviousComparablesBySlotId } from './previous-comparables'
 
 export async function addAdHocExercise(
   ctx: UserContext,
-  data: z.infer<typeof addAdHocExerciseInputSchema>,
+  input: z.infer<typeof addAdHocExerciseInputSchema>,
 ): Promise<WorkoutSession> {
+    const data = addAdHocExerciseInputSchema.parse(input)
     const { supabase, user } = ctx
     const { data: sessionRow, error: sessionError } = await supabase
       .from('workout_sessions')
@@ -59,9 +62,15 @@ export async function addAdHocExercise(
 
     const catalog = await getMovementCatalogForSwap(supabase)
     const movement = catalog[data.movementId]
-    if (!movement) throw new Error('Unknown movement.')
+    if (!movement || !isActiveMovement(movement)) throw new Error('Movement is not available.')
 
     const snapshot = sessionRow.prescription_snapshot as PlannedSession
+    if (
+      snapshot.equipmentMode === 'free_weight' &&
+      !isFreeWeightMovement(movement)
+    ) {
+      throw new Error('Free weights only workouts require a free-weight exercise.')
+    }
     const usedSlotIds = new Set<string>((exerciseRows ?? []).map((row) => row.slot_id))
     for (const snapshotSlot of snapshot.movements) usedSlotIds.add(snapshotSlot.slotId ?? snapshotSlot.id)
     const slotId = nextAdHocSlotId(usedSlotIds, movement.id)
@@ -114,8 +123,9 @@ export async function addAdHocExercise(
 
 export async function removeAdHocExercise(
   ctx: UserContext,
-  data: z.infer<typeof removeAdHocExerciseInputSchema>,
+  input: z.infer<typeof removeAdHocExerciseInputSchema>,
 ): Promise<WorkoutSession> {
+    const data = removeAdHocExerciseInputSchema.parse(input)
     const { supabase, user } = ctx
     const { data: sessionRow, error: sessionError } = await supabase
       .from('workout_sessions')

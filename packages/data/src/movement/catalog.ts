@@ -10,7 +10,7 @@ import {
   isFreeWeightMovement,
   movementCatalog,
 } from '@sheetless/domain/movement/movements'
-import type { DataClient } from '../shared/context'
+import type { DataClient, UserContext } from '../shared/context'
 
 function mapMovementReplacementRule(row: Tables<'movement_replacement_rules'>): MovementReplacementRule {
   return {
@@ -80,6 +80,13 @@ export function listAccessoryMovementOptionsFromCatalog(catalog: Record<string, 
     }))
 }
 
+export async function listAccessoryMovementOptions(
+  ctx: UserContext,
+): Promise<AccessoryMovementOption[]> {
+  const catalog = await getMovementCatalogForSwap(ctx.supabase)
+  return listAccessoryMovementOptionsFromCatalog(catalog)
+}
+
 // Full catalog for ad-hoc workouts — competition lifts included and surfaced first.
 export function listMovementOptionsFromCatalog(catalog: Record<string, Movement>): AccessoryMovementOption[] {
   return Object.values(catalog)
@@ -96,4 +103,11 @@ export function listMovementOptionsFromCatalog(catalog: Record<string, Movement>
       defaultUnit: movement.defaultUnit,
       freeWeightCompatible: isFreeWeightMovement(movement),
     }))
+}
+
+export async function listMovementOptions(
+  ctx: UserContext,
+): Promise<AccessoryMovementOption[]> {
+  const catalog = await getMovementCatalogForSwap(ctx.supabase)
+  return listMovementOptionsFromCatalog(catalog)
 }

@@ -7,6 +7,7 @@ import { radii, spacing, useTokens } from '@/lib/tokens'
 
 export function FocusTopBar({
   onBack,
+  backDisabled,
   centerPrimary,
   centerSecondary,
   equipmentMode,
@@ -17,6 +18,7 @@ export function FocusTopBar({
   onDiscard,
 }: {
   onBack: () => void
+  backDisabled: boolean
   centerPrimary: string
   centerSecondary: string
   equipmentMode?: PlannedSession['equipmentMode']
@@ -42,12 +44,15 @@ export function FocusTopBar({
     >
       <Pressable
         onPress={onBack}
+        disabled={backDisabled}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: backDisabled }}
         testID="focus-back"
         style={({ pressed }) => ({
           alignItems: 'center',
           flexDirection: 'row',
-          opacity: pressed ? 0.6 : 1,
-          paddingVertical: 4,
+          minHeight: 44,
+          opacity: backDisabled ? 0.4 : pressed ? 0.6 : 1,
         })}
       >
         <ChevronLeft size={20} color={theme.textMuted} />
@@ -69,10 +74,15 @@ export function FocusTopBar({
           onPress={onDiscard}
           disabled={discardDisabled}
           accessibilityLabel="Discard workout"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: discardDisabled }}
           testID="focus-discard"
           style={({ pressed }) => ({
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 44,
+            minWidth: 44,
             opacity: discardDisabled ? 0.3 : pressed ? 0.6 : 1,
-            padding: 6,
           })}
         >
           <Trash2 size={15} color={theme.tones.danger.text} />
@@ -80,12 +90,16 @@ export function FocusTopBar({
         <Pressable
           onPress={onFinish}
           disabled={finishDisabled}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: finishDisabled }}
           testID="focus-finish"
           style={({ pressed }) => ({
+            alignItems: 'center',
             borderRadius: radii.sm,
+            justifyContent: 'center',
+            minHeight: 44,
             opacity: finishDisabled ? 0.4 : pressed ? 0.6 : 1,
             paddingHorizontal: spacing.xs,
-            paddingVertical: 4,
           })}
         >
           <Text size="sm" style={{ color: theme.tones.action.text, fontWeight: '700' }}>

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { addExerciseSet, upsertSetLog } from '@sheetless/data/session/sets'
 import { makeStubCtx, type TestTables } from './support/supabase-stub'
 
+const SESSION_ID = 'f93f3498-4d9c-4ec3-93ef-7520f8971c19'
+const EXERCISE_LOG_ID = 'ffbe42d8-86d7-4714-88d5-8599fc5183d3'
+
 const SNAPSHOT = {
   kind: 'ad_hoc',
   id: 'planned-1',
@@ -15,7 +18,7 @@ function tables(stateVersion: number): TestTables {
   return {
     workout_sessions: [
       {
-        id: 'session-1',
+        id: SESSION_ID,
         user_id: 'user-1',
         status: 'in_progress',
         started_at: '2026-08-23T10:00:00Z',
@@ -33,8 +36,8 @@ function tables(stateVersion: number): TestTables {
     ],
     exercise_logs: [
       {
-        id: 'ex-1',
-        session_id: 'session-1',
+        id: EXERCISE_LOG_ID,
+        session_id: SESSION_ID,
         user_id: 'user-1',
         slot_id: 'slot-1',
         order_index: 0,
@@ -52,8 +55,8 @@ describe('upsertSetLog', () => {
     const { ctx, stub } = makeStubCtx(tables(4))
 
     await upsertSetLog(ctx, {
-      sessionId: 'session-1',
-      exerciseLogId: 'ex-1',
+      sessionId: SESSION_ID,
+      exerciseLogId: EXERCISE_LOG_ID,
       setIndex: 0,
       actualLoad: 100,
       actualReps: 5,
@@ -65,7 +68,7 @@ describe('upsertSetLog', () => {
 
     expect(stub.rpcCalls[0].fn).toBe('upsert_session_set_v2')
     expect(stub.rpcCalls[0].args).toMatchObject({
-      p_session_id: 'session-1',
+      p_session_id: SESSION_ID,
       p_client_mutation_id: 'mut-abc',
       p_expected_state_version: 4,
       p_completed: true,
@@ -79,8 +82,8 @@ describe('addExerciseSet replay path', () => {
     const { ctx, stub } = makeStubCtx(tables(7))
 
     await addExerciseSet(ctx, {
-      sessionId: 'session-1',
-      exerciseLogId: 'ex-1',
+      sessionId: SESSION_ID,
+      exerciseLogId: EXERCISE_LOG_ID,
       clientMutationId: 'mut-retry',
       expectedStateVersion: 4,
     })
@@ -99,7 +102,7 @@ describe('addExerciseSet replay path', () => {
     seeded.set_logs = [
       {
         id: 'set-1',
-        exercise_log_id: 'ex-1',
+        exercise_log_id: EXERCISE_LOG_ID,
         user_id: 'user-1',
         set_index: 1,
         target_load: '60',
@@ -123,8 +126,8 @@ describe('addExerciseSet replay path', () => {
     const { ctx, stub } = makeStubCtx(seeded)
 
     await addExerciseSet(ctx, {
-      sessionId: 'session-1',
-      exerciseLogId: 'ex-1',
+      sessionId: SESSION_ID,
+      exerciseLogId: EXERCISE_LOG_ID,
       clientMutationId: 'mut-new',
       expectedStateVersion: 4,
     })

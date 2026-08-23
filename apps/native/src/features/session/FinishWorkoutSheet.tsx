@@ -53,12 +53,17 @@ export function FinishWorkoutSheet({
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={() => !isPending && onCancel()}>
       <Pressable
+        accessible={false}
         onPress={isPending ? undefined : onCancel}
         style={{ backgroundColor: 'rgba(6, 12, 14, 0.55)', flex: 1, justifyContent: 'flex-end' }}
       >
         {/* Inner pressable swallows taps so only the backdrop dismisses. */}
-        <Pressable onPress={() => {}} style={{ cursor: 'auto' }}>
+        <Pressable accessible={false} onPress={() => {}} style={{ cursor: 'auto' }}>
           <View
+            accessibilityViewIsModal
+            onAccessibilityEscape={() => {
+              if (!isPending) onCancel()
+            }}
             testID="finish-session-sheet"
             style={{
               backgroundColor: theme.surface,
@@ -97,6 +102,8 @@ export function FinishWorkoutSheet({
                     <Pressable
                       key={option}
                       accessibilityLabel={`Effort ${option} of ${SESSION_RPE_MAX}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: isPending, selected }}
                       disabled={isPending}
                       onPress={() => setEffort(selected ? null : option)}
                       style={({ pressed }) => ({
@@ -107,6 +114,7 @@ export function FinishWorkoutSheet({
                         borderWidth: 1,
                         flexBasis: '17.5%',
                         flexGrow: 1,
+                        minHeight: 44,
                         opacity: pressed ? 0.8 : 1,
                         paddingVertical: spacing.xs + 2,
                       })}
