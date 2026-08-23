@@ -3,6 +3,7 @@ import { Button, EmptyState, Panel, Screen, SectionLabel, Text } from '@/compone
 import { useMe } from '@/lib/account'
 import { getSupabase } from '@/lib/supabase'
 import { spacing } from '@/lib/tokens'
+import { TimerSettingsCard } from './TimerSettingsCard'
 
 export function SettingsScreen() {
   const me = useMe()
@@ -39,6 +40,7 @@ export function SettingsScreen() {
 
   return (
     <Screen padTop={false}>
+      <TimerSettingsCard profile={me.data} />
       <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
         <SectionLabel>Account</SectionLabel>
         <Text weight={800}>{me.data.displayName?.trim() || 'Sheetless member'}</Text>
