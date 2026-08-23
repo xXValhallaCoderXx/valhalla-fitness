@@ -3,6 +3,10 @@ import type { User } from '@supabase/supabase-js'
 import { startAdHocSession } from '@sheetless/data/session/lifecycle'
 import { browserIanaTimeZone } from '@sheetless/domain/shared/calendar-date'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
+import {
+  invalidateProgramOverviewBestEffort,
+  patchProgramHasActiveSession,
+} from '@/features/program/program-cache'
 import { buildUserContext } from '@/lib/account'
 import { useStableMutationRequest } from '@/lib/useStableMutationRequest'
 import { updateSessionManagementCaches } from './session-management-cache'
@@ -33,7 +37,9 @@ export function useStartAdHocWorkout(user: User) {
     onSuccess: (session) => {
       request.clearRequest()
       updateSessionManagementCaches(queryClient, user.id, session)
+      patchProgramHasActiveSession(queryClient, user.id, true)
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(user.id) })
+      void invalidateProgramOverviewBestEffort(queryClient, user.id)
     },
   })
 }

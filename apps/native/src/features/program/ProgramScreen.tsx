@@ -8,6 +8,7 @@ import { Button, EmptyState, PageHeader, Panel, Screen, SettingsHeaderAction, Te
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { programOverviewQueryOptions } from './queries'
+import { ProgramEquipmentModeCard } from './ProgramEquipmentModeCard'
 import { ProgramHeader } from './ProgramHeader'
 import { ProgramPhaseMap } from './ProgramPhaseMap'
 import { ProgramTimeline } from './ProgramTimeline'
@@ -81,6 +82,12 @@ export function ProgramScreen() {
   return (
     <Screen>
       <ProgramHeader overview={overview.data} phaseMap={phaseMap} action={settingsAction} />
+      <ProgramEquipmentModeCard
+        key={program.id}
+        user={user!}
+        program={program}
+        hasActiveSession={overview.data.hasActiveSession}
+      />
       <ProgressionReviewAlert
         decisions={overview.data.pendingDecisions}
         onReview={() => setReviewOpen(true)}

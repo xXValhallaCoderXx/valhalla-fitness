@@ -21,6 +21,10 @@ import {
 import { todayHistorySupportQueryOptions } from '@/features/history/queries'
 import { ProgressionReviewAlert } from '@/features/program/ProgressionReviewAlert'
 import { ProgressionReviewSheet } from '@/features/program/ProgressionReviewSheet'
+import {
+  invalidateProgramOverviewBestEffort,
+  patchProgramHasActiveSession,
+} from '@/features/program/program-cache'
 import { buildUserContext, useMe } from '@/lib/account'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
@@ -63,7 +67,9 @@ export function TodayScreen() {
     onSuccess: (session) => {
       plannedStartRequest.clearRequest()
       queryClient.setQueryData(accountQueryKeys.session(user!.id, session.sessionId), session)
+      patchProgramHasActiveSession(queryClient, user!.id, true)
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(user!.id) })
+      void invalidateProgramOverviewBestEffort(queryClient, user!.id)
       router.push({ pathname: '/session/[sessionId]', params: { sessionId: session.sessionId } })
     },
     onError: () => {
