@@ -20,6 +20,7 @@ export function TodayPlannedSessionCard({
   completedToday,
   pendingDecisionCount,
   isStarting,
+  startDisabled,
   startError,
   onStart,
 }: {
@@ -28,6 +29,7 @@ export function TodayPlannedSessionCard({
   completedToday: boolean
   pendingDecisionCount: number
   isStarting: boolean
+  startDisabled?: boolean
   startError: string | null
   onStart: () => void
 }) {
@@ -78,7 +80,7 @@ export function TodayPlannedSessionCard({
         label={completedToday ? 'Start next session' : 'Start workout'}
         fullWidth
         loading={isStarting}
-        disabled={pendingDecisionCount > 0}
+        disabled={pendingDecisionCount > 0 || startDisabled}
         onPress={onStart}
         testID="today-start"
       />

@@ -46,6 +46,7 @@ export async function startAdHocSession(
   ctx: UserContext,
   data: z.infer<typeof startAdHocSessionInputSchema>,
 ): Promise<WorkoutSession> {
+  const input = startAdHocSessionInputSchema.parse(data)
   const { supabase, user } = ctx
 
   // Never two live sessions: an existing in-progress workout (plan or ad-hoc) wins.
@@ -61,14 +62,14 @@ export async function startAdHocSession(
   if (activeRow) return getSession(ctx, activeRow.id)
 
   const profile = await ensureProfile(ctx)
-  const timeZone = resolveIanaTimeZone(data.timeZone ?? profile.timezone)
+  const timeZone = resolveIanaTimeZone(input.timeZone ?? profile.timezone)
   const scheduledDate = calendarDateInTimeZone(new Date(), timeZone)
 
   let title: string | null = null
   let movements: MovementSlot[] = []
   let lineageRootId: string | null = null
-  if (data.sourceSessionId) {
-    const source = await getSession(ctx, data.sourceSessionId)
+  if (input.sourceSessionId) {
+    const source = await getSession(ctx, input.sourceSessionId)
     if (!source.isAdHoc) throw new Error('Only ad-hoc workouts can be repeated.')
     title = source.title
     movements = seedMovementsFromSource(source)
@@ -94,7 +95,7 @@ export async function startAdHocSession(
   }
 
   const { data: sessionId, error } = await supabase.rpc('start_ad_hoc_session_v2', {
-    p_client_mutation_id: data.clientMutationId,
+    p_client_mutation_id: input.clientMutationId,
     p_scheduled_date: scheduledDate,
     p_prescription_snapshot: snapshot as unknown as Json,
     p_source_session_id: lineageRootId,
@@ -107,17 +108,18 @@ export async function renameSession(
   ctx: UserContext,
   data: z.infer<typeof renameSessionInputSchema>,
 ): Promise<WorkoutSession> {
-  const title = normalizeAdHocTitle(data.title)
+  const input = renameSessionInputSchema.parse(data)
+  const title = normalizeAdHocTitle(input.title)
   if (!title) throw new Error('Enter a workout name.')
 
   const { error } = await ctx.supabase.rpc('rename_session_v2', {
-    p_session_id: data.sessionId,
+    p_session_id: input.sessionId,
     p_title: title,
-    p_request_id: data.requestId,
-    p_expected_state_version: data.expectedStateVersion,
+    p_request_id: input.requestId,
+    p_expected_state_version: input.expectedStateVersion,
   })
   if (error) throw new Error(error.message)
-  return getSession(ctx, data.sessionId)
+  return getSession(ctx, input.sessionId)
 }
 
 export async function discardSession(

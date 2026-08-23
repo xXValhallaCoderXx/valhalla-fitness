@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { View } from 'react-native'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { router } from 'expo-router'
 import { startSession } from '@sheetless/data/session/lifecycle'
 import { getToday } from '@sheetless/data/session/reads'
@@ -25,6 +25,8 @@ import { buildUserContext, useMe } from '@/lib/account'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { useTimezoneSync } from '@/lib/use-timezone-sync'
+import { useStableMutationRequest } from '@/lib/useStableMutationRequest'
+import { StartBlankWorkoutButton } from './StartBlankWorkoutButton'
 import { TodayActiveSessionCard } from './TodayActiveSessionCard'
 import { TodayPlannedSessionCard } from './TodayPlannedSessionCard'
 
@@ -32,6 +34,8 @@ export function TodayScreen() {
   const { user } = useSession()
   const me = useMe()
   const queryClient = useQueryClient()
+  const plannedStartRequest = useStableMutationRequest()
+  const activeStartMutations = useIsMutating({ mutationKey: ['startSession', user?.id] })
   const [reviewOpen, setReviewOpen] = useState(false)
   useTimezoneSync()
 
@@ -47,12 +51,17 @@ export function TodayScreen() {
   })
 
   const startMutation = useMutation({
-    mutationFn: () =>
-      startSession(buildUserContext(user!), {
-        clientMutationId: crypto.randomUUID(),
-        timeZone: browserIanaTimeZone() ?? undefined,
-      }),
+    mutationKey: ['startSession', user?.id, 'planned'],
+    scope: { id: `account:${user?.id ?? 'anonymous'}:start-session` },
+    mutationFn: () => {
+      const timeZone = browserIanaTimeZone() ?? undefined
+      return startSession(buildUserContext(user!), {
+        clientMutationId: plannedStartRequest.requestIdFor({ timeZone: timeZone ?? null }),
+        timeZone,
+      })
+    },
     onSuccess: (session) => {
+      plannedStartRequest.clearRequest()
       queryClient.setQueryData(accountQueryKeys.session(user!.id, session.sessionId), session)
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(user!.id) })
       router.push({ pathname: '/session/[sessionId]', params: { sessionId: session.sessionId } })
@@ -148,15 +157,18 @@ export function TodayScreen() {
         <EmptyState
           title="No active program"
           action={
-            <Button
-              label="Browse programs"
-              onPress={() => router.navigate('/(tabs)/templates')}
-              testID="today-browse-programs"
-            />
+            <View style={{ alignSelf: 'stretch', gap: spacing.sm }}>
+              <Button
+                label="Browse programs"
+                fullWidth
+                onPress={() => router.navigate('/(tabs)/templates')}
+                testID="today-browse-programs"
+              />
+              <StartBlankWorkoutButton />
+            </View>
           }
         >
-          Choose a plan in Programs to generate your daily sessions. One-off workouts remain on the
-          web for now.
+          Choose a plan in Programs to generate your daily sessions, or start a one-off workout now.
         </EmptyState>
       </Screen>
     )
@@ -178,6 +190,7 @@ export function TodayScreen() {
         completedToday={Boolean(data?.completedSession)}
         pendingDecisionCount={pending.length}
         isStarting={startMutation.isPending}
+        startDisabled={activeStartMutations > 0 && !startMutation.isPending}
         startError={
           startMutation.isError
             ? startMutation.error instanceof Error
@@ -187,6 +200,7 @@ export function TodayScreen() {
         }
         onStart={() => startMutation.mutate()}
       />
+      <StartBlankWorkoutButton />
 
       <ProgressionReviewSheet
         open={reviewOpen}
