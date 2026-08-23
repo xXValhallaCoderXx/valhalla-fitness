@@ -1,6 +1,7 @@
 export { Badge, type BadgeProps } from './Badge'
 export { Button, type ButtonProps } from './Button'
 export { Caption, type CaptionProps } from './Caption'
+export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog'
 export { EmptyState, type EmptyStateProps } from './EmptyState'
 export { Heading, type HeadingProps } from './Heading'
 export { PageHeader, type PageHeaderProps } from './PageHeader'

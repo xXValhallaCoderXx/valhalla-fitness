@@ -18,7 +18,7 @@ import {
 } from '@sheetless/domain/session/live-focus-utils'
 import type { User } from '@supabase/supabase-js'
 import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
-import { Button, PageHeader, Panel, Screen, Text } from '@/components'
+import { Button, ConfirmDialog, PageHeader, Panel, Screen, Text } from '@/components'
 import { useSession } from '@/lib/session-provider'
 import { spacing, useTokens } from '@/lib/tokens'
 import { FocusComingUp } from '@/features/session/FocusComingUp'
@@ -28,6 +28,7 @@ import { FocusSetProgressBar } from '@/features/session/FocusSetProgressBar'
 import { FocusTopBar } from '@/features/session/FocusTopBar'
 import { sessionQueryOptions } from '@/features/session/queries'
 import { useAddExerciseSet } from '@/features/session/useAddExerciseSet'
+import { useDiscardWorkout } from '@/features/session/useDiscardWorkout'
 import { useSetLogMutation } from '@/features/session/useSetLogMutation'
 
 export default function LiveSessionScreen() {
@@ -106,6 +107,8 @@ function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
     session,
     activeMovement ?? session.movements[0] ?? ({} as never),
   )
+  const [discardOpen, setDiscardOpen] = useState(false)
+  const discard = useDiscardWorkout(user, session.sessionId, () => setDiscardOpen(false))
 
   if (!activeMovement) {
     return (
@@ -181,8 +184,8 @@ function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
         finishLabel="Finish"
         finishDisabled
         onFinish={() => {}}
-        discardDisabled
-        onDiscard={() => {}}
+        discardDisabled={discard.isPending}
+        onDiscard={() => setDiscardOpen(true)}
       />
 
       <View style={{ backgroundColor: theme.surface2, height: 4 }}>
@@ -286,6 +289,26 @@ function FocusView({ user, session }: { user: User; session: WorkoutSession }) {
 
         <FocusComingUp movements={coming} onJumpTo={setActiveMovementId} />
       </ScrollView>
+
+      <ConfirmDialog
+        open={discardOpen}
+        title="Discard workout?"
+        confirmLabel="Discard workout"
+        cancelLabel="Keep workout"
+        tone="danger"
+        isPending={discard.isPending}
+        error={
+          discard.isError
+            ? getApiErrorMessage(discard.error, 'Unable to discard this workout.')
+            : null
+        }
+        onConfirm={() => discard.mutate()}
+        onCancel={() => setDiscardOpen(false)}
+      >
+        {session.isAdHoc
+          ? 'This permanently deletes the workout and all of its logs. It will not appear in your history.'
+          : 'This permanently deletes this attempt, including its logs, notes, exercise changes, and future phase edits made during the workout. The same planned workout will remain next.'}
+      </ConfirmDialog>
     </View>
   )
 }
