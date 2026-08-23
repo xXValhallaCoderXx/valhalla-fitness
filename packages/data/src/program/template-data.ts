@@ -1,9 +1,9 @@
 import type {
-  FreeWeightPolicyRule,
   FreeWeightPolicyVersion,
   ProgramTemplateOrigin,
   ProgramTemplateSummary,
 } from '@sheetless/domain/program/types'
+import { parseFreeWeightPolicyDefinition } from '@sheetless/domain/program/schemas'
 import { applyFamilyMeta } from '@sheetless/domain/program/template-families'
 import { parseTemplateDefinition, validateTemplateDefinition } from '@sheetless/domain/program/template-engine-schema'
 import type { TemplateDefinition } from '@sheetless/domain/program/template-engine'
@@ -92,6 +92,24 @@ function templateDefinitionFromRows(
   }
 }
 
+function mapFreeWeightPolicyVersion(
+  data: Pick<
+    Tables<'equipment_mode_policy_versions'>,
+    'id' | 'version' | 'definition' | 'definition_checksum'
+  >,
+): FreeWeightPolicyVersion {
+  try {
+    return {
+      id: data.id,
+      version: data.version,
+      checksum: data.definition_checksum,
+      rules: parseFreeWeightPolicyDefinition(data.definition),
+    }
+  } catch {
+    throw new Error('FREE_WEIGHT_POLICY_INVALID')
+  }
+}
+
 export async function getPinnedTemplateDefinition(
   supabase: DataClient,
   templateVersionId: string,
@@ -146,22 +164,7 @@ export async function getLatestFreeWeightPolicyVersion(
     .limit(1)
     .single()
   if (error) throw new Error(error.message)
-  const definition = data.definition as
-    | { rules?: FreeWeightPolicyRule[] }
-    | FreeWeightPolicyRule[]
-    | null
-  const rules = Array.isArray(definition)
-    ? definition
-    : definition?.rules
-  if (!Array.isArray(rules) || !rules.length) {
-    throw new Error('FREE_WEIGHT_POLICY_INVALID')
-  }
-  return {
-    id: data.id,
-    version: data.version,
-    checksum: data.definition_checksum,
-    rules,
-  }
+  return mapFreeWeightPolicyVersion(data)
 }
 
 export async function getFreeWeightPolicyVersionById(
@@ -175,22 +178,7 @@ export async function getFreeWeightPolicyVersionById(
     .eq('mode', 'free_weight')
     .single()
   if (error) throw new Error(error.message)
-  const definition = data.definition as
-    | { rules?: FreeWeightPolicyRule[] }
-    | FreeWeightPolicyRule[]
-    | null
-  const rules = Array.isArray(definition)
-    ? definition
-    : definition?.rules
-  if (!Array.isArray(rules) || !rules.length) {
-    throw new Error('FREE_WEIGHT_POLICY_INVALID')
-  }
-  return {
-    id: data.id,
-    version: data.version,
-    checksum: data.definition_checksum,
-    rules,
-  }
+  return mapFreeWeightPolicyVersion(data)
 }
 
 export function latestTemplateSummaries(

@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import type { ProgramSetupOptions, ProgramTemplateSummary } from '@sheetless/domain/program/types'
-import type { programSetupOptionsInputSchema } from '@sheetless/domain/program/schemas'
+import { programSetupOptionsInputSchema } from '@sheetless/domain/program/schemas'
 import { buildProgramSetupOptions } from '@sheetless/domain/program/program-setup-options'
 import type { DataClient } from '../shared/context'
 import { getMovementCatalogForSwap, getReplacementRulesForSwap } from '../movement/catalog'
@@ -38,16 +38,17 @@ export async function getProgramSetupOptions(
   supabase: DataClient,
   data: z.infer<typeof programSetupOptionsInputSchema>,
 ): Promise<ProgramSetupOptions> {
+  const input = programSetupOptionsInputSchema.parse(data)
   const { data: templateRow, error: templateError } = await supabase
     .from('program_templates')
     .select('*')
-    .eq('id', data.templateId)
+    .eq('id', input.templateId)
     .eq('is_active', true)
     .single()
   if (templateError) throw new Error(templateError.message)
   const template = mapTemplateRow(templateRow)
   const [{ definition }, catalog, rules, freeWeightPolicy] = await Promise.all([
-    getLatestTemplateVersion(supabase, data.templateId),
+    getLatestTemplateVersion(supabase, input.templateId),
     getMovementCatalogForSwap(supabase),
     getReplacementRulesForSwap(supabase),
     getLatestFreeWeightPolicyVersion(supabase),

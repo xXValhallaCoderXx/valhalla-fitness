@@ -4,6 +4,12 @@ import {
   resolveProgressionDecisions,
 } from '@sheetless/data/program/active-program'
 import {
+  previewProgramEquipmentMode,
+  setProgramEquipmentMode,
+} from '@sheetless/data/program/equipment-mode'
+import { startProgram } from '@sheetless/data/program/start'
+import { getProgramSetupOptions } from '@sheetless/data/program/templates'
+import {
   addSessionAccessory,
   removeSessionAccessory,
   reorderSessionAccessories,
@@ -258,6 +264,66 @@ describe('data mutation ingress validation', () => {
       expect(stub.rpcCalls).toEqual([])
     })
   }
+
+  it('rejects malformed programme setup input before database access', async () => {
+    const { ctx, stub } = makeStubCtx({})
+
+    await expect(
+      getProgramSetupOptions(ctx.supabase, {
+        templateId: 'template-1',
+        unexpected: true,
+      } as never),
+    ).rejects.toThrow()
+
+    expect(stub.fromCalls).toEqual([])
+    expect(stub.rpcCalls).toEqual([])
+  })
+
+  it('rejects malformed programme start input before profile or database access', async () => {
+    const { ctx, stub } = makeStubCtx({})
+
+    await expect(
+      startProgram(ctx, {
+        requestId: 'start-1',
+        templateId: 'template-1',
+        equipmentMode: 'free_weight',
+      } as never),
+    ).rejects.toThrow()
+
+    expect(stub.fromCalls).toEqual([])
+    expect(stub.rpcCalls).toEqual([])
+  })
+
+  it('rejects malformed equipment-mode preview input before database access', async () => {
+    const { ctx, stub } = makeStubCtx({})
+
+    await expect(
+      previewProgramEquipmentMode(ctx, {
+        programId: sessionId,
+        targetMode: 'standard',
+        unexpected: true,
+      } as never),
+    ).rejects.toThrow()
+
+    expect(stub.fromCalls).toEqual([])
+    expect(stub.rpcCalls).toEqual([])
+  })
+
+  it('rejects cross-field equipment-mode apply input before database access', async () => {
+    const { ctx, stub } = makeStubCtx({})
+
+    await expect(
+      setProgramEquipmentMode(ctx, {
+        programId: sessionId,
+        targetMode: 'standard',
+        expectedStateVersion: 1,
+        freeWeightChoices: [],
+      } as never),
+    ).rejects.toThrow()
+
+    expect(stub.fromCalls).toEqual([])
+    expect(stub.rpcCalls).toEqual([])
+  })
 
   it('rejects an invalid set log before database access', async () => {
     const { ctx, stub } = makeStubCtx({})

@@ -271,12 +271,13 @@ export async function startProgram(
   data: z.infer<typeof startProgramInputSchema>,
 ) {
   {
+    const input = startProgramInputSchema.parse(data)
     const profile = await ensureProfile(ctx)
     const { supabase } = ctx
     const { data: templateRow, error: templateError } = await supabase
       .from('program_templates')
       .select('*')
-      .eq('id', data.templateId)
+      .eq('id', input.templateId)
       .eq('is_active', true)
       .single()
     if (templateError) throw new Error(templateError.message)
@@ -284,7 +285,7 @@ export async function startProgram(
     const template = mapTemplateRow(templateRow)
     const templateVersion = await getLatestTemplateVersion(
       supabase,
-      data.templateId,
+      input.templateId,
     )
     const [catalog, rules, freeWeightPolicy] = await Promise.all([
       getMovementCatalogForSwap(supabase),
@@ -299,45 +300,45 @@ export async function startProgram(
       freeWeightPolicy,
     })
     const movementOverrides = normalizeStartMovementOverrides(
-      data.movementOverrides,
+      input.movementOverrides,
       setupOptions,
     )
     const accessoryAdditions = normalizeStartAccessoryAdditions(
-      data.accessoryAdditions,
+      input.accessoryAdditions,
       setupOptions,
     )
-    const equipmentMode = data.equipmentMode ?? 'standard'
+    const equipmentMode = input.equipmentMode ?? 'standard'
     let freeWeightChoices: FreeWeightChoiceDraft[] = []
     if (equipmentMode === 'free_weight') {
       if (
-        data.freeWeightPolicyVersionId !== freeWeightPolicy.id ||
-        data.freeWeightPolicyChecksum !== freeWeightPolicy.checksum
+        input.freeWeightPolicyVersionId !== freeWeightPolicy.id ||
+        input.freeWeightPolicyChecksum !== freeWeightPolicy.checksum
       ) {
         throw new Error('FREE_WEIGHT_POLICY_STALE')
       }
       freeWeightChoices = validateStartFreeWeightChoices({
-        choices: data.freeWeightChoices ?? [],
+        choices: input.freeWeightChoices ?? [],
         policy: freeWeightPolicy,
         setupOptions,
         movementOverrides,
-        accessoryAdditions: data.accessoryAdditions ?? [],
+        accessoryAdditions: input.accessoryAdditions ?? [],
         catalog,
       })
     } else if (
-      data.freeWeightPolicyVersionId ||
-      data.freeWeightPolicyChecksum ||
-      data.freeWeightChoices?.length
+      input.freeWeightPolicyVersionId ||
+      input.freeWeightPolicyChecksum ||
+      input.freeWeightChoices?.length
     ) {
       throw new Error('VALIDATION_FAILED')
     }
-    const units = (data.units ?? profile.units) as Unit
-    const rounding = data.rounding ?? Number(profile.rounding)
+    const units = (input.units ?? profile.units) as Unit
+    const rounding = input.rounding ?? Number(profile.rounding)
     const profileStateDefaults = normalizeProgramStateDefaults(
       profile.program_state_defaults,
       units,
     )
-    const stateValues = data.stateValues
-      ? data.stateValues
+    const stateValues = input.stateValues
+      ? input.stateValues
       : defaultStateValues(
           units,
           templateVersion.definition.requiredState.filter(
@@ -353,14 +354,14 @@ export async function startProgram(
     )
 
     const { error } = await supabase.rpc('start_program_v3', {
-      p_request_id: data.requestId,
-      p_template_id: data.templateId,
+      p_request_id: input.requestId,
+      p_template_id: input.templateId,
       p_template_version_id: templateVersion.id,
       p_definition_checksum: templateVersion.definitionChecksum,
-      p_title: data.title || template.name,
+      p_title: input.title || template.name,
       p_start_date: calendarDateInTimeZone(
         new Date(),
-        data.timeZone ?? profile.timezone,
+        input.timeZone ?? profile.timezone,
       ),
       p_units: units,
       p_rounding: rounding,
@@ -369,7 +370,7 @@ export async function startProgram(
       p_state_values: persistedStateValues as unknown as Json,
       p_movement_overrides: movementOverrides as unknown as Json,
       p_accessory_additions: accessoryAdditions as unknown as Json,
-      p_replace_active: data.replaceActiveProgram ?? false,
+      p_replace_active: input.replaceActiveProgram ?? false,
       p_equipment_mode: equipmentMode,
       p_free_weight_policy_version_id:
         equipmentMode === 'free_weight' ? freeWeightPolicy.id : null,
