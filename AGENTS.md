@@ -104,3 +104,21 @@ apps, enforced by `architecture:check`:
   import survives the client transform and bloats the browser bundle.
 - Old `apps/web` import paths resolve through one-line re-export shims onto the packages;
   retire shims opportunistically, never at the cost of a noisy diff.
+
+### apps/native gates
+
+`apps/native` has its own ESLint and Vitest setup; it is covered by the recursive `pnpm lint` and
+`pnpm test`, and by `pnpm verify:native`.
+
+- Route files under `src/app/` are adapters: params in, one feature screen out, 10 lines or fewer
+  (`_layout.tsx` files are shells and exempt). Feature and component `.tsx` files cap at 300 lines.
+  `src/components/**` may not import `@/features/**`. All four are enforced by `architecture:check`.
+- The design system styles with inline objects resolved from `useTokens()`. `StyleSheet.create` is
+  banned, as are the `window`, `document`, and `localStorage` globals outside `*.web.ts(x)` variants.
+- Native tests alias `react-native` to `react-native-web`, so they cover hooks, state machines, and
+  cache helpers only — never layout, `measureInWindow`, `Modal`, or SVG. Put new logic in
+  `packages/domain` where it is genuinely testable, and keep native files to state plus wiring.
+- `pnpm verify:native` runs a real Metro bundle. Run it after touching imports, platform variants,
+  assets, or anything under `src/app/`; `tsc --noEmit` cannot see those failures.
+- `react-hooks/set-state-in-effect` is a warning-level backlog (mostly the "reset a sheet's local
+  state when it opens" idiom). Do not add new occurrences.

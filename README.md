@@ -106,11 +106,22 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 
 #### Native migration milestones
 
-1. Port custom-programme creation and management.
-2. Add richer Insights ranges, charts, and bodyweight trends without weakening bounded-history
-   queries.
-3. Port first-run onboarding and the optional live walkthrough/replay.
-4. Finish Google auth, feedback/history search, and remaining Android release polish.
+Ordered by dependency rather than by size. The shared segmented control and chart primitives are
+each needed by more than one milestone, and native logic can only be tested once it has been pushed
+down into `packages/domain`, so the enablers come first.
+
+1. Establish the native quality gate: ESLint, Vitest, recursive `pnpm lint`/`pnpm test`, the
+   `pnpm verify:native` Metro bundle, and native route/component gates in `architecture:check`.
+2. Add the shared native primitives: a segmented control replacing seven duplicated tab strips, and
+   chart primitives on `react-native-svg` over pure geometry helpers in `packages/domain`.
+3. Port beta feedback (all three sources). Logic is already shared, so this is the smallest complete
+   vertical slice.
+4. Add richer Insights ranges, charts, and the Strength and Body load tabs without weakening
+   bounded-history queries; surface the recent-session window honestly rather than widening it.
+5. Add the bodyweight trend to Overview on both web and native, which needs a new domain aggregation.
+6. Port custom-programme creation. Management is create-only, matching web.
+7. Port first-run onboarding. The optional live walkthrough/replay stays deferred.
+8. Finish Google auth, history session search, and remaining Android release polish.
 
 ### Recorded release posture
 
@@ -444,15 +455,16 @@ Use `.env.example` for placeholders. Never commit real credentials.
 | `pnpm build` | Build production output and run TypeScript checks. |
 | `pnpm start` | Run `.output/server/index.mjs`. |
 | `pnpm typecheck` | Run TypeScript without building. |
-| `pnpm lint` | Run ESLint. |
-| `pnpm test` / `pnpm test:watch` | Run Vitest once/in watch mode. |
+| `pnpm lint` | Run ESLint across every workspace, web and native. |
+| `pnpm test` / `pnpm test:watch` | Run Vitest once/in watch mode. `pnpm test` covers `packages/*`, `apps/web`, and `apps/native`. |
 | `pnpm e2e` or `pnpm playwright` | Run Playwright. |
 | `pnpm e2e:headed` / `pnpm e2e:ui` | Run visible/interactive Playwright. |
 | `pnpm e2e:auth` | Refresh the saved E2E auth state. |
 | `pnpm shot [route]` | Capture a route as the demo user. |
 | `pnpm pwa:verify` | Verify built PWA artifacts. |
 | `pnpm bundle:check` | Enforce production entry-chunk and PWA-precache budgets. |
-| `pnpm architecture:check` | Enforce thin routes, domain boundaries, and component-size gates. |
+| `pnpm architecture:check` | Enforce thin routes, domain boundaries, and component-size gates on both apps. |
+| `pnpm verify:native` | Bundle the Expo app with Metro (`expo export --platform web`). Catches missing platform variants and unresolvable imports that TypeScript cannot see, and regenerates typed routes. |
 | `pnpm docs:check` | Enforce this README as the only human-facing document. |
 | `pnpm db:contract:check` | Statically verify lifecycle/integrity migrations and server call sites. |
 | `pnpm db:migrate:local` | Apply migrations to local Supabase. |
@@ -463,7 +475,7 @@ Use `.env.example` for placeholders. Never commit real credentials.
 | `pnpm demo:{seed|reset|refresh|verify|list}` | Manage local demo data. |
 | `pnpm feedback:report` | Read beta feedback events. |
 | `pnpm export:templates` | Validate/export built-in template definitions. |
-| `pnpm verify` | Run the complete static, unit, build, PWA, bundle, architecture, docs, and database-contract suite. |
+| `pnpm verify` | Run the complete static, unit, build, native-bundle, PWA, bundle, architecture, docs, and database-contract suite. |
 
 ## Testing and validation
 
@@ -476,6 +488,7 @@ pnpm typecheck
 pnpm lint
 pnpm test
 pnpm build
+pnpm verify:native
 pnpm pwa:verify
 pnpm bundle:check
 pnpm architecture:check
@@ -486,6 +499,18 @@ pnpm db:contract:check
 For UI behavior, also run the relevant Playwright project/spec and inspect the real rendered result.
 Pure logic changes should add or update Vitest coverage. Training-engine, session-cache,
 progression, history-signal, and server-API changes require behavior-focused tests.
+
+Native changes are gated differently, because Playwright and `pnpm shot` are web-only:
+
+- `apps/native` tests run under Vitest with `react-native` aliased to `react-native-web`, so they
+  prove hook and state-machine behavior. They do not exercise Hermes, layout, `measureInWindow`,
+  `Modal`, or SVG output — treat `pnpm verify:native` and a device pass as the real native gates.
+- Prefer putting new logic in `packages/domain`, where it is pure, framework-free, and already
+  covered by the largest test suite in the repository.
+- `pnpm native:web` renders the actual screens through react-native-web and is the fastest visual
+  check; `pnpm native:android` against local Supabase is the correctness check.
+- `react-hooks/set-state-in-effect` is a known native warning backlog, concentrated in the
+  "reset a sheet's local state when it opens" idiom. Do not add new occurrences.
 
 Database migrations also require a local Supabase stack:
 
