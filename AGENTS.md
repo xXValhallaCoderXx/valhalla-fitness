@@ -122,3 +122,28 @@ apps, enforced by `architecture:check`:
   assets, or anything under `src/app/`; `tsc --noEmit` cannot see those failures.
 - `react-hooks/set-state-in-effect` is a warning-level backlog (mostly the "reset a sheet's local
   state when it opens" idiom). Do not add new occurrences.
+
+### apps/native shared primitives
+
+- Single-select rows use `SegmentedControl` from `@/components` — `variant="pills"` for scrolling
+  chips (tabs, filters, week pickers), `variant="segments"` for a closed set of 2-4 choices. Do not
+  re-roll `<ScrollView horizontal>{Buttons}</ScrollView>`; that idiom was consolidated deliberately.
+  `MovementPicker`'s category chips stay bespoke because they carry per-option counts.
+- Charts use `TrendChart` (or the `LineChart`/`AreaChart`/`Sparkline` presets) from `@/components`.
+  Call sites pass a `tone`, never a colour. All scale, tick, and path maths belongs in
+  `src/components/charts/chart-geometry.ts` — it is pure and covered by `tests/chart-geometry.test.ts`,
+  which is where a single point, a flat series, and null gaps are pinned down.
+- Charts take their width from `onLayout` into `useState`. React Compiler is on: never read a
+  measurement from a ref during render.
+
+### apps/native test harness
+
+- A component test needs the theme context: `vi.mock('@/lib/theme-provider', () => themeProviderMock())`
+  from `tests/support/theme`.
+- A test that renders a chart or `BarbellPlates` must also mock SVG:
+  `vi.mock('react-native-svg', () => svgMock())` from `tests/support/svg`. react-native-svg cannot
+  load under Vitest — its package entry is raw TypeScript and its web build deep-imports Flow-typed
+  `react-native` internals. Metro handles both; Vitest does not.
+- `onLayout` under react-native-web is driven by `ResizeObserver`, which jsdom lacks, so a measured
+  render is not reachable in tests. Assert pre-measurement and empty states here and cover painted
+  output through `chart-geometry` unit tests plus a device pass.
