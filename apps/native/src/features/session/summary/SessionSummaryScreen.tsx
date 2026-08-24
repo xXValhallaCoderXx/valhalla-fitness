@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { router } from 'expo-router'
 import { buildWorkoutSummary } from '@sheetless/domain/history/workout-summary'
@@ -16,11 +16,15 @@ import { SummaryDecisions } from './SummaryDecisions'
 export function SessionSummaryScreen({ sessionId }: { sessionId: string }) {
   const { user } = useSession()
   const queryClient = useQueryClient()
-  const finishSummary = useRef(
+  // Snapshot the finish payload once: the effect below drops it from the cache so
+  // a revisit shows the persisted session rather than a stale one-shot summary.
+  // useState's lazy initializer keeps that one-shot semantic without reading a ref
+  // during render (and without re-reading the cache on every render).
+  const [finishSummary] = useState(() =>
     user
       ? queryClient.getQueryData<SessionSummary>(accountQueryKeys.summary(user.id, sessionId))
       : undefined,
-  ).current
+  )
   useEffect(() => {
     if (!user) return
     queryClient.removeQueries({

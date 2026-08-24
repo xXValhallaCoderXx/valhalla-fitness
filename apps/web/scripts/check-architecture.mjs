@@ -330,6 +330,53 @@ for (const path of packageSources) {
   }
 }
 
+// apps/native mirrors the web gates: route files are adapters, feature components
+// stay splittable, and the design system may not depend on a feature. The native
+// app has no eslint-owned equivalent for these, and nothing else checks its shape.
+const nativeRoot = join(repoRoot, '../native')
+if (existsSync(join(nativeRoot, 'src'))) {
+  const nativePath = (path) => relative(nativeRoot, path).replaceAll('\\', '/')
+
+  // Expo Router layouts own the provider stack and tab bar, so they are shells
+  // rather than adapters — the web equivalent lives outside src/routes too.
+  const knownOversizedNativeRoutes = new Set(['src/app/auth.tsx'])
+  const nativeRouteFiles = walk(join(nativeRoot, 'src/app'))
+    .filter((path) => path.endsWith('.tsx') && !path.endsWith('_layout.tsx'))
+  for (const path of nativeRouteFiles) {
+    const file = nativePath(path)
+    const lines = lineCount(readFileSync(path, 'utf8'))
+    if (lines <= 10) continue
+    if (knownOversizedNativeRoutes.has(file)) {
+      warnings.push(`apps/native/${file} remains above the 10-line native route gate (${lines})`)
+    } else {
+      failures.push(`apps/native/${file} has ${lines} lines and exceeds the 10-line native route gate`)
+    }
+  }
+
+  const knownOversizedNativeComponents = new Set(['src/features/settings/SettingsScreen.tsx'])
+  const nativeComponentFiles = [
+    ...walk(join(nativeRoot, 'src/components')),
+    ...walk(join(nativeRoot, 'src/features')),
+  ].filter((path) => path.endsWith('.tsx'))
+  for (const path of nativeComponentFiles) {
+    const file = nativePath(path)
+    const lines = lineCount(readFileSync(path, 'utf8'))
+    if (lines <= 300) continue
+    if (knownOversizedNativeComponents.has(file)) {
+      warnings.push(`apps/native/${file} remains above the 300-line component gate (${lines})`)
+    } else {
+      failures.push(`apps/native/${file} has ${lines} lines and exceeds the 300-line component gate`)
+    }
+  }
+
+  for (const path of walk(join(nativeRoot, 'src/components'))) {
+    if (!['.ts', '.tsx'].includes(extname(path))) continue
+    if (/from\s+['"]@\/features\//.test(readFileSync(path, 'utf8'))) {
+      failures.push(`apps/native/${nativePath(path)} imports @/features — the design system sits below features`)
+    }
+  }
+}
+
 for (const warning of warnings) console.warn(`Architecture warning: ${warning}`)
 
 if (failures.length > 0) {

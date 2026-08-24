@@ -13,7 +13,7 @@
     "preview": "pnpm --filter sheetless-web preview",
     "start": "pnpm --filter sheetless-web start",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm --filter sheetless-web lint",
+    "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "test:watch": "pnpm --filter sheetless-web test:watch",
     "e2e": "pnpm --filter sheetless-web e2e",
@@ -36,6 +36,7 @@
     "pwa:verify": "pnpm --filter sheetless-web pwa:verify",
     "bundle:check": "pnpm --filter sheetless-web bundle:check",
     "architecture:check": "pnpm --filter sheetless-web architecture:check",
+    "verify:native": "pnpm --filter sheetless-native exec expo export --platform web --output-dir .expo/verify-export",
     "docs:check": "node apps/web/scripts/check-docs.mjs",
     "db:contract:check": "node apps/web/scripts/check-database-contract.mjs",
     "db:audit": "node apps/web/scripts/audit-release-integrity.mjs",
@@ -44,7 +45,7 @@
     "db:migrate:dry-run": "supabase db push --db-url \"$SUPABASE_DB_URL\" --dry-run",
     "db:test": "supabase test db",
     "db:types": "supabase gen types typescript --local --schema public > packages/domain/src/shared/types/database.ts",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm pwa:verify && pnpm bundle:check && pnpm architecture:check && pnpm docs:check && pnpm db:contract:check"
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm verify:native && pnpm pwa:verify && pnpm bundle:check && pnpm architecture:check && pnpm docs:check && pnpm db:contract:check"
   },
   "devDependencies": {
     "supabase": "^2.107.0"
