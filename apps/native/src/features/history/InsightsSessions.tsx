@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, View } from 'react-native'
+import { Pressable, View } from 'react-native'
 import {
   availableIntensities,
   filterSessions,
@@ -8,7 +8,7 @@ import {
 } from '@sheetless/domain/history/insights'
 import type { RecentHistoryEntry } from '@sheetless/domain/history/types'
 import { createAccountClock, describeWorkoutDate } from '@sheetless/domain/shared/dates'
-import { Badge, Button, Caption, EmptyState, Panel, SectionLabel, Text } from '@/components'
+import { Badge, Caption, EmptyState, Panel, SectionLabel, SegmentedControl, Text } from '@/components'
 import { spacing } from '@/lib/tokens'
 
 export function InsightsSessions({
@@ -31,16 +31,15 @@ export function InsightsSessions({
   return (
     <View style={{ gap: spacing.sm }}>
       <SectionLabel>Sessions · recent training</SectionLabel>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.xs }}>
-        {filters.map((value) => (
-          <Button
-            key={value}
-            label={value === 'all' ? 'All' : value === 'adhoc' ? 'Ad-hoc' : value}
-            variant={filter === value ? 'filled' : 'default'}
-            onPress={() => onFilterChange(value)}
-          />
-        ))}
-      </ScrollView>
+      <SegmentedControl
+        options={filters.map((value) => ({
+          value,
+          label: value === 'all' ? 'All' : value === 'adhoc' ? 'Ad-hoc' : value,
+        }))}
+        value={filter}
+        onChange={onFilterChange}
+        accessibilityLabel="Session intensity filter"
+      />
       {visible.length === 0 ? (
         <EmptyState title="No matching sessions">Try another intensity.</EmptyState>
       ) : visible.map((session) => {

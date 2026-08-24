@@ -60,8 +60,9 @@ export default tseslint.config(
     },
   },
   {
-    // Metro picks these only on web, where the DOM genuinely exists.
-    files: ['**/*.web.ts', '**/*.web.tsx'],
+    // Metro picks these only on web, where the DOM genuinely exists. Tests run
+    // in jsdom through the react-native-web alias, so they have a DOM too.
+    files: ['**/*.web.ts', '**/*.web.tsx', 'tests/**'],
     rules: { 'no-restricted-globals': 'off' },
   },
 )

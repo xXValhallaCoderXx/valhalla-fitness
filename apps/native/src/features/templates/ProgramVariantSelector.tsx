@@ -1,6 +1,6 @@
-import { ScrollView, View } from 'react-native'
+import { View } from 'react-native'
 import type { ProgramTemplateSummary } from '@sheetless/domain/program/types'
-import { Button, Caption, Panel, SectionLabel } from '@/components'
+import { Caption, Panel, SectionLabel, SegmentedControl } from '@/components'
 import { spacing } from '@/lib/tokens'
 
 export function ProgramVariantSelector({
@@ -24,22 +24,18 @@ export function ProgramVariantSelector({
         <SectionLabel>Choose your schedule</SectionLabel>
         <Caption>Every schedule is a complete programme with its own sessions and progression.</Caption>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: spacing.xs }}
-      >
-        {members.map((member) => (
-          <Button
-            key={member.id}
-            label={member.variantShortLabel ?? `${member.daysPerWeek} days`}
-            variant={member.id === selectedTemplateId ? 'filled' : 'default'}
-            disabled={disabled || !member.available}
-            onPress={() => onSelect(member.id)}
-            testID={`program-variant-${member.id}`}
-          />
-        ))}
-      </ScrollView>
+      <SegmentedControl
+        options={members.map((member) => ({
+          value: member.id,
+          label: member.variantShortLabel ?? `${member.daysPerWeek} days`,
+          disabled: !member.available,
+          testID: `program-variant-${member.id}`,
+        }))}
+        value={selectedTemplateId}
+        onChange={onSelect}
+        disabled={disabled}
+        accessibilityLabel="Programme schedule"
+      />
       {selected?.variantDescription ? <Caption tone="action">{selected.variantDescription}</Caption> : null}
     </Panel>
   )

@@ -15,6 +15,10 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Matches apps/web, and Testing Library needs a global afterEach to
+    // auto-unmount between tests — without it rendered trees accumulate and
+    // every query finds duplicates.
+    globals: true,
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
   },
 })

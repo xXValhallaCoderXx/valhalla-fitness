@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react'
-import { Pressable, ScrollView, View } from 'react-native'
+import { Pressable, View } from 'react-native'
 import type { User } from '@supabase/supabase-js'
 import type { HistoryMovementSummary } from '@sheetless/domain/history/types'
 import type { Unit } from '@sheetless/domain/shared/types'
 import { formatCompactDate } from '@sheetless/domain/shared/dates'
 import { formatNumber, formatWeight } from '@sheetless/domain/shared/set-notation'
-import { Button, Caption, EmptyState, Panel, SectionLabel, Text, TextInput } from '@/components'
+import { Caption, EmptyState, Panel, SectionLabel, SegmentedControl, Text, TextInput } from '@/components'
 import { MovementHistorySheet } from './MovementHistorySheet'
 import { spacing } from '@/lib/tokens'
+
+/** Sentinel for the unfiltered option; category state itself stays nullable. */
+const ALL_CATEGORIES = '__all'
 
 export function InsightsMovements({
   movements,
@@ -37,17 +40,15 @@ export function InsightsMovements({
     <View style={{ gap: spacing.sm }}>
       <SectionLabel>Movements · recent training</SectionLabel>
       <TextInput value={query} onChangeText={setQuery} placeholder="Search movements" />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.xs }}>
-        <Button label="All" variant={category === null ? 'filled' : 'default'} onPress={() => setCategory(null)} />
-        {categories.map((value) => (
-          <Button
-            key={value}
-            label={value.replaceAll('_', ' ')}
-            variant={category === value ? 'filled' : 'default'}
-            onPress={() => setCategory(value)}
-          />
-        ))}
-      </ScrollView>
+      <SegmentedControl
+        options={[
+          { value: ALL_CATEGORIES, label: 'All' },
+          ...categories.map((value) => ({ value, label: value.replaceAll('_', ' ') })),
+        ]}
+        value={category ?? ALL_CATEGORIES}
+        onChange={(next) => setCategory(next === ALL_CATEGORIES ? null : next)}
+        accessibilityLabel="Movement category filter"
+      />
       {visible.length === 0 ? (
         <EmptyState title="No matching movements">Try another search or category.</EmptyState>
       ) : visible.map((movement) => (

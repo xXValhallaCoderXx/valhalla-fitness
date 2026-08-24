@@ -1,7 +1,7 @@
 import { Switch, View } from 'react-native'
 import type { ThemePreference } from '@sheetless/domain/account/types'
 import type { Unit } from '@sheetless/domain/shared/types'
-import { Button, Caption, Panel, SectionLabel, Text } from '@/components'
+import { Button, Caption, Panel, SectionLabel, SegmentedControl, Text } from '@/components'
 import { spacing, useTokens } from '@/lib/tokens'
 import { SettingsSection } from './SettingsSection'
 
@@ -62,6 +62,7 @@ export function PreferencesSection({
             selected={themePreference}
             disabled={disabled}
             onChange={(value) => onThemeChange(value as ThemePreference)}
+            accessibilityLabel="Theme"
           />
           <Caption>
             {isThemePreviewing
@@ -80,6 +81,7 @@ export function PreferencesSection({
               selected={units}
               disabled={disabled}
               onChange={(value) => onUnitsChange(value as Unit)}
+              accessibilityLabel="Training units"
             />
           </View>
           <View style={{ flex: 1.6, gap: spacing.xs }}>
@@ -93,6 +95,7 @@ export function PreferencesSection({
               selected={String(rounding)}
               disabled={disabled}
               onChange={(value) => onRoundingChange(Number(value))}
+              accessibilityLabel="Round loads to"
             />
           </View>
         </View>
@@ -160,27 +163,27 @@ function ChoiceRow({
   selected,
   disabled,
   onChange,
+  accessibilityLabel,
 }: {
   values: Array<{ value: string; label: string }>
   selected: string
   disabled: boolean
   onChange: (value: string) => void
+  accessibilityLabel: string
 }) {
   return (
-    <View style={{ flexDirection: 'row', gap: spacing.xs }}>
-      {values.map((item) => (
-        <Button
-          key={item.value}
-          label={item.label}
-          selected={selected === item.value}
-          variant={selected === item.value ? 'filled' : 'default'}
-          style={{ flex: 1, paddingHorizontal: spacing.xs }}
-          disabled={disabled}
-          onPress={() => onChange(item.value)}
-          testID={`settings-choice-${item.value}`}
-        />
-      ))}
-    </View>
+    <SegmentedControl
+      variant="segments"
+      options={values.map((item) => ({
+        value: item.value,
+        label: item.label,
+        testID: `settings-choice-${item.value}`,
+      }))}
+      value={selected}
+      onChange={onChange}
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
+    />
   )
 }
 

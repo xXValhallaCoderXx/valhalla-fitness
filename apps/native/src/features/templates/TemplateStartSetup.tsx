@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ScrollView } from 'react-native'
 import { router, useNavigation } from 'expo-router'
 import { usePreventRemove, type NavigationAction } from 'expo-router/react-navigation'
 import type { User } from '@supabase/supabase-js'
@@ -10,8 +9,7 @@ import type {
 } from '@sheetless/domain/program/types'
 import { deriveTemplatePhases } from '@sheetless/domain/program/template-start-phases'
 import type { TodayPayload } from '@sheetless/domain/session/types'
-import { Button, ConfirmDialog, PageHeader, Screen, Text } from '@/components'
-import { spacing } from '@/lib/tokens'
+import { ConfirmDialog, PageHeader, Screen, SegmentedControl, Text } from '@/components'
 import { ProgramStartCard } from './ProgramStartCard'
 import { ProgramVariantSelector } from './ProgramVariantSelector'
 import { TemplateEquipmentModeCard } from './TemplateEquipmentModeCard'
@@ -133,22 +131,16 @@ export function TemplateStartSetup({
           onReview={() => customizations.setReviewOpen(true)}
         />
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: spacing.xs }}
-        >
-          {setup.previewWeeks.map((week) => (
-            <Button
-              key={week.index}
-              label={week.label}
-              variant={selectedWeek?.index === week.index ? 'filled' : 'default'}
-              selected={selectedWeek?.index === week.index}
-              disabled={setupControlsDisabled}
-              onPress={() => setWeekIndex(week.index)}
-            />
-          ))}
-        </ScrollView>
+        <SegmentedControl
+          options={setup.previewWeeks.map((week) => ({
+            value: String(week.index),
+            label: week.label,
+          }))}
+          value={String(selectedWeek?.index ?? '')}
+          onChange={(index: string) => setWeekIndex(Number(index))}
+          disabled={setupControlsDisabled}
+          accessibilityLabel="Preview week"
+        />
 
         {selectedWeek ? (
           <TemplateSetupPreview

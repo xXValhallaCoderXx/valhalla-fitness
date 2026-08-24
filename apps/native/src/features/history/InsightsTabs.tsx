@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ScrollView, View } from 'react-native'
+import { View } from 'react-native'
 import type { User } from '@supabase/supabase-js'
 import type {
   HistoryDashboardWithInsights,
@@ -8,7 +8,7 @@ import type {
   TodayHistorySupport,
 } from '@sheetless/domain/history/types'
 import type { SessionFilter } from '@sheetless/domain/history/insights'
-import { Button } from '@/components'
+import { SegmentedControl } from '@/components'
 import { spacing } from '@/lib/tokens'
 import { InsightsMovements } from './InsightsMovements'
 import { InsightsOverview } from './InsightsOverview'
@@ -18,11 +18,11 @@ import { SessionSummarySheet } from './SessionSummarySheet'
 
 type InsightTab = 'overview' | 'sessions' | 'records' | 'movements'
 
-const tabs: Array<{ key: InsightTab; label: string }> = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'sessions', label: 'Sessions' },
-  { key: 'records', label: 'Records' },
-  { key: 'movements', label: 'Movements' },
+const tabs: Array<{ value: InsightTab; label: string }> = [
+  { value: 'overview', label: 'Overview' },
+  { value: 'sessions', label: 'Sessions' },
+  { value: 'records', label: 'Records' },
+  { value: 'movements', label: 'Movements' },
 ]
 
 export function InsightsTabs({
@@ -44,20 +44,12 @@ export function InsightsTabs({
 
   return (
     <View style={{ gap: spacing.md }}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: spacing.xs }}
-      >
-        {tabs.map((item) => (
-          <Button
-            key={item.key}
-            label={item.label}
-            variant={tab === item.key ? 'filled' : 'default'}
-            onPress={() => setTab(item.key)}
-          />
-        ))}
-      </ScrollView>
+      <SegmentedControl
+        options={tabs}
+        value={tab}
+        onChange={setTab}
+        accessibilityLabel="Insights section"
+      />
 
       {tab === 'overview' ? (
         <InsightsOverview data={data} gating={gating} recent={recent} support={support} />
