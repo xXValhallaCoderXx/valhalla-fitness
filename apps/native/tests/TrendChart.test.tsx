@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { svgMock } from './support/svg'
 import { themeProviderMock } from './support/theme'
@@ -112,4 +112,19 @@ describe('TrendChart', () => {
     )
     expect(screen.getByText('No trend yet')).toBeTruthy()
   })
+})
+
+
+it('inspects dated values through accessible controls and resets when the range changes', () => {
+  const props = { inspectable: true, emptyMessage: 'No data', accessibilityLabel: 'Weight' }
+  const { rerender } = render(<LineChart {...props} points={[
+    { label: 'Sep 1', date: '2026-09-01', value: 80 },
+    { label: 'Sep 2', date: '2026-09-02', value: null },
+    { label: 'Sep 5', date: '2026-09-05', value: 81 },
+  ]} />)
+  expect(screen.getByText('2026-09-05: 81')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Weight: previous reading' }))
+  expect(screen.getByText('2026-09-01: 80')).toBeTruthy()
+  rerender(<LineChart {...props} points={[{ label: 'Aug 1', date: '2026-08-01', value: 79 }]} />)
+  expect(screen.getByText('2026-08-01: 79')).toBeTruthy()
 })

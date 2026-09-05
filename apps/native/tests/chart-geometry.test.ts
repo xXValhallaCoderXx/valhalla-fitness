@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  adjacentPointIndex,
+  isolatedPointIndices,
+  nearestPointIndex,
   areaPath,
   domainFor,
   finiteCount,
@@ -195,5 +198,26 @@ describe('sampleAxisLabels', () => {
     expect(sampleAxisLabels(1, 4)).toEqual([0])
     expect(sampleAxisLabels(10, 0)).toEqual([])
     expect(sampleAxisLabels(10, 1)).toEqual([9])
+  })
+})
+
+
+describe('date coordinates and inspection', () => {
+  const box = { width: 120, height: 100, padLeft: 10, padRight: 10, padTop: 0, padBottom: 0 }
+  it('spaces irregular readings proportionally while preserving the index default', () => {
+    expect(projectPoints([1, 2, 3], box, [0, 4], [0, 1, 10]).map((p) => p.x)).toEqual([10, 20, 110])
+    expect(projectPoints([1, 2, 3], box, [0, 4]).map((p) => p.x)).toEqual([10, 60, 110])
+    expect(projectPoints([1], box, [0, 4], [100])[0].x).toBe(60)
+  })
+  it('marks every isolated reading and skips gaps in hit testing and controls', () => {
+    const values = [10, null, 20, null, 30, 40]
+    const points = projectPoints(values, box, [0, 40])
+    expect(isolatedPointIndices(points)).toEqual([0, 2])
+    expect(nearestPointIndex(points, 31)).toBe(2)
+    expect(adjacentPointIndex(values, 2, -1)).toBe(0)
+    expect(adjacentPointIndex(values, 2, 1)).toBe(4)
+    expect(adjacentPointIndex(values, null, 1)).toBe(5)
+    expect(adjacentPointIndex(values, 5, 1)).toBe(5)
+    expect(nearestPointIndex(projectPoints([null], box, [0, 1]), 20)).toBeNull()
   })
 })

@@ -96,22 +96,55 @@ export function projectPoints(
   values: ReadonlyArray<number | null>,
   box: ChartBox,
   domain: ChartDomain,
+  coordinates?: ReadonlyArray<number>,
+  coordinateDomain?: ChartDomain,
 ): ProjectedPoint[] {
   const plotWidth = Math.max(0, box.width - box.padLeft - box.padRight)
   const plotHeight = Math.max(0, box.height - box.padTop - box.padBottom)
   const [min, max] = domain
   const span = max - min
+  const dated = coordinates?.length === values.length && coordinates.every(Number.isFinite)
+  const xMin = dated ? (coordinateDomain?.[0] ?? Math.min(...coordinates)) : 0
+  const xMax = dated ? (coordinateDomain?.[1] ?? Math.max(...coordinates)) : values.length - 1
 
   return values.map((value, index) => {
     const x =
-      values.length <= 1
+      xMax === xMin
         ? box.padLeft + plotWidth / 2
-        : box.padLeft + (plotWidth * index) / (values.length - 1)
+        : box.padLeft + plotWidth * ((dated ? coordinates[index] : index) - xMin) / (xMax - xMin)
     if (!isFinite_(value)) return { x, y: null }
     // A zero span would divide by zero; centre it instead.
     const ratio = span === 0 ? 0.5 : (value - min) / span
     return { x, y: box.padTop + plotHeight * (1 - ratio) }
   })
+}
+
+/** Every isolated point needs a marker, even with other runs in the series. */
+export function isolatedPointIndices(points: ReadonlyArray<ProjectedPoint>): number[] {
+  return points.flatMap((point, index) => point.y !== null &&
+    (index === 0 || points[index - 1].y === null) &&
+    (index === points.length - 1 || points[index + 1].y === null) ? [index] : [])
+}
+
+export function nearestPointIndex(points: ReadonlyArray<ProjectedPoint>, x: number): number | null {
+  let best: number | null = null
+  let distance = Infinity
+  points.forEach((point, index) => {
+    if (point.y !== null && Math.abs(point.x - x) < distance) {
+      best = index
+      distance = Math.abs(point.x - x)
+    }
+  })
+  return best
+}
+
+/** Move among actual readings, skipping gaps; null selection starts at the latest. */
+export function adjacentPointIndex(values: ReadonlyArray<number | null>, selected: number | null, direction: -1 | 1): number | null {
+  const indices = values.flatMap((value, index) => isFinite_(value) ? [index] : [])
+  if (!indices.length) return null
+  const position = selected === null ? -1 : indices.indexOf(selected)
+  if (position < 0) return indices[indices.length - 1]
+  return indices[Math.max(0, Math.min(indices.length - 1, position + direction))]
 }
 
 /** Splits on nulls so a gap in the data is a gap in the line. */
