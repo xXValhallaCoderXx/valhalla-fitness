@@ -1,4 +1,4 @@
-import { formatDateKey, parseDate } from '@sheetless/domain/history/history'
+import { formatDateKey, parseDate, startOfWeek } from '@sheetless/domain/history/history'
 
 export type InsightRange = '8w' | '3m' | '1y' | 'all'
 
@@ -61,4 +61,17 @@ export function rangeSpanDays(range: InsightRange, firstDataDate: string | null,
   if (!startDate) return null
   const nowDay = Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), nowDate.getUTCDate())
   return Math.round((nowDay - startDate.getTime()) / DAY_MS)
+}
+
+/** Include the Monday bucket containing the first visible training day. */
+export function filterWeeksToRange<T extends { weekStart: string }>(
+  items: T[],
+  range: InsightRange,
+  options: { firstDataDate: string | null; now: string },
+): T[] {
+  const start = parseDate(rangeStart(range, options.firstDataDate, options.now))
+  const end = parseDate(options.now)
+  const monday = start ? formatDateKey(startOfWeek(start)) : null
+  const today = end ? formatDateKey(end) : null
+  return items.filter((item) => (!monday || item.weekStart >= monday) && (!today || item.weekStart <= today))
 }

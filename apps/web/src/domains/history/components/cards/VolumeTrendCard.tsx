@@ -1,6 +1,6 @@
 import { AreaChart } from '@mantine/charts'
 import { Badge } from '@mantine/core'
-import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
+import { filterWeeksToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
 import { resolveVolumeTrendSignal, volumeTrendExplanation, volumeTrendLabels } from '~/domains/history/lib/insight-state'
 import type { HistoryInsights, InsightGating, VolumeTrendSignal } from '~/domains/history'
 import { Caption, InfoHint, Panel, SectionLabel, Text } from '~/components'
@@ -23,10 +23,9 @@ export function VolumeTrendCard({
   gating: InsightGating
   range: InsightRange
 }) {
-  const weeks = filterToRange(insights.weeklyVolume, range, {
+  const weeks = filterWeeksToRange(insights.weeklyVolume, range, {
     firstDataDate: insights.firstSessionDate,
     now: insights.today,
-    getDate: (week) => week.weekStart,
   })
   const signal = resolveVolumeTrendSignal(weeks, gating)
   const rangeTotal = weeks.reduce((total, week) => total + week.volume, 0)

@@ -304,16 +304,17 @@ async function getBodyweightEntriesInternal(supabase: DataClient, userId: string
 async function getProfileHistoryContext(
   supabase: DataClient,
   userId: string,
-): Promise<{ sex: Sex | null; timeZone: string }> {
+): Promise<{ sex: Sex | null; timeZone: string; units: Unit }> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('sex, timezone')
+    .select('sex, timezone, units')
     .eq('id', userId)
     .maybeSingle()
   if (error) throw new Error(error.message)
   return {
     sex: (data?.sex as Sex | undefined) ?? null,
     timeZone: resolveIanaTimeZone(data?.timezone),
+    units: data?.units === 'lb' ? 'lb' : 'kg',
   }
 }
 
@@ -338,6 +339,7 @@ export async function getHistoryDashboard(
       overview: dashboard.overview,
       bodyweightEntries,
       sex: profile.sex,
+      accountUnits: profile.units,
       now: generatedAt.toISOString(),
       today,
       timeZone: profile.timeZone,

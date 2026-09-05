@@ -174,7 +174,7 @@ export type HistoryInsights = {
   weeklySessions: WeeklyCount[]
   consistency: ConsistencySummary
   calibration: CalibrationSummary
-  bodyweight: { entries: BodyweightEntry[]; sex: Sex | null }
+  bodyweight: { entries: BodyweightEntry[]; sex: Sex | null; units: Unit }
   strengthScore: StrengthScore
   milestones: MilestoneSummary
   lifetime: { tonnage: number; sets: number; reps: number; sessions: number }

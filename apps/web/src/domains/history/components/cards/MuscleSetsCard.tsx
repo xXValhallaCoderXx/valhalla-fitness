@@ -1,6 +1,6 @@
 import { Badge } from '@mantine/core'
 import { buildMovementBalance, balanceSignalLabels } from '~/domains/history/lib/muscle-volume'
-import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
+import { filterWeeksToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
 import type { HistoryInsights } from '~/domains/history'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
 import { formatNumber } from '../insight-format'
@@ -13,10 +13,9 @@ const GROUP_COLOR: Record<string, string> = {
 }
 
 export function MuscleSetsCard({ insights, range }: { insights: HistoryInsights; range: InsightRange }) {
-  const weekly = filterToRange(insights.weeklyRegionSets, range, {
+  const weekly = filterWeeksToRange(insights.weeklyRegionSets, range, {
     firstDataDate: insights.firstSessionDate,
     now: insights.today,
-    getDate: (week) => week.weekStart,
   })
   const balance = buildMovementBalance(weekly, null)
   const groups = [

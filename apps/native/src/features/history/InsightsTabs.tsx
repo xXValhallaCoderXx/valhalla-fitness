@@ -5,7 +5,6 @@ import type {
   HistoryDashboardWithInsights,
   InsightGating,
   RecentHistoryEntry,
-  TodayHistorySupport,
 } from '@sheetless/domain/history/types'
 import type { SessionFilter } from '@sheetless/domain/history/insights'
 import { SegmentedControl } from '@/components'
@@ -29,13 +28,11 @@ export function InsightsTabs({
   data,
   gating,
   recent,
-  support,
   user,
 }: {
   data: HistoryDashboardWithInsights
   gating: InsightGating
   recent: RecentHistoryEntry[]
-  support?: TodayHistorySupport
   user: User
 }) {
   const [tab, setTab] = useState<InsightTab>('overview')
@@ -52,7 +49,7 @@ export function InsightsTabs({
       />
 
       {tab === 'overview' ? (
-        <InsightsOverview data={data} gating={gating} recent={recent} support={support} />
+        <InsightsOverview data={data} gating={gating} recent={recent} />
       ) : null}
       {tab === 'sessions' ? (
         <InsightsSessions

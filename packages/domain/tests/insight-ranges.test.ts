@@ -3,6 +3,7 @@ import {
   INSIGHT_RANGES,
   RANGE_DAYS,
   filterToRange,
+  filterWeeksToRange,
   insightRangeLabels,
   rangeSpanDays,
   rangeStart,
@@ -120,6 +121,18 @@ describe('filterToRange', () => {
 })
 
 describe('rangeSpanDays', () => {
+  it('keeps the initial Monday when the first workout is midweek', () => {
+    const weeks = [weekPoint('2026-06-22'), weekPoint('2026-06-29')]
+    for (const range of INSIGHT_RANGES) {
+      expect(filterWeeksToRange(weeks, range, { firstDataDate: '2026-06-24', now: NOW })).toEqual(weeks)
+    }
+  })
+
+  it('keeps the week overlapping the range boundary, but drops older and future weeks', () => {
+    expect(filterWeeksToRange([
+      weekPoint('2026-04-27'), weekPoint('2026-05-04'), weekPoint('2026-07-06'),
+    ], '8w', { firstDataDate: '2025-01-01', now: NOW })).toEqual([weekPoint('2026-05-04')])
+  })
   it('returns the full window when history exceeds it', () => {
     expect(rangeSpanDays('8w', '2025-01-01', NOW)).toBe(56)
     expect(rangeSpanDays('3m', '2025-01-01', NOW)).toBe(91)

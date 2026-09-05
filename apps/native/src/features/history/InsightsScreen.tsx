@@ -1,23 +1,16 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { resolveInsightGating } from '@sheetless/domain/history/insight-state'
-import type { TodayPayload } from '@sheetless/domain/session/types/read-models'
-import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
-import { EmptyState, PageHeader, Panel, Screen, SettingsHeaderAction, Text } from '@/components'
+import { Button, EmptyState, PageHeader, Panel, Screen, SettingsHeaderAction, Text } from '@/components'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
-import {
-  historyDashboardQueryOptions,
-  recentHistoryQueryOptions,
-  todayHistorySupportQueryOptions,
-} from './queries'
+import { historyDashboardQueryOptions } from './queries'
+import { programOverviewQueryOptions } from '../program/queries'
 import { InsightsTabs } from './InsightsTabs'
 
 export function InsightsScreen() {
   const { user } = useSession()
-  const queryClient = useQueryClient()
   const dashboard = useQuery({ ...historyDashboardQueryOptions(user!), enabled: Boolean(user) })
-  const recent = useQuery({ ...recentHistoryQueryOptions(user!), enabled: Boolean(user) })
-  const support = useQuery({ ...todayHistorySupportQueryOptions(user!), enabled: Boolean(user) })
+  const overview = useQuery({ ...programOverviewQueryOptions(user!), enabled: Boolean(user) })
   const settingsAction = <SettingsHeaderAction testID="insights-settings" />
 
   if (dashboard.isPending) {
@@ -25,7 +18,7 @@ export function InsightsScreen() {
       <Screen>
         <PageHeader
           title="Insights"
-          subtitle="Chartless signals from your recent training."
+          subtitle="Up to 240 recent workouts · latest 20 sessions."
           actions={settingsAction}
         />
         <Panel style={{ padding: spacing.md }}><Text tone="dimmed">Loading recent training…</Text></Panel>
@@ -39,13 +32,12 @@ export function InsightsScreen() {
         <EmptyState title="Insights could not load">
           {dashboard.error instanceof Error ? dashboard.error.message : 'Try again in a moment.'}
         </EmptyState>
+        <Button label="Retry Insights" onPress={() => void dashboard.refetch()} />
       </Screen>
     )
   }
 
-  const today = queryClient.getQueryData<TodayPayload>(accountQueryKeys.today(user!.id))
-  const program = today?.activeProgram
-  const daysPerWeek = program?.templateDefinition?.daysPerWeek
+  const program = overview.data?.activeProgram
   const gating = resolveInsightGating({
     completedSessions: dashboard.data.overview.completedSessions,
     lastCompletedAt: dashboard.data.overview.latestTrainingDate ?? null,
@@ -53,8 +45,8 @@ export function InsightsScreen() {
     program: program
       ? {
           status: program.status,
-          weekNumber: daysPerWeek ? Math.floor(program.currentWeekIndex / daysPerWeek) + 1 : null,
-          hardness: today?.plannedSession?.hardness ?? null,
+          weekNumber: overview.data?.position?.weekNumber ?? null,
+          hardness: overview.data?.position?.hardness ?? null,
         }
       : null,
   })
@@ -64,18 +56,21 @@ export function InsightsScreen() {
       <PageHeader
         title="Insights"
         eyebrow="Logged work"
-        subtitle="Chartless signals from your recent training."
+        subtitle="Up to 240 recent workouts · latest 20 sessions."
         actions={settingsAction}
       />
       <InsightsTabs
+        key={user!.id}
         data={dashboard.data}
         gating={gating}
-        recent={recent.data ?? dashboard.data.recentSessions}
-        support={support.data}
+        recent={dashboard.data.recentSessions.slice(0, 20)}
         user={user!}
       />
-      {recent.isError || support.isError ? (
-        <Text size="xs" tone="warning">Some supporting recent-training details could not refresh.</Text>
+      {overview.isError ? (
+        <Panel>
+          <Text tone="warning">Programme context could not load.</Text>
+          <Button label="Retry programme context" onPress={() => void overview.refetch()} />
+        </Panel>
       ) : null}
     </Screen>
   )

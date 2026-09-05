@@ -1,4 +1,5 @@
 import type { BodyweightEntry, Sex } from '@sheetless/domain/account/types'
+import type { Unit } from '@sheetless/domain/shared/types'
 import type { HistoryDashboard, HistoryInsights } from '@sheetless/domain/history/types'
 import type { Movement } from '@sheetless/domain/movement/types'
 import { buildWeeklyVolumeBuckets, type HistorySessionInput } from '@sheetless/domain/history/history'
@@ -23,6 +24,7 @@ export function buildHistoryInsights({
   overview,
   bodyweightEntries,
   sex,
+  accountUnits = 'kg',
   now,
   today,
   timeZone,
@@ -32,6 +34,7 @@ export function buildHistoryInsights({
   overview: HistoryDashboard['overview']
   bodyweightEntries: BodyweightEntry[]
   sex: Sex | null
+  accountUnits?: Unit
   now: string
   today?: string
   timeZone?: string | null
@@ -50,9 +53,8 @@ export function buildHistoryInsights({
   // Headline score pairs the best-so-far total with the *current* bodyweight,
   // not the weight logged nearest the total's date — it answers "how strong am
   // I now", while totalSeries carries the historically-paired DOTS trend.
-  const currentBodyweight = bodyweightEntries.length
-    ? bodyweightEntries[bodyweightEntries.length - 1]
-    : nearestBodyweight(bodyweightEntries, accountToday)
+  const recordedBodyweight = bodyweightEntries.filter((entry) => entry.recordedOn <= accountToday)
+  const currentBodyweight = nearestBodyweight(recordedBodyweight, accountToday)
 
   const weeklySessions = buildWeeklySessionCounts(sessions, accountToday)
   const completedReps = sessions
@@ -72,7 +74,7 @@ export function buildHistoryInsights({
     weeklySessions,
     consistency: buildConsistency(weeklySessions),
     calibration: buildCalibration(sessions, accountToday),
-    bodyweight: { entries: bodyweightEntries, sex },
+    bodyweight: { entries: bodyweightEntries, sex, units: accountUnits },
     strengthScore: resolveStrengthScore({
       total: latestTotal?.total ?? null,
       totalKg: latestTotal?.totalKg ?? null,

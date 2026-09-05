@@ -3,7 +3,6 @@ import type {
   HistoryDashboardWithInsights,
   InsightGating,
   RecentHistoryEntry,
-  TodayHistorySupport,
 } from '@sheetless/domain/history/types'
 import { dataLifecycleLabels } from '@sheetless/domain/history/insight-state'
 import { formatNumber } from '@sheetless/domain/shared/set-notation'
@@ -15,12 +14,10 @@ export function InsightsOverview({
   data,
   gating,
   recent,
-  support,
 }: {
   data: HistoryDashboardWithInsights
   gating: InsightGating
   recent: RecentHistoryEntry[]
-  support?: TodayHistorySupport
 }) {
   if (gating.lifecycle === 'empty') {
     return (
@@ -60,12 +57,12 @@ export function InsightsOverview({
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           <StatCard
             label="Current streak"
-            value={`${support?.consistency.currentStreakWeeks ?? data.insights.consistency.currentStreakWeeks} wk`}
+            value={`${data.insights.consistency.currentStreakWeeks} wk`}
             tone="warning"
           />
           <StatCard
             label="Per week"
-            value={String(support?.consistency.avgSessionsPerWeek ?? data.insights.consistency.avgSessionsPerWeek ?? '—')}
+            value={String(data.insights.consistency.avgSessionsPerWeek ?? '—')}
           />
         </View>
       </Panel>
