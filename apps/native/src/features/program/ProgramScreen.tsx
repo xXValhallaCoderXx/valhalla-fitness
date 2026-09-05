@@ -8,13 +8,13 @@ import { Button, EmptyState, PageHeader, Panel, Screen, SettingsHeaderAction, Te
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { programOverviewQueryOptions } from './queries'
-import { ProgramEquipmentModeCard } from './ProgramEquipmentModeCard'
-import { ProgramHeader } from './ProgramHeader'
-import { ProgramPhaseMap } from './ProgramPhaseMap'
-import { ProgramTimeline } from './ProgramTimeline'
-import { ProgramDetails } from './ProgramDetails'
-import { ProgressionReviewAlert } from './ProgressionReviewAlert'
-import { ProgressionReviewSheet } from './ProgressionReviewSheet'
+import { ProgramEquipmentModeCard } from './equipment/ProgramEquipmentModeCard'
+import { ProgramHeader } from './overview/ProgramHeader'
+import { ProgramPhaseMap } from './overview/ProgramPhaseMap'
+import { ProgramTimeline } from './overview/ProgramTimeline'
+import { ProgramDetails } from './overview/ProgramDetails'
+import { ProgressionReviewAlert } from './progression/ProgressionReviewAlert'
+import { ProgressionReviewSheet } from './progression/ProgressionReviewSheet'
 
 export function ProgramScreen() {
   const { user } = useSession()

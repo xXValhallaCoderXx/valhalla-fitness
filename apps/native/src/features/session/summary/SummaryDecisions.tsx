@@ -4,10 +4,10 @@ import { TrendingUp } from 'lucide-react-native'
 import type { ProgressionDecision } from '@sheetless/domain/program/types'
 import type { Unit } from '@sheetless/domain/shared/types'
 import { Button, Caption, Heading, Panel, Text } from '@/components'
-import { ProgressionDecisionCard } from '@/features/program/ProgressionDecisionCard'
+import { ProgressionDecisionCard } from '@/features/program/progression/ProgressionDecisionCard'
 import {
   useProgressionReview,
-} from '@/features/program/useProgressionReview'
+} from '@/features/program/progression/useProgressionReview'
 import { spacing, useTokens } from '@/lib/tokens'
 
 export function SummaryDecisions({

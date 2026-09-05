@@ -1,8 +1,8 @@
 import type { HistoryTab } from '@sheetless/domain/history/history-tabs'
 import { INSIGHT_RANGES, insightRangeLabels, type InsightRange } from '@sheetless/domain/history/insight-ranges'
 import type { ProgramOverview } from '@sheetless/domain/program/types'
-import { InsightsStrength } from './InsightsStrength'
-import { InsightsBodyLoad } from './InsightsBodyLoad'
+import { InsightsStrength } from './strength/InsightsStrength'
+import { InsightsBodyLoad } from './muscle-fatigue/InsightsBodyLoad'
 import { useState } from 'react'
 import { View } from 'react-native'
 import type { User } from '@supabase/supabase-js'
@@ -14,11 +14,11 @@ import type {
 import type { SessionFilter } from '@sheetless/domain/history/insights'
 import { SegmentedControl } from '@/components'
 import { spacing } from '@/lib/tokens'
-import { InsightsMovements } from './InsightsMovements'
-import { InsightsOverview } from './InsightsOverview'
-import { InsightsRecords } from './InsightsRecords'
-import { InsightsSessions } from './InsightsSessions'
-import { SessionSummarySheet } from './SessionSummarySheet'
+import { InsightsMovements } from './movements/InsightsMovements'
+import { InsightsOverview } from './overview/InsightsOverview'
+import { InsightsRecords } from './records/InsightsRecords'
+import { InsightsSessions } from './sessions/InsightsSessions'
+import { SessionSummarySheet } from './sessions/SessionSummarySheet'
 
 type InsightTab = HistoryTab
 const tabs: Array<{ value: InsightTab; label: string }> = [

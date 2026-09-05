@@ -6,7 +6,7 @@ import { todayQueryOptions } from '@/features/session/queries'
 import { useMe } from '@/lib/account'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
-import { TemplateStartSetup } from './TemplateStartSetup'
+import { TemplateStartSetup } from './setup/TemplateStartSetup'
 import { templateSetupQueryOptions, templatesQueryOptions } from './queries'
 
 export function TemplateDetailScreen({ templateId }: { templateId: string }) {

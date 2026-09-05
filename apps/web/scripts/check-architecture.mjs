@@ -339,21 +339,15 @@ if (existsSync(join(nativeRoot, 'src'))) {
 
   // Expo Router layouts own the provider stack and tab bar, so they are shells
   // rather than adapters — the web equivalent lives outside src/routes too.
-  const knownOversizedNativeRoutes = new Set(['src/app/auth.tsx'])
   const nativeRouteFiles = walk(join(nativeRoot, 'src/app'))
     .filter((path) => path.endsWith('.tsx') && !path.endsWith('_layout.tsx'))
   for (const path of nativeRouteFiles) {
     const file = nativePath(path)
     const lines = lineCount(readFileSync(path, 'utf8'))
     if (lines <= 10) continue
-    if (knownOversizedNativeRoutes.has(file)) {
-      warnings.push(`apps/native/${file} remains above the 10-line native route gate (${lines})`)
-    } else {
-      failures.push(`apps/native/${file} has ${lines} lines and exceeds the 10-line native route gate`)
-    }
+    failures.push(`apps/native/${file} has ${lines} lines and exceeds the 10-line native route gate`)
   }
 
-  const knownOversizedNativeComponents = new Set(['src/features/settings/SettingsScreen.tsx'])
   const nativeComponentFiles = [
     ...walk(join(nativeRoot, 'src/components')),
     ...walk(join(nativeRoot, 'src/features')),
@@ -362,11 +356,7 @@ if (existsSync(join(nativeRoot, 'src'))) {
     const file = nativePath(path)
     const lines = lineCount(readFileSync(path, 'utf8'))
     if (lines <= 300) continue
-    if (knownOversizedNativeComponents.has(file)) {
-      warnings.push(`apps/native/${file} remains above the 300-line component gate (${lines})`)
-    } else {
-      failures.push(`apps/native/${file} has ${lines} lines and exceeds the 300-line component gate`)
-    }
+    failures.push(`apps/native/${file} has ${lines} lines and exceeds the 300-line component gate`)
   }
 
   for (const path of walk(join(nativeRoot, 'src/components'))) {

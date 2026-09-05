@@ -19,8 +19,8 @@ import {
   Text,
 } from '@/components'
 import { todayHistorySupportQueryOptions } from '@/features/history/queries'
-import { ProgressionReviewAlert } from '@/features/program/ProgressionReviewAlert'
-import { ProgressionReviewSheet } from '@/features/program/ProgressionReviewSheet'
+import { ProgressionReviewAlert } from '@/features/program/progression/ProgressionReviewAlert'
+import { ProgressionReviewSheet } from '@/features/program/progression/ProgressionReviewSheet'
 import {
   invalidateProgramOverviewBestEffort,
   patchProgramHasActiveSession,
@@ -30,9 +30,9 @@ import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { useTimezoneSync } from '@/lib/use-timezone-sync'
 import { useStableMutationRequest } from '@/lib/useStableMutationRequest'
-import { StartBlankWorkoutButton } from './StartBlankWorkoutButton'
-import { TodayActiveSessionCard } from './TodayActiveSessionCard'
-import { TodayPlannedSessionCard } from './TodayPlannedSessionCard'
+import { StartBlankWorkoutButton } from './today/StartBlankWorkoutButton'
+import { TodayActiveSessionCard } from './today/TodayActiveSessionCard'
+import { TodayPlannedSessionCard } from './today/TodayPlannedSessionCard'
 
 export function TodayScreen() {
   const { user } = useSession()

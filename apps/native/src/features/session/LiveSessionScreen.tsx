@@ -4,9 +4,9 @@ import { useKeepAwake } from 'expo-keep-awake'
 import { Button, PageHeader, Panel, Screen, Text } from '@/components'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
-import { FocusWorkoutView } from './FocusWorkoutView'
+import { FocusWorkoutView } from './live/FocusWorkoutView'
 import { sessionQueryOptions } from './queries'
-import { RestTimerProvider } from './RestTimerProvider'
+import { RestTimerProvider } from './rest-timer/RestTimerProvider'
 
 export function LiveSessionScreen({ sessionId }: { sessionId: string }) {
   const { user } = useSession()

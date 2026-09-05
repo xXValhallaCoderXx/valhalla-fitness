@@ -216,8 +216,10 @@ apps/web/                   TanStack Start app and thin server wrappers
   tests/                    Vitest tests
   tests/e2e/                Playwright browser flows
 apps/native/                Expo application
-  src/app/                  typed route adapters
-  src/features/             native domain screens and components
+  src/app/                  Expo Router layouts and thin route adapters
+  src/features/             domain entry screens and folders grouped by responsibility
+  src/components/           shared UI primitives; chart rendering and geometry in charts/
+  src/lib/                  app providers, theme, auth client, and platform services
 packages/domain/            pure framework-free training logic and types
 packages/data/              authenticated Supabase data access
 packages/tokens/            shared design tokens
@@ -227,6 +229,39 @@ supabase/migrations/        append-only schema migrations
 Web routes extract URL/context data and render a domain component. Native route files render feature
 screens. `@sheetless/domain` remains pure; `@sheetless/data` accepts an authenticated user context
 from either the web cookie client or native SecureStore session and never acquires auth itself.
+
+### Native entry points and feature folders
+
+`apps/native/package.json` starts `expo-router/entry`. The first application file to open is
+[`apps/native/src/app/_layout.tsx`](apps/native/src/app/_layout.tsx): it installs the providers,
+restores authentication, applies the theme, and selects the navigation stack. The tab bar lives in
+[`src/app/(tabs)/_layout.tsx`](apps/native/src/app/(tabs)/_layout.tsx). Each other route only extracts
+parameters and renders a named feature screen; for example, `(tabs)/index.tsx` renders
+`features/session/TodayScreen.tsx`.
+
+Within `apps/native/src/features/`, screen entry points stay at the feature root. Supporting
+components and hooks live together in folders named for what they do:
+
+| Feature | Entry screens | Supporting folders |
+| --- | --- | --- |
+| `auth` | `AuthScreen.tsx` | Email and code sign-in are contained in this screen. |
+| `session` | `TodayScreen.tsx`, `LiveSessionScreen.tsx`, `SessionSummaryScreen.tsx` | `today/` starts and resumes workouts; `live/` coordinates Focus/Overview navigation; `focus/` logs sets; `overview/` lists exercises; `editing/` manages movements, order, titles, and notes; `lifecycle/` finishes/discards; `summary/` presents the recap, decisions, Repeat, and favourites; `movement-picker/`, `plate-calculator/`, and `rest-timer/` own their tools. |
+| `history` | `InsightsScreen.tsx` → `InsightsTabs.tsx` | `overview/`, `strength/`, `muscle-fatigue/`, `movements/`, `records/`, and `sessions/` follow the six tabs; `bodyweight/` owns the measurement trend and profile prompt. |
+| `program` | `ProgramScreen.tsx` | `overview/` presents the active plan; `equipment/` reviews conversions; `progression/` reviews and resolves progression decisions. |
+| `templates` | `TemplatesScreen.tsx`, `TemplateDetailScreen.tsx` | `catalogue/`, `favorites/`, `find-my-plan/`, `setup/`, and `start/` separate browsing, recommendations, customisation, and programme start. |
+| `settings` | `SettingsScreen.tsx` | `profile/` owns bodyweight and strength; `preferences/` owns appearance, units, rest, and equipment; `account/` owns account actions and data export. Draft/save coordination and the shared section wrapper stay at the feature root. |
+| `feedback` | `BetaFeedback.tsx`, `PostWorkoutFeedback.tsx`, `DecisionFeedback.tsx` | Embedded forms share submission and prompt state in this small feature folder. |
+
+The larger workout compositions are `session/live/FocusWorkoutView.tsx` (mode and lifecycle
+coordination), `session/focus/PopulatedFocusWorkoutView.tsx` (the active exercise), and
+`templates/setup/TemplateStartSetup.tsx` (programme setup). Follow their imports into the adjacent
+concerns rather than looking for UI in route files. Native route adapters have a 10-line limit;
+feature and shared UI components have a 300-line limit, enforced by `pnpm architecture:check`.
+
+Feature-wide query options and cache helpers stay at the feature root. Imports within a feature use
+relative paths; cross-feature imports use `@/features/<feature>/<concern>/<module>`. Shared UI remains
+available from `@/components`. Platform variants stay together, such as
+`settings/account/account-export.ts`, `.native.ts`, and `.web.ts`.
 
 ### Runtime data boundaries
 

@@ -110,6 +110,13 @@ apps, enforced by `architecture:check`:
 `apps/native` has its own ESLint and Vitest setup; it is covered by the recursive `pnpm lint` and
 `pnpm test`, and by `pnpm verify:native`.
 
+- Keep route entry components named `*Screen.tsx` at the owning `src/features/<feature>/` root,
+  alongside feature-wide query/cache modules. Group supporting UI and hooks by responsibility
+  (`session/focus`, `session/editing`, `program/progression`, `templates/setup`, etc.), rather than
+  accumulating flat files or generic `components`/`hooks` directories. Small feature folders do not
+  need extra nesting. See README's native entry-point map before choosing a location.
+- Use relative imports within a feature and `@/features/...` across features. Keep platform variants
+  beside their base module, and keep shared UI imports on the existing `@/components` barrel.
 - Route files under `src/app/` are adapters: params in, one feature screen out, 10 lines or fewer
   (`_layout.tsx` files are shells and exempt). Feature and component `.tsx` files cap at 300 lines.
   `src/components/**` may not import `@/features/**`. All four are enforced by `architecture:check`.

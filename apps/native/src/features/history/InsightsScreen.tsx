@@ -4,7 +4,7 @@ import { Button, EmptyState, PageHeader, Panel, Screen, SettingsHeaderAction, Te
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { historyDashboardQueryOptions } from './queries'
-import { programOverviewQueryOptions } from '../program/queries'
+import { programOverviewQueryOptions } from '@/features/program/queries'
 import { InsightsTabs } from './InsightsTabs'
 
 export function InsightsScreen() {

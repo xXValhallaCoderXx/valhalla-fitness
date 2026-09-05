@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router'
-import { SessionSummaryScreen } from '@/features/session/summary/SessionSummaryScreen'
+import { SessionSummaryScreen } from '@/features/session/SessionSummaryScreen'
 
 export default function SessionSummaryRoute() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()

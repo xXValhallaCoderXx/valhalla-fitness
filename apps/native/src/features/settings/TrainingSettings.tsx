@@ -1,9 +1,9 @@
 import type { User } from '@supabase/supabase-js'
 import type { ThemePreference } from '@sheetless/domain/account/types'
-import { BodyStrengthSection } from './BodyStrengthSection'
-import { EquipmentSection } from './EquipmentSection'
-import { PreferencesSection } from './PreferencesSection'
-import { StrengthEstimatesSection } from './StrengthEstimatesSection'
+import { BodyStrengthSection } from './profile/BodyStrengthSection'
+import { EquipmentSection } from './preferences/EquipmentSection'
+import { PreferencesSection } from './preferences/PreferencesSection'
+import { StrengthEstimatesSection } from './profile/StrengthEstimatesSection'
 import type { useSettingsDraft } from './useSettingsDraft'
 
 export function TrainingSettings({ user, draft, effectiveScheme, previewPreference, controlsDisabled, changeTheme }: {

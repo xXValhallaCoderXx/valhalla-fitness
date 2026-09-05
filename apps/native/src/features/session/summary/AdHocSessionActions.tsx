@@ -9,8 +9,8 @@ import type { TodayPayload } from '@sheetless/domain/session/types/read-models'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { Button, Panel, Text } from '@/components'
 import { spacing, useTokens } from '@/lib/tokens'
-import { useSessionFavorite } from '../useSessionFavorite'
-import { useStartAdHocWorkout } from '../useStartAdHocWorkout'
+import { useSessionFavorite } from './useSessionFavorite'
+import { useStartAdHocWorkout } from '../today/useStartAdHocWorkout'
 import { FavoriteNameDialog } from './FavoriteNameDialog'
 
 export function AdHocSessionActions({

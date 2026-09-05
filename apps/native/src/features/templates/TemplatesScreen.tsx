@@ -29,12 +29,12 @@ import {
 import { buildUserContext } from '@/lib/account'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
-import { ActiveProgramBand } from './ActiveProgramBand'
-import { FavoriteWorkoutsSection } from './FavoriteWorkoutsSection'
-import { FindMyPlanSheet } from './FindMyPlanSheet'
-import { TemplateCatalogueFilters } from './TemplateCatalogueFilters'
-import { TemplateCard } from './TemplateCard'
-import { TemplateFinderPrompt } from './TemplateFinderPrompt'
+import { ActiveProgramBand } from './catalogue/ActiveProgramBand'
+import { FavoriteWorkoutsSection } from './favorites/FavoriteWorkoutsSection'
+import { FindMyPlanSheet } from './find-my-plan/FindMyPlanSheet'
+import { TemplateCatalogueFilters } from './catalogue/TemplateCatalogueFilters'
+import { TemplateCard } from './catalogue/TemplateCard'
+import { TemplateFinderPrompt } from './catalogue/TemplateFinderPrompt'
 import { templatesQueryOptions } from './queries'
 
 const complexityOrder: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 }

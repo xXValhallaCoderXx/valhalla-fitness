@@ -20,7 +20,7 @@ vi.mock('@sheetless/data/feedback/feedback', () => ({ submitFeedback: api.send }
 vi.mock('@sheetless/data/account/profile', () => ({ getMe: api.profile, dismissPostWorkoutFeedback: api.optOut }))
 vi.mock('@react-native-async-storage/async-storage', () => ({ default: { getItem: api.get, setItem: api.set } }))
 vi.mock('@/lib/account', () => ({ buildUserContext: (user: User) => ({ user }) }))
-vi.mock('@/features/program/useProgressionReview', () => ({ useProgressionReview: ({ onResolved }: {
+vi.mock('@/features/program/progression/useProgressionReview', () => ({ useProgressionReview: ({ onResolved }: {
   onResolved: (id: string, action: 'accepted' | 'dismissed') => void
 }) => ({
   isSaving: false, isApplyingAll: false, errorMessage: null,

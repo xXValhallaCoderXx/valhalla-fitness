@@ -1,5 +1,5 @@
 import { ConfirmDialog } from '@/components'
-import { DeleteAccountDialog } from './DeleteAccountDialog'
+import { DeleteAccountDialog } from './account/DeleteAccountDialog'
 
 export type DestructiveIntent = 'signOut' | 'delete'
 
