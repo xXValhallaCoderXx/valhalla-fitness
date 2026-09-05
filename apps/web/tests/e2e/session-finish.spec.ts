@@ -156,6 +156,13 @@ test('finishing a session and applying all load updates succeeds', async ({ page
   const suggestedLabel = Number.isInteger(suggested) ? String(suggested) : suggested.toFixed(1)
   await expect(page.getByText(`${suggestedLabel} kg`).first()).toBeVisible()
 
+  // Sharing a fresh finish returns to the same summary with pending decisions intact.
+  await page.getByRole('button', { name: 'Share workout', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Download image', exact: true })).toBeEnabled()
+  await expect(page.getByTestId('workout-share-image')).toBeVisible()
+  await page.getByRole('button', { name: 'Back to summary' }).click()
+  await expect(page.getByText(/load updates? ready/i)).toBeVisible()
+
   // --- Beta feedback surfaces (fresh summaries only) ---
 
   // Per-decision "Something off?" inside the review modal — the popover must escape

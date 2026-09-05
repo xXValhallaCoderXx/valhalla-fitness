@@ -1,3 +1,5 @@
+import { buildWorkoutShareModel } from '@sheetless/domain/history/workout-share'
+import { LazyWorkoutSharePreview } from './sharing/LazyWorkoutSharePreview'
 import { Button, Modal } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -18,24 +20,26 @@ import { FavoriteNameDialog } from './summary/FavoriteNameDialog'
 import { ExerciseCard, NotesCard, SessionBest, StatusBlock } from './summary/WorkoutSummaryExercises'
 import { WorkoutSummaryHero } from './summary/WorkoutSummaryHero'
 
-export function WorkoutSummaryModal({
-  open,
-  fallback,
-  session,
-  isLoading,
-  error,
-  onClose,
-}: {
+type SummaryModalProps = {
   open: boolean
   fallback: RecentHistoryEntry | null
   session?: WorkoutSession
   isLoading: boolean
   error: unknown
   onClose: () => void
-}) {
+}
+
+export function WorkoutSummaryModal(props: SummaryModalProps) {
+  const userId = useRequiredAccountId()
+  return props.open ? <SummaryModalContent key={`${userId}:${props.session?.sessionId ?? 'loading'}`} {...props} /> : null
+}
+
+function SummaryModalContent({ open, fallback, session, isLoading, error, onClose }: SummaryModalProps) {
   const userId = useRequiredAccountId()
   const router = useRouter()
   const queryClient = useQueryClient()
+  const [sharing, setSharing] = useState(false)
+  const shareModel = session ? buildWorkoutShareModel(session) : null
   const [nameDialogOpen, setNameDialogOpen] = useState(false)
   const model = session ? buildWorkoutSummary(session) : null
   // Repeat/favourite only make sense for completed ad-hoc workouts — plan sessions stay plan-driven.
@@ -131,7 +135,7 @@ export function WorkoutSummaryModal({
           className="flex items-center justify-between px-4 py-3 sm:px-5"
           style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
         >
-          <SectionLabel>Workout summary</SectionLabel>
+          <SectionLabel>{sharing ? 'Share workout' : 'Workout summary'}</SectionLabel>
           <button
             type="button"
             onClick={onClose}
@@ -145,7 +149,9 @@ export function WorkoutSummaryModal({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {isLoading ? (
+        {sharing && shareModel ? (
+          <div className="p-4"><LazyWorkoutSharePreview model={shareModel} onBack={() => setSharing(false)} /></div>
+        ) : isLoading ? (
           <StatusBlock>Loading workout summary…</StatusBlock>
         ) : error ? (
           <StatusBlock tone="danger">{getApiErrorMessage(error, 'Unable to load workout summary')}</StatusBlock>
@@ -170,10 +176,11 @@ export function WorkoutSummaryModal({
         ) : null}
       </div>
 
-      <div
+      {!sharing ? <div
         className="flex-none px-4 py-3 sm:px-5"
         style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}
       >
+        {shareModel ? <Button fullWidth variant="default" mb="sm" onClick={() => setSharing(true)}>Share workout</Button> : null}
         {canActOnAdHoc && session ? (
           <div className="flex gap-2">
             <Button
@@ -201,7 +208,7 @@ export function WorkoutSummaryModal({
         ) : (
           <Button fullWidth onClick={onClose}>Done</Button>
         )}
-      </div>
+      </div> : null}
       {nameDialogOpen && session ? (
         <FavoriteNameDialog
           initialTitle={session.title}

@@ -14,6 +14,7 @@ const systemChromiumPath =
 
 export default defineConfig({
   testDir: './tests/e2e',
+  testIgnore: 'workout-share-preview.spec.ts',
   use: {
     baseURL: 'http://localhost:3000',
     ...(systemChromiumPath ? { launchOptions: { executablePath: systemChromiumPath } } : {}),

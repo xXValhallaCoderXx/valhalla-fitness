@@ -6,6 +6,7 @@ import {
   SectionLabel,
 } from '~/components'
 import type { WorkoutSession } from '~/domains/session'
+import { ShareWorkoutButton } from '~/domains/history/components/sharing/ShareWorkoutButton'
 
 export function SessionSummaryHeader({
   session,
@@ -29,11 +30,12 @@ export function SessionSummaryHeader({
           <EquipmentModeBadge equipmentMode={session.equipmentMode} />
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Caption fw={600}>
           {completedSets} of {plannedSets} sets · {durationMinutes} min
         </Caption>
         <Badge color="success">Completed</Badge>
+        <ShareWorkoutButton session={session} />
       </div>
     </div>
   )
