@@ -46,20 +46,38 @@ beforeEach(() => {
 const wrap = (node: React.ReactNode) => <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{node}</QueryClientProvider>
 const prompt = () => <PostWorkoutFeedback key={user.id} user={user} session={session} decisions={[]} />
 
+function deferredSubmission() {
+  let resolve!: (value: { ok: true }) => void
+  let reject!: (reason: Error) => void
+  const promise = new Promise<{ ok: true }>((yes, no) => { resolve = yes; reject = no })
+  return { promise, resolve, reject }
+}
+
 describe('feedback forms', () => {
   it('keeps the global category and draft on failure, then acknowledges only successful submission', async () => {
-    api.send.mockRejectedValueOnce(new Error('Network failed')).mockResolvedValueOnce({ ok: true })
+    const failed = deferredSubmission()
+    const retry = deferredSubmission()
+    api.send.mockReturnValueOnce(failed.promise).mockReturnValueOnce(retry.promise)
     render(<BetaFeedback user={user} />)
     fireEvent.click(screen.getByRole('button', { name: 'Beta feedback' }))
     fireEvent.click(screen.getByRole('tab', { name: 'Bug' }))
     fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'Keep this draft' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
-    await screen.findByText('Network failed')
+    expect(api.send).toHaveBeenCalledTimes(1)
+    expect((screen.getByRole('button', { name: 'Send feedback' }) as HTMLButtonElement).disabled).toBe(true)
+    // Flush the failed request and Pressable's effect before sending the retry.
+    // Seeing the error text alone does not ensure its press handler is enabled yet.
+    await act(async () => { failed.reject(new Error('Network failed')) })
+    expect(screen.getByText('Network failed')).toBeTruthy()
     expect((screen.getByLabelText('Feedback message') as HTMLInputElement).value).toBe('Keep this draft')
+    expect((screen.getByRole('button', { name: 'Send feedback' }) as HTMLButtonElement).disabled).toBe(false)
     expect(screen.queryByText(/Thanks/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
-    await screen.findByText('Thanks — this helps improve the beta.')
     expect(api.send).toHaveBeenCalledTimes(2)
+    expect(api.send.mock.calls[1][1]).toMatchObject({ source: 'menu', category: 'bug', message: 'Keep this draft' })
+    expect(screen.queryByText(/Thanks/)).toBeNull()
+    await act(async () => { retry.resolve({ ok: true }) })
+    expect(screen.getByText('Thanks — this helps improve the beta.')).toBeTruthy()
   })
 
   it('waits for preferences and requires a reason for No, while Yes sends immediately', async () => {
@@ -78,17 +96,24 @@ describe('feedback forms', () => {
   })
 
   it('preserves No/Not sure drafts through failure', async () => {
-    api.send.mockRejectedValueOnce(new Error('Try again')).mockResolvedValueOnce({ ok: true })
+    const failed = deferredSubmission()
+    const retry = deferredSubmission()
+    api.send.mockReturnValueOnce(failed.promise).mockReturnValueOnce(retry.promise)
     render(wrap(prompt()))
     fireEvent.click(await screen.findByRole('tab', { name: 'Not sure' }))
     fireEvent.click(screen.getByRole('tab', { name: 'The explanation was unclear' }))
     fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'Why this load?' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
-    await screen.findByText('Try again')
+    expect(api.send).toHaveBeenCalledTimes(1)
+    await act(async () => { failed.reject(new Error('Try again')) })
+    expect(screen.getByText('Try again')).toBeTruthy()
     expect((screen.getByLabelText('Feedback message') as HTMLInputElement).value).toBe('Why this load?')
     fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
-    await screen.findByText('Thanks — noted. This helps improve the beta.')
+    expect(api.send).toHaveBeenCalledTimes(2)
     expect(api.send.mock.calls[1][1]).toMatchObject({ answer: 'not_sure', category: 'explanation_unclear', message: 'Why this load?' })
+    expect(screen.queryByText(/Thanks/)).toBeNull()
+    await act(async () => { retry.resolve({ ok: true }) })
+    expect(screen.getByText('Thanks — noted. This helps improve the beta.')).toBeTruthy()
   })
 
   it('keeps success handled if local storage fails, including on remount', async () => {
