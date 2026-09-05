@@ -28,6 +28,19 @@ enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 
+# DB-side signup gate: no-op while app_config.auth_allowlist_enabled is false.
+# Hosted project needs the same hook enabled once in the dashboard (Auth → Hooks).
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/hook_before_user_created"
+
+# Magic-link email carries the 6-digit OTP too, so the native app's code-entry
+# sign-in works. The hosted project's template needs the same {{ .Token }} line
+# added once in the dashboard (Auth → Email Templates → Magic Link).
+[auth.email.template.magic_link]
+subject = "Your sign-in link"
+content_path = "./supabase/templates/magic-link.html"
+
 # Local Google OAuth for dev. The CLI resolves env() from the SHELL, not from .env — so export
 # SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID/_SECRET before `supabase start`, e.g.:
 #   set -a; . ./.env; set +a; supabase stop && supabase start

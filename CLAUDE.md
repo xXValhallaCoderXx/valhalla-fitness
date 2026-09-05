@@ -8,9 +8,10 @@ contains Claude-specific execution notes only.
 
 ```bash
 pnpm dev               # dev server on http://localhost:3000
-pnpm typecheck         # tsc --noEmit
-pnpm test              # vitest (unit)
-pnpm lint              # eslint
+pnpm typecheck         # tsc --noEmit, every workspace
+pnpm test              # vitest (unit), every workspace incl. apps/native
+pnpm lint              # eslint, every workspace incl. apps/native
+pnpm verify:native     # expo export — a real Metro bundle of apps/native
 pnpm verify            # complete release-oriented verification suite
 pnpm e2e               # Playwright e2e (setup and examples are in README.md)
 pnpm shot /program     # screenshot any route as the logged-in demo user
@@ -29,8 +30,15 @@ Before calling a change done, run and confirm green:
    - Eyeball it: `pnpm shot <route>` (logs in as the demo user, screenshots — read the PNG).
    - Add/run an e2e flow in `tests/e2e/` for new interactive features and run `pnpm e2e`.
 
+4. **For native changes**, run `pnpm verify:native` (Playwright and `pnpm shot` are web-only), then
+   eyeball with `pnpm native:web` and confirm behaviour with `pnpm native:android`. Native Vitest
+   aliases `react-native` to `react-native-web`, so it proves hooks and state — not layout, `Modal`,
+   `measureInWindow`, or SVG. Prefer putting new logic in `packages/domain`. See `AGENTS.md` for the
+   native route/component/style gates.
+
 This is a hard requirement: UI bugs (hydration races, broken nav, disabled buttons, empty
-states) repeatedly slip past typecheck/unit tests and only show up in a real browser.
+states) repeatedly slip past typecheck/unit tests and only show up in a real browser — and on
+native, neither `tsc` nor react-native-web-backed unit tests see a Hermes or layout failure.
 
 ### Gotcha: SSR hydration race
 

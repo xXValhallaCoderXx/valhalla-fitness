@@ -1,13 +1,16 @@
 node_modules
 dist
 .output
+.expo/
+apps/native/android/
+apps/native/ios/
 .next
 out
 .turbo
 .vercel
 test-results
 playwright-report
-tests/e2e/.auth/
+apps/web/tests/e2e/.auth/
 *-shot.png
 .env
 .env.*

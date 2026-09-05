@@ -1,0 +1,108 @@
+/**
+ * Native port of web FocusExerciseHeader: prev/next chevrons around the movement
+ * title, role pill, target summary, and the previous-comparable line. Movement
+ * actions live in FocusMovementTools directly below this header.
+ */
+import { Pressable, View } from 'react-native'
+import { ChevronLeft, ChevronRight } from 'lucide-react-native'
+import type { MovementSlot } from '@sheetless/domain/session/types/session'
+import type { Unit } from '@sheetless/domain/shared/types'
+import { formatPreviousShort } from '@sheetless/domain/session/live-session-utils'
+import { Badge, Caption, Heading, Text } from '@/components'
+import { spacing, useTokens, type Theme } from '@/lib/tokens'
+
+export function FocusExerciseHeader({
+  movement,
+  units,
+  hasPrev,
+  hasNext,
+  onPrev,
+  onNext,
+}: {
+  movement: MovementSlot
+  units: Unit
+  hasPrev: boolean
+  hasNext: boolean
+  onPrev: () => void
+  onNext: () => void
+}) {
+  const { theme } = useTokens()
+  const swapped = movement.performedMovementId && movement.performedMovementId !== movement.movementId
+  return (
+    <View>
+      <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
+        <ChevronButton theme={theme} dir="prev" disabled={!hasPrev} onPress={onPrev} />
+        <View style={{ alignItems: 'center', flex: 1, minWidth: 0 }}>
+          <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
+            <Badge tone={movement.role === 'main' ? 'accent' : 'neutral'}>{movement.role}</Badge>
+            <Caption numberOfLines={1} style={{ flexShrink: 1 }}>
+              {movement.targetSummary}
+            </Caption>
+          </View>
+          <Heading order={2} style={{ marginTop: 4, textAlign: 'center' }} numberOfLines={2}>
+            {movement.movementName}
+          </Heading>
+        </View>
+        <ChevronButton theme={theme} dir="next" disabled={!hasNext} onPress={onNext} />
+      </View>
+
+      {swapped ? (
+        <Caption style={{ color: theme.tones.warning.text, fontWeight: '700', marginTop: 6, textAlign: 'center' }}>
+          Performed as {movement.performedMovementName}
+        </Caption>
+      ) : null}
+
+      {movement.previous ? (
+        <View
+          style={{
+            alignItems: 'center',
+            flexDirection: 'row',
+            gap: 4,
+            justifyContent: 'center',
+            marginTop: 6,
+          }}
+        >
+          <Caption>Previous comparable</Caption>
+          <Text size="xs" weight={700}>
+            {formatPreviousShort(movement.previous, units)}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
+function ChevronButton({
+  theme,
+  dir,
+  disabled,
+  onPress,
+}: {
+  theme: Theme
+  dir: 'prev' | 'next'
+  disabled: boolean
+  onPress: () => void
+}) {
+  const Icon = dir === 'prev' ? ChevronLeft : ChevronRight
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      accessibilityLabel={dir === 'prev' ? 'Previous exercise' : 'Next exercise'}
+      testID={dir === 'prev' ? 'focus-prev-exercise' : 'focus-next-exercise'}
+      style={({ pressed }) => ({
+        alignItems: 'center',
+        backgroundColor: theme.surface,
+        borderColor: theme.border,
+        borderRadius: 22,
+        borderWidth: 1,
+        height: 44,
+        justifyContent: 'center',
+        opacity: disabled ? 0.3 : pressed ? 0.6 : 1,
+        width: 44,
+      })}
+    >
+      <Icon size={18} color={theme.textMuted} />
+    </Pressable>
+  )
+}
