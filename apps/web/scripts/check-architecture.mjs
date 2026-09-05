@@ -306,6 +306,9 @@ const nonTypeSupabaseImport = /(?:^|\n)\s*(?:import\s+(?!type\b)[^'"]*|export\s+
 for (const path of packageSources) {
   const contents = readFileSync(path, 'utf8')
   const packageName = relative(packagesRoot, path).split(sep)[0]
+  if (['domain', 'data', 'tokens'].includes(packageName) && /['"]@sheetless\/workout-share(?:\/|['"])/.test(contents)) {
+    failures.push(`${relative(packagesRoot, path)} depends on the workout-share presentation package`)
+  }
   const banned = packageName === 'data' ? dataBannedPackageImport : defaultBannedPackageImport
   const match = contents.match(banned)
   if (match) {

@@ -46,6 +46,7 @@
     "@sheetless/data": "workspace:*",
     "@sheetless/domain": "workspace:*",
     "@sheetless/tokens": "workspace:*",
+    "@sheetless/workout-share": "workspace:*",
     "@supabase/ssr": "0.12.0",
     "@supabase/supabase-js": "2.112.3",
     "@tanstack/react-query": "5.101.0",
