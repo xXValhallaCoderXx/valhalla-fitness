@@ -137,3 +137,13 @@ describe('SegmentedControl', () => {
     expect(backgroundOf('seg-sessions')).toBe(asRgb(themes.dark.surface))
   })
 })
+
+
+it('allows an initially unselected answer without choosing on the user behalf', () => {
+  const onChange = vi.fn()
+  render(<SegmentedControl options={options} value={null} onChange={onChange} accessibilityLabel="Answer" />)
+  expect(backgroundOf('seg-overview')).toBe(backgroundOf('seg-sessions'))
+  expect(onChange).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByTestId('seg-sessions'))
+  expect(onChange).toHaveBeenCalledWith('sessions')
+})

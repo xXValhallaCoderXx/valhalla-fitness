@@ -9,6 +9,9 @@ import type {
 import { Badge, Caption, Panel, SectionLabel, Text } from '@/components'
 import { radii, spacing, useTokens, type ToneName } from '@/lib/tokens'
 
+import { selectInsightWeeks } from '@sheetless/domain/history/insight-selectors'
+import type { InsightRange } from '@sheetless/domain/history/insight-ranges'
+
 const MAX_MILESTONES = 4
 
 const stallTones: Record<StallSignal, ToneName> = {
@@ -21,15 +24,17 @@ const stallTones: Record<StallSignal, ToneName> = {
 export function InsightSignals({
   insights,
   gating,
+  range,
 }: {
   insights: HistoryInsights
   gating: InsightGating
+  range: InsightRange
 }) {
   return (
     <>
       <Milestones insights={insights} />
       <PrWatch insights={insights} gating={gating} />
-      <MuscleBalance insights={insights} />
+      <MuscleBalance insights={insights} range={range} />
     </>
   )
 }
@@ -89,8 +94,8 @@ function PrWatch({ insights, gating }: { insights: HistoryInsights; gating: Insi
   )
 }
 
-function MuscleBalance({ insights }: { insights: HistoryInsights }) {
-  const balance = buildMovementBalance(insights.weeklyRegionSets, null)
+function MuscleBalance({ insights, range }: { insights: HistoryInsights; range: InsightRange }) {
+  const balance = buildMovementBalance(selectInsightWeeks(insights.weeklyRegionSets, insights, range), null)
   if (balance.signal === 'insufficient') {
     return (
       <Panel style={{ gap: spacing.xs, padding: spacing.md }}>

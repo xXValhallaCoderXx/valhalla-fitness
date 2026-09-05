@@ -101,7 +101,7 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
         Your strength, consistency, and output — built from every logged set.
       </PageHeader>
 
-      {RANGED_TABS.includes(activeTab) && data.overview.completedSessions > 0 ? (
+      {RANGED_TABS.includes(activeTab) ? (
         <div className="mb-3 flex justify-end">
           <InsightRangeSwitch value={range} onChange={setRange} />
         </div>

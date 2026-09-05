@@ -5,7 +5,7 @@ spreadsheet in the gym.
 
 **Document authority:** this README is the sole human-facing source for the product, current release
 status, architecture, training-plan DSL, development workflow, testing, and production runbook.
-It was last reconciled with the repository on **2026-08-24**. Machine-specific implementation
+It was last reconciled with the repository on **2026-09-05**. Machine-specific implementation
 instructions remain in `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, and
 `.github/instructions/`.
 
@@ -64,7 +64,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Progression | **Shipped** | Recommendations are calculated from completed work, stored as decisions, and require explicit accept/later/dismiss handling. |
 | Ad-hoc sessions and favourites | **Shipped** | Users can start unprogrammed workouts, repeat prior sessions, and save/reuse favourites while retaining comparable history. |
 | Programme and Insights views | **Shipped** | Programme position, timeline, loads, decisions, recent sessions, e1RM, DOTS/bodyweight-multiple fallbacks, trends, consistency, calibration, muscle-set estimates, records, and history are data-backed. |
-| Body profile | **Partial** | Web and native Settings support units, sex, bodyweight history, saved strength estimates, and a known-set 1RM calculator. Units, sex, and bodyweight are not yet collected in first-run onboarding, and Overview has no dedicated bodyweight trend chart. |
+| Body profile | **Partial** | Web and native Settings support units, sex, bodyweight history, saved strength estimates, and a known-set 1RM calculator. Units, sex, and bodyweight are not yet collected in first-run onboarding, and both Overview screens plot actual dated bodyweight measurements in account units, including accounts with no workouts. |
 | Exercise catalogue | **Shipped; media deferred** | The catalogue stores 151 movements (140 active and 11 resolvable deprecated aliases) with resistance mode, required equipment, pattern, primary/secondary muscles, aliases, load convention, and replacement lineage. Instructions, external IDs, and media are not yet included. |
 | Feedback | **Shipped** | Global and post-workout feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
@@ -91,8 +91,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 1. Persist the rest timer across reloads and add per-movement defaults and `-15`.
 2. Make exact previous-set values tappable to fill the current set.
 3. Capture units, sex, and bodyweight in onboarding.
-4. Add the bodyweight trend to Overview.
-5. Decide whether finish-time PR summaries are sufficient or whether live PR feedback is required.
+4. Decide whether finish-time PR summaries are sufficient or whether live PR feedback is required.
 
 #### Deferred
 
@@ -110,18 +109,28 @@ Ordered by dependency rather than by size. The shared segmented control and char
 each needed by more than one milestone, and native logic can only be tested once it has been pushed
 down into `packages/domain`, so the enablers come first.
 
-1. Establish the native quality gate: ESLint, Vitest, recursive `pnpm lint`/`pnpm test`, the
-   `pnpm verify:native` Metro bundle, and native route/component gates in `architecture:check`.
-2. Add the shared native primitives: a segmented control replacing seven duplicated tab strips, and
-   chart primitives on `react-native-svg` over pure geometry helpers in `packages/domain`.
-3. Port beta feedback (all three sources). Logic is already shared, so this is the smallest complete
-   vertical slice.
-4. Add richer Insights ranges, charts, and the Strength and Body load tabs without weakening
-   bounded-history queries; surface the recent-session window honestly rather than widening it.
-5. Add the bodyweight trend to Overview on both web and native, which needs a new domain aggregation.
+1. **Implemented:** native ESLint/Vitest, recursive checks, `pnpm verify:native` in local verification
+   and CI, and native architecture gates.
+2. **Implemented:** segmented controls and SVG charts with pure geometry in
+   `apps/native/src/components/charts/chart-geometry.ts`, optional calendar coordinates, isolated
+   points, hollow outliers, and accessible value inspection.
+3. **Implemented:** six Insights sections (Overview, Strength, Muscle Fatigue, Movements, Records,
+   Sessions), persistent 8W/3M/1Y/All ranges, movement sorting, and session search. Workout analytics
+   use up to 240 recent workouts; browsing/search uses the latest 20 sessions. All means available
+   history for that metric. Fatigue stays at seven days, set adequacy at four weeks, and calibration
+   at six weeks. Direct entry loads reactive programme context with retry actions.
+4. **Implemented:** actual-measurement bodyweight trends on both Overview screens. Full independent
+   bodyweight history uses account units and calendar dates, excludes future readings, retains the
+   latest dated measurement outside a selected range, and reports neutral signed range change.
+   Settings remains the logging/edit entry point; no smoothing or weight-goal assumptions.
+5. Port beta feedback (all three sources), with optional post-workout eligibility and decision context.
 6. Port custom-programme creation. Management is create-only, matching web.
 7. Port first-run onboarding. The optional live walkthrough/replay stays deferred.
-8. Finish Google auth, history session search, and remaining Android release polish.
+8. Finish Google auth and remaining Android release polish.
+
+Insights physical Android acceptance remains pending: painted SVGs, tap inspection, scrolling,
+light/dark narrow screens, Settings bodyweight refresh, and session/movement drill-ins. Native web
+exports and automated state tests do not establish these device results.
 
 ### Recorded release posture
 

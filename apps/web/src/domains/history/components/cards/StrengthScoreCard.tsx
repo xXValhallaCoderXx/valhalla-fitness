@@ -1,10 +1,11 @@
+import { selectScoreTrend } from '@sheetless/domain/history/insight-selectors'
 import { LineChart } from '@mantine/charts'
 import { Badge } from '@mantine/core'
 import { ArrowRight } from 'lucide-react'
 import { formatCompactDate } from '~/shared/lib/dates'
 import { strengthScoreExplanation, strengthScoreKindLabels } from '~/domains/history/lib/dots'
-import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
-import { formatTotalMetricValue, totalMetricFor, totalMetricLabel, totalMetricValue } from '~/domains/history/lib/total-metric'
+import { type InsightRange } from '~/domains/history/lib/insight-ranges'
+import { formatTotalMetricValue, totalMetricLabel } from '~/domains/history/lib/total-metric'
 import type { HistoryInsights, StrengthScoreKind } from '~/domains/history'
 import { Caption, InfoHint, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { BodyweightPromptCard } from '../BodyweightPromptCard'
@@ -36,13 +37,8 @@ export function StrengthScoreCard({
   const showPrompt = (!hasBodyweight || !hasSex) && completedSessions >= 2
 
   // Honest history: chart only the metric matching score.kind, and only with >= 2 real points.
-  const metric = totalMetricFor(score.kind)
-  const chartPoints = filterToRange(insights.totalSeries, range, {
-    firstDataDate: insights.firstSessionDate,
-    now: insights.today,
-    getDate: (point) => point.date,
-  })
-    .map((point) => ({ date: formatCompactDate(point.date), value: totalMetricValue(point, metric) }))
+  const { metric, points } = selectScoreTrend(insights, range)
+  const chartPoints = points.map((point) => ({ date: formatCompactDate(point.date), value: point.value }))
     .filter((point): point is { date: string; value: number } => typeof point.value === 'number' && Number.isFinite(point.value))
 
   return (
@@ -89,7 +85,7 @@ export function StrengthScoreCard({
         </button>
       ) : null}
 
-      {showPrompt ? <BodyweightPromptCard units={insights.units} hasBodyweight={hasBodyweight} hasSex={hasSex} /> : null}
+      {showPrompt ? <BodyweightPromptCard units={insights.bodyweight.units} hasBodyweight={hasBodyweight} hasSex={hasSex} /> : null}
     </Panel>
   )
 }

@@ -63,6 +63,7 @@ export function InsightsScreen() {
         key={user!.id}
         data={dashboard.data}
         gating={gating}
+        programOverview={overview.data ?? null}
         recent={dashboard.data.recentSessions.slice(0, 20)}
         user={user!}
       />

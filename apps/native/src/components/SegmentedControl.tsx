@@ -11,7 +11,7 @@ export interface SegmentedControlOption<T extends string> {
 
 export interface SegmentedControlProps<T extends string> {
   options: ReadonlyArray<SegmentedControlOption<T>>
-  value: T
+  value: T | null
   onChange: (value: T) => void
   /**
    * pills = hug-width chips in a horizontal scroller, for lists that outgrow the

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Pressable, View } from 'react-native'
 import {
   availableIntensities,
@@ -8,7 +9,7 @@ import {
 } from '@sheetless/domain/history/insights'
 import type { RecentHistoryEntry } from '@sheetless/domain/history/types'
 import { createAccountClock, describeWorkoutDate } from '@sheetless/domain/shared/dates'
-import { Badge, Caption, EmptyState, Panel, SectionLabel, SegmentedControl, Text } from '@/components'
+import { Badge, Caption, EmptyState, Panel, SectionLabel, SegmentedControl, Text, TextInput } from '@/components'
 import { spacing } from '@/lib/tokens'
 
 export function InsightsSessions({
@@ -22,15 +23,17 @@ export function InsightsSessions({
   onFilterChange: (filter: SessionFilter) => void
   onOpen: (sessionId: string) => void
 }) {
+  const [search, setSearch] = useState('')
   const filters: SessionFilter[] = [
     'all',
     ...availableIntensities(sessions),
     ...(hasAdHocSessions(sessions) ? (['adhoc'] as const) : []),
   ]
-  const visible = filterSessions(sessions, filter)
+  const visible = filterSessions(sessions, filter, search)
   return (
     <View style={{ gap: spacing.sm }}>
-      <SectionLabel>Sessions · recent training</SectionLabel>
+      <SectionLabel>Latest 20 sessions</SectionLabel>
+      <TextInput value={search} onChangeText={setSearch} placeholder="Search latest 20 sessions" accessibilityLabel="Search sessions" />
       <SegmentedControl
         options={filters.map((value) => ({
           value,

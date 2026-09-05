@@ -128,7 +128,7 @@ function StrengthScorePanel({
         <Caption mt="md">Total trend unlocks once squat, bench, and deadlift all have logged strength points.</Caption>
       )}
 
-      {showPrompt ? <BodyweightPromptCard units={insights.units} hasBodyweight={hasBodyweight} hasSex={hasSex} /> : null}
+      {showPrompt ? <BodyweightPromptCard units={insights.bodyweight.units} hasBodyweight={hasBodyweight} hasSex={hasSex} /> : null}
     </Panel>
   )
 }

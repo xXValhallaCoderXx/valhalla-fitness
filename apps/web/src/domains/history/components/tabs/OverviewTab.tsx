@@ -18,6 +18,7 @@ import type {
 } from '~/domains/history'
 import type { ProgramOverview } from '~/domains/program'
 import { Caption, EmptyState, EquipmentModeBadge, Heading, Panel, SectionLabel, Text } from '~/components'
+import { BodyweightTrendCard } from '../cards/BodyweightTrendCard'
 import { CalibrationCard } from '../cards/CalibrationCard'
 import { ConsistencyCard } from '../cards/ConsistencyCard'
 import { MilestonesStrip } from '../cards/MilestonesStrip'
@@ -73,6 +74,8 @@ export function OverviewTab({
 
   if (gating.lifecycle === 'empty') {
     return (
+      <div className="space-y-4">
+      <BodyweightTrendCard insights={insights} range={range} />
       <EmptyState
         centered
         title="No completed sessions yet"
@@ -86,11 +89,13 @@ export function OverviewTab({
           ? `${activeProgramTitle} is active. Complete your first session to start building your strength trends, consistency, and volume.`
           : 'Complete a session to start building your strength trends, consistency, and volume.'}
       </EmptyState>
+      </div>
     )
   }
 
   return (
     <div className="space-y-4">
+      <BodyweightTrendCard insights={insights} range={range} />
       <OverviewKpiStrip kpis={kpis} />
 
       {gating.lifecycle === 'cold_start' ? (

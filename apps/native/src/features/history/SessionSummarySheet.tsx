@@ -31,9 +31,12 @@ export function SessionSummarySheet({
     >
       {session.isPending ? <Text tone="dimmed">Loading workout summary…</Text> : null}
       {session.isError ? (
+        <>
         <Text size="sm" tone="danger">
           {session.error instanceof Error ? session.error.message : 'Unable to load this workout.'}
         </Text>
+        <Button label="Retry summary" variant="default" onPress={() => void session.refetch()} />
+        </>
       ) : null}
       {session.data && recap ? (
         <>

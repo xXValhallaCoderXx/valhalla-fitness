@@ -1,3 +1,4 @@
+import { filterMovements, sortMovementSummaries, type MovementSortKey, type SortDir } from '@sheetless/domain/history/insights'
 import { useMemo, useState } from 'react'
 import { Pressable, View } from 'react-native'
 import type { User } from '@supabase/supabase-js'
@@ -22,19 +23,15 @@ export function InsightsMovements({
   user: User
 }) {
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<MovementSortKey>('volume')
+  const [direction, setDirection] = useState<SortDir>('desc')
   const [category, setCategory] = useState<string | null>(null)
   const [selected, setSelected] = useState<HistoryMovementSummary | null>(null)
   const categories = useMemo(
     () => Array.from(new Set(movements.map((movement) => movement.category))).sort(),
     [movements],
   )
-  const visible = useMemo(() => {
-    const search = query.trim().toLowerCase()
-    return movements.filter((movement) =>
-      (!category || movement.category === category) &&
-      (!search || movement.movementName.toLowerCase().includes(search)),
-    )
-  }, [movements, query, category])
+  const visible = sortMovementSummaries(filterMovements(movements, query, category), sort, direction)
 
   return (
     <View style={{ gap: spacing.sm }}>
@@ -49,6 +46,10 @@ export function InsightsMovements({
         onChange={(next) => setCategory(next === ALL_CATEGORIES ? null : next)}
         accessibilityLabel="Movement category filter"
       />
+      <SegmentedControl options={[{ value: 'last', label: 'Last performed' }, { value: 'volume', label: 'Volume' },
+        { value: 'e1rm', label: 'Best e1RM' }, { value: 'sets', label: 'Sets' }]} value={sort} onChange={setSort} accessibilityLabel="Sort movements" />
+      <SegmentedControl options={[{ value: 'desc', label: 'Highest first' }, { value: 'asc', label: 'Lowest first' }]}
+        value={direction} onChange={setDirection} variant="segments" accessibilityLabel="Sort direction" />
       {visible.length === 0 ? (
         <EmptyState title="No matching movements">Try another search or category.</EmptyState>
       ) : visible.map((movement) => (
