@@ -1,3 +1,8 @@
+import type { User } from '@supabase/supabase-js'
+import { buildSessionReceipt } from '@sheetless/domain/session/session-receipt'
+import { postWorkoutFeedbackEligible } from '@sheetless/domain/feedback/post-workout'
+import { PostWorkoutFeedback } from '@/features/feedback/PostWorkoutFeedback'
+import { WhatChangedCard } from './WhatChangedCard'
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { router } from 'expo-router'
@@ -15,6 +20,12 @@ import { SummaryDecisions } from './SummaryDecisions'
 
 export function SessionSummaryScreen({ sessionId }: { sessionId: string }) {
   const { user } = useSession()
+  if (!user) return <Screen><Text>Sign in to view your workout summary.</Text></Screen>
+  return <AccountSummary key={`${user.id}-${sessionId}`} user={user} sessionId={sessionId} />
+}
+
+function AccountSummary({ user, sessionId }: { user: User; sessionId: string }) {
+  const [resolved, setResolved] = useState<Record<string, 'accepted' | 'dismissed'>>({})
   const queryClient = useQueryClient()
   // Snapshot the finish payload once: the effect below drops it from the cache so
   // a revisit shows the persisted session rather than a stale one-shot summary.
@@ -60,6 +71,9 @@ export function SessionSummaryScreen({ sessionId }: { sessionId: string }) {
   }
 
   const recap = buildWorkoutSummary(session.data)
+  const decisions = (finishSummary?.decisions ?? []).map((decision) => ({ ...decision, status: resolved[decision.id] ?? decision.status }))
+  const effectiveSummary = finishSummary ? { ...finishSummary, decisions } : undefined
+  const receipt = buildSessionReceipt(session.data, effectiveSummary)
   return (
     <Screen>
       <PageHeader
@@ -69,10 +83,15 @@ export function SessionSummaryScreen({ sessionId }: { sessionId: string }) {
       />
       {finishSummary?.decisions.length ? (
         <SummaryDecisions
-          decisions={finishSummary.decisions}
+          decisions={decisions}
+          onResolved={(id, action) => setResolved((current) => ({ ...current, [id]: action }))}
           units={session.data.units}
           user={user!}
         />
+      ) : null}
+      <WhatChangedCard receipt={receipt} user={user} sessionId={sessionId} />
+      {postWorkoutFeedbackEligible(session.data, effectiveSummary) ? (
+        <PostWorkoutFeedback key={`${user.id}-${sessionId}`} user={user} session={session.data} decisions={decisions} />
       ) : null}
       <WorkoutSummaryRecap session={session.data} recap={recap} />
       <AdHocSessionActions user={user!} session={session.data} />

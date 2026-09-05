@@ -1,3 +1,5 @@
+import type { User } from '@supabase/supabase-js'
+import { DecisionFeedback } from '@/features/feedback/DecisionFeedback'
 import { View } from 'react-native'
 import { Check, Minus } from 'lucide-react-native'
 import type { ProgressionDecision } from '@sheetless/domain/program/types'
@@ -16,8 +18,10 @@ export function ProgressionDecisionCard({
   state,
   isSaving,
   onResolve,
+  user,
 }: {
   decision: ProgressionDecision
+  user: User
   units: Unit
   state?: ProgressionDecisionState
   isSaving: boolean
@@ -104,6 +108,8 @@ export function ProgressionDecisionCard({
           />
         </View>
       )}
+      <DecisionFeedback key={`${user.id}-${decision.id}`} user={user}
+        decision={{ ...decision, status: state === 'accepted' ? 'accepted' : state === 'kept' ? 'dismissed' : decision.status }} />
     </Panel>
   )
 }

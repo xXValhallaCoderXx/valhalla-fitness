@@ -96,6 +96,7 @@ export function ProgramScreen() {
       <ProgramTimeline trajectory={trajectory} />
       <ProgramDetails overview={overview.data} />
       <ProgressionReviewSheet
+        key={user!.id}
         open={reviewOpen}
         decisions={overview.data.pendingDecisions}
         units={program.units}

@@ -66,7 +66,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Programme and Insights views | **Shipped** | Programme position, timeline, loads, decisions, recent sessions, e1RM, DOTS/bodyweight-multiple fallbacks, trends, consistency, calibration, muscle-set estimates, records, and history are data-backed. |
 | Body profile | **Partial** | Web and native Settings support units, sex, bodyweight history, saved strength estimates, and a known-set 1RM calculator. Units, sex, and bodyweight are not yet collected in first-run onboarding, and both Overview screens plot actual dated bodyweight measurements in account units, including accounts with no workouts. |
 | Exercise catalogue | **Shipped; media deferred** | The catalogue stores 151 movements (140 active and 11 resolvable deprecated aliases) with resistance mode, required equipment, pattern, primary/secondary muscles, aliases, load convention, and replacement lineage. Instructions, external IDs, and media are not yet included. |
-| Feedback | **Shipped** | Global and post-workout feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
+| Feedback | **Shipped** | Web and native global, fresh post-workout, and decision feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
 | Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, profile/settings, template/history drill-ins, logging, finish/recap, persistent progression review, SecureStore auth, haptics, keep-awake, and rest notifications. Native supports blank/ad-hoc starts, Repeat and favourites, workout rename, Focus/Overview navigation, programme-added accessory ordering, movement swaps, session- and phase-scoped live accessories, resumed ad-hoc exercise management, notes, movement history, and plate calculation. Programs exposes all 14 built-in variants through six families, catalogue search/filters, Find My Plan, equipment-aware setup-time substitutions/accessories, free-weight review, active-program start/replacement, and reversible active-plan equipment conversion. Native Settings includes appearance, units, rest preferences, bodyweight, strength estimates, equipment profile, JSON sharing, legal/account actions, and deletion. Custom-programme creation and walkthrough replay remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
 | Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Failed sets must be retried before finishing. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
@@ -123,14 +123,22 @@ down into `packages/domain`, so the enablers come first.
    bodyweight history uses account units and calendar dates, excludes future readings, retains the
    latest dated measurement outside a selected range, and reports neutral signed range change.
    Settings remains the logging/edit entry point; no smoothing or weight-goal assumptions.
-5. Port beta feedback (all three sources), with optional post-workout eligibility and decision context.
+5. **Implemented:** native Beta feedback in Settings, optional fresh programme-finish check-ins,
+   and inline decision feedback in receipts and Today/Plan review sheets. The shared schema validates
+   every submission at the data boundary. Apply/Keep/Apply-all retain feedback access and resolved
+   status. Forms preserve failed drafts, block duplicate sends, and acknowledge only successful
+   submissions; there are no automatic retries or durable queues. Post-workout handled markers use
+   account/session-scoped AsyncStorage plus an in-memory success guard; the global opt-out stays in
+   the profile. Cross-device per-session deduplication is outside scope.
 6. Port custom-programme creation. Management is create-only, matching web.
 7. Port first-run onboarding. The optional live walkthrough/replay stays deferred.
 8. Finish Google auth and remaining Android release polish.
 
 Insights physical Android acceptance remains pending: painted SVGs, tap inspection, scrolling,
 light/dark narrow screens, Settings bodyweight refresh, and session/movement drill-ins. Native web
-exports and automated state tests do not establish these device results.
+exports and automated state tests do not establish these device results. Also verify feedback
+sheet keyboards, fresh-finish eligibility versus revisits, draft retention on failed sends, and
+feedback access after progression resolution on the phone.
 
 ### Recorded release posture
 

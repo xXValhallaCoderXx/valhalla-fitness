@@ -119,6 +119,7 @@ export function ProgressionReviewSheet({
             <ProgressionDecisionCard
               key={decision.id}
               decision={decision}
+              user={user}
               units={units}
               state={decided.get(decision.id)}
               isSaving={review.isSaving}

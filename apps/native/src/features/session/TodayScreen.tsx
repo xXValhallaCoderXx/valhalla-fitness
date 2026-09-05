@@ -141,6 +141,7 @@ export function TodayScreen() {
           onResume={() => openSession(active.sessionId)}
         />
         <ProgressionReviewSheet
+        key={user!.id}
           open={reviewOpen}
           decisions={pending}
           units={program?.units ?? active.units}
@@ -209,6 +210,7 @@ export function TodayScreen() {
       <StartBlankWorkoutButton />
 
       <ProgressionReviewSheet
+        key={user!.id}
         open={reviewOpen}
         decisions={pending}
         units={planned.units ?? program.units}
