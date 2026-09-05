@@ -1,9 +1,8 @@
-import { lazy, Suspense } from 'react'
 import type { WorkoutShareModel } from '@sheetless/domain/history/workout-share'
-import { Text } from '~/components'
+import { WorkoutShareLoader } from './WorkoutShareLoader'
 
-const Preview = lazy(() => import('./WorkoutSharePreview').then((module) => ({ default: module.WorkoutSharePreview })))
+const loadPreview = () => import('./WorkoutSharePreview').then((module) => ({ default: module.WorkoutSharePreview }))
 
 export function LazyWorkoutSharePreview(props: { model: WorkoutShareModel; onBack: () => void }) {
-  return <Suspense fallback={<Text role="status">Loading image preview…</Text>}><Preview {...props} /></Suspense>
+  return <WorkoutShareLoader load={loadPreview} {...props} />
 }

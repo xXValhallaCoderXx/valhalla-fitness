@@ -234,6 +234,7 @@ from either the web cookie client or native SecureStore session and never acquir
 `@sheetless/workout-share` consumes the domain's limited workout-share model. Domain, data, and
 tokens cannot depend on this presentation package. SVG-to-PNG conversion and export APIs stay
 inside the apps, using browser canvas or the existing native SVG, file-system, and sharing libraries.
+Architecture checks also reject platform dependencies and imports in the shared artwork package.
 
 ### Native entry points and feature folders
 
@@ -276,6 +277,7 @@ the recap and its Repeat/Favourite actions. Progression decisions remain on the 
 The preview starts in the app's resolved appearance. Light/Dark changes only the image, and export
 controls wait for PNG preparation. The final preview displays that PNG. Cancellation keeps the
 preview open; failed preparation or export has retry controls and preserves the selected appearance.
+Web preview loading also offers Back to summary and retry if its code cannot be loaded.
 
 The image contains the workout title, scheduled calendar date, completed-set count, actual elapsed
 time when valid timestamps exist, number of exercises with stored PRs, and one result per performed
@@ -287,9 +289,10 @@ zero load shows Bodyweight. Recorded session units are retained, and prescribed 
 duration estimates are never substituted. Notes, reflections, identity, bodyweight measurements, and
 progression decisions are excluded. The preview includes a textual description for accessibility.
 
-The shared SVG uses escaped text, fixed geometry, complete light/dark palettes, and system fonts;
-glyph pixels and coverage depend on the operating system's installed fonts. Images are generated
-locally without a migration, hosted storage, or additional third-party dependency. Files are named
+The shared SVG uses escaped text, conservative text bounds, fixed geometry, complete light/dark
+palettes, and system fonts; glyph pixels and coverage depend on the operating system's installed
+fonts. Images are generated locally without a migration, hosted storage, or additional third-party
+dependency. Files are named
 `sheetless-workout-YYYY-MM-DD.png`. Native uses a unique temporary cache directory per image and keeps
 the file until both preview and any active chooser have finished. Web always offers Download image;
 Share image appears only when the browser accepts the prepared PNG file. The final tap invokes the
@@ -598,12 +601,14 @@ pnpm --filter sheetless-web exec playwright test --config playwright.share.confi
 
 This harness renders the production preview and rasterizer with fixture content in desktop and
 phone-sized Chromium. It checks real PNG pixels/dimensions/downloads, appearance, file-sharing
-payloads, cancellation, duplicate taps, generation/export retries, and account replacement. The
-authenticated `workout-share.spec.ts` and `session-finish.spec.ts` cover historical entry points and
+payloads, cancellation, duplicate taps, generation/export retries, and account replacement. Browser
+checks also cover preview loading failures and resource cleanup after closing during generation.
+The authenticated `workout-share.spec.ts` and `session-finish.spec.ts` cover historical entry points and
 fresh finishes with existing summary actions. They require the running Supabase stack and seeded
 demo credentials. On 2026-09-05, the authenticated run stopped at login; those integration flows
-remain unverified in this environment. Native Vitest checks mock file/sharing APIs, not SVG painting.
-Automated verification on 2026-09-05 passed `pnpm verify` (1,019 unit tests), all six standalone
+remain unverified in this environment. Native Vitest checks mock file/sharing APIs and exercise the
+installed SVG XML parser for escaped names and Unicode; they do not verify SVG painting.
+Automated verification after review on 2026-09-05 passed `pnpm verify` (1,033 unit tests), all ten standalone
 browser preview tests, and the Android Metro export. Physical receipt/inspection is tracked in the
 device checklist below and has not been completed.
 
@@ -941,9 +946,11 @@ stack and Mailpit running, record a physical-device pass for:
 - Workout images: **physical acceptance not yet run**. From an installed Android APK and a supported
   mobile browser/PWA, receive and inspect a PNG from both a fresh finish and a historical summary.
   Confirm 1080 × 1350 dimensions, legible names/results, both appearances, PR ordering, overflow,
-  cancellation, and return to the summary with its actions intact. Record device/OS/browser/APK
-  versions and observed results separately from automated test results. Existing native dependencies
-  cover this change; a bundled standalone APK must still include the updated JavaScript.
+  cancellation, and return to the summary with its actions intact. Include names containing apostrophes
+  and ampersands, and confirm the recipient can open the image after closing the preview promptly.
+  Record device/OS/browser/APK versions and observed results separately from automated test results.
+  Existing native dependencies cover this change; a bundled standalone APK must still include the
+  updated JavaScript.
 - Allowed movement swaps, session- and phase-scoped accessory add/remove, resumed ad-hoc exercise
   add/remove (including its empty state), notes carried into recap, and kg/lb plate calculations.
 - Blank workout start alongside a planned day, ad-hoc rename, Focus/Overview switching, programme-

@@ -38,12 +38,27 @@ function textClusters(value: string): string[] {
   }
   return clusters
 }
+
+// Deliberately overestimate common system-font advances. A flat ASCII estimate
+// undercounts wide letters (especially bold W and m) enough to clip the card.
+// Count the visible parts of joined emoji separately: an OS without that glyph
+// can draw the fallback components instead of a single ligature.
+function clusterWidth(value: string): number {
+  return Array.from(value).reduce((width, char) => {
+    if (/\p{Mark}/u.test(char) || char === '\u200d') return width
+    if (/^[ilI\s.,'`!:;|]$/.test(char)) return width + 0.5
+    if (/^[MWmw@%]$/.test(char)) return width + 1.25
+    if (/^[a-z0-9]$/.test(char)) return width + 0.8
+    return width + (/^[\x20-\x7e]$/.test(char) ? 1 : 1.25)
+  }, 0)
+}
+
 function takeLine(value: string, limit: number): [string, string] {
   const parts = textClusters(clean(value))
   let count = 0
   let index = 0
   for (; index < parts.length; index++) {
-    const width = /^[\x20-\x7e]+$/.test(parts[index]) ? 0.72 : 1.15
+    const width = clusterWidth(parts[index])
     if (count + width > limit) break
     count += width
   }
@@ -51,8 +66,8 @@ function takeLine(value: string, limit: number): [string, string] {
 }
 
 function truncate(value: string, limit: number): string {
-  const [line, rest] = takeLine(value, limit - 1.2)
-  return rest ? `${line.trimEnd()}…` : line
+  const [line, rest] = takeLine(value, limit)
+  return rest ? `${takeLine(value, limit - 1.25)[0].trimEnd()}…` : line
 }
 
 export function shareDuration(seconds: number): string {

@@ -295,6 +295,13 @@ for (const path of componentFiles) {
 // the one package allowed to know about Supabase — and only its types: value
 // imports would bundle a second supabase-js into whichever app forgets to dedupe.
 const packagesRoot = join(repoRoot, '../../packages')
+const sharePackageNames = new Set(['@sheetless/domain', '@sheetless/tokens', '@sheetless/workout-share'])
+const shareManifest = JSON.parse(readFileSync(join(packagesRoot, 'workout-share/package.json'), 'utf8'))
+for (const field of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
+  for (const name of Object.keys(shareManifest[field] ?? {})) {
+    if (!sharePackageNames.has(name)) failures.push(`packages/workout-share/package.json declares runtime dependency ${name}; platform APIs belong in the apps`)
+  }
+}
 for (const name of ['domain', 'data', 'tokens']) {
   const manifest = JSON.parse(readFileSync(join(packagesRoot, name, 'package.json'), 'utf8'))
   if (['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
@@ -313,6 +320,18 @@ const nonTypeSupabaseImport = /(?:^|\n)\s*(?:import\s+(?!type\b)[^'"]*|export\s+
 for (const path of packageSources) {
   const contents = readFileSync(path, 'utf8')
   const packageName = relative(packagesRoot, path).split(sep)[0]
+  if (packageName === 'workout-share') {
+    const specifiers = [
+      ...importedModuleSpecifiers(contents),
+      ...Array.from(contents.matchAll(/(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)/g), (match) => match[1]),
+    ]
+    for (const specifier of new Set(specifiers)) {
+      const name = specifier.startsWith('@') ? specifier.split('/').slice(0, 2).join('/') : specifier.split('/')[0]
+      if (!specifier.startsWith('.') && !sharePackageNames.has(name)) {
+        failures.push(`packages/${relative(packagesRoot, path)} imports ${specifier}; workout-share must remain framework-free`)
+      }
+    }
+  }
   if (['domain', 'data', 'tokens'].includes(packageName) && /['"]@sheetless\/workout-share(?:\/|['"])/.test(contents)) {
     failures.push(`${relative(packagesRoot, path)} depends on the workout-share presentation package`)
   }

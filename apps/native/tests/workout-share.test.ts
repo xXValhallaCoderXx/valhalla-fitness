@@ -76,4 +76,12 @@ describe('native PNG adapter', () => {
     await vi.advanceTimersByTimeAsync(15000)
     await expectation
   })
+  it('handles an empty asynchronous native callback as a generation failure', async () => {
+    // iOS's SVG module calls callback([]) if its retry cannot produce a PNG.
+    const pending = prepareNativeImage({
+      toDataURL(callback) { queueMicrotask(() => callback(undefined as unknown as string)) },
+    }, filename)
+    await expect(pending).rejects.toThrow('PNG generation failed')
+    expect(mocks.fileWrite).not.toHaveBeenCalled()
+  })
 })

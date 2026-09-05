@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { PixelRatio, Platform, View } from 'react-native'
 import Svg, { SvgXml } from 'react-native-svg'
 import { prepareNativeImage } from './native-image'
+import { nativeWorkoutShareSvg } from './native-svg-text'
 import type { RasterizerProps } from './workout-image'
 
 export function WorkoutShareRasterizer({ svg, filename, requestKey, controller, previewVisible }: RasterizerProps) {
@@ -21,7 +22,7 @@ export function WorkoutShareRasterizer({ svg, filename, requestKey, controller, 
     // transparent view can be culled forever; show the draft until the PNG is ready.
     <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
       style={{ alignItems: 'center', height: previewVisible ? 270 : 0, overflow: 'hidden' }}>
-      <SvgXml xml={svg} override={{ ref: svgRef, width: 216, height: 270 }} />
+      <SvgXml xml={nativeWorkoutShareSvg(svg)} override={{ ref: svgRef, width: 216, height: 270 }} />
     </View>
   )
 }

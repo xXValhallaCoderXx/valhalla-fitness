@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { useState } from 'react'
 import { Button, MantineProvider, Modal } from '@mantine/core'
 import '~/styles/app.css'
-import { WorkoutSharePreview } from '~/domains/history/components/sharing/WorkoutSharePreview'
+import { LazyWorkoutSharePreview } from '~/domains/history/components/sharing/LazyWorkoutSharePreview'
 import { mantineTheme, mantineCssVariablesResolver } from '~/styles/mantine-theme'
 import type { WorkoutShareModel } from '@sheetless/domain/history/workout-share'
 
@@ -25,7 +25,7 @@ function Harness() {
     <Button onClick={() => setOpen(true)}>Share workout</Button>
     <Modal opened={open} title="Share workout" onClose={() => setOpen(false)}>
       <Button onClick={() => setAccount((value) => value + 1)}>Change account</Button>
-      {open ? <WorkoutSharePreview key={account} model={{ ...model, title: account ? 'Another account workout' : model.title }} onBack={() => setOpen(false)} /> : null}
+      {open ? <LazyWorkoutSharePreview key={account} model={{ ...model, title: account ? 'Another account workout' : model.title }} onBack={() => setOpen(false)} /> : null}
     </Modal>
   </MantineProvider>
 }

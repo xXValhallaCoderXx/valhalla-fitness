@@ -69,6 +69,7 @@ test('file payload, duplicate taps, cancellation and export retry', async ({ pag
       const file = files![0]
       document.body.dataset.payload = `${file.name}:${file.type}:${file.size}`
       document.body.dataset.calls = String(++calls)
+      document.body.dataset.activated = String(navigator.userActivation.isActive)
       await new Promise((resolve) => setTimeout(resolve, 400))
       if (calls === 1) throw new DOMException('Cancelled', 'AbortError')
       if (calls === 2) throw new Error('Sharing failed')
@@ -84,7 +85,50 @@ test('file payload, duplicate taps, cancellation and export retry', async ({ pag
   await expect(page.getByRole('alert')).toHaveCount(0)
   await share.click()
   await expect(page.getByRole('alert')).toContainText('Could not export')
+  await expect(page.locator('body')).toHaveAttribute('data-activated', 'true')
   await page.getByRole('button', { name: 'Retry share', exact: true }).click()
   await expect(share).toBeEnabled()
   await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
+test('a failed preview chunk retains an error and a way back to the summary', async ({ page }) => {
+  await page.route('**/sharing/WorkoutSharePreview.tsx', (route) => route.abort('failed'))
+  await page.goto('/')
+  await expect(page.getByRole('alert')).toContainText('Could not load the image preview')
+  await expect(page.getByRole('button', { name: 'Retry preview' })).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Back to summary' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Share workout', exact: true })).toBeVisible()
+})
+
+test('closing during generation releases the eventual image and its SVG source', async ({ page }) => {
+  await page.addInitScript(() => {
+    const created = URL.createObjectURL.bind(URL)
+    const revoked = URL.revokeObjectURL.bind(URL)
+    const live = new Set<string>()
+    URL.createObjectURL = (blob) => {
+      const uri = created(blob)
+      live.add(uri)
+      document.body.dataset.liveImages = String(live.size)
+      return uri
+    }
+    URL.revokeObjectURL = (uri) => {
+      live.delete(uri)
+      document.body.dataset.liveImages = String(live.size)
+      revoked(uri)
+    }
+    const toBlob = HTMLCanvasElement.prototype.toBlob
+    HTMLCanvasElement.prototype.toBlob = function (callback, ...args) {
+      document.body.dataset.rasterizing = 'true'
+      toBlob.call(this, (blob) => setTimeout(() => callback(blob), 500), ...args)
+    }
+  })
+  await page.goto('/')
+  await expect(page.locator('body')).toHaveAttribute('data-rasterizing', 'true')
+  await page.getByRole('button', { name: 'Back to summary' }).click()
+  await expect(page.getByTestId('workout-share-preview')).toHaveCount(0)
+  await expect(page.locator('body')).toHaveAttribute('data-live-images', '0')
+  await page.getByRole('button', { name: 'Share workout', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Download image', exact: true })).toBeEnabled()
 })

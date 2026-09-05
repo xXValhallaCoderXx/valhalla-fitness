@@ -12,7 +12,7 @@ export async function prepareNativeImage(svg: SvgExporter, filename: string, ren
     try {
       svg.toDataURL((data) => {
         clearTimeout(timeout)
-        if (data.startsWith('iVBORw0KGgo')) resolve(data)
+        if (typeof data === 'string' && data.startsWith('iVBORw0KGgo')) resolve(data)
         else reject(new Error('PNG generation failed'))
       }, { width: WORKOUT_SHARE_WIDTH / renderScale, height: WORKOUT_SHARE_HEIGHT / renderScale })
     } catch (error) { clearTimeout(timeout); reject(error) }
