@@ -1,3 +1,4 @@
+import { ReturnSessionNotice } from './live/ReturnSessionNotice'
 import type { User } from '@supabase/supabase-js'
 import { buildSessionReceipt } from '@sheetless/domain/session/session-receipt'
 import { postWorkoutFeedbackEligible } from '@sheetless/domain/feedback/post-workout'
@@ -90,6 +91,7 @@ function AccountSummary({ user, sessionId }: { user: User; sessionId: string }) 
           user={user!}
         />
       ) : null}
+      <ReturnSessionNotice session={session.data} />
       <WhatChangedCard receipt={receipt} user={user} sessionId={sessionId} />
       {postWorkoutFeedbackEligible(session.data, effectiveSummary) ? (
         <PostWorkoutFeedback key={`${user.id}-${sessionId}`} user={user} session={session.data} decisions={decisions} />

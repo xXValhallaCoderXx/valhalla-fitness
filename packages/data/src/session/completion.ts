@@ -113,7 +113,7 @@ export async function finishSession(
   const { supabase, user } = ctx
   const session = await getSession(ctx, data.sessionId)
   if (session.status === 'completed') {
-    const { error: replayError } = await supabase.rpc('finish_session_v2', {
+    const { error: replayError } = await supabase.rpc('finish_session_v3', {
       p_session_id: data.sessionId,
       p_request_id: data.requestId,
       p_notes: normalizeReflection(data.notes),
@@ -169,7 +169,7 @@ export async function finishSession(
     previousValue: decision.previousValue,
     recommendedValue: decision.recommendedValue,
   }))
-  const { error: finishError } = await supabase.rpc('finish_session_v2', {
+  const { error: finishError } = await supabase.rpc('finish_session_v3', {
     p_session_id: data.sessionId,
     p_request_id: data.requestId,
     p_notes: normalizeReflection(data.notes),

@@ -1,3 +1,4 @@
+import { ReturnGuideCard } from './return/ReturnGuideCard'
 import { Button } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -70,6 +71,8 @@ function AuthedProgram() {
   const trajectory = buildProgramTrajectory({
     definition,
     currentGlobalIndex: program.currentWeekIndex,
+    loadAdjustments: program.loadAdjustments,
+    returnSettings: program.returnPeriod?.status === 'active' || program.returnPeriod?.status === 'review' ? program.returnPeriod.settings : undefined,
     rounding: program.rounding,
     units: program.units,
     stateValues: overview.stateValues,
@@ -79,6 +82,7 @@ function AuthedProgram() {
 
   return (
     <Page>
+      <ReturnGuideCard program={program} hasActiveSession={overview.hasActiveSession} />
       <ProgramCommandBar overview={overview} program={program} phaseMap={phaseMap} />
 
       <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />

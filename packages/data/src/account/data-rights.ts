@@ -46,6 +46,9 @@ export async function exportAccountData(ctx: UserContext) {
     programMovementOverrides,
     programAccessoryAdditions,
     programEquipmentModeChoices,
+    programReturnPeriods,
+    programLoadOverrides,
+    programLoadAdjustments,
     workoutSessions,
     exerciseLogs,
     setLogs,
@@ -79,6 +82,15 @@ export async function exportAccountData(ctx: UserContext) {
     ),
     readAllRows<TableRow<'program_equipment_mode_choices'>>((from, to) =>
       supabase.from('program_equipment_mode_choices').select('*').eq('user_id', user.id).order('id').range(from, to),
+    ),
+    readAllRows<TableRow<'program_return_periods'>>((from, to) =>
+      supabase.from('program_return_periods').select('*').eq('user_id', user.id).order('id').range(from, to),
+    ),
+    readAllRows<TableRow<'program_load_overrides'>>((from, to) =>
+      supabase.from('program_load_overrides').select('*').eq('user_id', user.id).order('id').range(from, to),
+    ),
+    readAllRows<TableRow<'program_load_adjustments'>>((from, to) =>
+      supabase.from('program_load_adjustments').select('*').eq('user_id', user.id).order('id').range(from, to),
     ),
     readAllRows<TableRow<'workout_sessions'>>((from, to) =>
       supabase.from('workout_sessions').select('*').eq('user_id', user.id).order('id').range(from, to),
@@ -135,6 +147,9 @@ export async function exportAccountData(ctx: UserContext) {
       program_movement_overrides: programMovementOverrides,
       program_accessory_additions: programAccessoryAdditions,
       program_equipment_mode_choices: programEquipmentModeChoices,
+      program_return_periods: programReturnPeriods,
+      program_load_overrides: programLoadOverrides,
+      program_load_adjustments: programLoadAdjustments,
       workout_sessions: workoutSessions,
       exercise_logs: exerciseLogs,
       set_logs: setLogs,

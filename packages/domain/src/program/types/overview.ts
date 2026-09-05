@@ -36,6 +36,8 @@ export type ProgramStateOverview = {
   units: Unit
   /** Value at program start, reconstructed from the earliest accepted progression decision. */
   startValue: number
+  /** Explicit load edits, excluded from earned-progression deltas. */
+  resetDelta?: number
   updatedAt?: string | null
   pendingDecision?: ProgressionDecision | null
   lastAcceptedDecision?: ProgressionDecision | null

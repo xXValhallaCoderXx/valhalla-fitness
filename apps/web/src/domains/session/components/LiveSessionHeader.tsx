@@ -1,3 +1,4 @@
+import { ReturnSessionNotice } from './ReturnSessionNotice'
 import { ActionIcon, Box, Button, Tooltip } from '@mantine/core'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Caption, EquipmentModeBadge, Text } from '~/components'
@@ -40,6 +41,7 @@ export function LiveSessionHeader({
         backgroundColor: 'color-mix(in srgb, var(--mantine-color-default) 95%, transparent)',
       }}
     >
+      <ReturnSessionNotice session={session} />
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

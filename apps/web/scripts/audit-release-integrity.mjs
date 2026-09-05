@@ -20,6 +20,33 @@ const sql = postgres(databaseUrl, {
 
 const checks = [
   {
+    name: 'load adjustment receipts without valid ownership or programme revision',
+    query: `select count(*)::integer as violations from public.program_load_adjustments adjustment
+      left join public.program_instances program on program.id = adjustment.program_instance_id
+      where program.id is null or program.user_id <> adjustment.user_id or adjustment.resulting_version > program.state_version`,
+  },
+  {
+    name: 'return records with invalid ownership or lifecycle state',
+    query: `select count(*)::integer as violations from public.program_return_periods period
+      left join public.program_instances program on program.id = period.program_instance_id
+      where program.id is null or program.user_id <> period.user_id
+        or (period.status in ('active','review') and program.status <> 'active')`,
+  },
+  {
+    name: 'fixed load overrides without an owning programme',
+    query: `select count(*)::integer as violations from public.program_load_overrides override
+      left join public.program_instances program on program.id = override.program_instance_id
+      where program.id is null or program.user_id <> override.user_id`,
+  },
+  {
+    name: 'return snapshots without a matching immutable period',
+    query: `select count(*)::integer as violations from public.workout_sessions session
+      left join public.program_return_periods period on period.id::text = session.prescription_snapshot #>> '{returnContext,periodId}'
+      where session.prescription_snapshot ? 'returnContext' and
+        (period.id is null or period.user_id <> session.user_id or period.program_instance_id <> session.program_instance_id)`,
+  },
+
+  {
     name: 'users with multiple active programmes',
     query: `
       select count(*)::integer as violations

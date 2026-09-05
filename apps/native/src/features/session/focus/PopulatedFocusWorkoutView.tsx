@@ -1,3 +1,4 @@
+import { ReturnSessionNotice } from '../live/ReturnSessionNotice'
 import { useEffect, useState } from 'react'
 import { ScrollView, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -165,6 +166,7 @@ export function PopulatedFocusWorkoutView({
         }}
         keyboardShouldPersistTaps="handled"
       >
+        <ReturnSessionNotice session={session} />
         <WorkoutCompleteBanner visible={allComplete} disabled={finishBlocked} onFinish={onFinish} />
         <FocusExerciseHeader
           movement={activeMovement}

@@ -122,7 +122,10 @@ function buildStateOverview(
     .map((state): ProgramStateOverview => {
       // acceptedDecisions arrive newest-first, so the last match is the earliest change.
       const stateDecisions = acceptedDecisions.filter((decision) => decision.stateKey === state.key)
-      const earliest = stateDecisions[stateDecisions.length - 1]
+      const adjustments = (program.loadAdjustments ?? []).flatMap((entry) => entry.changes.filter((change) => change.kind === 'state' && change.key === state.key).map((change) => ({ ...change, createdAt: entry.createdAt })))
+      const resetDelta = adjustments.reduce((sum, change) => sum + (change.after ?? change.before) - change.before, 0)
+      const earliest = [...stateDecisions, ...adjustments.map((change) => ({ previousValue: change.before, resolvedAt: change.createdAt }))]
+        .sort((left, right) => (left.resolvedAt ?? '').localeCompare(right.resolvedAt ?? ''))[0]
       const startValue =
         typeof earliest?.previousValue === 'number' && Number.isFinite(earliest.previousValue)
           ? earliest.previousValue
@@ -136,6 +139,7 @@ function buildStateOverview(
         value: state.value,
         units: program.units,
         startValue,
+        ...(adjustments.length ? { resetDelta } : {}),
         updatedAt: state.updatedAt ?? null,
         pendingDecision: pendingDecisions.find((decision) => decision.stateKey === state.key) ?? null,
         lastAcceptedDecision: stateDecisions[0] ?? null,

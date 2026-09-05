@@ -1,3 +1,4 @@
+import { ReturnSessionNotice } from './ReturnSessionNotice'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, Card } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
@@ -144,6 +145,7 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
 
   return (
     <Page className="pb-40 lg:pb-8">
+      <ReturnSessionNotice session={session} />
       <SessionSummaryHeader
         session={session}
         headline={headline}

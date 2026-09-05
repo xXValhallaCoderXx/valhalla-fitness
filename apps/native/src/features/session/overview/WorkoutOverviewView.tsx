@@ -1,3 +1,4 @@
+import { ReturnSessionNotice } from '../live/ReturnSessionNotice'
 import { ScrollView, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { User } from '@supabase/supabase-js'
@@ -84,6 +85,7 @@ export function WorkoutOverviewView({
         }}
         keyboardShouldPersistTaps="handled"
       >
+        <ReturnSessionNotice session={session} />
         <WorkoutCompleteBanner visible={allComplete} disabled={finishDisabled} onFinish={onFinish} />
         {activeMovement ? (
           <WorkoutOverviewContent

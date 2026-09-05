@@ -11,14 +11,16 @@ export function FocusStepper({
   step,
   onAdjust,
   onType,
+  onClear,
   disabled = false,
   dataTour,
 }: {
   label: string
   unitSuffix?: string
-  value: number
+  value: number | null
   step: number
   onAdjust: (delta: number) => void
+  onClear?: () => void
   onType: (value: number) => void
   disabled?: boolean
   dataTour?: string
@@ -50,10 +52,10 @@ export function FocusStepper({
             lineHeight: 1.1,
             color: 'var(--mantine-color-text)',
           }}
-          value={Number.isFinite(value) ? value : 0}
+          value={value === null ? '' : Number.isFinite(value) ? value : 0}
           disabled={disabled}
           onFocus={selectAllOnFocus}
-          onChange={(event) => onType(Number(event.target.value))}
+          onChange={(event) => event.target.value === '' && onClear ? onClear() : onType(Number(event.target.value))}
         />
         <StepButton ariaLabel={`Increase ${label}`} disabled={disabled} onClick={() => onAdjust(step)}>
           <Plus size={20} />

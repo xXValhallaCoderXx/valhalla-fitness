@@ -9,6 +9,132 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      program_load_overrides: {
+        Row: {
+          id: string
+          key: string
+          program_instance_id: string
+          selector: Json
+          user_id: string
+          value: number
+        }
+        Insert: {
+          id?: string
+          key: string
+          program_instance_id: string
+          selector: Json
+          user_id: string
+          value: number
+        }
+        Update: {
+          id?: string
+          key?: string
+          program_instance_id?: string
+          selector?: Json
+          user_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_load_overrides_program_instance_id_user_id_fkey"
+            columns: ["program_instance_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      program_load_adjustments: {
+        Row: {
+          action: string
+          changes: Json
+          created_at: string
+          id: string
+          intent: Json
+          program_instance_id: string
+          request_id: string
+          resulting_version: number
+          superseded_decision_ids: string[]
+          user_id: string
+        }
+        Insert: {
+          action: string
+          changes: Json
+          created_at?: string
+          id?: string
+          intent: Json
+          program_instance_id: string
+          request_id: string
+          resulting_version: number
+          superseded_decision_ids?: string[]
+          user_id: string
+        }
+        Update: {
+          action?: string
+          changes?: Json
+          created_at?: string
+          id?: string
+          intent?: Json
+          program_instance_id?: string
+          request_id?: string
+          resulting_version?: number
+          superseded_decision_ids?: string[]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_load_adjustments_program_instance_id_user_id_fkey"
+            columns: ["program_instance_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      program_return_periods: {
+        Row: {
+          completed_workouts: number
+          ended_at: string | null
+          id: string
+          policy_version: number
+          program_instance_id: string
+          settings: Json
+          started_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          completed_workouts?: number
+          ended_at?: string | null
+          id?: string
+          policy_version?: number
+          program_instance_id: string
+          settings: Json
+          started_at?: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          completed_workouts?: number
+          ended_at?: string | null
+          id?: string
+          policy_version?: number
+          program_instance_id?: string
+          settings?: Json
+          started_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_return_periods_program_instance_id_user_id_fkey"
+            columns: ["program_instance_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       allowed_emails: {
         Row: {
           added_at: string
@@ -1416,6 +1542,7 @@ export type Database = {
           program_instance_id: string | null
           prs: Json | null
           reflection_improve: string | null
+          return_recommendations: Json | null
           reflection_win: string | null
           scheduled_date: string
           session_rpe: number | null
@@ -1441,6 +1568,7 @@ export type Database = {
           program_instance_id?: string | null
           prs?: Json | null
           reflection_improve?: string | null
+          return_recommendations?: Json | null
           reflection_win?: string | null
           scheduled_date?: string
           session_rpe?: number | null
@@ -1466,6 +1594,7 @@ export type Database = {
           program_instance_id?: string | null
           prs?: Json | null
           reflection_improve?: string | null
+          return_recommendations?: Json | null
           reflection_win?: string | null
           scheduled_date?: string
           session_rpe?: number | null
@@ -1519,6 +1648,45 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      finish_session_v3: {
+        Args: {
+          p_decisions: Json
+          p_expected_program_version: number | null
+          p_expected_session_version: number
+          p_notes: string | null
+          p_prs: Json
+          p_reflection_improve: string | null
+          p_reflection_win: string | null
+          p_request_id: string
+          p_session_id: string
+          p_session_rpe: number | null
+        }
+        Returns: string
+      }
+      start_session_v3: {
+        Args: {
+          p_client_mutation_id: string
+          p_expected_program_version: number
+          p_planned_session_id: string
+          p_prescription_snapshot: Json
+          p_program_instance_id: string
+          p_scheduled_date: string
+          p_source_session_id?: string | null
+        }
+        Returns: string
+      }
+      change_program_return_v1: {
+        Args: {
+          p_action: string
+          p_changes: Json
+          p_expected_version: number
+          p_pending_decision_ids: string[]
+          p_program_id: string
+          p_request_id: string
+          p_settings: Json
+        }
+        Returns: Json
+      }
       add_ad_hoc_exercise_v2: {
         Args: {
           p_exercise: Json

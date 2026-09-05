@@ -91,9 +91,14 @@ export async function getToday(ctx: UserContext, timeZone?: string | null): Prom
     timeZone: resolvedTimeZone,
   }
   const pendingDecisions = await getPendingDecisions(ctx, activeProgram.id)
+  const { data: lastLogged, error: lastLoggedError } = await supabase.from('workout_sessions')
+    .select('scheduled_date').eq('user_id', user.id).eq('status', 'completed')
+    .order('scheduled_date', { ascending: false }).limit(1).maybeSingle()
+  if (lastLoggedError) throw new Error(lastLoggedError.message)
 
   return {
     activeProgram,
+    lastWorkoutLogged: lastLogged?.scheduled_date ?? null,
     plannedSession,
     activeSession,
     completedSession,
@@ -160,6 +165,7 @@ export async function getSession(ctx: UserContext, sessionId: string): Promise<W
     reflectionWin: sessionRow.reflection_win,
     reflectionImprove: sessionRow.reflection_improve,
     prs: (sessionRow.prs as SessionPr[] | null) ?? null,
+    returnRecommendations: (sessionRow.return_recommendations as unknown as WorkoutSession['returnRecommendations']) ?? undefined,
     isAdHoc,
     isFavorite,
     sourceSessionId: sessionRow.source_session_id ?? null,
@@ -170,6 +176,7 @@ export async function getSession(ctx: UserContext, sessionId: string): Promise<W
       const sets = (setRows ?? [])
         .filter((set) => set.exercise_log_id === exercise?.id)
         .map((set): SetLog => ({
+          ...movement.sets.find((target) => target.setIndex === set.set_index),
           id: set.id,
           exerciseLogId: set.exercise_log_id,
           setIndex: set.set_index,

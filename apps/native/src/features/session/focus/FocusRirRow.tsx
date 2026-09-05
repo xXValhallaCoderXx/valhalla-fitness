@@ -3,17 +3,32 @@ import { Pressable, View } from 'react-native'
 import { RIR_OPTIONS } from '@sheetless/domain/session/live-session-utils'
 import { Caption, Text } from '@/components'
 import { radii, spacing, useTokens } from '@/lib/tokens'
+import { FocusStepper } from './FocusStepper'
 
 export function FocusRirRow({
   value,
   onChange,
   disabled = false,
+  targetRir,
 }: {
   value?: number
   onChange: (value: number) => void
   disabled?: boolean
+  targetRir?: number | null
 }) {
   const { theme } = useTokens()
+  if ((targetRir ?? 0) > 3) {
+    return (
+      <FocusStepper
+        label="Actual reps in reserve"
+        value={value ?? null}
+        step={1}
+        disabled={disabled}
+        onAdjust={(delta) => onChange(Math.max(0, Math.min(10, (value ?? 0) + delta)))}
+        onType={(next) => onChange(Math.max(0, Math.min(10, next)))}
+      />
+    )
+  }
   return (
     <View>
       <Caption>Reps in reserve · could you do more?</Caption>
@@ -37,7 +52,10 @@ export function FocusRirRow({
                 paddingVertical: spacing.sm,
               })}
             >
-              <Text size="sm" style={{ color: selected ? theme.primaryFillText : theme.text, fontWeight: '800' }}>
+              <Text
+                size="sm"
+                style={{ color: selected ? theme.primaryFillText : theme.text, fontWeight: '800' }}
+              >
                 {option.label}
               </Text>
             </Pressable>

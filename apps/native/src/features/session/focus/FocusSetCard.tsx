@@ -97,8 +97,9 @@ export function FocusSetCard({
       <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
         <FocusStepper
           label="Weight"
+          onClear={() => setDraft((current) => ({ ...current, actualLoad: null }))}
           unitSuffix={session.units}
-          value={Number(draft.actualLoad)}
+          value={draft.actualLoad}
           step={session.rounding}
           onAdjust={adjustLoad}
           onType={(value) => setDraft((current) => ({ ...current, actualLoad: Math.max(0, value) }))}
@@ -113,6 +114,7 @@ export function FocusSetCard({
           disabled={controlsDisabled}
         />
         <FocusRirRow
+          targetRir={set.targetRir}
           value={effectiveActualRir}
           disabled={controlsDisabled}
           onChange={(value) => {
@@ -121,6 +123,7 @@ export function FocusSetCard({
           }}
         />
 
+        {draft.actualLoad === null ? <Caption>Enter a load, or 0 for bodyweight.</Caption> : null}
         {saveFailed ? (
           <Text size="xs" tone="danger">
             Last save failed — tap Retry to try again.
@@ -131,7 +134,7 @@ export function FocusSetCard({
           label={ctaLabel}
           fullWidth
           loading={isSaving}
-          disabled={controlsDisabled}
+          disabled={controlsDisabled || draft.actualLoad === null}
           onPress={() =>
             onLogSet({
               actualLoad: Number(draft.actualLoad),

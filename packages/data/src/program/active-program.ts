@@ -1,3 +1,4 @@
+import { collectSessionQueryPages } from '@sheetless/domain/session/session-query-pages'
 import type { z } from 'zod'
 import type {
   ProgramAccessoryAddition,
@@ -162,6 +163,14 @@ export async function getActiveProgram(ctx: UserContext): Promise<ProgramInstanc
     throw new Error(equipmentModeChoiceError.message)
   }
 
+  const [returnRows, loadOverrideRows, resetRows] = await Promise.all([
+    supabase.from('program_return_periods').select('*').eq('program_instance_id', instance.id).eq('user_id', user.id).order('started_at', { ascending: false }).limit(1),
+    collectSessionQueryPages((from, to) => supabase.from('program_load_overrides').select('*').eq('program_instance_id', instance.id).eq('user_id', user.id).order('key').range(from, to)),
+    collectSessionQueryPages((from, to) => supabase.from('program_load_adjustments').select('id, created_at, action, changes').eq('program_instance_id', instance.id).eq('user_id', user.id).order('created_at', { ascending: false }).order('id').range(from, to)),
+  ])
+  if (returnRows.error) throw new Error(returnRows.error.message)
+  const period = returnRows.data?.[0]
+
   const templateDefinition = await getPinnedTemplateDefinition(
     supabase,
     instance.template_version_id,
@@ -179,6 +188,14 @@ export async function getActiveProgram(ctx: UserContext): Promise<ProgramInstanc
     rounding: Number(instance.rounding),
     currentWeekIndex: instance.current_week_index,
     stateVersion: instance.state_version,
+    returnPeriod: period ? {
+      id: period.id, policyVersion: 1, status: period.status as NonNullable<ProgramInstance['returnPeriod']>['status'],
+      settings: period.settings as unknown as NonNullable<ProgramInstance['returnPeriod']>['settings'],
+      startedAt: period.started_at, completedWorkouts: period.completed_workouts,
+    } : null,
+    loadOverrides: loadOverrideRows.map((row) => ({ key: row.key, selector: row.selector as unknown as NonNullable<ProgramInstance['loadOverrides']>[number]['selector'], value: Number(row.value) })),
+    lastLoadResetAt: resetRows.find((row) => row.action === 'apply')?.created_at ?? null,
+    loadAdjustments: resetRows.map((row) => ({ createdAt: row.created_at, changes: row.changes as unknown as import('@sheetless/domain/program/types').ProgramLoadChange[] })),
     equipmentMode:
       (instance.equipment_mode as ProgramInstance['equipmentMode']) ??
       'standard',
@@ -195,7 +212,7 @@ export async function getActiveProgram(ctx: UserContext): Promise<ProgramInstanc
       movementId: state.movement_id,
       type: state.state_type as ProgramStateInput['type'],
       label: state.label ?? undefined,
-      value: Number(state.value),
+      value: state.value === null ? null : Number(state.value),
       unit: (state.unit ?? instance.units) as Unit,
       updatedAt: state.updated_at ?? null,
     })),

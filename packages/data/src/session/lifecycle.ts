@@ -29,7 +29,7 @@ export async function startSession(
   if (today.pendingDecisions.length > 0) {
     throw new Error('Resolve your pending progression changes before starting the next session.')
   }
-  const { data: sessionId, error } = await ctx.supabase.rpc('start_session_v2', {
+  const { data: sessionId, error } = await ctx.supabase.rpc('start_session_v3', {
     p_client_mutation_id: data.clientMutationId,
     p_program_instance_id: today.activeProgram.id,
     p_planned_session_id: today.plannedSession.id,

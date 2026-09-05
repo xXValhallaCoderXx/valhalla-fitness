@@ -16,6 +16,7 @@ import { advanceAfterLog, exerciseNeighbors, firstActionableSetIndex, upcomingMo
 import { seedLoadForSet } from './live-session-utils'
 import { MovementHistoryModal } from './MovementHistoryModal'
 import { PlateCalculatorModal } from './PlateCalculatorModal'
+import { ReturnSessionNotice } from './ReturnSessionNotice'
 
 type LiveFocusViewProps = {
   session: WorkoutSession
@@ -155,6 +156,7 @@ export function LiveFocusView({
       </Box>
 
       <div className="flex-1 space-y-4 px-4 py-4">
+        <ReturnSessionNotice session={session} />
         <FocusSessionOnboarding />
         <FocusExerciseHeader
           movement={activeMovement}
@@ -220,7 +222,7 @@ export function LiveFocusView({
         onClose={() => setPlateOpen(false)}
         units={session.units}
         movementName={activeMovement.movementName}
-        initialTarget={selectedSet ? seedLoadForSet(activeMovement, selectedSet) : 0}
+        initialTarget={selectedSet ? (seedLoadForSet(activeMovement, selectedSet) ?? 0) : 0}
       />
       {addExerciseModal}
     </FocusShell>

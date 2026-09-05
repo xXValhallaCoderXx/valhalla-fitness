@@ -1,16 +1,31 @@
 import { Caption, Text } from '~/components'
 import { RIR_OPTIONS } from './live-session-utils'
+import { FocusStepper } from './FocusStepper'
 
 /** Large reps-in-reserve picker (0/1/2/3+) for focus mode. Shares RIR_OPTIONS with the overview. */
 export function FocusRirRow({
   value,
   onChange,
   disabled = false,
+  targetRir,
 }: {
   value?: number
   onChange: (value: number) => void
   disabled?: boolean
+  targetRir?: number | null
 }) {
+  if ((targetRir ?? 0) > 3) {
+    return (
+      <FocusStepper
+        label="Actual reps in reserve"
+        value={value ?? null}
+        step={1}
+        disabled={disabled}
+        onAdjust={(delta) => onChange(Math.max(0, Math.min(10, (value ?? 0) + delta)))}
+        onType={(next) => onChange(Math.max(0, Math.min(10, next)))}
+      />
+    )
+  }
   return (
     <div>
       <Caption component="div">
@@ -19,7 +34,12 @@ export function FocusRirRow({
         </Text>{' '}
         · could you do more?
       </Caption>
-      <div className="mt-2 grid grid-cols-4 gap-2" role="group" aria-label="Reps in reserve (RIR)" data-tour="focus-rir">
+      <div
+        className="mt-2 grid grid-cols-4 gap-2"
+        role="group"
+        aria-label="Reps in reserve (RIR)"
+        data-tour="focus-rir"
+      >
         {RIR_OPTIONS.map((option) => {
           // The 3+ bucket also reflects any legacy values logged above 3.
           const selected = option.value === 3 ? (value ?? -1) >= 3 : value === option.value
@@ -33,8 +53,12 @@ export function FocusRirRow({
               disabled={disabled}
               className="rounded-2xl border py-3 text-center transition active:scale-95"
               style={{
-                borderColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default-border)',
-                backgroundColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default)',
+                borderColor: selected
+                  ? 'var(--mantine-primary-color-filled)'
+                  : 'var(--mantine-color-default-border)',
+                backgroundColor: selected
+                  ? 'var(--mantine-primary-color-filled)'
+                  : 'var(--mantine-color-default)',
                 color: selected ? 'white' : 'var(--mantine-color-text)',
                 fontWeight: 800,
               }}

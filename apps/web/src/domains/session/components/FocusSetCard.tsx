@@ -48,7 +48,7 @@ export function FocusSetCard({
     setDraft((current) => ({ ...current, actualReps: Math.max(0, Number(current.actualReps) + delta) }))
 
   const logSet = () => {
-    if (isSaving) return
+    if (isSaving || draft.actualLoad === null) return
     const completed = saveFailed ? set.completed : true
     mutation.mutate(
       {
@@ -88,8 +88,9 @@ export function FocusSetCard({
       <div className="mt-3 space-y-3">
         <FocusStepper
           label="Weight"
+          onClear={() => setDraft((current) => ({ ...current, actualLoad: null }))}
           unitSuffix={session.units}
-          value={Number(draft.actualLoad)}
+          value={draft.actualLoad}
           step={session.rounding}
           onAdjust={adjustLoad}
           onType={(value) => setDraft((current) => ({ ...current, actualLoad: Math.max(0, value) }))}
@@ -106,6 +107,7 @@ export function FocusSetCard({
           dataTour="focus-reps"
         />
         <FocusRirRow
+          targetRir={set.targetRir}
           value={effectiveActualRir}
           disabled={isSaving}
           onChange={(value) => {
@@ -114,6 +116,7 @@ export function FocusSetCard({
           }}
         />
 
+        {draft.actualLoad === null ? <Caption>Enter a load, or 0 for bodyweight.</Caption> : null}
         {saveFailed ? (
           <Text component="p" size="xs" c="var(--vf-danger-text)">
             Last save failed — tap Retry to try again.

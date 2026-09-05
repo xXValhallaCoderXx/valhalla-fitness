@@ -24,10 +24,10 @@ function CurrentLoads({ overview }: { overview: ProgramOverview }) {
         <SectionLabel>Current loads</SectionLabel>
         <Badge>{overview.activeProgram?.units ?? 'kg'}</Badge>
       </View>
-      <Caption>Training numbers used to calculate planned weights.</Caption>
+      <Caption>Programme load references used to calculate planned weights. Progression deltas exclude explicit resets.</Caption>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {overview.stateValues.map((state) => {
-          const delta = state.value - state.startValue
+          const delta = state.value - state.startValue - (state.resetDelta ?? 0)
           return (
             <Panel key={state.stateKey} surface="inset" style={{ flexGrow: 1, minWidth: 135, padding: spacing.sm }}>
               <Caption>{state.movementName}</Caption>
@@ -42,6 +42,7 @@ function CurrentLoads({ overview }: { overview: ProgramOverview }) {
           )
         })}
       </View>
+      {overview.activeProgram?.lastLoadResetAt ? <Caption>Explicit return reset recorded {overview.activeProgram.lastLoadResetAt.slice(0, 10)}. Historical workouts retain their original results.</Caption> : null}
       {overview.stateValues.length === 0 ? <Caption>No load-based state for this program.</Caption> : null}
     </Panel>
   )

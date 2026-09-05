@@ -12,11 +12,12 @@ export function LiveSetStepCell({
   onAdjust,
   onFocus,
   onChange,
+  onClear,
   dataTour,
   decreaseLabel,
   increaseLabel,
 }: {
-  value: number
+  value: number | null
   disabled: boolean
   muted: boolean
   showSteppers: boolean
@@ -24,6 +25,7 @@ export function LiveSetStepCell({
   onAdjust: (delta: number) => void
   onFocus: () => void
   onChange: (value: number) => void
+  onClear?: () => void
   dataTour?: string
   decreaseLabel: string
   increaseLabel: string
@@ -46,13 +48,13 @@ export function LiveSetStepCell({
           fontSize: 'var(--mantine-font-size-sm)',
           fontWeight: muted ? 600 : 700,
         }}
-        value={Number.isFinite(value) ? value : 0}
+        value={value === null ? '' : Number.isFinite(value) ? value : 0}
         disabled={disabled}
         onFocus={(event) => {
           selectAllOnFocus(event)
           onFocus()
         }}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onChange={(event) => event.target.value === '' && onClear ? onClear() : onChange(Number(event.target.value))}
       />
       {showSteppers ? (
         <StepIconButton className="hidden md:inline-flex" ariaLabel={increaseLabel} onClick={() => onAdjust(step)}>

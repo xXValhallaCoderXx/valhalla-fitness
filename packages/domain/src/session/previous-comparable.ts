@@ -63,6 +63,15 @@ export function selectPreviousComparables(
     for (const { candidate } of ranked) {
       const comparable = buildPreviousComparable(movement, candidate, plannedSession.units)
       if (!comparable) continue
+      if (movement.loadSuggestionCutoff) {
+        const latest = candidates.filter((item) => item.performedMovementId === performedMovementId && item.slotId === slotId &&
+          item.completedAt && Date.parse(item.completedAt) >= Date.parse(movement.loadSuggestionCutoff!) &&
+          item.sets.some((set) => set.completed && set.actualLoad != null))
+          .sort((a, b) => Date.parse(b.completedAt!) - Date.parse(a.completedAt!))[0]
+        comparable.postResetSets = latest?.sets.filter((set) => set.completed && set.actualLoad != null).map((set) => ({
+          setIndex: set.setIndex, load: set.actualLoad === 0 ? 0 : comparableLoad(set.actualLoad, latest.units, plannedSession.units), reps: set.actualReps ?? null, rir: set.actualRir ?? null,
+        })) ?? []
+      }
       result[slotId] = comparable
       break
     }

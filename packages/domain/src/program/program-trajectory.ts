@@ -1,3 +1,4 @@
+import { floorCappedIncrease } from './return-loads'
 import type { ProgramSessionStamp, ProgramStateOverview, ProgressionDecision } from '@sheetless/domain/program/types'
 import type { Unit } from '@sheetless/domain/shared/types'
 import { getMovementName } from '@sheetless/domain/movement/movements'
@@ -235,6 +236,7 @@ type StateHistory = {
 function buildStateHistories(
   stateValues: ProgramStateOverview[],
   acceptedDecisions: ProgressionDecision[],
+  loadAdjustments: NonNullable<import('./types').ProgramInstance['loadAdjustments']> = [],
 ) {
   const histories = new Map<string, StateHistory>()
   for (const state of stateValues) {
@@ -245,7 +247,8 @@ function buildStateHistories(
         previousValue: decision.previousValue ?? null,
         recommendedValue: decision.recommendedValue ?? null,
       }))
-      .reverse()
+      .concat(loadAdjustments.flatMap((entry) => entry.changes.filter((change) => change.kind === 'state' && change.key === state.stateKey).map((change) => ({ resolvedAt: entry.createdAt, previousValue: change.before, recommendedValue: change.after }))))
+      .sort((left, right) => (left.resolvedAt ?? '').localeCompare(right.resolvedAt ?? ''))
     histories.set(state.stateKey, { current: state.value, changes })
   }
   return histories
@@ -288,6 +291,8 @@ export function buildProgramTrajectory({
   stateValues,
   acceptedDecisions,
   sessionStamps,
+  loadAdjustments = [],
+  returnSettings,
 }: {
   definition: TemplateDefinition
   /** Global session index — `program.currentWeekIndex`. */
@@ -297,13 +302,15 @@ export function buildProgramTrajectory({
   stateValues: ProgramStateOverview[]
   acceptedDecisions: ProgressionDecision[]
   sessionStamps: ProgramSessionStamp[]
+  loadAdjustments?: import('./types').ProgramInstance['loadAdjustments']
+  returnSettings?: import('./types').ReturnSettings
 }): ProgramTrajectory {
   const daysPerWeek = definition.daysPerWeek
   const totalWeeks = definition.durationWeeks
   const totalSessions = daysPerWeek * totalWeeks
   const effectiveGlobal = positiveModulo(currentGlobalIndex, totalSessions)
   const currentWeekIndex = Math.floor(effectiveGlobal / daysPerWeek)
-  const histories = buildStateHistories(stateValues, acceptedDecisions)
+  const histories = buildStateHistories(stateValues, acceptedDecisions, loadAdjustments)
 
   // Last completion time per programme week, for attributing decisions to phases.
   const lastCompletedByWeek = new Map<number, string>()
@@ -329,7 +336,9 @@ export function buildProgramTrajectory({
       if (!state) return null
       const events = progressionEventsBetween(definition, stateKey, effectiveGlobal, weekIndex * daysPerWeek)
       if (!events) return history.current
-      return mround(history.current + events * incrementFor(definition, state.movementId, units), rounding)
+      const increment = incrementFor(definition, state.movementId, units)
+      const capped = returnSettings ? floorCappedIncrease(increment, returnSettings.caps[stateKey] ?? returnSettings.defaultCap, rounding) : increment
+      return mround(history.current + events * capped, rounding)
     }
     // Past week: value in effect when the week started.
     return stateValueAt(history, firstCompletedByWeek.get(weekIndex) ?? null)

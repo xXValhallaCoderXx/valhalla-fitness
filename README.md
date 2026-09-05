@@ -70,6 +70,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Feedback | **Shipped** | Web and native global, fresh post-workout, and decision feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
 | Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, profile/settings, template/history drill-ins, logging, finish/recap, persistent progression review, SecureStore auth, haptics, keep-awake, and rest notifications. Native supports blank/ad-hoc starts, Repeat and favourites, workout rename, Focus/Overview navigation, programme-added accessory ordering, movement swaps, session- and phase-scoped live accessories, resumed ad-hoc exercise management, notes, movement history, and plate calculation. Programs exposes all 14 built-in variants through six families, catalogue search/filters, Find My Plan, equipment-aware setup-time substitutions/accessories, free-weight review, active-program start/replacement, and reversible active-plan equipment conversion. Native Settings includes appearance, units, rest preferences, bodyweight, strength estimates, equipment profile, JSON sharing, legal/account actions, and deletion. Custom-programme creation and walkthrough replay remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
+| Guided return after a break | **Implemented; device/release acceptance pending** | Web and native Plan offer a return guide with explicit load resets, adjusted sets/effort, capped progression, and persistent review. Today can prompt after 14 days without a logged workout. Return settings belong to the programme instance and do not restart it. |
 | Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Failed sets must be retried before finishing. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
 | Privacy, deletion, and export | **Shipped; deployment/review pending** | Public Privacy, Terms, and account-deletion routes, paginated machine-readable account export, native JSON sharing, and confirmed self-service account deletion are available. Production must deploy the public deletion page, apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
 
@@ -359,6 +360,93 @@ Important invariants:
 - Account, movement, onboarding, programme, session, and history types live behind domain-owned
   public barrels. Shared types are restricted to generated database types and the small set of
   genuinely cross-domain training primitives.
+
+
+### Guided return to training
+
+Use **Return after a break** in Plan on web or native. Today also offers an optional prompt after
+14 days without a logged workout; the wording is deliberately “last workout logged”, since missing
+logs do not establish inactivity. The guide keeps the active programme and its cursor. Return
+workouts advance it normally, including phase changes. Configure or edit the guide between workouts;
+a live workout remains resumable with its saved prescription.
+
+The initial suggestions are a 20% reduction in programme load references, 50% of ordinary sets for
+one programme rotation, then 75% for a second rotation, at least three repetitions in reserve, and
+at most one programme rounding step per eligible increase. A rotation is `daysPerWeek` qualifying
+completed workouts, not calendar time. These are editable product defaults, not estimates of lost
+strength or a readiness score. The [2026 ACSM review](https://pubmed.ncbi.nlm.nih.gov/41843416/) and
+[older ACSM progression guidance](https://pubmed.ncbi.nlm.nih.gov/19204579/) do not establish a
+universal load reduction for a four-week break. [Barbell Medicine's practical return guidance](https://www.barbellmedicine.com/blog/returning-to-the-gym/)
+also distinguishes its schedules from directly established research findings. Days absent never
+calculate a reduction automatically.
+
+The default preview uses one starting-weight slider (50–100%, initially 80%), a summary of the main
+lifts, and a two-week overview. Training maxes and working-load references are labelled separately;
+the app derives individual workout weights. **Fine-tune** contains individual loads, stage lengths,
+set percentages, per-exercise counts, effort, caps (including zero), and exact workout prescriptions.
+The slider only appears before accepting a new return; editing an existing guide uses current values.
+
+**Your way back** estimates the first future workout that revisits each main lift's last logged load
+and reps in the same slot, before the guide started. When there is no matching logged work, the target
+is explicitly the previous programme reference instead. This is a conditional workout scenario,
+not a strength-recovery prediction: it follows the actual programme cursor, phase changes, adjusted
+prescriptions and capped progression rules, assuming successful retained work, accepted increases,
+and two extra reps on plus sets with the prescribed effort. Approximate weeks assume `daysPerWeek`
+workouts each week. Return settings stay in force past the review milestone until the user changes
+them; forecasts never end the guide automatically. Manual, held or unreachable targets have no
+invented date, and the simulation stops at 52 weeks. The historical baseline is account/programme
+scoped, unit-aware, paginated, and stays before the guide's reset even as new workouts are logged.
+
+Warmup slots, top/plus sets, and one representative of each consecutive prescription group remain.
+Duplicate backoffs are removed first, then duplicate ordinary sets, from the end. Distinct source
+ramps remain distinct even when rounding makes their loads equal. Source set indices remain stable
+for history; workout ordinals are displayed separately. Optional plus reps remain with explicit
+repetitions-in-reserve guidance. Logging still accepts the actual weight, reps and effort performed.
+
+The reset applies once to exact referenced programme state keys, including custom/shared anchors.
+Fixed DSL loads have instance overrides pinned to template session, slot, template week, movement
+and source set. Existing manually added accessory targets receive explicit audited edits. Zero
+external load stays zero; missing, blank and user-selected loads remain manual. A positive load
+that would round to zero requires an explicit value. Fixed overrides apply before equipment
+conversion, so equipment-cleared targets stay unset. Older comparables remain visible, while manual
+input suggestions use only matching movement/slot work completed after the accepted reset.
+Account strength estimates and completed workout results are separate from programme load references.
+
+Return progression uses the adjusted saved prescription. Omitted sets are not failures. Numeric
+increases require complete retained work at its saved loads, target reps and required effort, with
+an unambiguous binding to the exact source state key/value. Missing effort, changed movements,
+lighter actual loads or unclear sources prevent a numeric increase. Supported hold/reset behaviour
+remains available when the performed work supplies valid evidence. The positive programme-rule
+increase is limited by the selected cap and rounded down to the programme step. Recommendation
+text states the absolute and percentage reference change; training-max changes are distinguished
+from their effects on percentage-based sets. Apply/Keep remains explicit.
+
+Finishing advances the normal programme cursor once. A return step advances once only when at least
+one retained prescribed set was completed; empty, discarded and ad-hoc workouts do not consume it.
+Partial work can consume a step without earning progression. After the final stage, **Review your
+return** persists in Today and Plan, with the last stage's prescription retained. Resolve outstanding
+progression recommendations before choosing normal sets at current weights, extending/adjusting
+the guide, or entering the existing programme replacement flow. **End return guide** restores
+ordinary sets and effort while preserving current weights, including accepted increases. Editing
+settings never reapplies the original percentage. Cancelling the initial preview writes nothing.
+
+The DSL remains `2026.06.dsl`. The `program_return_periods`, `program_load_overrides` and append-only
+`program_load_adjustments` records belong to the programme instance. The adjustment ledger includes
+explicit before/after values, superseded recommendations and durable request receipts. The account
+lock and programme revision protect reset, update, extension and end transactions. Start/finish v3
+validate frozen targets, source bindings, performance and caps at the database boundary; older
+clients fail clearly for active return guides or persistent overrides. Structural edits preserve
+frozen return provenance, and newly entered accessory loads are already current choices.
+Replacement cancels the old programme's guide. Export includes all three record types; deletion
+cascades them. Programme load histories account for explicit resets separately from earned increases.
+
+Local validation uses disposable accounts with the populated linear, training-max wave and
+powerbuilding template families; it does not reset the demo or production accounts. Run
+`RETURN_DB_TEST=1 pnpm --filter @sheetless/data exec vitest run tests/return-guide.integration.test.ts`
+for local database integration and `pnpm db:test` for transactional pgTAP contracts. Apply the
+`202609060001` through `202609060006` migrations before using the new clients. Hosted migration and
+production-account acceptance are separate release steps. Physical Android acceptance remains
+required for adjustment controls, keyboards, scrolling, saved-workout resume and persistent review.
 
 ## Training-plan DSL
 

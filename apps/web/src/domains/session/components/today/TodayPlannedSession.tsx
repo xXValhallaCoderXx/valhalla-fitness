@@ -1,3 +1,4 @@
+import { ReturnGuideCard } from '~/domains/program/components/return/ReturnGuideCard'
 import { ActionIcon, Badge, Button, Tooltip, VisuallyHidden } from '@mantine/core'
 import { ArrowRight, Dumbbell, Lock, Play, Plus } from 'lucide-react'
 import {
@@ -59,6 +60,7 @@ export function TodayPlannedSession({
   return (
     <Page className="max-w-3xl pb-24 md:pb-16">
       <OnboardingPanel />
+      {data.activeProgram ? <ReturnGuideCard program={data.activeProgram} today lastWorkoutLogged={data.lastWorkoutLogged} /> : null}
       <VisuallyHidden>
         <Heading order={1}>Today</Heading>
       </VisuallyHidden>

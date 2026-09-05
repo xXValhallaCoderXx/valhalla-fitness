@@ -1,4 +1,5 @@
 import type { SwapScope } from '@sheetless/domain/movement/types'
+import type { ReturnSessionContext, ReturnStateBinding, TemplateSetDefinition } from '../../program/types'
 import type { AccessoryProgressionMethod } from '@sheetless/domain/program/types'
 import type {
   EquipmentModeAdaptation,
@@ -23,6 +24,9 @@ export type SetTarget = {
   isAmrap?: boolean
   isBackoff?: boolean
   label?: string
+  /** Immutable DSL source, used to preserve distinct ramps before rounding. */
+  sourcePrescription?: TemplateSetDefinition
+  sourceBinding?: ReturnStateBinding | null
 }
 
 export type SetLog = SetTarget & {
@@ -60,6 +64,8 @@ export type MovementSlot = {
   modeAdaptation?: EquipmentModeAdaptation
   /** Optional per-slot rest override (seconds); rides the session snapshot, no DB column. */
   restSeconds?: number
+  /** During/after a reset, old comparables remain visible but cannot seed inputs. */
+  loadSuggestionCutoff?: string
 }
 
 export type PlannedSession = {
@@ -75,6 +81,7 @@ export type PlannedSession = {
   freeWeightPolicyVersionId?: string | null
   weekIndex: number
   weekLabel: string
+  phaseLabel?: string
   /** null for ad-hoc sessions — they have no prescribed intensity. */
   hardness: SessionHardness | null
   scheduledDate: string
@@ -83,6 +90,8 @@ export type PlannedSession = {
   estimatedMinutes: number
   units: Unit
   rounding: number
+  returnContext?: ReturnSessionContext
+  loadOverrideVersion?: 1
   movements: MovementSlot[]
 }
 
@@ -102,6 +111,7 @@ export type WorkoutSession = PlannedSession & {
   reflectionImprove?: string | null
   /** Personal records broken in this session, frozen at finish time. */
   prs?: SessionPr[] | null
+  returnRecommendations?: Array<{ movementId: string; recommendation: string; previousValue?: number | null; recommendedValue?: number | null }>
   isAdHoc?: boolean
   /** Favourite state of the whole workout lineage (the session or the workout it repeats). */
   isFavorite?: boolean
@@ -135,6 +145,8 @@ export type PreviousComparableSet = {
 }
 
 export type PreviousComparable = {
+  /** Exact-slot performed inputs since the accepted reset, separate from older history. */
+  postResetSets?: PreviousComparableSet[]
   movementId: string
   label: string
   /** Derived external resistance; null/zero is displayed and ranked as bodyweight. */

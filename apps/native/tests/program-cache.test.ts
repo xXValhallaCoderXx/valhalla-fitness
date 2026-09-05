@@ -93,4 +93,21 @@ describe('best-effort invalidation', () => {
     expect(queryClient.getQueryState(accountQueryKeys.activeProgram(userId))?.isInvalidated).toBe(true)
     expect(queryClient.getQueryState(accountQueryKeys.today(userId))?.isInvalidated).toBe(true)
   })
+  it('refreshes the account return preview while retaining its resumable workout and other accounts', async () => {
+    const queryClient = new QueryClient()
+    const returnKey = [...accountQueryKeys.program(userId), 'return']
+    const otherReturnKey = [...accountQueryKeys.program('user-b'), 'return']
+    const sessionKey = accountQueryKeys.session(userId, 'saved-return-workout')
+    const frozen = { returnContext: { periodId: 'period-1', stageIndex: 0 }, stateVersion: 4 }
+    queryClient.setQueryData(returnKey, { completedWorkouts: 0 })
+    queryClient.setQueryData(otherReturnKey, { completedWorkouts: 3 })
+    queryClient.setQueryData(sessionKey, frozen)
+
+    await invalidateProgramStateBestEffort(queryClient, userId)
+
+    expect(queryClient.getQueryState(returnKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(otherReturnKey)?.isInvalidated).toBe(false)
+    expect(queryClient.getQueryData(sessionKey)).toBe(frozen)
+    expect(queryClient.getQueryState(sessionKey)?.isInvalidated).toBe(false)
+  })
 })

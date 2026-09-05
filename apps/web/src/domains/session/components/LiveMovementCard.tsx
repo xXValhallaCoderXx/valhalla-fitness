@@ -126,7 +126,7 @@ export function LiveMovementCard({
   }
 
   const plateSeedSet = movement.sets.find((set) => set.setIndex === selectedSetIndex) ?? movement.sets[0]
-  const plateSeed = plateSeedSet ? seedLoadForSet(movement, plateSeedSet) : 0
+  const plateSeed = plateSeedSet ? (seedLoadForSet(movement, plateSeedSet) ?? 0) : 0
 
   return (
     <article

@@ -1,5 +1,5 @@
 /** Native port of web FocusStepper: big −/＋ around a tap-to-type centre value. */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Pressable, TextInput, View } from 'react-native'
 import { Minus, Plus } from 'lucide-react-native'
 import { Caption } from '@/components'
@@ -12,27 +12,30 @@ export function FocusStepper({
   step,
   onAdjust,
   onType,
+  onClear,
   disabled = false,
 }: {
   label: string
   unitSuffix?: string
-  value: number
+  value: number | null
   step: number
   onAdjust: (delta: number) => void
+  onClear?: () => void
   onType: (value: number) => void
   disabled?: boolean
 }) {
   const { theme } = useTokens()
-  const [text, setText] = useState(String(Number.isFinite(value) ? value : 0))
-
-  // ± adjustments change `value` from outside; mirror them into the text field.
-  useEffect(() => {
-    setText(String(Number.isFinite(value) ? value : 0))
-  }, [value])
+  const [draft, setDraft] = useState({ value, text: value === null ? '' : String(value) })
+  const text = draft.value === value ? draft.text : value === null ? '' : String(value)
 
   const handleType = (raw: string) => {
-    setText(raw)
+    if (!raw.trim() && onClear) {
+      setDraft({ value: null, text: raw })
+      onClear()
+      return
+    }
     const parsed = Number(raw.replace(',', '.'))
+    setDraft({ value: Number.isFinite(parsed) ? parsed : value, text: raw })
     if (Number.isFinite(parsed)) onType(parsed)
   }
 
@@ -55,6 +58,7 @@ export function FocusStepper({
           <Minus size={20} color={theme.text} />
         </StepButton>
         <TextInput
+          accessibilityLabel={label}
           value={text}
           onChangeText={handleType}
           editable={!disabled}

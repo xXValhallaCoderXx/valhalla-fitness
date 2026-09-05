@@ -5,8 +5,9 @@ import { Caption, Text } from '~/components'
 import { useSetLogMutation } from '~/domains/session/lib/useSetLogMutation'
 import { cn } from '~/shared/lib/cn'
 import type { MovementSlot, SetLog, WorkoutSession } from '~/domains/session'
-import { formatSetTarget, previousSetShort, resolveSetRir, RIR_OPTIONS, roundToStep, seedLoadForSet, seedRepsForSet, SET_GRID_CLASS } from './live-session-utils'
+import { formatSetTarget, previousSetShort, resolveSetRir, roundToStep, seedLoadForSet, seedRepsForSet, SET_GRID_CLASS } from './live-session-utils'
 import { LiveSetStepCell } from './LiveSetStepCell'
+import { FocusRirRow } from './FocusRirRow'
 
 function rirLabel(value: number) {
   return value >= 3 ? '3+' : String(value)
@@ -34,9 +35,9 @@ export function LiveSetRow({
   // Rows stay mounted for the whole session, so the draft only holds what the user actually
   // touched; untouched values derive from the set each render. That lets an open set pick up the
   // carried-over weight the moment an earlier set completes, without clobbering typed input.
-  const [draft, setDraft] = useState<{ actualLoad?: number; actualReps?: number; actualRir?: number }>({})
+  const [draft, setDraft] = useState<{ actualLoad?: number | null; actualReps?: number; actualRir?: number }>({})
   const seedReps = () => seedRepsForSet(movement, set)
-  const loadValue = draft.actualLoad ?? seedLoadForSet(movement, set)
+  const loadValue = draft.actualLoad !== undefined ? draft.actualLoad : seedLoadForSet(movement, set)
   const repsValue = draft.actualReps ?? seedReps()
   const [pickerOpen, setPickerOpen] = useState(false)
   const effectiveActualRir = resolveSetRir({
@@ -63,14 +64,14 @@ export function LiveSetRow({
   const previousGhost = previousSetShort(movement.previous, set.setIndex)
 
   const complete = () => {
-    if (disabled || isSaving) return
+    if (disabled || isSaving || loadValue === null) return
     const completed = saveFailed ? set.completed : !set.completed
     const actualRir = effectiveActualRir
     mutation.mutate({
       exerciseLogId: movement.id,
       movementSlotId: movement.id,
       setIndex: set.setIndex,
-      actualLoad: loadValue,
+      actualLoad: loadValue ?? undefined,
       actualReps: repsValue,
       actualRir,
       completed,
@@ -91,7 +92,7 @@ export function LiveSetRow({
   const adjustLoad = (delta: number) => {
     setDraft((current) => ({
       ...current,
-      actualLoad: Math.max(0, roundToStep((current.actualLoad ?? seedLoadForSet(movement, set)) + delta, session.rounding)),
+      actualLoad: Math.max(0, roundToStep((current.actualLoad ?? seedLoadForSet(movement, set) ?? 0) + delta, session.rounding)),
     }))
   }
   const adjustReps = (delta: number) => {
@@ -142,7 +143,7 @@ export function LiveSetRow({
           fw={900}
           c={rowState === 'current' ? 'var(--vf-action-text)' : 'var(--mantine-color-dimmed)'}
         >
-          {set.setIndex}
+          {movement.sets.findIndex((item) => item.setIndex === set.setIndex) + 1}
         </Text>
 
         <div className="min-w-0">
@@ -164,6 +165,7 @@ export function LiveSetRow({
 
         <LiveSetStepCell
           value={loadValue}
+          onClear={() => setDraft((current) => ({ ...current, actualLoad: null }))}
           disabled={isEditingDisabled}
           muted={set.completed || isFuture}
           showSteppers={isSelected && !isEditingDisabled}
@@ -241,34 +243,7 @@ export function LiveSetRow({
 
       {pickerOpen && !isEditingDisabled ? (
         <div className="mt-2.5">
-          <Caption component="p" className="mb-1.5" size="0.625rem">
-            How many more reps could you have done?
-          </Caption>
-          <div className="flex gap-2">
-            {RIR_OPTIONS.map((option) => {
-              // The 3+ bucket also reflects any legacy values logged above 3.
-              const selected = option.value === 3 ? (effectiveActualRir ?? -1) >= 3 : effectiveActualRir === option.value
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  title={`How many more reps could you have done? ${option.hint}`}
-                  aria-label={option.hint}
-                  className="flex-1 rounded-lg border py-2 transition"
-                  style={{
-                    borderColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default-border)',
-                    backgroundColor: selected ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-default)',
-                    color: selected ? 'white' : 'var(--mantine-color-text)',
-                    fontSize: 'var(--mantine-font-size-sm)',
-                    fontWeight: 700,
-                  }}
-                  onClick={() => selectRir(option.value)}
-                >
-                  {option.label}
-                </button>
-              )
-            })}
-          </div>
+          <FocusRirRow value={effectiveActualRir} targetRir={set.targetRir} onChange={selectRir} />
         </div>
       ) : null}
     </div>

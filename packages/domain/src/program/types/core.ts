@@ -1,4 +1,5 @@
 import type { SetTarget } from '@sheetless/domain/session/types'
+import type { ProgramLoadOverride, ProgramReturnPeriod } from './return'
 import type { MovementRole, Unit } from '@sheetless/domain/shared/types'
 import type {
   ProgramStateRequirement,
@@ -32,6 +33,11 @@ export type ProgramInstance = {
   rounding: number
   currentWeekIndex: number
   stateVersion: number
+  returnPeriod?: ProgramReturnPeriod | null
+  loadOverrides?: ProgramLoadOverride[]
+  /** Most recent explicit reset; history remains separate from current references. */
+  lastLoadResetAt?: string | null
+  loadAdjustments?: Array<{ createdAt: string; changes: import('./return').ProgramLoadChange[] }>
   /** Missing on legacy in-memory fixtures and pre-mode records; treated as standard. */
   equipmentMode?: ProgramEquipmentMode
   freeWeightPolicyVersionId?: string | null

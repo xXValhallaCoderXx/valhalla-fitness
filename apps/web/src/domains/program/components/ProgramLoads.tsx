@@ -51,14 +51,15 @@ export function CurrentLoadsCard({
       <Group align="flex-start" justify="space-between" gap="md" wrap="nowrap">
         <div>
           <Group gap="xs">
-            <SectionLabel>Current training maxes</SectionLabel>
+            <SectionLabel>Programme load references</SectionLabel>
             <ProgramInfoHint label="Why these numbers?">
               Each planned weight is a percentage of your training max — a strength number set a little below your
               true max so the weights stay doable. Sheetless nudges it up or down based on how your sessions actually
               go.
             </ProgramInfoHint>
           </Group>
-          <Caption mt={4}>Every planned weight on this page is computed from these.</Caption>
+<Caption mt={4}>Current programme values. Progression deltas exclude explicit resets.</Caption>
+          {program.lastLoadResetAt ? <Caption>Return reset recorded {program.lastLoadResetAt.slice(0, 10)}. Historical workouts retain their original results.</Caption> : null}
         </div>
         <Badge style={{ flexShrink: 0 }}>{program.units}</Badge>
       </Group>
@@ -90,7 +91,7 @@ export function CurrentLoadsCard({
 }
 
 function HeroLoadRow({ state }: { state: ProgramStateOverview }) {
-  const delta = state.value - state.startValue
+  const delta = state.value - state.startValue - (state.resetDelta ?? 0)
   return (
     <Panel surface="inset" p="sm" mt="sm">
       <Group justify="space-between" gap="sm" wrap="nowrap">
@@ -123,7 +124,7 @@ function HeroLoadRow({ state }: { state: ProgramStateOverview }) {
 }
 
 function DeltaText({ state }: { state: ProgramStateOverview }) {
-  const delta = state.value - state.startValue
+  const delta = state.value - state.startValue - (state.resetDelta ?? 0)
   if (delta === 0) return null
   return (
     <Text size="sm" fw={700} tone={delta > 0 ? 'success' : 'danger'} style={{ whiteSpace: 'nowrap' }}>

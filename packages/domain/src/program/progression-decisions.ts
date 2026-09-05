@@ -1,3 +1,4 @@
+import { capReturnDecisions } from './return-progression'
 import type { ProgramInstance, ProgressionDecision } from '@sheetless/domain/program/types'
 import type { MovementSlot, SetLog, WorkoutSession } from '@sheetless/domain/session/types'
 import { formatWeight } from '@sheetless/domain/shared/set-notation'
@@ -70,7 +71,7 @@ export function buildProgressionDecisionsForSession(
       const topSetWithReps = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedReps(set))
       const topSetWithRir = movement.sets.find((set) => (set.isTopSet || set.isAmrap) && hasCompletedRepsAndRir(set))
       if (isPlusSetWaveRule(ruleId) && topSetWithReps) {
-        const state = stateForMovement(activeProgram, movement.movementId, 'training_max')
+        const state = stateForMovement(activeProgram, movement.movementId, 'training_max', session, movement)
         if (!state) continue
         decisions.push(
           evaluatePlusSetWave(
@@ -84,12 +85,12 @@ export function buildProgressionDecisionsForSession(
         )
       }
       if (isTrainingMaxBandRule(ruleId) && topSetWithRir) {
-        const state = stateForMovement(activeProgram, movement.movementId, 'training_max')
+        const state = stateForMovement(activeProgram, movement.movementId, 'training_max', session, movement)
         if (!state) continue
         decisions.push(evaluateTrainingMaxBand([topSetWithRir], state.value, activeProgram.rounding, movement.movementId, state.key))
       }
       if (ruleId === 'simple_linear_completion') {
-        const state = stateForMovement(activeProgram, movement.movementId, 'working_load')
+        const state = stateForMovement(activeProgram, movement.movementId, 'working_load', session, movement)
         if (!state) continue
         const decision = evaluateSimpleLinearCompletion(
           movement.sets,
@@ -131,7 +132,7 @@ export function buildProgressionDecisionsForSession(
       }
     }
   }
-  return decisions
+  return capReturnDecisions(session, activeProgram, decisions)
 }
 
 /** Heaviest load logged across the movement's completed sets, or null when none carried weight. */
@@ -148,7 +149,14 @@ function stateForMovement(
   activeProgram: ProgramInstance,
   movementId: string,
   type: 'training_max' | 'working_load',
+  session: WorkoutSession,
+  movement: MovementSlot,
 ): ValidProgramState | null {
+  const binding = session.returnContext?.slots[movement.slotId ?? movement.id]?.binding
+  if (session.returnContext) {
+    const source = binding && activeProgram.stateValues.find((state) => state.key === binding.stateKey && state.value === binding.value)
+    return source ? source as ValidProgramState : null
+  }
   const state = activeProgram.stateValues.find((state) => state.key === programStateKey(movementId, type)) ??
     activeProgram.stateValues.find((state) => state.movementId === movementId && state.type === type)
   if (!state || !hasNumber(state.value) || state.value <= 0) return null

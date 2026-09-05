@@ -1,3 +1,4 @@
+import { ReturnGuideCard } from '@/features/program/return/ReturnGuideCard'
 import { useState } from 'react'
 import { View } from 'react-native'
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -191,6 +192,7 @@ export function TodayScreen() {
       />
 
       <ProgressionReviewAlert decisions={pending} onReview={openReview} />
+      <ReturnGuideCard program={program} today lastWorkoutLogged={data.lastWorkoutLogged} />
       <TodayPlannedSessionCard
         session={planned}
         units={me.data?.units ?? program.units}

@@ -108,7 +108,7 @@ export function roundToStep(value: number, step: number) {
  * prescribed load (user-selected accessories) carry the nearest earlier completed set's weight,
  * falling back to last session's comparable — so straight sets only need the weight entered once.
  */
-export function seedLoadForSet(movement: MovementSlot, set: SetLog): number {
+export function seedLoadForSet(movement: MovementSlot, set: SetLog): number | null {
   const bodyweightSubstitution = isBodyweightSubstitution(movement)
   const hasUntouchedTransferredLoad =
     bodyweightSubstitution &&
@@ -127,6 +127,7 @@ export function seedLoadForSet(movement: MovementSlot, set: SetLog): number {
     }
   }
   if (carried != null) return carried
+  if (movement.loadSuggestionCutoff) return movement.previous?.postResetSets?.find((previous) => previous.setIndex === set.setIndex)?.load ?? null
   const previousLoad = movement.previous?.load
   return isPositiveLoad(previousLoad) ? previousLoad : 0
 }

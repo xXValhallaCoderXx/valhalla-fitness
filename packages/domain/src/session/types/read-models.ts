@@ -9,6 +9,7 @@ import type {
 } from '@sheetless/domain/session/types/session'
 
 export type TodayPayload = {
+  lastWorkoutLogged?: string | null
   activeProgram: ProgramInstance | null
   plannedSession: PlannedSession | null
   activeSession: WorkoutSession | null

@@ -265,7 +265,7 @@ if (programServer.includes('?? crypto.randomUUID()')) {
 const sessionLifecycleServer = requireFragments(
   'packages/data/src/session/lifecycle.ts',
   [
-    "supabase.rpc('start_session_v2'",
+    "supabase.rpc('start_session_v3'",
     "supabase.rpc('start_ad_hoc_session_v2'",
     "supabase.rpc('rename_session_v2'",
   ],
@@ -273,7 +273,7 @@ const sessionLifecycleServer = requireFragments(
 const sessionCompletionServer = requireFragments(
   'packages/data/src/session/completion.ts',
   [
-    "supabase.rpc('finish_session_v2'",
+    "supabase.rpc('finish_session_v3'",
   ],
 )
 const sessionSetServer = requireFragments(
@@ -374,6 +374,18 @@ for (const [name, contents] of [
 ]) {
   if (!contents.trim()) failures.push(`${name} contract file is empty`)
 }
+
+// Guided-return lifecycle and append-only reset provenance.
+requireFragments('supabase/migrations/202609060001_program_return_foundation.sql', [
+  'program_return_periods', 'program_load_overrides', 'program_load_adjustments',
+  'pg_advisory_xact_lock', 'IDEMPOTENCY_CONFLICT', 'superseded_decision_ids',
+])
+requireFragments('supabase/migrations/202609060002_program_return_protocol.sql', [
+  'program_return_targets_v1', 'RETURN_CLIENT_UPDATE_REQUIRED', 'RETURN_CONTEXT_IMMUTABLE',
+])
+requireFragments('supabase/migrations/202609060003_program_return_finish.sql', [
+  'RETURN_PROGRESSION_CAP_INVALID', 'RETURN_INCREASE_NOT_EARNED', 'completed_workouts+1',
+])
 
 if (failures.length > 0) {
   console.error('Database contract verification failed:')

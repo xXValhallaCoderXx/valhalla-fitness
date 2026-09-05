@@ -227,7 +227,7 @@ export function useWorkoutManagement({
         open: platesOpen,
         units: session.units,
         movementName: movement.performedMovementName ?? movement.movementName,
-        initialTarget: selectedSet ? seedLoadForSet(movement, selectedSet) : 0,
+        initialTarget: selectedSet ? (seedLoadForSet(movement, selectedSet) ?? 0) : 0,
         onClose: () => setPlatesOpen(false),
       },
       history: {

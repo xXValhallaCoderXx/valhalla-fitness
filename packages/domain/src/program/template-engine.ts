@@ -1,3 +1,5 @@
+import { applyReturnPrescription } from './return-prescription'
+import { fixedLoadKey, referencedStateKey } from './return-loads'
 import type { Movement } from '@sheetless/domain/movement/types'
 import type {
   ProgramAccessoryAddition,
@@ -140,6 +142,10 @@ export function expandSessionFromTemplateDefinition(
       progressionRuleId: prescription.progressionRuleId ?? null,
       sets: prescription.sets.map((set, setIndex) =>
         expandSet(set, setIndex, {
+          fixedOverride: program.loadOverrides?.find((override) => override.key === fixedLoadKey({
+            templateSessionId: session.id, slotId, weekIndex: programmeWeekIndex,
+            movementId: sourceMovementId, setIndex: setIndex + 1,
+          }))?.value,
           stateValues: program.stateValues,
           movementId: sourceMovementId,
           anchorMovementId: slot.anchorMovementId ?? plannedMovementId,
@@ -168,7 +174,7 @@ export function expandSessionFromTemplateDefinition(
       }),
     )
 
-  return {
+  return applyReturnPrescription({
     id: `${session.id}-w${programmeWeekIndex + 1}`,
     templateSessionId: session.id,
     title: session.title,
@@ -177,6 +183,7 @@ export function expandSessionFromTemplateDefinition(
     equipmentMode: program.equipmentMode,
     freeWeightPolicyVersionId: program.freeWeightPolicyVersionId ?? null,
     weekIndex: program.currentWeekIndex,
+    phaseLabel: week.phaseLabel,
     weekLabel: week.waveLabel
       ? `${week.phaseLabel.replace(/\s+phase$/i, '')} ${week.waveLabel} · ${week.label}`
       : week.label,
@@ -186,7 +193,7 @@ export function expandSessionFromTemplateDefinition(
     units: program.units,
     rounding: program.rounding,
     movements: [...movements, ...additions],
-  }
+  }, program)
 }
 
 export function programForNextUncompletedSessionFromDefinition(
@@ -284,6 +291,7 @@ function expandSet(
   set: TemplateSetDefinition,
   setIndex: number,
   context: {
+    fixedOverride?: number
     stateValues: ProgramStateInput[]
     movementId: string
     anchorMovementId: string
@@ -291,7 +299,10 @@ function expandSet(
     units: Unit
   },
 ): SetLog {
-  const targetLoad = resolveTargetLoad(set.targetLoad, context)
+  const targetLoad = set.targetLoad?.kind === 'fixed' && context.fixedOverride !== undefined
+    ? context.fixedOverride : resolveTargetLoad(set.targetLoad, context)
+  const key = referencedStateKey(set.targetLoad, context.movementId, context.anchorMovementId)
+  const state = key ? context.stateValues.find((item) => item.key === key) : null
   const label =
     set.label ??
     (set.targetReps
@@ -303,6 +314,8 @@ function expandSet(
   return {
     id: `set-${setIndex + 1}`,
     setIndex: setIndex + 1,
+    sourcePrescription: set,
+    sourceBinding: state?.value != null ? { stateKey: state.key, stateType: state.type, value: state.value } : null,
     targetLoad,
     targetReps: set.targetReps ?? null,
     targetRepMin: set.targetRepMin ?? null,
@@ -322,6 +335,7 @@ function expandSet(
 function resolveTargetLoad(
   load: TemplateSetDefinition['targetLoad'] | undefined,
   context: {
+    fixedOverride?: number
     stateValues: ProgramStateInput[]
     movementId: string
     anchorMovementId: string
@@ -329,7 +343,7 @@ function resolveTargetLoad(
     units: Unit
   },
 ) {
-  if (!load || load.kind === 'user_selected') return null
+  if (!load || load.kind === 'user_selected' || (load.kind === 'percent_of_state' && load.default === 'blank')) return null
   if (load.kind === 'fixed') {
     return context.units === 'kg' ? load.kg : load.lb ?? mround(convertWeight(load.kg, 'kg', 'lb'), 5)
   }

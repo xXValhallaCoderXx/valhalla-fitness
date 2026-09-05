@@ -55,6 +55,11 @@ class TestQuery implements PromiseLike<QueryResult> {
     return this
   }
 
+  lt(column: string, value: string | number) {
+    this.filters.push((row) => row[column] != null && compareValues(row[column], value) < 0)
+    return this
+  }
+
   not(column: string, operator: string, value: unknown) {
     if (operator !== 'is') throw new Error(`Unsupported test operator: ${operator}`)
     this.filters.push((row) => row[column] !== value)

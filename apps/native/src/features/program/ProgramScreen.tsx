@@ -1,3 +1,4 @@
+import { ReturnGuideCard } from './return/ReturnGuideCard'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { router } from 'expo-router'
@@ -72,6 +73,8 @@ export function ProgramScreen() {
   const trajectory = buildProgramTrajectory({
     definition,
     currentGlobalIndex: program.currentWeekIndex,
+    loadAdjustments: program.loadAdjustments,
+    returnSettings: program.returnPeriod?.status === 'active' || program.returnPeriod?.status === 'review' ? program.returnPeriod.settings : undefined,
     rounding: program.rounding,
     units: program.units,
     stateValues: overview.data.stateValues,
@@ -81,6 +84,7 @@ export function ProgramScreen() {
 
   return (
     <Screen>
+      <ReturnGuideCard program={program} hasActiveSession={overview.data.hasActiveSession} />
       <ProgramHeader overview={overview.data} phaseMap={phaseMap} action={settingsAction} />
       <ProgramEquipmentModeCard
         key={program.id}
