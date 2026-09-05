@@ -18,14 +18,11 @@ import { getSupabase } from '@/lib/supabase'
 import { useSheetlessTheme } from '@/lib/theme-provider'
 import { spacing } from '@/lib/tokens'
 import { BetaFeedback } from '@/features/feedback/BetaFeedback'
+import { TrainingSettings } from './TrainingSettings'
 import { AccountSection } from './AccountSection'
-import { BodyStrengthSection } from './BodyStrengthSection'
 import { DataSyncSection } from './DataSyncSection'
-import { EquipmentSection } from './EquipmentSection'
-import { PreferencesSection } from './PreferencesSection'
 import { SettingsDialogs, type DestructiveIntent } from './SettingsDialogs'
 import { SettingsSaveFooter } from './SettingsSaveFooter'
-import { StrengthEstimatesSection } from './StrengthEstimatesSection'
 import { useSettingsDraft, type SettingsDraftValues } from './useSettingsDraft'
 
 export function SettingsScreen() {
@@ -195,46 +192,8 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
               ) : null}
             </Panel>
 
-            <PreferencesSection
-              themePreference={draft.values.themePreference}
-              effectiveScheme={effectiveScheme}
-              isThemePreviewing={previewPreference !== null}
-              units={draft.values.units}
-              rounding={draft.values.rounding}
-              autoStartTimer={draft.values.autoStartTimer}
-              defaultRestSeconds={draft.values.defaultRestSeconds}
-              disabled={controlsDisabled}
-              onThemeChange={changeTheme}
-              onUnitsChange={draft.setUnits}
-              onRoundingChange={draft.setRounding}
-              onAutoStartTimerChange={draft.setAutoStartTimer}
-              onDefaultRestSecondsChange={draft.setDefaultRestSeconds}
-            />
-
-            <BodyStrengthSection
-              user={user}
-              units={draft.values.units}
-              sex={draft.values.sex}
-              settingsDisabled={controlsDisabled}
-              onSexChange={draft.setSex}
-            />
-
-            <StrengthEstimatesSection
-              programStateDefaults={draft.values.programStateDefaults}
-              estimateInputs={draft.estimateInputs}
-              estimateErrors={draft.estimateErrors}
-              units={draft.values.units}
-              rounding={draft.values.rounding}
-              disabled={controlsDisabled}
-              onInputChange={draft.setEstimateInput}
-              onValueChange={draft.setEstimateValue}
-            />
-
-            <EquipmentSection
-              equipmentProfile={draft.values.equipmentProfile}
-              disabled={controlsDisabled}
-              onToggle={draft.toggleEquipment}
-            />
+            <TrainingSettings user={user} draft={draft} effectiveScheme={effectiveScheme}
+              previewPreference={previewPreference} controlsDisabled={controlsDisabled} changeTheme={changeTheme} />
 
             <DataSyncSection
               user={user}

@@ -11,7 +11,9 @@ import { Caption, Panel, SectionLabel, StatValue, Text } from '~/components'
 export function BodyweightTrendCard({ insights, range }: { insights: HistoryInsights; range: InsightRange }) {
   const units = insights.bodyweight.units
   const trend = buildBodyweightTrend({ entries: insights.bodyweight.entries, range, today: insights.today, units })
-  const dateLabel = (value: number) => formatCompactDate(new Date(value).toISOString().slice(0, 10))
+  const dateLabel = (value: number) => Number.isFinite(value)
+    ? formatCompactDate(new Date(value).toISOString().slice(0, 10))
+    : ''
   return <Panel p="md" data-testid="bodyweight-trend">
     <SectionLabel>Bodyweight</SectionLabel>
     {trend.latest ? <>

@@ -140,6 +140,13 @@ exports and automated state tests do not establish these device results. Also ve
 sheet keyboards, fresh-finish eligibility versus revisits, draft retention on failed sends, and
 feedback access after progression resolution on the phone.
 
+Automated checks on 2026-09-05: both phase-boundary `pnpm verify` runs passed; Android
+Metro/Hermes export passed. Browser fixtures exercised the actual native web export at 360px in
+light/dark themes (six tabs, SVG painting, inspection, Settings bodyweight refresh, and global
+feedback), and the web bodyweight chart (proportional dates, units, empty/single/old readings).
+The live web bodyweight Playwright test is present but its demo-authentication setup did not pass
+in this environment; live backend integration and physical Android acceptance remain unverified.
+
 ### Recorded release posture
 
 Sheetless targets a **public self-serve beta**. Self-service deletion, machine-readable export, and

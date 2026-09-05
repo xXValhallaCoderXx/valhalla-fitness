@@ -5,6 +5,7 @@ import { fontFamily, fontSizes, useTokens, type Tone } from '@/lib/tokens'
 import { Caption } from '../Caption'
 import { Button } from '../Button'
 import { ChartSeries } from './ChartSeries'
+import { ChartTouchTarget } from './ChartTouchTarget'
 import {
   adjacentPointIndex,
   nearestPointIndex,
@@ -120,61 +121,63 @@ export function TrendChart({
     <View onLayout={onLayout} accessibilityLabel={accessibilityLabel} testID={testID}>
       {/* Nothing can be laid out until the first measurement lands. */}
       {width > 0 ? (
-        <Svg width={width} height={height} accessible={false}
-          onPress={inspectable ? (event) => select(nearestPointIndex(projected, event.nativeEvent.locationX)) : undefined}>
-          {ticks.map((tick, index) => {
-            const y = tickYs[index]?.y
-            if (y === null || y === undefined) return null
-            return (
-              <Fragment key={`tick-${tick}`}>
-                <Line
-                  x1={box.padLeft}
-                  x2={box.width - box.padRight}
-                  y1={y}
-                  y2={y}
-                  stroke={theme.border}
-                  strokeWidth={1}
-                />
+        <View style={{ height }}>
+          <Svg width={width} height={height} accessible={false} pointerEvents="none">
+            {ticks.map((tick, index) => {
+              const y = tickYs[index]?.y
+              if (y === null || y === undefined) return null
+              return (
+                <Fragment key={`tick-${tick}`}>
+                  <Line
+                    x1={box.padLeft}
+                    x2={box.width - box.padRight}
+                    y1={y}
+                    y2={y}
+                    stroke={theme.border}
+                    strokeWidth={1}
+                  />
+                  <SvgText
+                    x={box.padLeft - 5}
+                    y={y + 3}
+                    textAnchor="end"
+                    fill={theme.textMuted}
+                    fontFamily={fontFamily}
+                    fontSize={fontSizes.caption}
+                  >
+                    {tickLabels[index]}
+                  </SvgText>
+                </Fragment>
+              )
+            })}
+
+            <ChartSeries series={series} box={box} domain={domain} coordinateDomain={coordinateDomain} showPoints={showPoints} />
+            {inspectable && selectedIndex !== null && projected[selectedIndex]?.y != null ? (
+              <Circle cx={projected[selectedIndex].x} cy={projected[selectedIndex].y!} r={6}
+                fill="none" stroke={theme.text} strokeWidth={2} />
+            ) : null}
+
+            {xLabelIndices.map((index) => {
+              const point = projectPoints(labels.map(() => 0), box, [0, 1], xCoordinates, coordinateDomain)[index]
+              if (!point) return null
+              const isFirst = index === 0
+              const isLast = index === labels.length - 1
+              return (
                 <SvgText
-                  x={box.padLeft - 5}
-                  y={y + 3}
-                  textAnchor="end"
+                  key={`x-${index}`}
+                  x={point.x}
+                  y={box.height - 4}
+                  textAnchor={isFirst ? 'start' : isLast ? 'end' : 'middle'}
                   fill={theme.textMuted}
                   fontFamily={fontFamily}
                   fontSize={fontSizes.caption}
                 >
-                  {tickLabels[index]}
+                  {labels[index]}
                 </SvgText>
-              </Fragment>
-            )
-          })}
-
-          <ChartSeries series={series} box={box} domain={domain} coordinateDomain={coordinateDomain} showPoints={showPoints} />
-          {inspectable && selectedIndex !== null && projected[selectedIndex]?.y != null ? (
-            <Circle cx={projected[selectedIndex].x} cy={projected[selectedIndex].y!} r={6}
-              fill="none" stroke={theme.text} strokeWidth={2} />
-          ) : null}
-
-          {xLabelIndices.map((index) => {
-            const point = projectPoints(labels.map(() => 0), box, [0, 1], xCoordinates, coordinateDomain)[index]
-            if (!point) return null
-            const isFirst = index === 0
-            const isLast = index === labels.length - 1
-            return (
-              <SvgText
-                key={`x-${index}`}
-                x={point.x}
-                y={box.height - 4}
-                textAnchor={isFirst ? 'start' : isLast ? 'end' : 'middle'}
-                fill={theme.textMuted}
-                fontFamily={fontFamily}
-                fontSize={fontSizes.caption}
-              >
-                {labels[index]}
-              </SvgText>
-            )
-          })}
-        </Svg>
+              )
+            })}
+          </Svg>
+          {inspectable ? <ChartTouchTarget onSelect={(x) => select(nearestPointIndex(projected, x))} /> : null}
+        </View>
       ) : (
         <View style={{ height }} />
       )}

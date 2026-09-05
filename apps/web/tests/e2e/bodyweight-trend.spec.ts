@@ -2,13 +2,13 @@ import { expect, test } from '@playwright/test'
 import { DEMO_USER } from './support/auth'
 import { signInClient } from './support/profile'
 import { calendarDateInTimeZone } from '@sheetless/domain/shared/calendar-date'
-import { formatCompactDate } from '@sheetless/domain/shared/dates'
 
 // These scenarios use the local demo account; restore its measurements and units after each run.
 test('Overview refreshes actual measurements after log, replace, delete, and unit changes', async ({ page }) => {
   const { client, userId } = await signInClient(DEMO_USER)
   const { data: profile } = await client.from('profiles').select('units, timezone').eq('id', userId).single().throwOnError()
   const today = calendarDateInTimeZone(new Date(), profile!.timezone)
+  const todayLabel = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${today}T00:00:00Z`))
   const { data: existing } = await client.from('bodyweight_entries').select('*').eq('user_id', userId).eq('recorded_on', today).throwOnError()
   try {
     await client.from('profiles').update({ units: 'kg' }).eq('id', userId).throwOnError()
@@ -29,12 +29,15 @@ test('Overview refreshes actual measurements after log, replace, delete, and uni
       await expect(card.getByText(`Latest recorded · ${today}`)).toBeVisible()
     }
     await card.getByRole('link', { name: 'Log bodyweight' }).click()
-    await page.getByRole('button', { name: `Delete bodyweight entry from ${formatCompactDate(today)}` }).click()
-    await expect(page.getByRole('button', { name: `Delete bodyweight entry from ${formatCompactDate(today)}` })).toHaveCount(0)
+    await page.getByRole('button', { name: `Delete bodyweight entry from ${todayLabel}` }).click()
+    await expect(page.getByRole('button', { name: `Delete bodyweight entry from ${todayLabel}` })).toHaveCount(0)
     await page.getByRole('link', { name: 'Insights', exact: true }).first().click()
     await expect(card.getByText(`Latest recorded · ${today}`, { exact: true })).toHaveCount(0)
-    await client.from('profiles').update({ units: 'lb' }).eq('id', userId).throwOnError()
-    await page.reload()
+    await card.getByRole('link', { name: 'Log bodyweight' }).click()
+    await page.getByText('lb', { exact: true }).click()
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0)
+    await page.getByRole('link', { name: 'Insights', exact: true }).first().click()
     await expect(card.getByText(/lb$/).first()).toBeVisible()
     await expect(async () => {
       await page.getByText('All', { exact: true }).first().click()
