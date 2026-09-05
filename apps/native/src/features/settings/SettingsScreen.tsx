@@ -17,6 +17,7 @@ import { useSession } from '@/lib/session-provider'
 import { getSupabase } from '@/lib/supabase'
 import { useSheetlessTheme } from '@/lib/theme-provider'
 import { spacing } from '@/lib/tokens'
+import { BetaFeedback } from '@/features/feedback/BetaFeedback'
 import { AccountSection } from './AccountSection'
 import { BodyStrengthSection } from './BodyStrengthSection'
 import { DataSyncSection } from './DataSyncSection'
@@ -40,7 +41,6 @@ export function SettingsScreen() {
       </Screen>
     )
   }
-
   if (me.isError || !me.data || !user) {
     return (
       <Screen padTop={false}>
@@ -54,8 +54,7 @@ export function SettingsScreen() {
       </Screen>
     )
   }
-
-  return <LoadedSettingsScreen profile={me.data} user={user} />
+  return <LoadedSettingsScreen key={user.id} profile={me.data} user={user} />
 }
 
 function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: User }) {
@@ -106,13 +105,11 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
       ])
     },
   })
-
   const discard = () => {
     draft.discard()
     setPreviewPreference(null)
     save.reset()
   }
-
   const signOut = async () => {
     setSigningOut(true)
     setSignOutError(null)
@@ -127,7 +124,6 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
       setSigningOut(false)
     }
   }
-
   const deletion = useMutation({
     mutationFn: (confirmation: string) =>
       deleteOwnAccount(buildUserContext(user), deleteAccountInputSchema.parse({ confirmation })),
@@ -138,7 +134,6 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
       queryClient.clear()
     },
   })
-
   const runIntent = (intent: DestructiveIntent) => {
     if (draft.dirty) {
       setPendingIntent(intent)
@@ -147,7 +142,6 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
     if (intent === 'signOut') void signOut()
     else setDeleteOpen(true)
   }
-
   useEffect(() => {
     if (!readyIntent || !bypassRemoval) return
     const intent = readyIntent
@@ -164,12 +158,10 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
     setBypassRemoval(true)
     setReadyIntent(intent)
   }
-
   const changeTheme = (value: SettingsDraftValues['themePreference']) => {
     draft.setThemePreference(value)
     setPreviewPreference(value === draft.baseline.themePreference ? null : value)
   }
-
   const saveSnapshot = () => save.mutate({
     ...draft.values,
     equipmentProfile: [...draft.values.equipmentProfile],
@@ -250,6 +242,7 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
               onPendingChange={setExportPending}
             />
 
+            <BetaFeedback user={user} />
             <AccountSection
               displayName={profile.displayName}
               email={profile.email}

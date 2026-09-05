@@ -1,15 +1,14 @@
-import type { z } from 'zod'
-import { normalizeFeedbackInput } from '@sheetless/domain/feedback/feedback-options'
-import type { submitFeedbackInputSchema } from '@sheetless/domain/feedback/schemas'
+import { normalizeFeedbackInput, type SubmitFeedbackInput } from '@sheetless/domain/feedback/feedback-options'
+import { submitFeedbackInputSchema } from '@sheetless/domain/feedback/schemas'
 import type { Json } from '@sheetless/domain/shared/types/database'
 import type { UserContext } from '../shared/context'
 
 /** Append-only insert into `feedback_events`; the app never reads feedback back. */
 export async function submitFeedback(
   ctx: UserContext,
-  data: z.infer<typeof submitFeedbackInputSchema>,
+  data: SubmitFeedbackInput,
 ) {
-  const input = normalizeFeedbackInput(data)
+  const input = normalizeFeedbackInput(submitFeedbackInputSchema.parse(data))
   const { supabase, user } = ctx
   const { error } = await supabase.from('feedback_events').insert({
     user_id: user.id,
