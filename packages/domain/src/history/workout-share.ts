@@ -26,6 +26,18 @@ function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
+function validCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const parsed = new Date(`${value}T00:00:00Z`)
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+}
+
+function timestamp(value: string | null | undefined): number {
+  if (!value || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) ||
+    !validCalendarDate(value.slice(0, 10))) return NaN
+  return Date.parse(value)
+}
+
 function usable(set: SetLog): boolean {
   return set.completed && finite(set.actualReps) && set.actualReps > 0 &&
     (set.actualLoad == null || (finite(set.actualLoad) && set.actualLoad >= 0))
@@ -51,8 +63,7 @@ export function buildWorkoutShareModel(session: WorkoutSession): WorkoutShareMod
   // Calendar dates are parsed in UTC only for formatting, never converted to device time.
   const date = session.scheduledDate
   const parsed = new Date(`${date}T00:00:00Z`)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(parsed.getTime()) ||
-    parsed.toISOString().slice(0, 10) !== date) return null
+  if (!validCalendarDate(date)) return null
 
   const groups = new Map<string, { name: string; sets: SetLog[] }>()
   const movements = [...session.movements].sort((a, b) => a.orderIndex - b.orderIndex)
@@ -80,8 +91,8 @@ export function buildWorkoutShareModel(session: WorkoutSession): WorkoutShareMod
   }
   if (!exercises.length) return null
   exercises.sort((a, b) => Number(b.isPr) - Number(a.isPr))
-  const start = session.startedAt ? Date.parse(session.startedAt) : NaN
-  const end = session.completedAt ? Date.parse(session.completedAt) : NaN
+  const start = timestamp(session.startedAt)
+  const end = timestamp(session.completedAt)
   const elapsed = end - start
   return {
     title: session.title,

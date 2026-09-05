@@ -61,6 +61,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Rest timer | **Partial** | Auto-start on genuine set completion, role-based defaults, global opt-out, wall-clock correction, `+15`, skip, audio, and vibration are implemented. Native keeps the screen awake during a session and schedules a local rest notification; Android locked-screen delivery and exact-alarm behavior remain device gates. Reload persistence, per-movement defaults, and `-15` are not implemented. |
 | Plate calculator | **Shipped** | Kg/lb plate loading is available from both live-session layouts. Saved bar/plate inventory and equipment gating are not implemented. |
 | Session PRs | **Partial** | Heaviest-load, estimated-1RM, and rep-at-weight PRs are calculated at finish and shown in the summary. There is no live inline celebration or separate lifetime `personal_records` table. |
+| Workout images | **Implemented; physical acceptance pending** | Completed summaries on web and native offer Share workout when there is a usable logged result. The local 1080 × 1350 PNG has a light/dark preview, PR-first exercise highlights, and an overflow count after six exercises. Web supports download and compatible browser file sharing; native opens the system chooser. |
 | Progression | **Shipped** | Recommendations are calculated from completed work, stored as decisions, and require explicit accept/later/dismiss handling. |
 | Ad-hoc sessions and favourites | **Shipped** | Users can start unprogrammed workouts, repeat prior sessions, and save/reuse favourites while retaining comparable history. |
 | Programme and Insights views | **Shipped** | Programme position, timeline, loads, decisions, recent sessions, e1RM, DOTS/bodyweight-multiple fallbacks, trends, consistency, calibration, muscle-set estimates, records, and history are data-backed. |
@@ -223,12 +224,16 @@ apps/native/                Expo application
 packages/domain/            pure framework-free training logic and types
 packages/data/              authenticated Supabase data access
 packages/tokens/            shared design tokens
+packages/workout-share/     framework-free SVG artwork and preview resource lifecycle
 supabase/migrations/        append-only schema migrations
 ```
 
 Web routes extract URL/context data and render a domain component. Native route files render feature
 screens. `@sheetless/domain` remains pure; `@sheetless/data` accepts an authenticated user context
 from either the web cookie client or native SecureStore session and never acquires auth itself.
+`@sheetless/workout-share` consumes the domain's limited workout-share model. Domain, data, and
+tokens cannot depend on this presentation package. SVG-to-PNG conversion and export APIs stay
+inside the apps, using browser canvas or the existing native SVG, file-system, and sharing libraries.
 
 ### Native entry points and feature folders
 
@@ -246,7 +251,7 @@ components and hooks live together in folders named for what they do:
 | --- | --- | --- |
 | `auth` | `AuthScreen.tsx` | Email and code sign-in are contained in this screen. |
 | `session` | `TodayScreen.tsx`, `LiveSessionScreen.tsx`, `SessionSummaryScreen.tsx` | `today/` starts and resumes workouts; `live/` coordinates Focus/Overview navigation; `focus/` logs sets; `overview/` lists exercises; `editing/` manages movements, order, titles, and notes; `lifecycle/` finishes/discards; `summary/` presents the recap, decisions, Repeat, and favourites; `movement-picker/`, `plate-calculator/`, and `rest-timer/` own their tools. |
-| `history` | `InsightsScreen.tsx` → `InsightsTabs.tsx` | `overview/`, `strength/`, `muscle-fatigue/`, `movements/`, `records/`, and `sessions/` follow the six tabs; `bodyweight/` owns the measurement trend and profile prompt. |
+| `history` | `InsightsScreen.tsx` → `InsightsTabs.tsx` | `overview/`, `strength/`, `muscle-fatigue/`, `movements/`, `records/`, and `sessions/` follow the six tabs; `bodyweight/` owns the measurement trend and profile prompt; `sharing/` owns workout image preview and platform export adapters. |
 | `program` | `ProgramScreen.tsx` | `overview/` presents the active plan; `equipment/` reviews conversions; `progression/` reviews and resolves progression decisions. |
 | `templates` | `TemplatesScreen.tsx`, `TemplateDetailScreen.tsx` | `catalogue/`, `favorites/`, `find-my-plan/`, `setup/`, and `start/` separate browsing, recommendations, customisation, and programme start. |
 | `settings` | `SettingsScreen.tsx` | `profile/` owns bodyweight and strength; `preferences/` owns appearance, units, rest, and equipment; `account/` owns account actions and data export. Draft/save coordination and the shared section wrapper stay at the feature root. |
@@ -262,6 +267,35 @@ Feature-wide query options and cache helpers stay at the feature root. Imports w
 relative paths; cross-feature imports use `@/features/<feature>/<concern>/<module>`. Shared UI remains
 available from `@/components`. Platform variants stay together, such as
 `settings/account/account-export.ts`, `.native.ts`, and `.web.ts`.
+
+### Workout image sharing
+
+Share workout is available after finishing and on later visits to full summaries or history
+dialogs/sheets. History switches its existing dialog into preview mode; Back to summary restores
+the recap and its Repeat/Favourite actions. Progression decisions remain on the full summary.
+The preview starts in the app's resolved appearance. Light/Dark changes only the image, and export
+controls wait for PNG preparation. The final preview displays that PNG. Cancellation keeps the
+preview open; failed preparation or export has retry controls and preserves the selected appearance.
+
+The image contains the workout title, scheduled calendar date, completed-set count, actual elapsed
+time when valid timestamps exist, number of exercises with stored PRs, and one result per performed
+movement. Repeated occurrences are combined. PR exercises come first in workout order and use their
+stored finish-time headline. Other exercises use the highest-e1RM completed weighted set (including
+recorded RIR); loadless exercises use the highest rep count. Ties preserve workout/set order. At most
+six exercises appear, followed by an explicit overflow count. Missing load shows reps only; explicit
+zero load shows Bodyweight. Recorded session units are retained, and prescribed targets and programme
+duration estimates are never substituted. Notes, reflections, identity, bodyweight measurements, and
+progression decisions are excluded. The preview includes a textual description for accessibility.
+
+The shared SVG uses escaped text, fixed geometry, complete light/dark palettes, and system fonts;
+glyph pixels and coverage depend on the operating system's installed fonts. Images are generated
+locally without a migration, hosted storage, or additional third-party dependency. Files are named
+`sheetless-workout-YYYY-MM-DD.png`. Native uses a unique temporary cache directory per image and keeps
+the file until both preview and any active chooser have finished. Web always offers Download image;
+Share image appears only when the browser accepts the prepared PNG file. The final tap invokes the
+[Web Share API](https://www.w3.org/TR/web-share/) directly. Native uses
+[Expo Sharing](https://docs.expo.dev/versions/latest/sdk/sharing/). Closing a chooser does not claim
+delivery to a recipient.
 
 ### Runtime data boundaries
 
@@ -556,6 +590,23 @@ pnpm db:contract:check
 ```
 
 For UI behavior, also run the relevant Playwright project/spec and inspect the real rendered result.
+Workout image checks can run without Supabase:
+
+```sh
+pnpm --filter sheetless-web exec playwright test --config playwright.share.config.ts
+```
+
+This harness renders the production preview and rasterizer with fixture content in desktop and
+phone-sized Chromium. It checks real PNG pixels/dimensions/downloads, appearance, file-sharing
+payloads, cancellation, duplicate taps, generation/export retries, and account replacement. The
+authenticated `workout-share.spec.ts` and `session-finish.spec.ts` cover historical entry points and
+fresh finishes with existing summary actions. They require the running Supabase stack and seeded
+demo credentials. On 2026-09-05, the authenticated run stopped at login; those integration flows
+remain unverified in this environment. Native Vitest checks mock file/sharing APIs, not SVG painting.
+Automated verification on 2026-09-05 passed `pnpm verify` (1,019 unit tests), all six standalone
+browser preview tests, and the Android Metro export. Physical receipt/inspection is tracked in the
+device checklist below and has not been completed.
+
 Pure logic changes should add or update Vitest coverage. Training-engine, session-cache,
 progression, history-signal, and server-API changes require behavior-focused tests.
 
@@ -887,6 +938,12 @@ stack and Mailpit running, record a physical-device pass for:
 - Set edits, retry/error state, blocked finish, lost-response recovery, recap, and persistent
   progression Apply/Keep/Apply-all from both Today and Plan; unresolved decisions must still block a
   planned Start after force-stop/reopen while Resume remains available.
+- Workout images: **physical acceptance not yet run**. From an installed Android APK and a supported
+  mobile browser/PWA, receive and inspect a PNG from both a fresh finish and a historical summary.
+  Confirm 1080 × 1350 dimensions, legible names/results, both appearances, PR ordering, overflow,
+  cancellation, and return to the summary with its actions intact. Record device/OS/browser/APK
+  versions and observed results separately from automated test results. Existing native dependencies
+  cover this change; a bundled standalone APK must still include the updated JavaScript.
 - Allowed movement swaps, session- and phase-scoped accessory add/remove, resumed ad-hoc exercise
   add/remove (including its empty state), notes carried into recap, and kg/lb plate calculations.
 - Blank workout start alongside a planned day, ad-hoc rename, Focus/Overview switching, programme-

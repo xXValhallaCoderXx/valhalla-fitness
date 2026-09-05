@@ -295,6 +295,13 @@ for (const path of componentFiles) {
 // the one package allowed to know about Supabase — and only its types: value
 // imports would bundle a second supabase-js into whichever app forgets to dedupe.
 const packagesRoot = join(repoRoot, '../../packages')
+for (const name of ['domain', 'data', 'tokens']) {
+  const manifest = JSON.parse(readFileSync(join(packagesRoot, name, 'package.json'), 'utf8'))
+  if (['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
+    .some((field) => manifest[field]?.['@sheetless/workout-share'])) {
+    failures.push(`packages/${name}/package.json depends on the workout-share presentation package`)
+  }
+}
 const packageSources = walk(packagesRoot).filter(
   (path) => ['.ts', '.tsx'].includes(extname(path)) && path.includes(`${sep}src${sep}`),
 )

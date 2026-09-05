@@ -17,6 +17,7 @@ import { spacing } from '@/lib/tokens'
 import { WorkoutSummaryRecap } from './summary/WorkoutSummaryRecap'
 import { AdHocSessionActions } from './summary/AdHocSessionActions'
 import { SummaryDecisions } from './summary/SummaryDecisions'
+import { ShareWorkoutButton } from '@/features/history/sharing/ShareWorkoutButton'
 
 export function SessionSummaryScreen({ sessionId }: { sessionId: string }) {
   const { user } = useSession()
@@ -95,6 +96,7 @@ function AccountSummary({ user, sessionId }: { user: User; sessionId: string }) 
       ) : null}
       <WorkoutSummaryRecap session={session.data} recap={recap} />
       <AdHocSessionActions user={user!} session={session.data} />
+      <ShareWorkoutButton session={session.data} />
       <Button label="Back to Today" fullWidth onPress={() => router.dismissTo('/(tabs)')} />
     </Screen>
   )

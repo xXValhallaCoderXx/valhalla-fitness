@@ -22,10 +22,24 @@ function escape(value: string): string {
     .replace(/"/g, '&quot;').replace(/'/g, '&apos;')
 }
 
-// Deliberately conservative, independent of installed fonts. Keep graphemes intact.
-const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' })
+// Deterministic across browsers and Hermes, including engines without Intl.Segmenter.
+// Keep combining marks, joined emoji, modifiers and flag pairs with their base.
+function textClusters(value: string): string[] {
+  const clusters: string[] = []
+  for (const char of Array.from(value)) {
+    const cp = char.codePointAt(0)!
+    const previous = clusters[clusters.length - 1]
+    const flagPair = cp >= 0x1f1e6 && cp <= 0x1f1ff && previous &&
+      Array.from(previous).length === 1 && /\p{Regional_Indicator}/u.test(previous)
+    if (previous && (/\p{Mark}/u.test(char) || char === '\u200d' || previous.endsWith('\u200d') ||
+      (cp >= 0x1f3fb && cp <= 0x1f3ff) || (cp >= 0xe0020 && cp <= 0xe007f) || flagPair)) {
+      clusters[clusters.length - 1] += char
+    } else clusters.push(char)
+  }
+  return clusters
+}
 function takeLine(value: string, limit: number): [string, string] {
-  const parts = [...segmenter.segment(clean(value))].map((part) => part.segment)
+  const parts = textClusters(clean(value))
   let count = 0
   let index = 0
   for (; index < parts.length; index++) {

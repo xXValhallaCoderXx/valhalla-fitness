@@ -66,7 +66,11 @@ describe('workout share projection', () => {
     expect(model.filename).toBe('sheetless-workout-2026-09-05.png')
     expect(model.durationSeconds).toBe(3723)
   })
-  it.each([['bad', 'bad'], [null, null], ['2026-09-05T12:00:00Z', '2026-09-05T11:00:00Z']])('omits invalid duration', (startedAt, completedAt) => {
+  it.each([
+    ['bad', 'bad'], [null, null], ['2026-09-05T12:00:00Z', '2026-09-05T11:00:00Z'],
+    ['2026-02-30T10:00:00Z', '2026-03-02T11:00:00Z'], ['2026-09-05', '2026-09-06'],
+    ['2026-09-05T12:00:00Z', '2026-09-05T12:00:00Z'],
+  ])('omits invalid duration', (startedAt, completedAt) => {
     expect(buildWorkoutShareModel(session({ startedAt, completedAt }))?.durationSeconds).toBeNull()
   })
   it.each(['2026-02-30', 'bad', '2026-09-05T23:00:00Z'])('rejects invalid calendar date %s', (scheduledDate) => {
