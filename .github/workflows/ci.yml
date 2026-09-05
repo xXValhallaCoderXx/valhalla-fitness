@@ -79,6 +79,8 @@ jobs:
 
       - run: pnpm build
 
+      - run: pnpm verify:native
+
       - run: pnpm pwa:verify
 
       - run: pnpm bundle:check

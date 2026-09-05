@@ -5,7 +5,7 @@ spreadsheet in the gym.
 
 **Document authority:** this README is the sole human-facing source for the product, current release
 status, architecture, training-plan DSL, development workflow, testing, and production runbook.
-It was last reconciled with the repository on **2026-07-30**. Machine-specific implementation
+It was last reconciled with the repository on **2026-09-05**. Machine-specific implementation
 instructions remain in `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, and
 `.github/instructions/`.
 
@@ -50,7 +50,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 
 | Area | Status | Current behavior and remaining work |
 | --- | --- | --- |
-| Authentication | **Shipped; production setup pending** | Magic Link and Google OAuth are the production methods. Password auth remains for local development and E2E only. Google, Resend SMTP, callback URLs, and live delivery still require dashboard verification. |
+| Authentication | **Shipped; production setup pending** | Web supports Magic Link and Google OAuth; native uses the six-digit code carried by the same Magic Link email. Password auth remains local/E2E only. Google, Resend SMTP, the hosted auth hook/template, callback URLs, and live delivery still require dashboard verification. |
 | Programme catalogue | **Shipped** | Fourteen concrete built-ins are grouped into six presentation families: Beginner Linear Strength, Intermediate Strength, Powerbuilding, Training Max Wave, Classic Volume Strength, and Bodybuilding Splits. |
 | Custom programmes | **Shipped** | Users can create constrained programmes from supported methodologies, including logger-only mode. Definitions are validated before storage. |
 | Programme start | **Shipped** | Units, rounding, required state values, allowed movement replacements, accessory additions, equipment mode, preview, and active-program replacement are supported. |
@@ -58,18 +58,21 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Today | **Shipped** | Planned, active/resume, completed, onboarding, and pending-progression states are supported. |
 | Live workout logging | **Shipped** | Optimistic load, reps, RIR, completion, sync state, notes in the model, focus/overview layouts, swaps, and accessory additions are supported. The live UI does not currently expose RPE entry. |
 | Previous comparable | **Partial** | Prior results match the movement actually performed, prefer the same programme slot/template, and retain per-set history. The chronological movement-history view remains literal. The planned tap-to-fill interaction is not implemented. |
-| Rest timer | **Partial** | Auto-start on genuine set completion, role-based defaults, global opt-out, wall-clock correction, `+15`, skip, audio, and vibration are implemented. Reload persistence, per-movement defaults, `-15`, wake lock, and notifications are not. |
+| Rest timer | **Partial** | Auto-start on genuine set completion, role-based defaults, global opt-out, wall-clock correction, `+15`, skip, audio, and vibration are implemented. Native keeps the screen awake during a session and schedules a local rest notification; Android locked-screen delivery and exact-alarm behavior remain device gates. Reload persistence, per-movement defaults, and `-15` are not implemented. |
 | Plate calculator | **Shipped** | Kg/lb plate loading is available from both live-session layouts. Saved bar/plate inventory and equipment gating are not implemented. |
 | Session PRs | **Partial** | Heaviest-load, estimated-1RM, and rep-at-weight PRs are calculated at finish and shown in the summary. There is no live inline celebration or separate lifetime `personal_records` table. |
+| Workout images | **Implemented; physical acceptance pending** | Completed summaries on web and native offer Share workout when there is a usable logged result. The local 1080 × 1350 PNG has a light/dark preview, PR-first exercise highlights, and an overflow count after six exercises. Web supports download and compatible browser file sharing; native opens the system chooser. |
 | Progression | **Shipped** | Recommendations are calculated from completed work, stored as decisions, and require explicit accept/later/dismiss handling. |
 | Ad-hoc sessions and favourites | **Shipped** | Users can start unprogrammed workouts, repeat prior sessions, and save/reuse favourites while retaining comparable history. |
 | Programme and Insights views | **Shipped** | Programme position, timeline, loads, decisions, recent sessions, e1RM, DOTS/bodyweight-multiple fallbacks, trends, consistency, calibration, muscle-set estimates, records, and history are data-backed. |
-| Body profile | **Partial** | Bodyweight history and sex can be stored from Insights/Settings. Units, sex, and bodyweight are not yet collected in first-run onboarding, and Overview has no dedicated bodyweight trend chart. |
+| Body profile | **Partial** | Web and native Settings support units, sex, bodyweight history, saved strength estimates, and a known-set 1RM calculator. Units, sex, and bodyweight are not yet collected in first-run onboarding, and both Overview screens plot actual dated bodyweight measurements in account units, including accounts with no workouts. |
 | Exercise catalogue | **Shipped; media deferred** | The catalogue stores 151 movements (140 active and 11 resolvable deprecated aliases) with resistance mode, required equipment, pattern, primary/secondary muscles, aliases, load convention, and replacement lineage. Instructions, external IDs, and media are not yet included. |
-| Feedback | **Shipped** | Global and post-workout feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
+| Feedback | **Shipped** | Web and native global, fresh post-workout, and decision feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
+| Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, profile/settings, template/history drill-ins, logging, finish/recap, persistent progression review, SecureStore auth, haptics, keep-awake, and rest notifications. Native supports blank/ad-hoc starts, Repeat and favourites, workout rename, Focus/Overview navigation, programme-added accessory ordering, movement swaps, session- and phase-scoped live accessories, resumed ad-hoc exercise management, notes, movement history, and plate calculation. Programs exposes all 14 built-in variants through six families, catalogue search/filters, Find My Plan, equipment-aware setup-time substitutions/accessories, free-weight review, active-program start/replacement, and reversible active-plan equipment conversion. Native Settings includes appearance, units, rest preferences, bodyweight, strength estimates, equipment profile, JSON sharing, legal/account actions, and deletion. Custom-programme creation and walkthrough replay remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
+| Guided return after a break | **Implemented; device/release acceptance pending** | Web and native Plan offer a return guide with explicit load resets, adjusted sets/effort, capped progression, and persistent review. Today can prompt after 14 days without a logged workout. Return settings belong to the programme instance and do not restart it. |
 | Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Failed sets must be retried before finishing. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
-| Privacy, deletion, and export | **Shipped; production review pending** | Public Privacy and Terms routes, paginated machine-readable account export, and confirmed self-service account deletion are available. Production must apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
+| Privacy, deletion, and export | **Shipped; deployment/review pending** | Public Privacy, Terms, and account-deletion routes, paginated machine-readable account export, native JSON sharing, and confirmed self-service account deletion are available. Production must deploy the public deletion page, apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
 
 ### Beta work order
 
@@ -82,14 +85,15 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
    schedule, and working contact inbox.
 4. Keep every save-status surface explicit that beta is online-only while preserving transient
    saving, failed, and retry states.
+5. Link the native app to the intended Expo project, complete the development-APK and hosted-preview
+   Android passes, and verify the public deletion URL before creating the Play internal release.
 
 #### P1 — beta quality
 
 1. Persist the rest timer across reloads and add per-movement defaults and `-15`.
 2. Make exact previous-set values tappable to fill the current set.
 3. Capture units, sex, and bodyweight in onboarding.
-4. Add the bodyweight trend to Overview.
-5. Decide whether finish-time PR summaries are sufficient or whether live PR feedback is required.
+4. Decide whether finish-time PR summaries are sufficient or whether live PR feedback is required.
 
 #### Deferred
 
@@ -97,22 +101,69 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 - Warm-up generation and user-editable set types.
 - Supersets/circuits and body measurements beyond bodyweight.
 - Persisted Find My Plan answers.
+- Native custom-programme creation and walkthrough replay.
 - Wearables, Health integrations, social features, public leaderboards, and coaching marketplace.
 - AI-generated workouts, autonomous substitutions, readiness automation, and injury/pain gating.
+
+#### Native migration milestones
+
+Ordered by dependency rather than by size. The shared segmented control and chart primitives are
+each needed by more than one milestone, and native logic can only be tested once it has been pushed
+down into `packages/domain`, so the enablers come first.
+
+1. **Implemented:** native ESLint/Vitest, recursive checks, `pnpm verify:native` in local verification
+   and CI, and native architecture gates.
+2. **Implemented:** segmented controls and SVG charts with pure geometry in
+   `apps/native/src/components/charts/chart-geometry.ts`, optional calendar coordinates, isolated
+   points, hollow outliers, and accessible value inspection.
+3. **Implemented:** six Insights sections (Overview, Strength, Muscle Fatigue, Movements, Records,
+   Sessions), persistent 8W/3M/1Y/All ranges, movement sorting, and session search. Workout analytics
+   use up to 240 recent workouts; browsing/search uses the latest 20 sessions. All means available
+   history for that metric. Fatigue stays at seven days, set adequacy at four weeks, and calibration
+   at six weeks. Direct entry loads reactive programme context with retry actions.
+4. **Implemented:** actual-measurement bodyweight trends on both Overview screens. Full independent
+   bodyweight history uses account units and calendar dates, excludes future readings, retains the
+   latest dated measurement outside a selected range, and reports neutral signed range change.
+   Settings remains the logging/edit entry point; no smoothing or weight-goal assumptions.
+5. **Implemented:** native Beta feedback in Settings, optional fresh programme-finish check-ins,
+   and inline decision feedback in receipts and Today/Plan review sheets. The shared schema validates
+   every submission at the data boundary. Apply/Keep/Apply-all retain feedback access and resolved
+   status. Forms preserve failed drafts, block duplicate sends, and acknowledge only successful
+   submissions; there are no automatic retries or durable queues. Post-workout handled markers use
+   account/session-scoped AsyncStorage plus an in-memory success guard; the global opt-out stays in
+   the profile. Cross-device per-session deduplication is outside scope.
+6. Port custom-programme creation. Management is create-only, matching web.
+7. Port first-run onboarding. The optional live walkthrough/replay stays deferred.
+8. Finish Google auth and remaining Android release polish.
+
+Insights physical Android acceptance remains pending: painted SVGs, tap inspection, scrolling,
+light/dark narrow screens, Settings bodyweight refresh, and session/movement drill-ins. Native web
+exports and automated state tests do not establish these device results. Also verify feedback
+sheet keyboards, fresh-finish eligibility versus revisits, draft retention on failed sends, and
+feedback access after progression resolution on the phone.
+
+Automated checks on 2026-09-05: both phase-boundary `pnpm verify` runs passed; Android
+Metro/Hermes export passed. Browser fixtures exercised the actual native web export at 360px in
+light/dark themes (six tabs, SVG painting, inspection, Settings bodyweight refresh, and global
+feedback), and the web bodyweight chart (proportional dates, units, empty/single/old readings).
+The live web bodyweight Playwright test is present but its demo-authentication setup did not pass
+in this environment; live backend integration and physical Android acceptance remain unverified.
 
 ### Recorded release posture
 
 Sheetless targets a **public self-serve beta**. Self-service deletion, machine-readable export, and
-public Privacy and Terms surfaces are part of that release posture and are implemented. They remain
-deployment-gated until the database migrations are applied and the operator has verified the legal
-copy, contact inbox, provider agreements, and actual retention practice.
+public Privacy, Terms, and account-deletion surfaces are part of that release posture and are
+implemented. They remain deployment-gated until the database migrations are applied and the
+operator has verified the legal copy, contact inbox, provider agreements, and actual retention
+practice. The Android app remains internal-track gated until both standalone APK passes are recorded.
 
 ## Product surface
 
 ### Navigation and routes
 
-The primary mobile navigation is **Today**, **Plan**, **Insights**, and **Programs**. Settings and
-account actions live in the user menu.
+The primary mobile navigation is **Today**, **Plan**, **Insights**, and **Programs**. Web settings and
+account actions live in the user menu; native Settings opens from the consistent header action on
+all four tabs rather than occupying a fifth primary tab.
 
 | Route | Purpose |
 | --- | --- |
@@ -125,8 +176,14 @@ account actions live in the user menu.
 | `/templates/:templateId/start` | Programme setup, customization, preview, and start. |
 | `/sessions/:sessionId` | Live workout overview/focus logging. `?tour=live` forces walkthrough replay. |
 | `/sessions/:sessionId/summary` | Completed work, reflection, PRs, and progression decisions. |
-| `/settings` | Units, appearance, timer preferences, body profile, account, and walkthrough replay. |
+| `/settings` | Units, appearance, timer preferences, equipment profile, body profile, strength estimates, data export, and account actions. |
+| `/account-deletion` | Public signed-out instructions and fallback request path for permanent account deletion. |
 | `/privacy`, `/terms` | Public privacy notice and terms for the beta. |
+
+The table uses canonical web paths. Expo Router exposes the corresponding native detail routes as
+`/session/[sessionId]`, `/session/[sessionId]/summary`, `/template/[templateId]`, and `/settings`.
+Web Settings additionally exposes walkthrough replay. That control remains absent from native until
+the corresponding onboarding experience is implemented there.
 
 ### Onboarding
 
@@ -139,47 +196,110 @@ account actions live in the user menu.
 
 ### Stack
 
-- **Runtime:** TanStack Start, Vite, React 19, TypeScript
-- **Routing:** TanStack Router file routes
+- **Web runtime:** TanStack Start, Vite, React 19, TypeScript
+- **Native runtime:** Expo SDK 57, React Native, TypeScript
+- **Routing:** TanStack Router file routes on web; Expo Router typed routes on native
 - **Server boundary:** TanStack `createServerFn`
 - **Remote data/cache:** TanStack React Query
 - **Authentication/database:** Supabase Auth and Postgres with RLS
 - **UI:** Mantine and app theme tokens; Tailwind v4 for layout only
 - **Validation:** Zod
 - **Tests:** Vitest and Playwright
-- **Deployment:** Nitro Node output on Railway
+- **Deployment:** Nitro Node output on Railway; EAS Build and Google Play for Android
 
 ### Repository layout
 
-Code is organized by product domain:
+This is a pnpm workspace. Shared business and data logic sits below both application runtimes:
 
 ```text
-src/
-  routes/                  thin TanStack file-route adapters
-  domains/
-    account/
-    program/
-    session/
-    history/
-    movement/
-    onboarding/
-  shared/
-    lib/
-    server/
-    types/
-  components/
-    atoms/
-    molecules/
-  styles/
-tests/                      Vitest unit/domain tests
-tests/e2e/                  Playwright browser flows
+apps/web/                   TanStack Start app and thin server wrappers
+  src/routes/               thin file-route adapters
+  src/domains/              web domain UI and server boundaries
+  tests/                    Vitest tests
+  tests/e2e/                Playwright browser flows
+apps/native/                Expo application
+  src/app/                  Expo Router layouts and thin route adapters
+  src/features/             domain entry screens and folders grouped by responsibility
+  src/components/           shared UI primitives; chart rendering and geometry in charts/
+  src/lib/                  app providers, theme, auth client, and platform services
+packages/domain/            pure framework-free training logic and types
+packages/data/              authenticated Supabase data access
+packages/tokens/            shared design tokens
+packages/workout-share/     framework-free SVG artwork and preview resource lifecycle
 supabase/migrations/        append-only schema migrations
-scripts/                    demo, verification, reporting, and export utilities
 ```
 
-Routes extract URL/context data and render a domain component. Domain folders own their UI, server
-functions, query options, types, and pure logic. Cross-domain helpers move to `src/shared/*` only
-when genuinely reused.
+Web routes extract URL/context data and render a domain component. Native route files render feature
+screens. `@sheetless/domain` remains pure; `@sheetless/data` accepts an authenticated user context
+from either the web cookie client or native SecureStore session and never acquires auth itself.
+`@sheetless/workout-share` consumes the domain's limited workout-share model. Domain, data, and
+tokens cannot depend on this presentation package. SVG-to-PNG conversion and export APIs stay
+inside the apps, using browser canvas or the existing native SVG, file-system, and sharing libraries.
+Architecture checks also reject platform dependencies and imports in the shared artwork package.
+
+### Native entry points and feature folders
+
+`apps/native/package.json` starts `expo-router/entry`. The first application file to open is
+[`apps/native/src/app/_layout.tsx`](apps/native/src/app/_layout.tsx): it installs the providers,
+restores authentication, applies the theme, and selects the navigation stack. The tab bar lives in
+[`src/app/(tabs)/_layout.tsx`](apps/native/src/app/(tabs)/_layout.tsx). Each other route only extracts
+parameters and renders a named feature screen; for example, `(tabs)/index.tsx` renders
+`features/session/TodayScreen.tsx`.
+
+Within `apps/native/src/features/`, screen entry points stay at the feature root. Supporting
+components and hooks live together in folders named for what they do:
+
+| Feature | Entry screens | Supporting folders |
+| --- | --- | --- |
+| `auth` | `AuthScreen.tsx` | Email and code sign-in are contained in this screen. |
+| `session` | `TodayScreen.tsx`, `LiveSessionScreen.tsx`, `SessionSummaryScreen.tsx` | `today/` starts and resumes workouts; `live/` coordinates Focus/Overview navigation; `focus/` logs sets; `overview/` lists exercises; `editing/` manages movements, order, titles, and notes; `lifecycle/` finishes/discards; `summary/` presents the recap, decisions, Repeat, and favourites; `movement-picker/`, `plate-calculator/`, and `rest-timer/` own their tools. |
+| `history` | `InsightsScreen.tsx` → `InsightsTabs.tsx` | `overview/`, `strength/`, `muscle-fatigue/`, `movements/`, `records/`, and `sessions/` follow the six tabs; `bodyweight/` owns the measurement trend and profile prompt; `sharing/` owns workout image preview and platform export adapters. |
+| `program` | `ProgramScreen.tsx` | `overview/` presents the active plan; `equipment/` reviews conversions; `progression/` reviews and resolves progression decisions. |
+| `templates` | `TemplatesScreen.tsx`, `TemplateDetailScreen.tsx` | `catalogue/`, `favorites/`, `find-my-plan/`, `setup/`, and `start/` separate browsing, recommendations, customisation, and programme start. |
+| `settings` | `SettingsScreen.tsx` | `profile/` owns bodyweight and strength; `preferences/` owns appearance, units, rest, and equipment; `account/` owns account actions and data export. Draft/save coordination and the shared section wrapper stay at the feature root. |
+| `feedback` | `BetaFeedback.tsx`, `PostWorkoutFeedback.tsx`, `DecisionFeedback.tsx` | Embedded forms share submission and prompt state in this small feature folder. |
+
+The larger workout compositions are `session/live/FocusWorkoutView.tsx` (mode and lifecycle
+coordination), `session/focus/PopulatedFocusWorkoutView.tsx` (the active exercise), and
+`templates/setup/TemplateStartSetup.tsx` (programme setup). Follow their imports into the adjacent
+concerns rather than looking for UI in route files. Native route adapters have a 10-line limit;
+feature and shared UI components have a 300-line limit, enforced by `pnpm architecture:check`.
+
+Feature-wide query options and cache helpers stay at the feature root. Imports within a feature use
+relative paths; cross-feature imports use `@/features/<feature>/<concern>/<module>`. Shared UI remains
+available from `@/components`. Platform variants stay together, such as
+`settings/account/account-export.ts`, `.native.ts`, and `.web.ts`.
+
+### Workout image sharing
+
+Share workout is available after finishing and on later visits to full summaries or history
+dialogs/sheets. History switches its existing dialog into preview mode; Back to summary restores
+the recap and its Repeat/Favourite actions. Progression decisions remain on the full summary.
+The preview starts in the app's resolved appearance. Light/Dark changes only the image, and export
+controls wait for PNG preparation. The final preview displays that PNG. Cancellation keeps the
+preview open; failed preparation or export has retry controls and preserves the selected appearance.
+Web preview loading also offers Back to summary and retry if its code cannot be loaded.
+
+The image contains the workout title, scheduled calendar date, completed-set count, actual elapsed
+time when valid timestamps exist, number of exercises with stored PRs, and one result per performed
+movement. Repeated occurrences are combined. PR exercises come first in workout order and use their
+stored finish-time headline. Other exercises use the highest-e1RM completed weighted set (including
+recorded RIR); loadless exercises use the highest rep count. Ties preserve workout/set order. At most
+six exercises appear, followed by an explicit overflow count. Missing load shows reps only; explicit
+zero load shows Bodyweight. Recorded session units are retained, and prescribed targets and programme
+duration estimates are never substituted. Notes, reflections, identity, bodyweight measurements, and
+progression decisions are excluded. The preview includes a textual description for accessibility.
+
+The shared SVG uses escaped text, conservative text bounds, fixed geometry, complete light/dark
+palettes, and system fonts; glyph pixels and coverage depend on the operating system's installed
+fonts. Images are generated locally without a migration, hosted storage, or additional third-party
+dependency. Files are named
+`sheetless-workout-YYYY-MM-DD.png`. Native uses a unique temporary cache directory per image and keeps
+the file until both preview and any active chooser have finished. Web always offers Download image;
+Share image appears only when the browser accepts the prepared PNG file. The final tap invokes the
+[Web Share API](https://www.w3.org/TR/web-share/) directly. Native uses
+[Expo Sharing](https://docs.expo.dev/versions/latest/sdk/sharing/). Closing a chooser does not claim
+delivery to a recipient.
 
 ### Runtime data boundaries
 
@@ -240,6 +360,93 @@ Important invariants:
 - Account, movement, onboarding, programme, session, and history types live behind domain-owned
   public barrels. Shared types are restricted to generated database types and the small set of
   genuinely cross-domain training primitives.
+
+
+### Guided return to training
+
+Use **Return after a break** in Plan on web or native. Today also offers an optional prompt after
+14 days without a logged workout; the wording is deliberately “last workout logged”, since missing
+logs do not establish inactivity. The guide keeps the active programme and its cursor. Return
+workouts advance it normally, including phase changes. Configure or edit the guide between workouts;
+a live workout remains resumable with its saved prescription.
+
+The initial suggestions are a 20% reduction in programme load references, 50% of ordinary sets for
+one programme rotation, then 75% for a second rotation, at least three repetitions in reserve, and
+at most one programme rounding step per eligible increase. A rotation is `daysPerWeek` qualifying
+completed workouts, not calendar time. These are editable product defaults, not estimates of lost
+strength or a readiness score. The [2026 ACSM review](https://pubmed.ncbi.nlm.nih.gov/41843416/) and
+[older ACSM progression guidance](https://pubmed.ncbi.nlm.nih.gov/19204579/) do not establish a
+universal load reduction for a four-week break. [Barbell Medicine's practical return guidance](https://www.barbellmedicine.com/blog/returning-to-the-gym/)
+also distinguishes its schedules from directly established research findings. Days absent never
+calculate a reduction automatically.
+
+The default preview uses one starting-weight slider (50–100%, initially 80%), a summary of the main
+lifts, and a two-week overview. Training maxes and working-load references are labelled separately;
+the app derives individual workout weights. **Fine-tune** contains individual loads, stage lengths,
+set percentages, per-exercise counts, effort, caps (including zero), and exact workout prescriptions.
+The slider only appears before accepting a new return; editing an existing guide uses current values.
+
+**Your way back** estimates the first future workout that revisits each main lift's last logged load
+and reps in the same slot, before the guide started. When there is no matching logged work, the target
+is explicitly the previous programme reference instead. This is a conditional workout scenario,
+not a strength-recovery prediction: it follows the actual programme cursor, phase changes, adjusted
+prescriptions and capped progression rules, assuming successful retained work, accepted increases,
+and two extra reps on plus sets with the prescribed effort. Approximate weeks assume `daysPerWeek`
+workouts each week. Return settings stay in force past the review milestone until the user changes
+them; forecasts never end the guide automatically. Manual, held or unreachable targets have no
+invented date, and the simulation stops at 52 weeks. The historical baseline is account/programme
+scoped, unit-aware, paginated, and stays before the guide's reset even as new workouts are logged.
+
+Warmup slots, top/plus sets, and one representative of each consecutive prescription group remain.
+Duplicate backoffs are removed first, then duplicate ordinary sets, from the end. Distinct source
+ramps remain distinct even when rounding makes their loads equal. Source set indices remain stable
+for history; workout ordinals are displayed separately. Optional plus reps remain with explicit
+repetitions-in-reserve guidance. Logging still accepts the actual weight, reps and effort performed.
+
+The reset applies once to exact referenced programme state keys, including custom/shared anchors.
+Fixed DSL loads have instance overrides pinned to template session, slot, template week, movement
+and source set. Existing manually added accessory targets receive explicit audited edits. Zero
+external load stays zero; missing, blank and user-selected loads remain manual. A positive load
+that would round to zero requires an explicit value. Fixed overrides apply before equipment
+conversion, so equipment-cleared targets stay unset. Older comparables remain visible, while manual
+input suggestions use only matching movement/slot work completed after the accepted reset.
+Account strength estimates and completed workout results are separate from programme load references.
+
+Return progression uses the adjusted saved prescription. Omitted sets are not failures. Numeric
+increases require complete retained work at its saved loads, target reps and required effort, with
+an unambiguous binding to the exact source state key/value. Missing effort, changed movements,
+lighter actual loads or unclear sources prevent a numeric increase. Supported hold/reset behaviour
+remains available when the performed work supplies valid evidence. The positive programme-rule
+increase is limited by the selected cap and rounded down to the programme step. Recommendation
+text states the absolute and percentage reference change; training-max changes are distinguished
+from their effects on percentage-based sets. Apply/Keep remains explicit.
+
+Finishing advances the normal programme cursor once. A return step advances once only when at least
+one retained prescribed set was completed; empty, discarded and ad-hoc workouts do not consume it.
+Partial work can consume a step without earning progression. After the final stage, **Review your
+return** persists in Today and Plan, with the last stage's prescription retained. Resolve outstanding
+progression recommendations before choosing normal sets at current weights, extending/adjusting
+the guide, or entering the existing programme replacement flow. **End return guide** restores
+ordinary sets and effort while preserving current weights, including accepted increases. Editing
+settings never reapplies the original percentage. Cancelling the initial preview writes nothing.
+
+The DSL remains `2026.06.dsl`. The `program_return_periods`, `program_load_overrides` and append-only
+`program_load_adjustments` records belong to the programme instance. The adjustment ledger includes
+explicit before/after values, superseded recommendations and durable request receipts. The account
+lock and programme revision protect reset, update, extension and end transactions. Start/finish v3
+validate frozen targets, source bindings, performance and caps at the database boundary; older
+clients fail clearly for active return guides or persistent overrides. Structural edits preserve
+frozen return provenance, and newly entered accessory loads are already current choices.
+Replacement cancels the old programme's guide. Export includes all three record types; deletion
+cascades them. Programme load histories account for explicit resets separately from earned increases.
+
+Local validation uses disposable accounts with the populated linear, training-max wave and
+powerbuilding template families; it does not reset the demo or production accounts. Run
+`RETURN_DB_TEST=1 pnpm --filter @sheetless/data exec vitest run tests/return-guide.integration.test.ts`
+for local database integration and `pnpm db:test` for transactional pgTAP contracts. Apply the
+`202609060001` through `202609060006` migrations before using the new clients. Hosted migration and
+production-account acceptance are separate release steps. Physical Android acceptance remains
+required for adjustment controls, keyboards, scrolling, saved-workout resume and persistent review.
 
 ## Training-plan DSL
 
@@ -432,15 +639,16 @@ Use `.env.example` for placeholders. Never commit real credentials.
 | `pnpm build` | Build production output and run TypeScript checks. |
 | `pnpm start` | Run `.output/server/index.mjs`. |
 | `pnpm typecheck` | Run TypeScript without building. |
-| `pnpm lint` | Run ESLint. |
-| `pnpm test` / `pnpm test:watch` | Run Vitest once/in watch mode. |
+| `pnpm lint` | Run ESLint across every workspace, web and native. |
+| `pnpm test` / `pnpm test:watch` | Run Vitest once/in watch mode. `pnpm test` covers `packages/*`, `apps/web`, and `apps/native`. |
 | `pnpm e2e` or `pnpm playwright` | Run Playwright. |
 | `pnpm e2e:headed` / `pnpm e2e:ui` | Run visible/interactive Playwright. |
 | `pnpm e2e:auth` | Refresh the saved E2E auth state. |
 | `pnpm shot [route]` | Capture a route as the demo user. |
 | `pnpm pwa:verify` | Verify built PWA artifacts. |
 | `pnpm bundle:check` | Enforce production entry-chunk and PWA-precache budgets. |
-| `pnpm architecture:check` | Enforce thin routes, domain boundaries, and component-size gates. |
+| `pnpm architecture:check` | Enforce thin routes, domain boundaries, and component-size gates on both apps. |
+| `pnpm verify:native` | Bundle the Expo app with Metro (`expo export --platform web`). Catches missing platform variants and unresolvable imports that TypeScript cannot see, and regenerates typed routes. |
 | `pnpm docs:check` | Enforce this README as the only human-facing document. |
 | `pnpm db:contract:check` | Statically verify lifecycle/integrity migrations and server call sites. |
 | `pnpm db:migrate:local` | Apply migrations to local Supabase. |
@@ -451,7 +659,7 @@ Use `.env.example` for placeholders. Never commit real credentials.
 | `pnpm demo:{seed|reset|refresh|verify|list}` | Manage local demo data. |
 | `pnpm feedback:report` | Read beta feedback events. |
 | `pnpm export:templates` | Validate/export built-in template definitions. |
-| `pnpm verify` | Run the complete static, unit, build, PWA, bundle, architecture, docs, and database-contract suite. |
+| `pnpm verify` | Run the complete static, unit, build, native-bundle, PWA, bundle, architecture, docs, and database-contract suite. |
 
 ## Testing and validation
 
@@ -464,6 +672,7 @@ pnpm typecheck
 pnpm lint
 pnpm test
 pnpm build
+pnpm verify:native
 pnpm pwa:verify
 pnpm bundle:check
 pnpm architecture:check
@@ -472,8 +681,39 @@ pnpm db:contract:check
 ```
 
 For UI behavior, also run the relevant Playwright project/spec and inspect the real rendered result.
+Workout image checks can run without Supabase:
+
+```sh
+pnpm --filter sheetless-web exec playwright test --config playwright.share.config.ts
+```
+
+This harness renders the production preview and rasterizer with fixture content in desktop and
+phone-sized Chromium. It checks real PNG pixels/dimensions/downloads, appearance, file-sharing
+payloads, cancellation, duplicate taps, generation/export retries, and account replacement. Browser
+checks also cover preview loading failures and resource cleanup after closing during generation.
+The authenticated `workout-share.spec.ts` and `session-finish.spec.ts` cover historical entry points and
+fresh finishes with existing summary actions. They require the running Supabase stack and seeded
+demo credentials. On 2026-09-05, the authenticated run stopped at login; those integration flows
+remain unverified in this environment. Native Vitest checks mock file/sharing APIs and exercise the
+installed SVG XML parser for escaped names and Unicode; they do not verify SVG painting.
+Automated verification after review on 2026-09-05 passed `pnpm verify` (1,033 unit tests), all ten standalone
+browser preview tests, and the Android Metro export. Physical receipt/inspection is tracked in the
+device checklist below and has not been completed.
+
 Pure logic changes should add or update Vitest coverage. Training-engine, session-cache,
 progression, history-signal, and server-API changes require behavior-focused tests.
+
+Native changes are gated differently, because Playwright and `pnpm shot` are web-only:
+
+- `apps/native` tests run under Vitest with `react-native` aliased to `react-native-web`, so they
+  prove hook and state-machine behavior. They do not exercise Hermes, layout, `measureInWindow`,
+  `Modal`, or SVG output — treat `pnpm verify:native` and a device pass as the real native gates.
+- Prefer putting new logic in `packages/domain`, where it is pure, framework-free, and already
+  covered by the largest test suite in the repository.
+- `pnpm native:web` renders the actual screens through react-native-web and is the fastest visual
+  check; `pnpm native:android` against local Supabase is the correctness check.
+- `react-hooks/set-state-in-effect` is a known native warning backlog, concentrated in the
+  "reset a sheet's local state when it opens" idiom. Do not add new occurrences.
 
 Database migrations also require a local Supabase stack:
 
@@ -647,6 +887,8 @@ If Railway selects an incompatible Node version despite the repository pin, set
 
 - [x] Record the public-beta account deletion/export posture in this README.
 - [x] Publish Privacy and Terms routes/content.
+- [x] Implement the signed-out `/account-deletion` route and link it from account/legal surfaces.
+- [ ] Deploy and verify `https://www.sheetless.fitness/account-deletion` with empty browser storage.
 - [ ] Confirm `privacy@sheetless.fitness` works and legal/operator review is complete.
 - [ ] Verify account export and destructive deletion end to end against a disposable hosted user.
 - [ ] `pnpm verify`, local migration application, and `pnpm db:test` are green on `main`.
@@ -676,8 +918,13 @@ If Railway selects an incompatible Node version despite the repository pin, set
 To re-gate Magic Link:
 
 1. Set `AUTH_ALLOWLIST_ENABLED=true` on Railway.
-2. Disable new-user signup in Supabase.
-3. Provision allowed users from a trusted local shell with the service-role key:
+2. Set `app_config.auth_allowlist_enabled` to `true` in the database. Signup gating is enforced
+   there by the `before_user_created` auth hook (`hook_before_user_created`); client-side checks
+   are UX only, so every client — including the native app — is bound by it. The hosted project
+   must have the hook enabled once in the dashboard (Auth → Hooks); locally it is on via
+   `supabase/config.toml`.
+3. Disable new-user signup in Supabase.
+4. Provision allowed users from a trusted local shell with the service-role key:
 
 ```sh
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm provision:allowed add someone@example.com "note"
@@ -693,19 +940,220 @@ pnpm start
 
 Nitro reads Railway's `PORT` value at runtime.
 
+## Android release and internal-track runbook
+
+The Android application ID is permanently **`fitness.sheetless.app`**. Do not change it after the
+Play app is created: Play treats another ID as another app. `apps/native/app.json` owns the visible
+`expo.version`; bump it deliberately for a user-visible release. EAS owns the Android `versionCode`
+remotely, and the production profile increments it automatically. Development and preview profiles
+produce installable APKs; production produces the AAB required by Google Play. See Expo's
+[EAS build configuration](https://docs.expo.dev/eas/json/) and
+[APK profile guidance](https://docs.expo.dev/build-reference/apk/).
+
+The repository is linked to the committed Sheetless Expo project owned by `xxvalhallacoderxx`, but
+the signing identity and hosted Supabase values must still be verified rather than assumed. Run all
+EAS commands from `apps/native` and stop if `whoami` is not the intended owner or the project details
+do not match `apps/native/app.json`:
+
+```sh
+cd apps/native
+pnpm dlx eas-cli@latest login
+pnpm dlx eas-cli@latest whoami
+pnpm dlx eas-cli@latest project:info
+pnpm dlx eas-cli@latest config --platform android --profile development
+```
+
+Do not run `eas init` again unless deliberately relinking the repository to another project; review
+and commit any linkage change before building. Let EAS manage the Android keystore, then back up the
+resulting credential through the Expo credential controls. A device that already has
+`fitness.sheetless.app` signed by a different key cannot accept `adb install -r`; uninstalling it
+resolves the conflict but permanently removes that installation's SecureStore session and app-local
+data.
+
+### EAS public environment
+
+Each build profile selects its matching named EAS environment. Store only these public client
+values there, following Expo's
+[named-environment model](https://docs.expo.dev/eas/environment-variables/usage/):
+
+```text
+EXPO_PUBLIC_SUPABASE_URL
+EXPO_PUBLIC_SUPABASE_ANON_KEY
+EXPO_PUBLIC_AUTH_ALLOWLIST_ENABLED=false
+EXPO_PUBLIC_AUTH_PASSWORD_ENABLED=false
+```
+
+The auth flags are committed in `eas.json`. Set the URL and anon key after linkage, using localhost
+for `development` and the hosted project for `preview` and `production`:
+
+```sh
+pnpm dlx eas-cli@latest env:set development --name EXPO_PUBLIC_SUPABASE_URL --value http://127.0.0.1:54321 --visibility plaintext
+pnpm dlx eas-cli@latest env:set development --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value '<local-anon-key>' --visibility plaintext
+pnpm dlx eas-cli@latest env:set preview --name EXPO_PUBLIC_SUPABASE_URL --value 'https://<project-ref>.supabase.co' --visibility plaintext
+pnpm dlx eas-cli@latest env:set preview --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value '<hosted-anon-key>' --visibility plaintext
+pnpm dlx eas-cli@latest env:set production --name EXPO_PUBLIC_SUPABASE_URL --value 'https://<project-ref>.supabase.co' --visibility plaintext
+pnpm dlx eas-cli@latest env:set production --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value '<hosted-anon-key>' --visibility plaintext
+```
+
+Never place the service-role key, database URI, SMTP credentials, Android keystore, or Google Play
+service-account JSON in an EAS public environment or the repository. The anon key is intentionally
+public; RLS remains the authorization boundary.
+
+Before a hosted native build, enable the `before_user_created` auth hook against
+`public.hook_before_user_created` and make the hosted Magic Link email template include both
+`{{ .ConfirmationURL }}` and the six-digit `{{ .Token }}`. Native signs in by verifying that token.
+Confirm open-beta policy is disabled at both layers: the two client flags above are `false`, and
+`app_config.auth_allowlist_enabled` is `false` in the hosted database.
+
+### Development APK gate
+
+Build and install the development client outside Expo Go:
+
+```sh
+pnpm dlx eas-cli@latest build --platform android --profile development
+adb install -r /absolute/path/to/sheetless-development.apk
+adb reverse tcp:54321 tcp:54321
+adb reverse tcp:8081 tcp:8081
+pnpm exec expo start --dev-client --localhost
+```
+
+For local Android iteration with a connected emulator or wireless-debugging device, build the
+ignored native project directly with `pnpm --filter sheetless-native exec expo run:android`. Native
+dependency changes such as `expo-sharing` or `expo-file-system` require this development-client
+rebuild once; subsequent TypeScript and UI changes use Metro/Fast Refresh.
+
+Keep `apps/native/.env` ignored and aligned with the development EAS values. With the local Supabase
+stack and Mailpit running, record a physical-device pass for:
+
+- Mailpit OTP sign-in and all four tabs.
+- Built-in and custom templates, including entries without family metadata, and template preview.
+- Today streak, logger movement history, Plan/Insights session drill-ins, and Hermes-rendered dates.
+- Set edits, retry/error state, blocked finish, lost-response recovery, recap, and persistent
+  progression Apply/Keep/Apply-all from both Today and Plan; unresolved decisions must still block a
+  planned Start after force-stop/reopen while Resume remains available.
+- Workout images: **physical acceptance not yet run**. From an installed Android APK and a supported
+  mobile browser/PWA, receive and inspect a PNG from both a fresh finish and a historical summary.
+  Confirm 1080 × 1350 dimensions, legible names/results, both appearances, PR ordering, overflow,
+  cancellation, and return to the summary with its actions intact. Include names containing apostrophes
+  and ampersands, and confirm the recipient can open the image after closing the preview promptly.
+  Record device/OS/browser/APK versions and observed results separately from automated test results.
+  Existing native dependencies cover this change; a bundled standalone APK must still include the
+  updated JavaScript.
+- Allowed movement swaps, session- and phase-scoped accessory add/remove, resumed ad-hoc exercise
+  add/remove (including its empty state), notes carried into recap, and kg/lb plate calculations.
+- Blank workout start alongside a planned day, ad-hoc rename, Focus/Overview switching, programme-
+  accessory ordering, finish-to-favourite, Repeat, lineage-wide unfavourite, and active-session
+  collision handling.
+- Programme search/level/goal filters, custom templates without family metadata, and the complete
+  Find My Plan question/edit/alternative/preview flow, including preview-network failure.
+- Settings Save/Discard and dirty-leave protection, system/light/dark persistence, kg/lb estimate
+  conversion, equipment-profile selection/clearing/persistence, bodyweight add/replace/delete, JSON
+  sharing, legal links, sign-out/sign-in, and successful deletion using only a disposable local
+  account.
+- Programme setup in both equipment modes: equipment-profile-filtered variation/accessory choices,
+  locked main lifts, repeated setup accessories, all-phase free-weight review, re-review after a
+  setup change, dirty-leave protection, replacement of an active programme, and retry after a
+  simulated lost response.
+- Active-plan conversion in both directions, including alternative selection, a stale-review retry,
+  exact lost-response replay, and the in-progress-workout guard. Confirm future session snapshots
+  retain the mode and that free-weight sessions reject machine/cable live additions and swaps.
+- SecureStore session recovery after force-stop and reboot, haptics, session keep-awake, and a
+  locked-screen rest notification.
+
+On Android 14, test Alarms & reminders in both states. A fresh install normally starts with exact
+alarm access denied: the timer must degrade without crashing. Then manually grant access in system
+settings and confirm delivery at the requested time. Record the observed tolerance; do not claim
+unconditional exact delivery from emulator, web export, or the granted-only case. Android documents
+the default-denied behavior and required degradation in its
+[exact-alarm guidance](https://developer.android.com/about/versions/14/changes/schedule-exact-alarms).
+
+### Public web and hosted preview gate
+
+Promote the exact green `main` commit through the protected database workflow and Railway process;
+do not deploy a newer unverified head. Before any Play submission, verify these signed out:
+
+```sh
+curl --fail --location https://www.sheetless.fitness/privacy
+curl --fail --location https://www.sheetless.fitness/account-deletion
+```
+
+The deletion page must identify Sheetless and prominently support sign in → Settings → Delete
+account, with the privacy inbox as a fallback request channel. Configure these Play Console URLs:
+
+```text
+Privacy policy: https://www.sheetless.fitness/privacy
+Account deletion: https://www.sheetless.fitness/account-deletion
+```
+
+This public page remains mandatory even with in-app deletion under Google Play's
+[account-deletion requirements](https://support.google.com/googleplay/android-developer/answer/13327111).
+
+Build the hosted preview APK only after the auth hook, OTP template, SMTP delivery, URL, and anon key
+are verified. Install it with Metro stopped and no ADB port reversals:
+
+```sh
+pnpm dlx eas-cli@latest build --platform android --profile preview
+adb install -r /absolute/path/to/sheetless-preview.apk
+```
+
+Repeat OTP sign-in, the four-tab/template tour, a complete workout, finish/decisions, history
+drill-ins, settings persistence, sign-out/sign-in, and a force-stop/reboot session check against the
+hosted project. Preview is not accepted if it silently depends on Metro or localhost.
+
+### Play Console internal track
+
+Create the Play Console app as **Sheetless** with package `fitness.sheetless.app`, enable Play App
+Signing, and select the internal testing track. Add the initial tester email list (Google accounts;
+the internal track supports up to 100 testers) and keep the app in draft until setup is complete.
+Follow Google's [internal-testing guidance](https://support.google.com/googleplay/android-developer/answer/9845334)
+for tester access and rollout behavior.
+
+Complete and review, rather than guessing, each console declaration:
+
+- App access: give review instructions for the emailed six-digit OTP flow and any restricted access.
+- Data Safety: inventory the actual email/account identifiers, training/health data, app activity,
+  diagnostics, encryption in transit, sharing, retention, export, and deletion behavior.
+- Content rating, target audience, ads declaration, category, developer/contact details, and countries.
+- Store assets: app icon, feature graphic, phone screenshots, short/full descriptions, and support
+  contact.
+- Privacy and account-deletion URLs from the public gate above.
+
+For EAS Submit, create a least-privilege Google service account for this Play app, grant only the
+required release permissions, and upload its JSON through the EAS Android credential flow:
+
+```sh
+pnpm dlx eas-cli@latest credentials --platform android
+```
+
+Keep the downloaded JSON outside the repository, remove stray copies after upload, and rotate or
+revoke it if exposed. Production AAB creation and submission are intentionally user-run final steps:
+
+```sh
+pnpm dlx eas-cli@latest build --platform android --profile production
+pnpm dlx eas-cli@latest submit --platform android --profile production --latest
+```
+
+The configured submission target is the internal track. Confirm the uploaded package, signing
+certificates, version name/code, tester availability, release notes, and hosted end-to-end smoke
+before promotion. Promote the same tested artifact from internal to broader tracks in Play Console;
+do not rebuild an untested binary for production. Expo's
+[Android submission guide](https://docs.expo.dev/submit/android/) is the authority for current EAS
+credential and submission behavior.
+
 ## Known beta limitations
 
 - A network connection is required to open and use workout routes; the installed PWA is not an
   offline workout logger.
 - Optimistic changes exist only in memory until Supabase confirms them. Failed set saves stay
   visibly flagged for retry, and reloading can discard an unconfirmed edit.
-- Rest-timer state does not survive reload and is not a true locked-screen timer.
+- Rest-timer state does not survive reload. Native locked-screen notifications and Android exactness
+  are release gates, not yet a general reliability claim.
 - Previous-set ghosts do not yet fill the current set on tap.
 - PR feedback occurs at workout finish, not immediately after the set.
 - Exercise instructions, muscle metadata, and media are absent.
 - Bodyweight and sex are collected after onboarding rather than during initial setup.
-- Privacy, Terms, deletion, and export require hosted migration verification and production
-  legal/operator review before opening sign-up.
+- Privacy, Terms, deletion, and export require hosted migration verification, public deletion-page
+  deployment, and production legal/operator review before opening sign-up.
 
 ## Documentation maintenance
 

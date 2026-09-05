@@ -86,3 +86,71 @@ Never commit real secrets. Keep local values in `.env` and mirror required keys 
 Workout saving is online-only. Keep optimistic edits in the account-scoped React Query cache with
 explicit saving/failure/retry states. Do not add a durable local database or offline replay queue
 without an explicit product/architecture decision in `README.md`.
+
+## Workspace & Data-Access Architecture (expo-refactor)
+
+The repo is a pnpm workspace: `apps/web` (TanStack Start), `apps/native` (Expo), and shared
+packages consumed as TypeScript source. Layering is `@sheetless/domain` < `@sheetless/data` <
+apps, enforced by `architecture:check`:
+
+- `packages/domain` — pure, framework-free training logic and types. May not import React,
+  UI runtimes, `@supabase`, `@tanstack`, or `~/` aliases.
+- `packages/data` — every data-access function, shaped `fn(ctx: UserContext, input)` where
+  `UserContext = { supabase, user }`. May import `@supabase/supabase-js` **types only**.
+  Auth acquisition never lives here: web builds ctx from its cookie server client
+  (`requireUser`), native from its stored session.
+- App server files are thin `createServerFn` wrappers. A wrapper that also exports plain
+  helpers must load `@sheetless/data` via dynamic import inside function bodies — a static
+  import survives the client transform and bloats the browser bundle.
+- Old `apps/web` import paths resolve through one-line re-export shims onto the packages;
+  retire shims opportunistically, never at the cost of a noisy diff.
+
+### apps/native gates
+
+`apps/native` has its own ESLint and Vitest setup; it is covered by the recursive `pnpm lint` and
+`pnpm test`, and by `pnpm verify:native`.
+
+- Keep route entry components named `*Screen.tsx` at the owning `src/features/<feature>/` root,
+  alongside feature-wide query/cache modules. Group supporting UI and hooks by responsibility
+  (`session/focus`, `session/editing`, `program/progression`, `templates/setup`, etc.), rather than
+  accumulating flat files or generic `components`/`hooks` directories. Small feature folders do not
+  need extra nesting. See README's native entry-point map before choosing a location.
+- Use relative imports within a feature and `@/features/...` across features. Keep platform variants
+  beside their base module, and keep shared UI imports on the existing `@/components` barrel.
+- Route files under `src/app/` are adapters: params in, one feature screen out, 10 lines or fewer
+  (`_layout.tsx` files are shells and exempt). Feature and component `.tsx` files cap at 300 lines.
+  `src/components/**` may not import `@/features/**`. All four are enforced by `architecture:check`.
+- The design system styles with inline objects resolved from `useTokens()`. `StyleSheet.create` is
+  banned, as are the `window`, `document`, and `localStorage` globals outside `*.web.ts(x)` variants.
+- Native tests alias `react-native` to `react-native-web`, so they cover hooks, state machines, and
+  cache helpers only — never layout, `measureInWindow`, `Modal`, or SVG. Put new logic in
+  `packages/domain` where it is genuinely testable, and keep native files to state plus wiring.
+- `pnpm verify:native` runs a real Metro bundle. Run it after touching imports, platform variants,
+  assets, or anything under `src/app/`; `tsc --noEmit` cannot see those failures.
+- `react-hooks/set-state-in-effect` is a warning-level backlog (mostly the "reset a sheet's local
+  state when it opens" idiom). Do not add new occurrences.
+
+### apps/native shared primitives
+
+- Single-select rows use `SegmentedControl` from `@/components` — `variant="pills"` for scrolling
+  chips (tabs, filters, week pickers), `variant="segments"` for a closed set of 2-4 choices. Do not
+  re-roll `<ScrollView horizontal>{Buttons}</ScrollView>`; that idiom was consolidated deliberately.
+  `MovementPicker`'s category chips stay bespoke because they carry per-option counts.
+- Charts use `TrendChart` (or the `LineChart`/`AreaChart`/`Sparkline` presets) from `@/components`.
+  Call sites pass a `tone`, never a colour. All scale, tick, and path maths belongs in
+  `src/components/charts/chart-geometry.ts` — it is pure and covered by `tests/chart-geometry.test.ts`,
+  which is where a single point, a flat series, and null gaps are pinned down.
+- Charts take their width from `onLayout` into `useState`. React Compiler is on: never read a
+  measurement from a ref during render.
+
+### apps/native test harness
+
+- A component test needs the theme context: `vi.mock('@/lib/theme-provider', () => themeProviderMock())`
+  from `tests/support/theme`.
+- A test that renders a chart or `BarbellPlates` must also mock SVG:
+  `vi.mock('react-native-svg', () => svgMock())` from `tests/support/svg`. react-native-svg cannot
+  load under Vitest — its package entry is raw TypeScript and its web build deep-imports Flow-typed
+  `react-native` internals. Metro handles both; Vitest does not.
+- `onLayout` under react-native-web is driven by `ResizeObserver`, which jsdom lacks, so a measured
+  render is not reachable in tests. Assert pre-measurement and empty states here and cover painted
+  output through `chart-geometry` unit tests plus a device pass.

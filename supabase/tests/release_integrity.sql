@@ -2,14 +2,14 @@ begin;
 
 select plan(160);
 
-select has_column('public', 'program_instances', 'state_version');
-select has_column('public', 'program_instances', 'client_mutation_id');
-select has_column('public', 'workout_sessions', 'finish_request_id');
-select has_column('public', 'workout_sessions', 'finish_payload_hash');
-select has_column('public', 'workout_sessions', 'discard_journal_version');
-select has_column('public', 'workout_sessions', 'state_version');
-select has_column('public', 'program_template_versions', 'definition_checksum');
-select has_table('public', 'session_mutation_receipts');
+select has_column('public'::name, 'program_instances'::name, 'state_version'::name, 'required lifecycle column exists');
+select has_column('public'::name, 'program_instances'::name, 'client_mutation_id'::name, 'required lifecycle column exists');
+select has_column('public'::name, 'workout_sessions'::name, 'finish_request_id'::name, 'required lifecycle column exists');
+select has_column('public'::name, 'workout_sessions'::name, 'finish_payload_hash'::name, 'required lifecycle column exists');
+select has_column('public'::name, 'workout_sessions'::name, 'discard_journal_version'::name, 'required lifecycle column exists');
+select has_column('public'::name, 'workout_sessions'::name, 'state_version'::name, 'required lifecycle column exists');
+select has_column('public'::name, 'program_template_versions'::name, 'definition_checksum'::name, 'required lifecycle column exists');
+select has_table('public'::name, 'session_mutation_receipts'::name);
 select ok(
   to_regclass('public.equipment_mode_policy_versions') is not null,
   'equipment-mode policy versions table exists'
@@ -129,43 +129,43 @@ select col_has_check(
   'finish replay hashes have a database check constraint'
 );
 
-select has_index('public', 'program_instances', 'program_instances_one_active_per_user_idx');
-select has_index('public', 'workout_sessions', 'workout_sessions_one_in_progress_per_user_idx');
-select has_index('public', 'workout_sessions', 'workout_sessions_user_client_mutation_id_idx');
-select has_index('public', 'set_logs', 'set_logs_user_client_mutation_id_idx');
-select has_index('public', 'session_mutation_receipts', 'session_mutation_receipts_session_idx');
-select has_index('public', 'exercise_logs', 'exercise_logs_user_created_idx');
-select has_index('public', 'substitution_logs', 'substitution_logs_user_session_created_idx');
-select has_index('public', 'exercise_logs', 'exercise_logs_user_planned_created_idx');
-select has_index('public', 'exercise_logs', 'exercise_logs_user_performed_created_idx');
-select has_index('public', 'exercise_logs', 'exercise_logs_user_session_order_idx');
-select has_index('public', 'workout_sessions', 'workout_sessions_user_program_status_scheduled_idx');
+select has_index('public'::name, 'program_instances'::name, 'program_instances_one_active_per_user_idx'::name);
+select has_index('public'::name, 'workout_sessions'::name, 'workout_sessions_one_in_progress_per_user_idx'::name);
+select has_index('public'::name, 'workout_sessions'::name, 'workout_sessions_user_client_mutation_id_idx'::name);
+select has_index('public'::name, 'set_logs'::name, 'set_logs_user_client_mutation_id_idx'::name);
+select has_index('public'::name, 'session_mutation_receipts'::name, 'session_mutation_receipts_session_idx'::name);
+select has_index('public'::name, 'exercise_logs'::name, 'exercise_logs_user_created_idx'::name);
+select has_index('public'::name, 'substitution_logs'::name, 'substitution_logs_user_session_created_idx'::name);
+select has_index('public'::name, 'exercise_logs'::name, 'exercise_logs_user_planned_created_idx'::name);
+select has_index('public'::name, 'exercise_logs'::name, 'exercise_logs_user_performed_created_idx'::name);
+select has_index('public'::name, 'exercise_logs'::name, 'exercise_logs_user_session_order_idx'::name);
+select has_index('public'::name, 'workout_sessions'::name, 'workout_sessions_user_program_status_scheduled_idx'::name);
 
-select has_function('public', 'start_program_v2');
-select has_function('public', 'start_session_v2');
-select has_function('public', 'start_ad_hoc_session_v2');
-select has_function('public', 'finish_session_v2');
-select has_function('public', 'resolve_progression_decisions_v2');
-select has_function('public', 'upsert_session_set_v2');
-select has_function('public', 'discard_workout_session');
-select has_function('public', 'delete_own_account');
-select has_function('public', 'rename_session_v2');
-select has_function('public', 'add_session_accessory_v2');
-select has_function('public', 'reorder_session_accessories_v2');
-select has_function('public', 'remove_session_accessory_v2');
-select has_function('public', 'add_ad_hoc_exercise_v2');
-select has_function('public', 'remove_ad_hoc_exercise_v2');
-select has_function('public', 'add_session_set_v2');
+select has_function('public'::name, 'start_program_v2'::name);
+select has_function('public'::name, 'start_session_v2'::name);
+select has_function('public'::name, 'start_ad_hoc_session_v2'::name);
+select has_function('public'::name, 'finish_session_v2'::name);
+select has_function('public'::name, 'resolve_progression_decisions_v2'::name);
+select has_function('public'::name, 'upsert_session_set_v2'::name);
+select has_function('public'::name, 'discard_workout_session'::name);
+select has_function('public'::name, 'delete_own_account'::name);
+select has_function('public'::name, 'rename_session_v2'::name);
+select has_function('public'::name, 'add_session_accessory_v2'::name);
+select has_function('public'::name, 'reorder_session_accessories_v2'::name);
+select has_function('public'::name, 'remove_session_accessory_v2'::name);
+select has_function('public'::name, 'add_ad_hoc_exercise_v2'::name);
+select has_function('public'::name, 'remove_ad_hoc_exercise_v2'::name);
+select has_function('public'::name, 'add_session_set_v2'::name);
 select has_function(
   'public',
   'substitute_session_movement_v2',
   array['uuid', 'text', 'integer', 'jsonb', 'uuid', 'text', 'text', 'text', 'text', 'text', 'jsonb'],
   'movement substitution atomically persists the generated previous comparable'
 );
-select has_function('public', 'claim_session_mutation_v2');
-select has_function('public', 'set_session_favorite_v2');
-select has_function('public', 'advance_program_position_v2');
-select has_function('public', 'create_custom_program_template_v2');
+select has_function('public'::name, 'claim_session_mutation_v2'::name);
+select has_function('public'::name, 'set_session_favorite_v2'::name);
+select has_function('public'::name, 'advance_program_position_v2'::name);
+select has_function('public'::name, 'create_custom_program_template_v2'::name);
 select ok(
   to_regprocedure(
     'public.start_program_v3(text,text,uuid,text,text,date,text,numeric,text,jsonb,jsonb,jsonb,boolean,text,uuid,text,jsonb)'
@@ -780,6 +780,9 @@ select is(
   'favouriting updates the selected workout title in the same transaction'
 );
 
+select public.set_session_favorite_v2(
+  '00000000-0000-4000-8000-000000000093', false, null
+);
 select is(
   (
     select count(*)::text
@@ -789,14 +792,7 @@ select is(
   ),
   '0',
   'unfavouriting any repeat clears the full workout lineage'
-)
-from (
-  select public.set_session_favorite_v2(
-    '00000000-0000-4000-8000-000000000093',
-    false,
-    null
-  )
-) as mutation;
+);
 
 select is(
   public.create_custom_program_template_v2(
