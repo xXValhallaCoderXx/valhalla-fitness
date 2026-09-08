@@ -69,16 +69,47 @@ export type BodyRegionId =
 
 export type BodyLoadTier = 'fresh' | 'low' | 'moderate' | 'high'
 
+/**
+ * One exercise on one day, and the part of a region's score it accounts for.
+ *
+ * Emitted per occurrence rather than per movement: the same lift trained twice in the window
+ * carries two different recency weights and cannot honestly collapse into one row.
+ */
+export type BodyLoadContribution = {
+  movementId: string
+  movementName: string
+  role: MovementRole
+  /** Completed sets of this movement in that session. */
+  sets: number
+  roleWeight: number
+  recencyWeight: number
+  /** Share of the movement that lands on this region. */
+  regionWeight: number
+  /** sets x roleWeight x recencyWeight x regionWeight. */
+  score: number
+  /** Scheduled workout calendar date (YYYY-MM-DD). */
+  performedAt?: string | null
+}
+
 export type BodyLoadRegion = {
   regionId: BodyRegionId
   label: string
   score: number
   impactPercent: number
   tier: BodyLoadTier
+  /**
+   * Sets that involved this region. Deliberately NOT normalized: a 3-set bench press counts 3 here
+   * for chest, triceps and shoulders alike, so these figures must never be summed across regions.
+   * The normalized, sums-to-one convention lives in `buildWeeklyRegionSets`.
+   */
   recentSetCount: number
   /** Scheduled workout calendar date (YYYY-MM-DD). */
   lastTrainedAt?: string | null
   movementNames: string[]
+  /** Highest-scoring contributions, capped — see `contributionCount` for how many there really are. */
+  contributions: BodyLoadContribution[]
+  /** Total contributions before the cap, so a partial list can say what it left out. */
+  contributionCount: number
 }
 
 export type BodyLoadSummary = {

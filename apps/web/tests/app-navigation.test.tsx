@@ -44,6 +44,21 @@ describe('app navigation resolver', () => {
     })
   })
 
+  it.each([
+    '/history/deadlift',
+    '/history/deadlift/',
+    '/history/bench_press?range=8w',
+    '/history/squat#records',
+  ])('maps a movement detail route back to Insights: %s', (route) => {
+    expect(resolveAppNavigation(route)).toEqual({
+      backTarget: {
+        label: 'Back to Insights',
+        to: '/history',
+      },
+      activeBottomNavSection: '/history',
+    })
+  })
+
   it.each<[string, BottomNavSection]>([
     ['/today', '/today'],
     ['/today/?date=2026-07-30#workout', '/today'],
@@ -69,6 +84,7 @@ describe('app navigation resolver', () => {
     '/sessions/',
     '/sessions/session-id/edit',
     '/sessions/session-id/summary/details',
+    '/history/deadlift/sets',
     '/not-a-route?next=/sessions/session-id',
   ])('does not invent navigation for an unknown or incomplete route: %s', (route) => {
     expect(resolveAppNavigation(route)).toEqual({

@@ -15,6 +15,7 @@ import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { PendingProgressionReviewModal, PendingReviewAlert, PendingReviewGate } from '~/domains/program/components/PendingReview'
 import { useState } from 'react'
 import { InspectorLayout } from '~/components'
+import { cn } from '~/shared/lib/cn'
 import { useExperienceMode } from '~/domains/account/components'
 import { buildTodaySessionMeta, formatPreviousHero } from '~/domains/session/lib/today-numbers'
 import type { ProgressionDecision } from '~/domains/program'
@@ -169,7 +170,12 @@ export function TodayPlannedSession({
       />
 
       {/* Ad-hoc entry stays ungated by pending reviews (unlike "Start workout"). */}
-      <div className="fixed right-4 bottom-[calc(var(--vf-mobile-bottom-offset)+1rem)] z-30 md:right-6 md:bottom-6">
+      <div
+        className={cn(
+          'fixed right-4 bottom-[calc(var(--vf-mobile-bottom-offset)+1rem)] z-30 md:right-6 md:bottom-6',
+          isFull && 'lg:right-[22rem]',
+        )}
+      >
         <Tooltip label="Blank workout">
           <ActionIcon
             size={56}

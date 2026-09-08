@@ -1,9 +1,12 @@
+import { useExperienceMode } from '~/domains/account/components'
+import { buildCycleInspector } from '~/domains/program/lib/cycle-inspector'
+import { CycleInspectorPanel } from './inspector/CycleInspectorPanel'
 import { ReturnGuideCard } from './return/ReturnGuideCard'
 import { Button } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
-import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
+import { EmptyState, Page, PageLoadError, PageSkeleton, InspectorLayout } from '~/components'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { buildProgramTimeline } from '~/domains/program/lib/program-timeline'
@@ -29,6 +32,7 @@ export function ProgramPage({ user }: { user: AuthUser | null }) {
 
 function AuthedProgram() {
   const userId = useRequiredAccountId()
+  const { isFull } = useExperienceMode()
   const overviewQuery = useQuery(programOverviewQueryOptions(userId))
   const [reviewOpen, setReviewOpen] = useState(false)
   const [resolvedDecisionIds, setResolvedDecisionIds] = useState<Set<string>>(() => new Set())
@@ -80,6 +84,23 @@ function AuthedProgram() {
     sessionStamps: overview.sessionStamps,
   })
 
+  // The trajectory's forward numbers are top-set loads for the heaviest upcoming week, not
+  // training maxes — the panel labels them as such.
+  const projectedByMovement = Object.fromEntries(
+    (trajectory.phases.find((phase) => phase.projected)?.projected?.values ?? []).map((pill) => [
+      pill.movementId,
+      pill.value,
+    ]),
+  )
+  const cycleModel = buildCycleInspector({
+    definition,
+    weekNumber: phaseMap.currentWeekNumber,
+    totalWeeks: phaseMap.totalWeeks,
+    stateValues: overview.stateValues,
+    decisions: [...overview.pendingDecisions, ...overview.acceptedDecisions],
+    projectedByMovement,
+  })
+
   return (
     <Page>
       <ReturnGuideCard program={program} hasActiveSession={overview.hasActiveSession} />
@@ -87,14 +108,18 @@ function AuthedProgram() {
 
       <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <ProgramTimeline key={trajectory.currentWeekNumber} trajectory={trajectory} />
+      <InspectorLayout inspector={<CycleInspectorPanel model={cycleModel} units={program.units} />}>
+        {/* With the inspector docked there is not room for a third track, so the loads and recent
+            sessions stack under the timeline instead of sitting beside it. */}
+        <div className={isFull ? 'grid gap-4' : 'grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]'}>
+          <ProgramTimeline key={trajectory.currentWeekNumber} trajectory={trajectory} />
 
-        <div className="space-y-4">
-          <CurrentLoadsCard overview={overview} program={program} />
-          <RecentProgramSessions overview={overview} />
+          <div className="space-y-4">
+            <CurrentLoadsCard overview={overview} program={program} />
+            <RecentProgramSessions overview={overview} />
+          </div>
         </div>
-      </div>
+      </InspectorLayout>
 
       <PendingProgressionReviewModal
         opened={reviewOpen}

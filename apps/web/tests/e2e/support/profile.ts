@@ -166,10 +166,11 @@ export async function setAutoStartTimer(value: boolean) {
 export async function setReadingMode(
   credentials: Credentials,
   mode: 'guided' | 'full',
-  options: { hintDismissed?: boolean } = {},
+  options: { hintDismissed?: boolean; showFormulas?: boolean } = {},
 ) {
   await updateProfile(credentials, {
     experience_mode: mode,
+    ...(options.showFormulas === undefined ? {} : { show_formulas: options.showFormulas }),
     ...(options.hintDismissed === undefined
       ? {}
       : { full_mode_hint_dismissed_at: options.hintDismissed ? new Date().toISOString() : null }),

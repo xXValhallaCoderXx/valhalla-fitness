@@ -1,7 +1,7 @@
 import type { BalanceSignal, BalanceSummary, BodyRegionId, WeeklyRegionSets } from '@sheetless/domain/history/types'
 import type { Movement } from '@sheetless/domain/movement/types'
 import { movementCatalog } from '@sheetless/domain/movement/movements'
-import { bodyRegionLabels, resolveRegionWeights } from '@sheetless/domain/history/body-load'
+import { bodyRegionLabels, bodyRegionOrder, resolveRegionWeights } from '@sheetless/domain/history/body-load'
 import {
   formatDateKey,
   formatWeekLabel,
@@ -202,4 +202,67 @@ function roundOne(value: number) {
 
 function roundTwo(value: number) {
   return Math.round(value * 100) / 100
+}
+
+export type RegionDelta = {
+  regionId: BodyRegionId
+  /** Sets in the reference week. */
+  current: number
+  /** Sets in the week before it. */
+  previous: number
+  /** current − previous, one decimal. */
+  delta: number
+}
+
+export type RegionDeltaResult = {
+  /** Empty when a comparison would mislead — see `reason`. */
+  deltas: RegionDelta[]
+  /** Why there is no comparison, for the UI to say out loud. */
+  reason: 'ok' | 'suppressed' | 'no_prior_week'
+  /** Monday of the week being compared. */
+  weekStart: string
+}
+
+/**
+ * Week-over-week sets per region.
+ *
+ * Anchored to the calendar, never to array position: `buildWeeklyRegionSets` only emits weeks that
+ * had a completed set, so `weekly[n] - weekly[n-1]` would quietly compare a week against one from
+ * a month ago for anyone who took time off. Weeks are looked up by their Monday key and a missing
+ * week reads as zero, which is what it means.
+ *
+ * The reference week is the last **complete** week, not the current one — a Monday comparison of
+ * two days against seven reads as a collapse for everybody.
+ */
+export function buildRegionDeltas(
+  weekly: WeeklyRegionSets[],
+  now: string,
+  options: { suppress?: boolean } = {},
+): RegionDeltaResult {
+  const nowDate = parseDate(now)
+  const currentWeekStart = nowDate ? startOfWeek(nowDate) : null
+  if (!currentWeekStart) return { deltas: [], reason: 'no_prior_week', weekStart: '' }
+
+  // Step back one week so the reference week is finished; the week before that is the baseline.
+  const referenceStart = new Date(currentWeekStart.getTime() - WEEK_MS)
+  const baselineStart = new Date(referenceStart.getTime() - WEEK_MS)
+  const referenceKey = formatDateKey(referenceStart)
+  const baselineKey = formatDateKey(baselineStart)
+
+  if (options.suppress) return { deltas: [], reason: 'suppressed', weekStart: referenceKey }
+
+  const byWeek = new Map(weekly.map((bucket) => [bucket.weekStart, bucket]))
+  const reference = byWeek.get(referenceKey)
+  const baseline = byWeek.get(baselineKey)
+  if (!reference && !baseline) return { deltas: [], reason: 'no_prior_week', weekStart: referenceKey }
+
+  const deltas = bodyRegionOrder
+    .map((regionId) => {
+      const current = roundOne(reference?.regionSets[regionId] ?? 0)
+      const previous = roundOne(baseline?.regionSets[regionId] ?? 0)
+      return { regionId, current, previous, delta: roundOne(current - previous) }
+    })
+    .filter((entry) => entry.current > 0 || entry.previous > 0)
+
+  return { deltas, reason: 'ok', weekStart: referenceKey }
 }

@@ -1,8 +1,8 @@
 export type BottomNavSection = '/today' | '/program' | '/history' | '/templates'
 
 export type AppHeaderBackTarget = Readonly<{
-  label: 'Back to Programmes' | 'Back to Today'
-  to: '/templates' | '/today'
+  label: 'Back to Programmes' | 'Back to Today' | 'Back to Insights'
+  to: '/templates' | '/today' | '/history'
 }>
 
 export type AppNavigation = Readonly<{
@@ -18,6 +18,11 @@ const programsBackTarget = {
 const todayBackTarget = {
   label: 'Back to Today',
   to: '/today',
+} as const satisfies AppHeaderBackTarget
+
+const insightsBackTarget = {
+  label: 'Back to Insights',
+  to: '/history',
 } as const satisfies AppHeaderBackTarget
 
 const topLevelSections = new Map<string, BottomNavSection>([
@@ -41,6 +46,13 @@ export function resolveAppNavigation(route: string): AppNavigation {
     return {
       backTarget: programsBackTarget,
       activeBottomNavSection: '/templates',
+    }
+  }
+
+  if (/^\/history\/[^/]+\/?$/.test(pathname)) {
+    return {
+      backTarget: insightsBackTarget,
+      activeBottomNavSection: '/history',
     }
   }
 

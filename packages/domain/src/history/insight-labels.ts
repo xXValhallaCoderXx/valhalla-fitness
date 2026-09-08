@@ -30,6 +30,27 @@ export const insightCardLabels = {
   muscleBalance: label('Muscle balance', 'Muscle balance'),
 } satisfies Record<string, ModeLabel>
 
+/**
+ * The muscle-workload screen's own headings.
+ *
+ * The tab is already `label('Muscles', 'Muscle fatigue')` above, but the panel headings used to be
+ * hardcoded to the Full wording — so Guided showed a tab called "Muscles" opening a panel headed
+ * "Muscle fatigue". Everything on that screen now reads from here.
+ */
+export const bodyLoadLabels = {
+  fatigueHeading: label('Recent muscle work', 'Muscle fatigue'),
+  setsHeading: label('Sets each week', 'Weekly sets'),
+  fatigueToggle: label('Recent work', 'Fatigue'),
+  setsToggle: label('Weekly sets', 'Weekly sets'),
+  fatigueRows: label('Most worked first', 'Affected regions · most to least'),
+  setsRows: label('Most sets first', 'Sets per week · most to least'),
+  weekChange: label('vs the week before', 'Δ vs prior week'),
+} satisfies Record<string, ModeLabel>
+
+export function bodyLoadLabel(key: keyof typeof bodyLoadLabels, mode: ExperienceMode): string {
+  return bodyLoadLabels[key][mode]
+}
+
 export type InsightCardKey = keyof typeof insightCardLabels
 
 export function insightCardLabel(key: InsightCardKey, mode: ExperienceMode): string {

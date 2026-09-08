@@ -84,6 +84,8 @@ function region(over: Partial<BodyLoadRegion> = {}): BodyLoadRegion {
     recentSetCount: 5,
     lastTrainedAt: '2026-06-22T12:00:00.000Z', // a Monday
     movementNames: ['Squat'],
+    contributions: [],
+    contributionCount: 0,
     ...over,
   }
 }

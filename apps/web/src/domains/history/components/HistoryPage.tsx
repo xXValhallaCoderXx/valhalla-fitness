@@ -1,5 +1,6 @@
 import { Badge, Tabs } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
+import { Outlet, useRouterState } from '@tanstack/react-router'
 import { Activity, BarChart3, Dumbbell, History, TrendingUp, Trophy } from 'lucide-react'
 import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
@@ -49,6 +50,9 @@ export function HistoryPage({
   user: AuthUser | null
   initialTab?: HistoryTab
 }) {
+  // Movement detail is a child route; without this the tab shell would render over it.
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  if (pathname !== '/history') return <Outlet />
   if (!user) {
     return (
       <Page>
