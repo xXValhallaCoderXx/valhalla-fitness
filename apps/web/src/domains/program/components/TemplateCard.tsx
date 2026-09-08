@@ -1,7 +1,8 @@
 import { ActionIcon, Badge, Button, Card, Popover } from '@mantine/core'
 import { Check, Eye, Info, Layers, Lock } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { Caption, Heading, Panel, SectionLabel, Text } from '~/components'
+import { Caption, FormulaChip, Heading, Panel, SectionLabel, Text } from '~/components'
+import { useExperienceMode } from '~/domains/account/components'
 import type { ProgramTemplateSummary } from '~/domains/program'
 import {
   complexityRangeLabel,
@@ -43,6 +44,7 @@ export function TemplateCard({
     ? [...new Set(familyMembers.flatMap((member) => member.tags))]
     : template.tags
   const [methodOpen, setMethodOpen] = useState(false)
+  const { isFull } = useExperienceMode()
   // Methodology copy comes from the family (every built-in belongs to one); custom plans, which have
   // no family, fall back to their own description.
   const resolvedFamily = family ?? familyByTemplateId.get(template.id)
@@ -118,6 +120,13 @@ export function TemplateCard({
             <TemplateMetric label="Progression" value={isFamily ? `${familyMembers.length} variants` : template.progressionLabel} />
           </div>
         </Panel>
+
+        {/* Full names the plan the way the DSL does. The design shows a methodology id, but only
+            custom programmes carry one — the honest machine identifier for a built-in is the
+            template id the card opens, which is also what `pnpm export:templates` writes out. */}
+        {isFull ? (
+          <FormulaChip tone="muted">{isFamily ? family!.defaultTemplateId : template.id}</FormulaChip>
+        ) : null}
 
         {isFamily ? (
           <div className="flex items-center gap-1.5">

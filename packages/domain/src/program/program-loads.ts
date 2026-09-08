@@ -41,6 +41,7 @@ export function buildProgramStartStateValues({
   rounding,
   trainingMaxPercent = DEFAULT_TRAINING_MAX_PERCENT,
   workingLoadPercent = DEFAULT_WORKING_LOAD_PERCENT,
+  oneRepMaxFor,
 }: {
   unit: Unit
   requiredState: ProgramStateRequirement[]
@@ -48,17 +49,32 @@ export function buildProgramStartStateValues({
   rounding: number
   trainingMaxPercent?: number
   workingLoadPercent?: number
+  /**
+   * Where the 1RM behind each starting number comes from. Defaults to the saved estimate; setup
+   * passes a resolver that prefers the best logged set, which is what the lift table then shows.
+   */
+  oneRepMaxFor?: (movementId: string) => number | null
 }): ProgramStateInput[] {
+  const anchorFor = oneRepMaxFor ?? ((movementId: string) => profileOneRepMax(defaults, movementId))
+  const derive = (movementId: string, percent: number) => {
+    const oneRepMax = anchorFor(movementId)
+    return oneRepMax === null ? null : mround(oneRepMax * (percent / 100), rounding)
+  }
   return requiredState.map((state) => ({
     ...state,
     value:
       state.type === 'training_max'
-        ? suggestedLoadFromOneRepMax(defaults, state.movementId, trainingMaxPercent, rounding)
+        ? derive(state.movementId, trainingMaxPercent)
         : state.type === 'working_load'
-          ? suggestedLoadFromOneRepMax(defaults, state.movementId, workingLoadPercent, rounding)
+          ? derive(state.movementId, workingLoadPercent)
           : profileStateDefaultValue(state, defaults),
     unit,
   }))
+}
+
+/** The saved estimate for a movement, or null when none has been entered. */
+export function profileOneRepMax(defaults: ProgramStateDefaults, movementId: string) {
+  return profileLoadDefault(defaults[oneRepMaxKeyForMovement(movementId)])
 }
 
 export function suggestedLoadFromOneRepMax(
@@ -67,7 +83,7 @@ export function suggestedLoadFromOneRepMax(
   percent: number,
   rounding: number,
 ) {
-  const oneRepMax = profileLoadDefault(defaults[oneRepMaxKeyForMovement(movementId)])
+  const oneRepMax = profileOneRepMax(defaults, movementId)
   if (!oneRepMax) return null
   return mround(oneRepMax * (percent / 100), rounding)
 }

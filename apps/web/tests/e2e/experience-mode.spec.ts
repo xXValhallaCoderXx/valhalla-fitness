@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { login } from './support/auth'
 import { setReadingMode } from './support/profile'
+import { advanceSetupStep, setupStepRail } from './support/setup-wizard'
 
 // Drives its own seeded account. This spec writes server flags and needs 8+ completed sessions
 // for the Full-mode offer; demo.wave has 10 and an active programme. Staying off the shared
@@ -260,5 +261,121 @@ test.describe('muscle workload', () => {
     ).toBeVisible()
 
     await setReadingMode(DEMO_WAVE, 'guided', { hintDismissed: true })
+  })
+})
+
+// Also here rather than in template-start.spec: this asserts a specific reading mode on DEMO_WAVE,
+// and a second file mutating that flag would race this one across the two projects.
+test.describe('programme setup', () => {
+  test('Full exposes the rounding the loads are built on, and it reaches the review', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) < 768, 'server-flag mutation: desktop project only')
+
+    await setReadingMode(DEMO_WAVE, 'full', { hintDismissed: true, showFormulas: true })
+    await login(page, DEMO_WAVE)
+    await page.goto('/templates/healthy-531-fsl/start')
+    await expect(setupStepRail(page)).toBeVisible({ timeout: 15000 })
+
+    // The formula names both constants it uses, so neither can drift from the values below it.
+    await expect(page.getByText(/=MROUND\(e1RM × 0\.90, 2\.5\)/)).toBeVisible()
+
+    const squat = page.getByRole('textbox', { name: /Squat training max/i })
+    await expect(squat).toHaveValue(/2\.5 kg$|0 kg$|5 kg$/)
+
+    // Re-rounding re-derives every value rather than relabelling them.
+    await expect(async () => {
+      await page.getByText('5 kg', { exact: true }).click()
+      await expect(page.getByText(/=MROUND\(e1RM × 0\.90, 5\)/)).toBeVisible({ timeout: 1500 })
+    }).toPass({ timeout: 15000 })
+    const rounded = await squat.inputValue()
+    expect(Number(rounded.replace(/[^\d.]/g, '')) % 5).toBe(0)
+
+    // What step 1 chose is what step 4 says will be saved.
+    await advanceSetupStep(page, /Equipment & swaps/)
+    await advanceSetupStep(page, /Schedule/)
+    await advanceSetupStep(page, /Review/)
+    await expect(page.getByText(/round 5/)).toBeVisible()
+
+    await setReadingMode(DEMO_WAVE, 'guided', { hintDismissed: true })
+  })
+
+  test('Guided hides the derivation but keeps the numbers', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) < 768, 'server-flag mutation: desktop project only')
+
+    await setReadingMode(DEMO_WAVE, 'guided', { hintDismissed: true })
+    await login(page, DEMO_WAVE)
+    await page.goto('/templates/healthy-531-fsl/start')
+    await expect(setupStepRail(page)).toBeVisible({ timeout: 15000 })
+
+    // The rail names the step in Guided's vocabulary; the table header matches it.
+    await expect(page.getByRole('button', { name: 'Starting weights' })).toBeVisible()
+    await expect(page.getByRole('columnheader', { name: 'A recent hard set' })).toBeVisible()
+    await expect(page.getByRole('columnheader', { name: 'e1RM' })).toHaveCount(0)
+    // No e1RM column, no formula, no constants to tune.
+    await expect(page.getByText(/=MROUND/)).toHaveCount(0)
+    await expect(page.getByText('TM percentage')).toHaveCount(0)
+    // The value it produced is still on screen and still editable.
+    await expect(page.getByRole('textbox', { name: /Squat starting weight/i })).toBeVisible()
+  })
+})
+
+// Same reasoning as the setup tests above: these assert a reading mode on DEMO_WAVE, so they live
+// beside the other tests that mutate that flag rather than racing them from a second file.
+test.describe('programme builder', () => {
+  test('Full lays the wizard out as the definition it produces', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) < 768, 'server-flag mutation: desktop project only')
+
+    await setReadingMode(DEMO_WAVE, 'full', { hintDismissed: true, showFormulas: true })
+    await login(page, DEMO_WAVE)
+    await page.goto('/templates/new')
+    await expect(page.getByRole('heading', { name: /Build your own programme/i })).toBeVisible({ timeout: 15000 })
+
+    // The default draft is logger-only; a wave gives the grid percentages to show.
+    await expect(async () => {
+      await page.getByRole('button', { name: /Training Max Wave/i }).first().click()
+      await expect(page.getByText(/4 weeks · 3 days · read-only/i)).toBeVisible({ timeout: 2000 })
+    }).toPass({ timeout: 20000 })
+
+    // The grid is the definition: a cell addresses session, slot and week.
+    const cell = page.getByRole('button', { name: 'day-1.main.W3' })
+    await expect(async () => {
+      await cell.click()
+      await expect(page.getByTestId('template-cell-inspector')).toBeVisible({ timeout: 2000 })
+    }).toPass({ timeout: 20000 })
+
+    const inspector = page.getByTestId('template-cell-inspector')
+    await expect(inspector).toContainText('day-1.main.W3')
+    await expect(inspector).toContainText('training_max_band')
+    // The formula names the state, and the raw DSL is shown beside it.
+    await expect(inspector).toContainText('MROUND(TM_squat')
+    await expect(inspector).toContainText('2026.06.dsl')
+    await expect(inspector).toContainText('targetSummary')
+
+    // The validator's verdict, not the checklist's.
+    await expect(page.getByTestId('template-validation')).toContainText('Valid')
+    await expect(page.getByTestId('template-validation')).toContainText('sessions = daysPerWeek (3)')
+
+    await setReadingMode(DEMO_WAVE, 'guided', { hintDismissed: true })
+  })
+
+  test('Guided never shows the grid, or a percentage', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) < 768, 'server-flag mutation: desktop project only')
+
+    await setReadingMode(DEMO_WAVE, 'guided', { hintDismissed: true })
+    await login(page, DEMO_WAVE)
+    await page.goto('/templates/new')
+    await expect(page.getByRole('heading', { name: /Build your own programme/i })).toBeVisible({ timeout: 15000 })
+
+    await expect(async () => {
+      await page.getByRole('button', { name: /Simple linear progression/i }).first().click()
+      await expect(page.getByText(/Add weight after every session/i)).toBeVisible({ timeout: 2000 })
+    }).toPass({ timeout: 20000 })
+
+    // The rules are sentences, and they quote the increments the rule will actually use.
+    const rules = page.getByText('What Sheetless will do').locator('..')
+    await expect(rules).toContainText('2.5 kg for presses, 5 kg for squats and deadlifts')
+    await expect(rules).not.toContainText('%')
+
+    await expect(page.getByTestId('template-cell-inspector')).toHaveCount(0)
+    await expect(page.getByTestId('template-validation')).toHaveCount(0)
   })
 })

@@ -6,8 +6,20 @@ import { useRequiredAccountId } from '~/domains/account/components/AccountIdenti
 import {
   DEFAULT_TRAINING_MAX_PERCENT,
   DEFAULT_WORKING_LOAD_PERCENT,
-  suggestedLoadFromOneRepMax,
 } from '~/domains/program/lib/program-loads'
+import {
+  buildSetupLiftRows,
+  convertSetupStateValues,
+  roundingForUnit,
+  setupOneRepMaxResolver,
+} from '~/domains/program/lib/setup-lift-rows'
+import {
+  adjacentSetupStep,
+  blockerForStep,
+  setupStepBlockers,
+  type SetupStepId,
+} from '~/domains/program/lib/setup-steps'
+import { mround } from '~/domains/program/lib/progression'
 import { shouldConfirmProgramStart } from '~/domains/program/lib/program-switch'
 import {
   changedSlotIds,
@@ -31,6 +43,8 @@ import type {
   ProgramStateInput,
   ProgramTemplateSummary,
 } from '~/domains/program'
+import type { LiftE1rmSeries } from '~/domains/history'
+import type { Unit } from '~/shared/types'
 import type { TodayPayload } from '~/domains/session'
 import { useTemplateStartEquipmentMode } from './useTemplateStartEquipmentMode'
 
@@ -39,17 +53,19 @@ export function useTemplateStartController({
   me,
   today,
   setupOptions,
+  liftSeries = null,
 }: {
   template: ProgramTemplateSummary
   me: UserProfile
   today: TodayPayload
   setupOptions: ProgramSetupOptions
+  /** Per-session e1RM history, so starting numbers come from logged sets rather than estimates. */
+  liftSeries?: LiftE1rmSeries[] | null
 }) {
   const userId = useRequiredAccountId()
   const router = useRouter()
   const [activeWeekIndex, setActiveWeekIndex] = useState(0)
   const [showSwitchConfirm, setShowSwitchConfirm] = useState(false)
-  const [showDefaultsModal, setShowDefaultsModal] = useState(false)
   const [showProgrammeInfo, setShowProgrammeInfo] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const equipment = useTemplateStartEquipmentMode({ setupOptions })
@@ -61,11 +77,22 @@ export function useTemplateStartController({
     accessoryAdditions,
     setShowEquipmentModePreview,
   } = equipment
+  const [step, setStep] = useState<SetupStepId>('numbers')
   const [trainingMaxPercent, setTrainingMaxPercent] = useState(DEFAULT_TRAINING_MAX_PERCENT)
   const [workingLoadPercent, setWorkingLoadPercent] = useState(DEFAULT_WORKING_LOAD_PERCENT)
+  // Rounding and units are programme-scoped here: `startProgramInputSchema` already accepts both,
+  // and changing them must not write back to the profile.
+  const [rounding, setRounding] = useState(me.rounding)
+  const [units, setUnits] = useState<Unit>(me.units)
   const startRequestId = useRef<string | null>(null)
+  const oneRepMaxFor = useMemo(
+    () => setupOneRepMaxResolver({ liftSeries, defaults: me.programStateDefaults }),
+    [liftSeries, me.programStateDefaults],
+  )
   const [stateValues, setStateValues] = useState<ProgramStateInput[]>(() =>
-    stateValuesForProfileTemplate(template, me, DEFAULT_TRAINING_MAX_PERCENT, DEFAULT_WORKING_LOAD_PERCENT),
+    stateValuesForProfileTemplate(template, me, DEFAULT_TRAINING_MAX_PERCENT, DEFAULT_WORKING_LOAD_PERCENT, {
+      oneRepMaxFor,
+    }),
   )
   const activeSessionId = today.activeSession?.sessionId
   const weekOptions = useMemo(() => compactWeekPreviewOptions(setupOptions.previewWeeks), [setupOptions.previewWeeks])
@@ -111,17 +138,49 @@ export function useTemplateStartController({
     )
   }
 
+  const rederive = (
+    current: ProgramStateInput[],
+    match: (state: ProgramStateInput) => boolean,
+    percentFor: (state: ProgramStateInput) => number,
+    nextRounding: number,
+  ) =>
+    current.map((state) => {
+      if (!match(state)) return state
+      const oneRepMax = oneRepMaxFor(state.movementId)
+      if (oneRepMax === null) return state
+      return { ...state, value: mround(oneRepMax * (percentFor(state) / 100), nextRounding) }
+    })
+
   const updateDerivedStatePercent = (stateType: 'training_max' | 'working_load', percent: number) => {
     if (stateType === 'training_max') setTrainingMaxPercent(percent)
     if (stateType === 'working_load') setWorkingLoadPercent(percent)
-    setStateValues((current) => {
-      if (!current.some((state) => state.type === stateType)) return current
-      return current.map((state) => {
-        if (state.type !== stateType) return state
-        const suggested = suggestedLoadFromOneRepMax(me.programStateDefaults, state.movementId, percent, me.rounding)
-        return { ...state, value: suggested ?? state.value }
-      })
-    })
+    setStateValues((current) =>
+      current.some((state) => state.type === stateType)
+        ? rederive(current, (state) => state.type === stateType, () => percent, rounding)
+        : current,
+    )
+  }
+
+  /** Units convert the numbers and take that unit's plate step with them. */
+  const updateUnits = (next: Unit) => {
+    if (next === units) return
+    const nextRounding = roundingForUnit(next)
+    setStateValues((current) => convertSetupStateValues(current, units, next, nextRounding))
+    setUnits(next)
+    setRounding(nextRounding)
+  }
+
+  /** Re-rounding moves every derived value; a manual entry is left exactly as typed. */
+  const updateRounding = (next: number) => {
+    setRounding(next)
+    setStateValues((current) =>
+      rederive(
+        current,
+        (state) => state.type === 'training_max' || state.type === 'working_load',
+        (state) => (state.type === 'training_max' ? trainingMaxPercent : workingLoadPercent),
+        next,
+      ),
+    )
   }
 
   const startMutation = useMutation({
@@ -134,6 +193,8 @@ export function useTemplateStartController({
           requestId: input.requestId,
           templateId: template.id,
           timeZone: browserIanaTimeZone() ?? undefined,
+          units,
+          rounding,
           stateValues: startStateValues,
           movementOverrides: movementOverrides.length ? movementOverrides : undefined,
           accessoryAdditions: accessoryAdditions.length
@@ -221,7 +282,42 @@ export function useTemplateStartController({
     startMutation.mutate({ requestId: startRequestId.current, replaceActiveProgram: true })
   }
 
+  const blockers = setupStepBlockers({ missingRequiredState })
+  const liftRows = useMemo(
+    () =>
+      buildSetupLiftRows({
+        stateValues: visibleState,
+        liftSeries,
+        defaults: me.programStateDefaults,
+        rounding,
+        trainingMaxPercent,
+        workingLoadPercent,
+      }),
+    [visibleState, liftSeries, me.programStateDefaults, rounding, trainingMaxPercent, workingLoadPercent],
+  )
+
+  /** Refuses to advance past a step that still has something to fix; going back is always allowed. */
+  const goToStep = (direction: 'next' | 'previous') => {
+    if (direction === 'next' && blockerForStep(blockers, step)) {
+      setStartError(blockerForStep(blockers, step)?.message ?? null)
+      return
+    }
+    const target = adjacentSetupStep(step, direction)
+    if (!target) return
+    setStartError(null)
+    setStep(target)
+  }
+
   return {
+    step,
+    setStep,
+    goToStep,
+    blockers,
+    liftRows,
+    rounding,
+    units,
+    updateRounding,
+    updateUnits,
     activeWeek,
     activeWeekOption,
     weekOptions,
@@ -240,11 +336,9 @@ export function useTemplateStartController({
     startError,
     isStarting: startMutation.isPending,
     showSwitchConfirm,
-    showDefaultsModal,
     showProgrammeInfo,
     setActiveWeekIndex,
     setShowSwitchConfirm,
-    setShowDefaultsModal,
     setShowProgrammeInfo,
     updateStateValue,
     updateDerivedStatePercent,

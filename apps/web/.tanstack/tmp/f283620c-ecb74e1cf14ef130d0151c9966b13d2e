@@ -19,6 +19,7 @@ import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AccountDeletionRouteImport } from './routes/account-deletion'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TemplatesNewRouteImport } from './routes/templates.new'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
 import { Route as HistoryMovementIdRouteImport } from './routes/history.$movementId'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
@@ -76,6 +77,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/index.lazy').then((d) => d.Route))
+const TemplatesNewRoute = TemplatesNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => TemplatesRoute,
+} as any).lazy(() => import('./routes/templates.new.lazy').then((d) => d.Route))
 const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
   id: '/sessions/$sessionId',
   path: '/sessions/$sessionId',
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/history/$movementId': typeof HistoryMovementIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRouteWithChildren
+  '/templates/new': typeof TemplatesNewRoute
   '/sessions/$sessionId/summary': typeof SessionsSessionIdSummaryRoute
   '/templates/$templateId/start': typeof TemplatesTemplateIdStartRoute
   '/sessions/$sessionId/': typeof SessionsSessionIdIndexRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/today': typeof TodayRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/history/$movementId': typeof HistoryMovementIdRoute
+  '/templates/new': typeof TemplatesNewRoute
   '/sessions/$sessionId/summary': typeof SessionsSessionIdSummaryRoute
   '/templates/$templateId/start': typeof TemplatesTemplateIdStartRoute
   '/sessions/$sessionId': typeof SessionsSessionIdIndexRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/history/$movementId': typeof HistoryMovementIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRouteWithChildren
+  '/templates/new': typeof TemplatesNewRoute
   '/sessions/$sessionId/summary': typeof SessionsSessionIdSummaryRoute
   '/templates/$templateId/start': typeof TemplatesTemplateIdStartRoute
   '/sessions/$sessionId/': typeof SessionsSessionIdIndexRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/history/$movementId'
     | '/sessions/$sessionId'
+    | '/templates/new'
     | '/sessions/$sessionId/summary'
     | '/templates/$templateId/start'
     | '/sessions/$sessionId/'
@@ -198,6 +208,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/auth/callback'
     | '/history/$movementId'
+    | '/templates/new'
     | '/sessions/$sessionId/summary'
     | '/templates/$templateId/start'
     | '/sessions/$sessionId'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/history/$movementId'
     | '/sessions/$sessionId'
+    | '/templates/new'
     | '/sessions/$sessionId/summary'
     | '/templates/$templateId/start'
     | '/sessions/$sessionId/'
@@ -307,6 +319,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/templates/new': {
+      id: '/templates/new'
+      path: '/new'
+      fullPath: '/templates/new'
+      preLoaderRoute: typeof TemplatesNewRouteImport
+      parentRoute: typeof TemplatesRoute
+    }
     '/sessions/$sessionId': {
       id: '/sessions/$sessionId'
       path: '/sessions/$sessionId'
@@ -374,10 +393,12 @@ const HistoryRouteWithChildren =
   HistoryRoute._addFileChildren(HistoryRouteChildren)
 
 interface TemplatesRouteChildren {
+  TemplatesNewRoute: typeof TemplatesNewRoute
   TemplatesTemplateIdStartRoute: typeof TemplatesTemplateIdStartRoute
 }
 
 const TemplatesRouteChildren: TemplatesRouteChildren = {
+  TemplatesNewRoute: TemplatesNewRoute,
   TemplatesTemplateIdStartRoute: TemplatesTemplateIdStartRoute,
 }
 
