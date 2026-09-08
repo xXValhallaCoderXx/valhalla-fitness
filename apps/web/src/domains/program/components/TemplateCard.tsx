@@ -142,7 +142,7 @@ export function TemplateCard({
       {isActive ? (
         <Button color="action" variant="light" disabled>
           <Check size={16} />
-          Active Program
+          Active programme
         </Button>
       ) : template.available ? (
         <Button className="w-full" onClick={onStart}>

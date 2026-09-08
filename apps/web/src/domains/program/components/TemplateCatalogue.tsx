@@ -162,8 +162,8 @@ export function TemplateCatalogue({
 
       <Panel surface="inset" className="mb-4 max-w-4xl" px="sm" py="xs">
         <Caption>
-          Built-in programs are original Sheetless programming tools and are not official, affiliated, or endorsed
-          templates from any coach, author, book, or program.
+          Built-in programmes are original Sheetless programming tools and are not official, affiliated, or endorsed
+          templates from any coach, author, book, or programme.
         </Caption>
       </Panel>
 
@@ -214,7 +214,7 @@ export function TemplateCatalogue({
         ) : null}
 
         {!builtInItems.length && !customItems.length ? (
-          <EmptyState title={activeTemplate ? 'No other matching programs' : 'No matching programs'}>
+          <EmptyState title={activeTemplate ? 'No other matching programmes' : 'No matching programmes'}>
             Adjust the search, level, or goal to see more templates.
           </EmptyState>
         ) : null}

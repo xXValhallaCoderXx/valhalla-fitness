@@ -7,6 +7,7 @@ export const authQueryKeys = {
 export const publicQueryKeys = {
   all: ['public'] as const,
   authPolicy: () => ['public', 'auth-policy'] as const,
+  appStoreLinks: () => ['public', 'app-store-links'] as const,
   templates: () => ['public', 'templates'] as const,
   programSetupOptions: (templateId: string) =>
     ['public', 'templates', 'setup', templateId] as const,
@@ -17,6 +18,7 @@ export const accountQueryKeys = {
   user: (userId: string) => ['account', userId] as const,
   profile: (userId: string) => ['account', userId, 'profile'] as const,
   bodyweight: (userId: string) => ['account', userId, 'bodyweight'] as const,
+  experienceSignals: (userId: string) => ['account', userId, 'experience'] as const,
   templatesRoot: (userId: string) => ['account', userId, 'templates'] as const,
   templates: (userId: string) => ['account', userId, 'templates', 'catalog'] as const,
   programSetupOptions: (userId: string, templateId: string) =>

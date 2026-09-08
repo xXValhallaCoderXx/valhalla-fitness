@@ -5,6 +5,8 @@ import { resolveVolumeTrendSignal, volumeTrendExplanation, volumeTrendLabels } f
 import type { HistoryInsights, InsightGating, VolumeTrendSignal } from '~/domains/history'
 import { Caption, InfoHint, Panel, SectionLabel, Text } from '~/components'
 import { formatLoad, formatNumber } from '../insight-format'
+import { useExperienceMode } from '~/domains/account/components'
+import { insightCardLabel } from '~/domains/history/lib/insight-labels'
 
 const TREND_BADGE_COLOR: Record<VolumeTrendSignal, string> = {
   rising: 'success',
@@ -23,6 +25,7 @@ export function VolumeTrendCard({
   gating: InsightGating
   range: InsightRange
 }) {
+  const { mode } = useExperienceMode()
   const weeks = filterWeeksToRange(insights.weeklyVolume, range, {
     firstDataDate: insights.firstSessionDate,
     now: insights.today,
@@ -37,7 +40,7 @@ export function VolumeTrendCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <span className="inline-flex items-center gap-1">
-            <SectionLabel>Weekly volume</SectionLabel>
+            <SectionLabel>{insightCardLabel('volumeWeekly', mode)}</SectionLabel>
             <InfoHint label="About this metric">{volumeTrendExplanation}</InfoHint>
           </span>
           <Text mt={4} size="sm" fw={900}>

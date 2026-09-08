@@ -100,10 +100,19 @@ describe('account profile ingress schemas', () => {
     expect(updateSettingsInputSchema.parse(validSettings)).toEqual(validSettings)
   })
 
+  it('accepts the experience settings as optional keys', () => {
+    const withExperience = { ...validSettings, experienceMode: 'full' as const, showFormulas: true }
+    expect(updateSettingsInputSchema.parse(withExperience)).toEqual(withExperience)
+  })
+
   it('rejects unknown fields, invalid enums, duplicates, and out-of-range numbers', () => {
     expect(updateSettingsInputSchema.safeParse({ ...validSettings, userId: crypto.randomUUID() }).success).toBe(false)
     expect(updateSettingsInputSchema.safeParse({ ...validSettings, units: 'stone' }).success).toBe(false)
     expect(updateSettingsInputSchema.safeParse({ ...validSettings, themePreference: 'contrast' }).success).toBe(false)
+    expect(updateSettingsInputSchema.safeParse({ ...validSettings, experienceMode: 'wizard' }).success).toBe(false)
+    expect(updateSettingsInputSchema.safeParse({ ...validSettings, showFormulas: 'yes' }).success).toBe(false)
+    // The dismissal stamp is written by its own server fn, never through the settings form.
+    expect(updateSettingsInputSchema.safeParse({ ...validSettings, fullModeHintDismissedAt: null }).success).toBe(false)
     expect(updateSettingsInputSchema.safeParse({ ...validSettings, rounding: Number.POSITIVE_INFINITY }).success)
       .toBe(false)
     expect(updateSettingsInputSchema.safeParse({ ...validSettings, defaultRestSeconds: 29 }).success).toBe(false)

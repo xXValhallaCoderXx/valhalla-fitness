@@ -64,7 +64,7 @@ describe('Today loading states', () => {
     expect(program).toContain('data-testid="program-progress-loading"')
     expect(volume).toContain('data-testid="weekly-volume-loading"')
     expect(recovery).toContain('data-testid="recovery-check-loading"')
-    expect(program).toContain('Loading program progress')
+    expect(program).toContain('Loading programme progress')
     expect(volume).toContain('Loading weekly volume')
     expect(recovery).toContain('Loading recovery check')
   })
@@ -74,7 +74,7 @@ describe('Today loading states', () => {
     const volume = render(<WeeklyVolumePanel isError />)
     const recovery = render(<RecoveryCheckPanel isError />)
 
-    expect(program).toContain('Program progress is unavailable right now.')
+    expect(program).toContain('Programme progress is unavailable right now.')
     expect(volume).toContain('Weekly volume is unavailable right now.')
     expect(recovery).toContain('Recovery data is unavailable right now.')
   })

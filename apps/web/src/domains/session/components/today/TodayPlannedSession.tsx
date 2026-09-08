@@ -13,11 +13,16 @@ import { intensityColor } from '~/domains/history/lib/insights'
 import type { TodayHistorySupport } from '~/domains/history'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { PendingProgressionReviewModal, PendingReviewAlert, PendingReviewGate } from '~/domains/program/components/PendingReview'
-import { formatPreviousHero } from '~/domains/session/lib/today-numbers'
+import { useState } from 'react'
+import { InspectorLayout } from '~/components'
+import { useExperienceMode } from '~/domains/account/components'
+import { buildTodaySessionMeta, formatPreviousHero } from '~/domains/session/lib/today-numbers'
 import type { ProgressionDecision } from '~/domains/program'
 import { ProgramEquipmentModeControl } from '~/domains/program'
 import type { PlannedSession, TodayPayload } from '~/domains/session'
 import { TodayWorkoutLedger } from '../TodayWorkoutLedger'
+import { FullModeHint } from './FullModeHint'
+import { TodayTraceInspector } from './TodayTraceInspector'
 import { RecoveryCheckPanel, StreakBadge } from './TodayPanels'
 
 /** Today view before a workout starts — the planned session hero, ledger, and start actions. */
@@ -52,14 +57,17 @@ export function TodayPlannedSession({
   onStartAdHoc: () => void
   adHocPending: boolean
 }) {
+  const { mode, isFull } = useExperienceMode()
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null)
   const main = plannedSession.movements.find((movement) => movement.role === 'main')
   const startLabel = data.completedSession ? 'Start next session' : 'Start workout'
   const startLocked = pendingDecisions.length > 0
-  const heroLastLine = main ? formatPreviousHero(main.previous, plannedSession.units) : null
+  const heroLastLine = main ? formatPreviousHero(main.previous, plannedSession.units, mode) : null
 
   return (
-    <Page className="max-w-3xl pb-24 md:pb-16">
+    <Page className={isFull ? 'pb-24 md:pb-16' : 'max-w-3xl pb-24 md:pb-16'}>
       <OnboardingPanel />
+      <FullModeHint />
       {data.activeProgram ? <ReturnGuideCard program={data.activeProgram} today lastWorkoutLogged={data.lastWorkoutLogged} /> : null}
       <VisuallyHidden>
         <Heading order={1}>Today</Heading>
@@ -69,76 +77,90 @@ export function TodayPlannedSession({
         <PendingReviewAlert decisions={pendingDecisions} onReview={onReviewOpen} className="mb-4" />
       ) : null}
 
-      {/* minmax(0,1fr): an auto track would size to the widest card's intrinsic width and overflow narrow screens. */}
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
-        <Panel className="space-y-4 vf-card-hover" p="md">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge color="action" variant="filled">{data.completedSession ? 'Next session' : 'Ready'}</Badge>
-              {plannedSession.hardness ? (
-                <Badge color={intensityColor(plannedSession.hardness)}>{plannedSession.hardness}</Badge>
-              ) : null}
-              <EquipmentModeBadge
-                equipmentMode={plannedSession.equipmentMode}
-              />
-              <StreakBadge history={history} isPending={historyPending} isError={historyError} />
-            </div>
-            <Heading mt="xs" order={2} size="h3" lh={1.15}>{plannedSession.title}</Heading>
-            <Text mt={4} size="sm" tone="dimmed">
-              {plannedSession.movements.length} movements · {plannedSession.estimatedMinutes} min
-            </Text>
-          </div>
-
-          {main ? (
-            <Panel surface="inset" p="sm" style={{ borderColor: 'var(--vf-action-border)', backgroundColor: 'var(--vf-action-soft)' }}>
-              <div className="flex items-center justify-between gap-3">
-                <Badge color="action" leftSection={<Dumbbell size={12} />}>Main lift</Badge>
-                <ArrowRight color="var(--mantine-color-dimmed)" size={16} />
+      <InspectorLayout
+        inspector={
+          <TodayTraceInspector
+            session={plannedSession}
+            program={data.activeProgram}
+            selectedSlotId={selectedSlotId}
+          />
+        }
+      >
+        {/* minmax(0,1fr): an auto track would size to the widest card's intrinsic width and overflow narrow screens. */}
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
+          <Panel className="space-y-4 vf-card-hover" p="md">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge color="action" variant="filled">{data.completedSession ? 'Next session' : 'Ready'}</Badge>
+                {plannedSession.hardness ? (
+                  <Badge color={intensityColor(plannedSession.hardness)}>{plannedSession.hardness}</Badge>
+                ) : null}
+                <EquipmentModeBadge
+                  equipmentMode={plannedSession.equipmentMode}
+                />
+                <StreakBadge history={history} isPending={historyPending} isError={historyError} />
               </div>
-              <Heading mt="xs" order={3} size="h4" lh={1.15} className="truncate">{main.movementName}</Heading>
-              <Text mt={2} size="sm" tone="dimmed">{main.targetSummary}</Text>
-              {heroLastLine ? <Caption mt={6} truncate>{heroLastLine}</Caption> : null}
-            </Panel>
-          ) : null}
+              <Heading mt="xs" order={2} size="h3" lh={1.15}>{plannedSession.title}</Heading>
+              <Text mt={4} size="sm" tone="dimmed">
+                {buildTodaySessionMeta(plannedSession, mode)}
+              </Text>
+            </div>
 
-          {data.activeProgram ? (
-            <Panel surface="inset" p="sm">
-              <ProgramEquipmentModeControl
-                program={data.activeProgram}
-                compact
-              />
-            </Panel>
-          ) : null}
-
-          <div>
-            <PendingReviewGate
-              pendingCount={pendingDecisions.length}
-              onReview={onReviewOpen}
-              className="flex w-full"
-            >
-              {/* Mantine's fullWidth, not a Tailwind w-full: unlayered Button styles beat layered
-                  utilities, leaving the button narrow while the popover anchor span spans the card. */}
-              <Button
-                fullWidth
-                disabled={startPending || startLocked}
-                style={startLocked ? { pointerEvents: 'none' } : undefined}
-                onClick={startLocked ? undefined : onStart}
-              >
-                {startLocked ? <Lock size={16} /> : <Play size={16} />}
-                {startPending ? 'Starting...' : startLabel}
-              </Button>
-            </PendingReviewGate>
-            {startLocked ? (
-              <Caption component="p" mt={6} ta="center">
-                Unlocks after you review the {pendingDecisions[0].movementName} progression
-              </Caption>
+            {main ? (
+              <Panel surface="inset" p="sm" style={{ borderColor: 'var(--vf-action-border)', backgroundColor: 'var(--vf-action-soft)' }}>
+                <div className="flex items-center justify-between gap-3">
+                  <Badge color="action" leftSection={<Dumbbell size={12} />}>Main lift</Badge>
+                  <ArrowRight color="var(--mantine-color-dimmed)" size={16} />
+                </div>
+                <Heading mt="xs" order={3} size="h4" lh={1.15} className="truncate">{main.movementName}</Heading>
+                <Text mt={2} size="sm" tone="dimmed">{main.targetSummary}</Text>
+                {heroLastLine ? <Caption mt={6} truncate>{heroLastLine}</Caption> : null}
+              </Panel>
             ) : null}
-          </div>
-        </Panel>
 
-        <TodayWorkoutLedger session={plannedSession} />
-        <RecoveryCheckPanel history={history} isPending={historyPending} isError={historyError} />
-      </div>
+            {data.activeProgram ? (
+              <Panel surface="inset" p="sm">
+                <ProgramEquipmentModeControl
+                  program={data.activeProgram}
+                  compact
+                />
+              </Panel>
+            ) : null}
+
+            <div>
+              <PendingReviewGate
+                pendingCount={pendingDecisions.length}
+                onReview={onReviewOpen}
+                className="flex w-full"
+              >
+                {/* Mantine's fullWidth, not a Tailwind w-full: unlayered Button styles beat layered
+                    utilities, leaving the button narrow while the popover anchor span spans the card. */}
+                <Button
+                  fullWidth
+                  disabled={startPending || startLocked}
+                  style={startLocked ? { pointerEvents: 'none' } : undefined}
+                  onClick={startLocked ? undefined : onStart}
+                >
+                  {startLocked ? <Lock size={16} /> : <Play size={16} />}
+                  {startPending ? 'Starting...' : startLabel}
+                </Button>
+              </PendingReviewGate>
+              {startLocked ? (
+                <Caption component="p" mt={6} ta="center">
+                  Unlocks after you review the {pendingDecisions[0].movementName} progression
+                </Caption>
+              ) : null}
+            </div>
+          </Panel>
+
+          <TodayWorkoutLedger
+            session={plannedSession}
+            selectedSlotId={selectedSlotId}
+            onSelectSlot={setSelectedSlotId}
+          />
+          <RecoveryCheckPanel history={history} isPending={historyPending} isError={historyError} />
+        </div>
+      </InspectorLayout>
       <PendingProgressionReviewModal
         opened={reviewOpen}
         decisions={pendingDecisions}

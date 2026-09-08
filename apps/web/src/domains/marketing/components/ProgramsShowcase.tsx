@@ -31,7 +31,7 @@ export function ProgramsShowcase() {
     <section id="programs" className="px-4 py-12 md:px-6 md:py-20">
       <div className="mx-auto max-w-[1180px]">
         <div className="max-w-2xl">
-          <SectionLabel>Built-in programs</SectionLabel>
+          <SectionLabel>Built-in programmes</SectionLabel>
           <Heading order={2} size="2rem" lh={1.1} mt="xs">
             Real plans. Clear rules.
           </Heading>

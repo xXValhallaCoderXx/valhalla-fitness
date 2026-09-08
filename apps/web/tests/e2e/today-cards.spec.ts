@@ -36,5 +36,5 @@ test("Today's workout and Recovery check drawers expand; body map deep-links Ins
   await expect(bodyMapLink).toBeVisible()
   await bodyMapLink.click()
   await expect(page).toHaveURL(/\/history\?tab=body-load/, { timeout: 10000 })
-  await expect(page.getByRole('tab', { name: 'Muscle Fatigue' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { selected: true })).toHaveAccessibleName(/muscle/i)
 })

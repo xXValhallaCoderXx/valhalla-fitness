@@ -4,11 +4,18 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { DEMO_USER, type Credentials } from './auth'
 
+type SignedInClient = Awaited<ReturnType<typeof createSignedInClient>>
+
 /**
- * Sign in a throwaway Supabase client as a demo account (never signed out — that would
- * revoke the session the browser under test is using) and resolve its auth user id.
+ * One signed-in client per account, per worker. GoTrue rate-limits sign-ins, and a suite that
+ * signs in afresh for every profile flag it sets will eventually be refused with
+ * "Auth session missing!" — which surfaces as an unrelated-looking test failure. These clients
+ * are never signed out (that would revoke the session the browser under test is using), so
+ * reusing one is equivalent to creating another.
  */
-export async function signInClient(credentials: Credentials) {
+const signedInClients = new Map<string, Promise<SignedInClient>>()
+
+async function createSignedInClient(credentials: Credentials) {
   const { supabaseUrl, anonKey } = getSupabaseTestEnv()
   const client = createClient(supabaseUrl, anonKey, {
     auth: {
@@ -24,6 +31,19 @@ export async function signInClient(credentials: Credentials) {
   if (!data.user) throw new Error(`Unable to read ${credentials.email} for profile setup: no user returned`)
 
   return { client, userId: data.user.id }
+}
+
+export function signInClient(credentials: Credentials): Promise<SignedInClient> {
+  const cached = signedInClients.get(credentials.email)
+  if (cached) return cached
+  // Cache the promise, not the result, so concurrent callers share one sign-in. Drop it on
+  // failure so a transient error does not poison every later call.
+  const pending = createSignedInClient(credentials).catch((error: unknown) => {
+    signedInClients.delete(credentials.email)
+    throw error
+  })
+  signedInClients.set(credentials.email, pending)
+  return pending
 }
 
 /** Resolve a demo account's auth user id (for user-scoped localStorage keys). */
@@ -134,6 +154,26 @@ export async function setLiveOnboardingDismissed(value: boolean) {
 /** Reset the demo user's rest-timer auto-start flag so the timer spec is deterministic. */
 export async function setAutoStartTimer(value: boolean) {
   await updateProfile(DEMO_USER, { auto_start_timer: value })
+}
+
+/**
+ * Pin the demo user's reading mode, and optionally the one-time Full-mode offer.
+ *
+ * Guided and Full render different wording for the same numbers, so any spec asserting copy must
+ * set this rather than inherit what the previous run left behind. Both flags are written in one
+ * call because each `updateProfile` costs a sign-in, and the auth endpoint is rate limited.
+ */
+export async function setReadingMode(
+  credentials: Credentials,
+  mode: 'guided' | 'full',
+  options: { hintDismissed?: boolean } = {},
+) {
+  await updateProfile(credentials, {
+    experience_mode: mode,
+    ...(options.hintDismissed === undefined
+      ? {}
+      : { full_mode_hint_dismissed_at: options.hintDismissed ? new Date().toISOString() : null }),
+  })
 }
 
 function getSupabaseTestEnv() {

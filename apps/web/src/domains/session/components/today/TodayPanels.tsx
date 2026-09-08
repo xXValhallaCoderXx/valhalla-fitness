@@ -2,6 +2,7 @@ import { Badge, Skeleton, VisuallyHidden } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
 import { Caption, CollapsiblePanel, Panel, SectionLabel, Text } from '~/components'
+import { programmeWeekIndex } from '@sheetless/domain/program/program-phase-map'
 import { bodyLoadTierLabels, recoverySummaryLine, worstBodyLoadTier } from '~/domains/history/lib/body-load'
 import { streakBadgeLabel } from '~/domains/history/lib/consistency'
 import type { TodayHistorySupport } from '~/domains/history'
@@ -66,8 +67,8 @@ export function ProgramProgressPanel({
     return (
       <UnavailablePanel
         testId="program-progress-unavailable"
-        title="Program progress"
-        message="Program progress is unavailable right now."
+        title="Programme progress"
+        message="Programme progress is unavailable right now."
       />
     )
   }
@@ -81,13 +82,10 @@ export function ProgramProgressPanel({
     (activeProgram && totalSessions
       ? Math.round(((activeProgram.currentWeekIndex + 1) / totalSessions) * 100)
       : null)
-  const programmeWeekIndex = activeProgram && definition
-    ? ((Math.floor(activeProgram.currentWeekIndex / definition.daysPerWeek) % definition.durationWeeks) + definition.durationWeeks) %
-      definition.durationWeeks
+  const weekIndex = activeProgram && definition
+    ? programmeWeekIndex(activeProgram.currentWeekIndex, definition)
     : null
-  const phaseLabel = programmeWeekIndex === null
-    ? null
-    : definition?.weeks[programmeWeekIndex]?.phaseLabel ?? null
+  const phaseLabel = weekIndex === null ? null : definition?.weeks[weekIndex]?.phaseLabel ?? null
   const positionLabel = overview?.position
     ? `${overview.position.weekLabel} · ${overview.position.phaseLabel}`
     : plannedSession
@@ -98,12 +96,12 @@ export function ProgramProgressPanel({
   return (
     <Panel p="sm">
       <div className="flex items-center justify-between gap-3">
-        <SectionLabel>Program</SectionLabel>
+        <SectionLabel>Programme</SectionLabel>
         <Badge color="action">{activeProgram?.title ?? 'Active'}</Badge>
       </div>
       <ProgressBar value={progress ?? 0} className="mt-3" />
       <Caption mt="xs">
-        {positionLabel ?? 'Program position is unavailable.'}
+        {positionLabel ?? 'Programme position is unavailable.'}
       </Caption>
     </Panel>
   )

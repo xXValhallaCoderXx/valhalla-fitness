@@ -39,7 +39,7 @@ export function AccountDeletionPage() {
         <LegalList
           items={[
             'Your Sheetless authentication identity and profile.',
-            'Your custom programs, workout history, set logs, progression decisions, bodyweight entries, favorites, and feedback.',
+            'Your custom programmes, workout history, set logs, progression decisions, bodyweight entries, favorites, and feedback.',
             'Access to the account immediately after the deletion succeeds.',
           ]}
         />

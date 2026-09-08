@@ -1,5 +1,5 @@
 import { applyReturnPrescription } from './return-prescription'
-import { fixedLoadKey, referencedStateKey } from './return-loads'
+import { fixedLoadKey, percentOf, referencedStateKey } from './return-loads'
 import type { Movement } from '@sheetless/domain/movement/types'
 import type {
   ProgramAccessoryAddition,
@@ -355,8 +355,7 @@ function resolveTargetLoad(
   }
   if (load.kind === 'state') return Number(state.value)
   if (load.default === 'blank') return null
-  const percent = load.default === 'high' && load.percentMax ? load.percentMax : load.percent
-  return mround(Number(state.value) * percent, context.rounding)
+  return mround(Number(state.value) * percentOf(load), context.rounding)
 }
 
 export function resolveMovementId(movementId: string | { default: string; byPhase?: Record<string, string> }, phaseKey: string) {

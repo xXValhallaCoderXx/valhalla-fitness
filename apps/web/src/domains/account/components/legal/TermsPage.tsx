@@ -24,7 +24,7 @@ export function TermsPage() {
 
       <LegalSection title="2. Public-beta service">
         <Text component="p" size="sm" tone="dimmed" lh={1.6}>
-          Sheetless is pre-release software. Features, programs, calculations, availability, and
+          Sheetless is pre-release software. Features, programmes, calculations, availability, and
           data formats may change. We may fix, add, remove, or suspend beta functionality, and the
           service may contain defects or interruptions. We will take reasonable care but do not
           promise uninterrupted or error-free operation.
@@ -35,7 +35,7 @@ export function TermsPage() {
         <LegalList
           items={[
             'Sheetless provides general fitness information and deterministic training tools. It is not medical advice, diagnosis, treatment, physiotherapy, or individualized professional coaching.',
-            'Consult a qualified healthcare professional before beginning or changing an exercise program, especially if you have an injury, medical condition, pregnancy, or other concern.',
+            'Consult a qualified healthcare professional before beginning or changing an exercise programme, especially if you have an injury, medical condition, pregnancy, or other concern.',
             'Use judgment, appropriate technique, equipment, spotting, and load selection. Stop exercising and seek appropriate help if you experience pain, faintness, chest pain, or unusual symptoms.',
             'Progression suggestions and strength estimates are calculations based on the data entered. They do not guarantee safety, suitability, or results.',
           ]}
@@ -53,7 +53,7 @@ export function TermsPage() {
 
       <LegalSection title="5. Your content and data">
         <Text component="p" size="sm" tone="dimmed" lh={1.6}>
-          You retain ownership of notes, feedback, and custom program material you create. You give
+          You retain ownership of notes, feedback, and custom programme material you create. You give
           Sheetless a limited permission to host, copy, process, and display that content only as
           needed to operate, secure, support, and improve the service. Do not submit content you do
           not have the right to use. Our handling of personal data is described in the Privacy
@@ -61,12 +61,12 @@ export function TermsPage() {
         </Text>
       </LegalSection>
 
-      <LegalSection title="6. Sheetless programs and intellectual property">
+      <LegalSection title="6. Sheetless programmes and intellectual property">
         <Text component="p" size="sm" tone="dimmed" lh={1.6}>
-          The application, branding, interface, documentation, and built-in program definitions
-          are owned by Sheetless or used under applicable licenses. Built-in programs are original
+          The application, branding, interface, documentation, and built-in programme definitions
+          are owned by Sheetless or used under applicable licenses. Built-in programmes are original
           Sheetless tools and are not affiliated with or endorsed by any coach, author, book, or
-          third-party program unless explicitly stated. These terms grant only a personal,
+          third-party programme unless explicitly stated. These terms grant only a personal,
           revocable, non-transferable right to use the service.
         </Text>
       </LegalSection>

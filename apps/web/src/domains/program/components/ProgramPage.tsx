@@ -20,7 +20,7 @@ export function ProgramPage({ user }: { user: AuthUser | null }) {
   if (!user) {
     return (
       <Page>
-        <EmptyState title="Sign in to review your program">Program timelines and load state are account data.</EmptyState>
+        <EmptyState title="Sign in to review your programme">Programme timelines and load state are account data.</EmptyState>
       </Page>
     )
   }
@@ -45,14 +45,14 @@ function AuthedProgram() {
       <Page>
         <EmptyState
           centered
-          title="No active program"
+          title="No active programme"
           action={
             <Link to="/templates">
               <Button>Browse plans</Button>
             </Link>
           }
         >
-          Choose a training template to view your program timeline, progression schedule, and current training loads.
+          Choose a training template to view your programme timeline, progression schedule, and current training loads.
         </EmptyState>
       </Page>
     )
@@ -63,7 +63,7 @@ function AuthedProgram() {
   // (the catalogue lookup throws for custom template ids and would bloat the bundle anyway).
   const definition = program.templateDefinition
   if (!definition) {
-    return <PageLoadError error={new Error('Program definition unavailable')} onRetry={() => void overviewQuery.refetch()} />
+    return <PageLoadError error={new Error('Programme definition unavailable')} onRetry={() => void overviewQuery.refetch()} />
   }
 
   const timeline = buildProgramTimeline(program, definition)

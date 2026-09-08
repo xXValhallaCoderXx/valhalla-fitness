@@ -1,7 +1,7 @@
 export type BottomNavSection = '/today' | '/program' | '/history' | '/templates'
 
 export type AppHeaderBackTarget = Readonly<{
-  label: 'Back to Programs' | 'Back to Today'
+  label: 'Back to Programmes' | 'Back to Today'
   to: '/templates' | '/today'
 }>
 
@@ -11,7 +11,7 @@ export type AppNavigation = Readonly<{
 }>
 
 const programsBackTarget = {
-  label: 'Back to Programs',
+  label: 'Back to Programmes',
   to: '/templates',
 } as const satisfies AppHeaderBackTarget
 

@@ -2,12 +2,13 @@ import { Badge, Button, Select } from '@mantine/core'
 import { Scale } from 'lucide-react'
 import type { RequiredEquipment } from '@sheetless/domain/movement/types'
 import { Caption, PageHeader, Panel, SectionLabel, Text } from '~/components'
-import type { Sex, ThemePreference } from '~/domains/account'
+import type { Sex, ThemePreference, UserProfile } from '~/domains/account'
 import type { ProgramStateDefaults, Unit } from '~/shared/types'
 import { AccountSection } from './AccountSection'
 import { BodyweightLogger } from './BodyweightLogger'
 import { DataSyncSection } from './DataSyncSection'
 import { EquipmentSection } from './EquipmentSection'
+import { ExperienceSection } from './ExperienceSection'
 import { PreferencesSection } from './PreferencesSection'
 import { SettingsSection } from './SettingsSection'
 import { SettingsSidebar } from './SettingsSidebar'
@@ -41,6 +42,7 @@ export type SettingsActions = {
 export function SettingsContent({
   values,
   actions,
+  me,
   activeSection,
   activeSessionId,
   email,
@@ -49,6 +51,7 @@ export function SettingsContent({
 }: {
   values: SettingsValues
   actions: SettingsActions
+  me: UserProfile
   activeSection: string
   activeSessionId: string | null
   email: string
@@ -141,6 +144,7 @@ export function SettingsContent({
             onOpenCalculator={actions.onOpenCalculator}
           />
           <EquipmentSection equipmentProfile={values.equipmentProfile} onToggle={actions.onToggleEquipment} />
+          <ExperienceSection me={me} />
           <DataSyncSection activeSessionId={activeSessionId} />
           <AccountSection email={email} />
         </div>

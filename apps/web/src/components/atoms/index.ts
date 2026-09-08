@@ -5,6 +5,7 @@ export { BrandLockup, type BrandLockupSize } from './BrandLockup'
 export { SectionLabel } from './SectionLabel'
 export { StatValue } from './StatValue'
 export { Caption } from './Caption'
+export { FormulaChip } from './FormulaChip'
 export {
   EquipmentModeBadge,
   type EquipmentModeBadgeProps,

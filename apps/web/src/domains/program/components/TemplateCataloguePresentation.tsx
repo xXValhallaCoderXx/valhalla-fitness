@@ -92,7 +92,7 @@ export function ActiveProgramBand({
       <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-center">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Badge color="action" variant="filled">Active program</Badge>
+            <Badge color="action" variant="filled">Active programme</Badge>
             <Badge color={template.origin === 'user_created' ? 'accent' : 'neutral'} variant="light">
               {template.sourceLabel}
             </Badge>

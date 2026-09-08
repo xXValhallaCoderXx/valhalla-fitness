@@ -19,7 +19,7 @@ describe('app navigation resolver', () => {
   ])('maps a template-start route to Programs: %s', (route) => {
     expect(resolveAppNavigation(route)).toEqual({
       backTarget: {
-        label: 'Back to Programs',
+        label: 'Back to Programmes',
         to: '/templates',
       },
       activeBottomNavSection: '/templates',
@@ -81,7 +81,7 @@ describe('app navigation resolver', () => {
 describe('AppHeaderLeading', () => {
   it('renders a labeled 44px-minimum Mantine link for a nested route', () => {
     const backTarget: AppHeaderBackTarget = {
-      label: 'Back to Programs',
+      label: 'Back to Programmes',
       to: '/templates',
     }
     const control = AppHeaderLeading({ backTarget })
@@ -89,11 +89,11 @@ describe('AppHeaderLeading', () => {
     expect(control.type).toBe(Button)
     expect(control.props.component).toBe(Link)
     expect(control.props.to).toBe('/templates')
-    expect(control.props['aria-label']).toBe('Back to Programs')
+    expect(control.props['aria-label']).toBe('Back to Programmes')
     expect(control.props['data-testid']).toBe('nested-back')
     expect(control.props.mih).toBe(44)
     expect(control.props.miw).toBe(44)
-    expect(control.props.children).toBe('Back to Programs')
+    expect(control.props.children).toBe('Back to Programmes')
   })
 
   it('renders the brand link when the route has no back target', () => {

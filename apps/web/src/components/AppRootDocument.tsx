@@ -6,6 +6,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { HeadContent, Scripts } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { AccountIdentityProvider } from '~/domains/account/components/AccountIdentityProvider'
+import { ExperienceModeProvider } from '~/domains/account/components/ExperienceModeProvider'
 import { meQueryOptions } from '~/domains/account/queries'
 import type { LoadedRootRouteContext } from '~/domains/account/lib/app-root-route'
 import type { ThemePreference, UserProfile } from '~/domains/account'
@@ -85,7 +86,12 @@ function ThemedAppShell({
       defaultColorScheme={toMantineColorScheme(themePreference)}
       forceColorScheme={toForcedColorScheme(themePreference)}
     >
-      <AppShell user={user}>{children}</AppShell>
+      <ExperienceModeProvider
+        mode={me?.experienceMode ?? 'guided'}
+        showFormulas={me?.showFormulas ?? false}
+      >
+        <AppShell user={user}>{children}</AppShell>
+      </ExperienceModeProvider>
       <Notifications position="top-right" limit={4} />
       <PwaUpdatePrompt />
       {import.meta.env.DEV ? (
