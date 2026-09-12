@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query'
 import type { WorkoutSession } from '@sheetless/domain/session/types/session'
 import type { TodayPayload } from '@sheetless/domain/session/types/read-models'
+import { reconcileSessionSets } from '@sheetless/domain/session/session-cache'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 
 export function updateSessionManagementCaches(
@@ -8,12 +9,14 @@ export function updateSessionManagementCaches(
   userId: string,
   session: WorkoutSession,
 ) {
-  queryClient.setQueryData(accountQueryKeys.session(userId, session.sessionId), session)
+  const sessionKey = accountQueryKeys.session(userId, session.sessionId)
+  const reconciled = reconcileSessionSets(queryClient.getQueryData<WorkoutSession>(sessionKey), session)
+  queryClient.setQueryData(sessionKey, reconciled)
   queryClient.setQueryData<TodayPayload>(accountQueryKeys.today(userId), (current) =>
     current &&
     session.status === 'in_progress' &&
     (!current.activeSession || current.activeSession.sessionId === session.sessionId)
-      ? { ...current, activeSession: session }
+      ? { ...current, activeSession: reconciled }
       : current,
   )
 }

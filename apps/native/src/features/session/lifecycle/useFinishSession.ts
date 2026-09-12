@@ -9,6 +9,7 @@ import { router } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
 import { finishSession } from '@sheetless/data/session/completion'
 import type { WorkoutSession } from '@sheetless/domain/session/types/session'
+import { hasUnsettledSessionSets } from '@sheetless/domain/session/session-cache'
 import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { buildUserContext } from '@/lib/account'
@@ -32,6 +33,8 @@ export function useFinishSession(
     mutationKey: ['finishSession', sessionId],
     scope: { id: `session:${sessionId}` },
     mutationFn: (reflection: FinishReflection) => {
+      const current = queryClient.getQueryData<WorkoutSession>(accountQueryKeys.session(userId, sessionId)) ?? session
+      if (hasUnsettledSessionSets(current)) throw new Error('Save or retry all sets before finishing.')
       const notes = notesDraft.trim() || null
       return finishSession(buildUserContext(user), {
         sessionId,
