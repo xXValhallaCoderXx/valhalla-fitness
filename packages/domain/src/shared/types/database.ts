@@ -537,6 +537,8 @@ export type Database = {
           display_name: string | null
           email: string | null
           equipment_profile: string[]
+          experience_mode: string
+          full_mode_hint_dismissed_at: string | null
           id: string
           live_onboarding_dismissed: boolean
           onboarding_completed: boolean
@@ -544,6 +546,7 @@ export type Database = {
           program_state_defaults: Json
           rounding: number
           sex: string | null
+          show_formulas: boolean
           theme_preference: string
           timezone: string | null
           units: string
@@ -556,6 +559,8 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           equipment_profile?: string[]
+          experience_mode?: string
+          full_mode_hint_dismissed_at?: string | null
           id: string
           live_onboarding_dismissed?: boolean
           onboarding_completed?: boolean
@@ -563,6 +568,7 @@ export type Database = {
           program_state_defaults?: Json
           rounding?: number
           sex?: string | null
+          show_formulas?: boolean
           theme_preference?: string
           timezone?: string | null
           units?: string
@@ -575,6 +581,8 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           equipment_profile?: string[]
+          experience_mode?: string
+          full_mode_hint_dismissed_at?: string | null
           id?: string
           live_onboarding_dismissed?: boolean
           onboarding_completed?: boolean
@@ -582,6 +590,7 @@ export type Database = {
           program_state_defaults?: Json
           rounding?: number
           sex?: string | null
+          show_formulas?: boolean
           theme_preference?: string
           timezone?: string | null
           units?: string

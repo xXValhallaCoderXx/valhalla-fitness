@@ -1,9 +1,12 @@
+import { useExperienceMode } from '~/domains/account/components'
+import { buildCycleInspector } from '~/domains/program/lib/cycle-inspector'
+import { CycleInspectorPanel } from './inspector/CycleInspectorPanel'
 import { ReturnGuideCard } from './return/ReturnGuideCard'
 import { Button } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
-import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
+import { EmptyState, Page, PageLoadError, PageSkeleton, InspectorLayout } from '~/components'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { buildProgramTimeline } from '~/domains/program/lib/program-timeline'
@@ -20,7 +23,7 @@ export function ProgramPage({ user }: { user: AuthUser | null }) {
   if (!user) {
     return (
       <Page>
-        <EmptyState title="Sign in to review your program">Program timelines and load state are account data.</EmptyState>
+        <EmptyState title="Sign in to review your programme">Programme timelines and load state are account data.</EmptyState>
       </Page>
     )
   }
@@ -29,6 +32,7 @@ export function ProgramPage({ user }: { user: AuthUser | null }) {
 
 function AuthedProgram() {
   const userId = useRequiredAccountId()
+  const { isFull } = useExperienceMode()
   const overviewQuery = useQuery(programOverviewQueryOptions(userId))
   const [reviewOpen, setReviewOpen] = useState(false)
   const [resolvedDecisionIds, setResolvedDecisionIds] = useState<Set<string>>(() => new Set())
@@ -45,14 +49,14 @@ function AuthedProgram() {
       <Page>
         <EmptyState
           centered
-          title="No active program"
+          title="No active programme"
           action={
             <Link to="/templates">
               <Button>Browse plans</Button>
             </Link>
           }
         >
-          Choose a training template to view your program timeline, progression schedule, and current training loads.
+          Choose a training template to view your programme timeline, progression schedule, and current training loads.
         </EmptyState>
       </Page>
     )
@@ -63,7 +67,7 @@ function AuthedProgram() {
   // (the catalogue lookup throws for custom template ids and would bloat the bundle anyway).
   const definition = program.templateDefinition
   if (!definition) {
-    return <PageLoadError error={new Error('Program definition unavailable')} onRetry={() => void overviewQuery.refetch()} />
+    return <PageLoadError error={new Error('Programme definition unavailable')} onRetry={() => void overviewQuery.refetch()} />
   }
 
   const timeline = buildProgramTimeline(program, definition)
@@ -80,6 +84,23 @@ function AuthedProgram() {
     sessionStamps: overview.sessionStamps,
   })
 
+  // The trajectory's forward numbers are top-set loads for the heaviest upcoming week, not
+  // training maxes — the panel labels them as such.
+  const projectedByMovement = Object.fromEntries(
+    (trajectory.phases.find((phase) => phase.projected)?.projected?.values ?? []).map((pill) => [
+      pill.movementId,
+      pill.value,
+    ]),
+  )
+  const cycleModel = buildCycleInspector({
+    definition,
+    weekNumber: phaseMap.currentWeekNumber,
+    totalWeeks: phaseMap.totalWeeks,
+    stateValues: overview.stateValues,
+    decisions: [...overview.pendingDecisions, ...overview.acceptedDecisions],
+    projectedByMovement,
+  })
+
   return (
     <Page>
       <ReturnGuideCard program={program} hasActiveSession={overview.hasActiveSession} />
@@ -87,14 +108,18 @@ function AuthedProgram() {
 
       <PendingReviewAlert decisions={pendingDecisions} onReview={() => setReviewOpen(true)} className="mb-4" />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <ProgramTimeline key={trajectory.currentWeekNumber} trajectory={trajectory} />
+      <InspectorLayout inspector={<CycleInspectorPanel model={cycleModel} units={program.units} />}>
+        {/* With the inspector docked there is not room for a third track, so the loads and recent
+            sessions stack under the timeline instead of sitting beside it. */}
+        <div className={isFull ? 'grid gap-4' : 'grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]'}>
+          <ProgramTimeline key={trajectory.currentWeekNumber} trajectory={trajectory} />
 
-        <div className="space-y-4">
-          <CurrentLoadsCard overview={overview} program={program} />
-          <RecentProgramSessions overview={overview} />
+          <div className="space-y-4">
+            <CurrentLoadsCard overview={overview} program={program} />
+            <RecentProgramSessions overview={overview} />
+          </div>
         </div>
-      </div>
+      </InspectorLayout>
 
       <PendingProgressionReviewModal
         opened={reviewOpen}

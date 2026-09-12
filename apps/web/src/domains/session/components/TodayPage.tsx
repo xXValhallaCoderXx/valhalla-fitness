@@ -29,7 +29,7 @@ export function TodayPage({ user }: { user: AuthUser | null }) {
           title="Sign in to see today's workout"
           action={<Button onClick={() => router.navigate({ to: '/auth' })}>Sign in</Button>}
         >
-          Your active program and live workout drafts are tied to your Supabase account.
+          Your active programme and live workout drafts are tied to your Supabase account.
         </EmptyState>
       </Page>
     )
@@ -111,7 +111,7 @@ function AuthedToday() {
   }
 
   // Active session first: an ad-hoc workout can be live with no programme at all, and it
-  // must surface here rather than falling into the "No active program" empty state.
+  // must surface here rather than falling into the "No active programme" empty state.
   if (data.activeSession) {
     return (
       <TodayActiveSession
@@ -132,7 +132,7 @@ function AuthedToday() {
         {!onboardingActive && !onboardingPending ? (
           <EmptyState
             centered
-            title="No active program"
+            title="No active programme"
             action={
               <div className="flex flex-wrap justify-center gap-2">
                 <Link to="/templates">

@@ -36,6 +36,16 @@ export function fixedLoadKey(selector: FixedLoadSelector) {
   ])
 }
 
+/**
+ * The percentage a set actually uses. A `percent_of_state` set may carry two — `percent` and a
+ * `percentMax` used when the prescription opts into the top of the range — and picking the wrong
+ * one silently changes every planned load, so this rule lives in exactly one place.
+ */
+export function percentOf(load: TemplateLoadDefinition | undefined): number {
+  if (load?.kind !== 'percent_of_state') return 1
+  return load.default === 'high' && load.percentMax ? load.percentMax : load.percent
+}
+
 export function referencedStateKey(
   load: TemplateLoadDefinition | undefined,
   movementId: string,

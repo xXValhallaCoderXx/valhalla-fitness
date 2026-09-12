@@ -1,16 +1,17 @@
 import { Badge, Button } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import { Layers3, Plus, Star, Wrench } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   filterCatalogueItems,
   type CatalogueGoalFilter,
   type CatalogueLevelFilter,
 } from '@sheetless/domain/program/catalogue-filters'
 import { track } from '~/shared/lib/analytics'
-import { Caption, EmptyState, Page, PageHeader, Panel } from '~/components'
+import { Caption, EmptyState, Page, PageHeader, Panel, SectionLabel, Text } from '~/components'
+import { useExperienceMode } from '~/domains/account/components'
+import { programmeLibraryAbout } from '~/domains/program/lib/setup-labels'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { FavoriteWorkoutCard } from '~/domains/session/components/FavoriteWorkoutCard'
 import { favoriteWorkoutsQueryOptions } from '~/domains/session/queries'
@@ -20,8 +21,6 @@ import type { TodayPayload } from '~/domains/session'
 import { buildCatalogueItems, type CatalogueItem } from '~/domains/program/lib/template-families'
 import { FindMyPlanModal } from './FindMyPlanModal'
 import { TemplateCard, TemplateGrid } from './TemplateCard'
-import { accountQueryKeys } from '~/shared/lib/query-keys'
-import { TemplateCatalogueBuilderModal } from './TemplateCatalogueBuilderModal'
 import { TemplateCatalogueFilters } from './TemplateCatalogueFilters'
 import {
   ActiveProgramBand,
@@ -41,12 +40,11 @@ export function TemplateCatalogue({
 }) {
   const userId = useRequiredAccountId()
   const router = useRouter()
-  const builderTitleId = useId()
   const [levelFilter, setLevelFilter] = useState<CatalogueLevelFilter>('All')
   const [goalFilter, setGoalFilter] = useState<CatalogueGoalFilter>('all')
   const [query, setQuery] = useState('')
-  const [showBuilder, setShowBuilder] = useState(false)
   const [showFinder, setShowFinder] = useState(false)
+  const { mode } = useExperienceMode()
   const activeTemplateId = today.activeProgram?.templateId ?? null
   const overviewQuery = useQuery({
     ...programOverviewQueryOptions(userId),
@@ -105,16 +103,6 @@ export function TemplateCatalogue({
       <TemplateCard key={item.template.id} template={item.template} onStart={() => selectTemplate(item.template)} />
     )
 
-  const handleCustomTemplateCreated = async (template: ProgramTemplateSummary) => {
-    notifications.show({ color: 'success', title: 'Programme created', message: `${template.name} is ready to start.` })
-    setShowBuilder(false)
-    await router.invalidate()
-    await router.options.context.queryClient.invalidateQueries({
-      queryKey: accountQueryKeys.templatesRoot(userId),
-    })
-    await router.navigate({ to: '/templates/$templateId/start', params: { templateId: template.id } })
-  }
-
   return (
     <Page className="max-w-[1180px] md:px-8 lg:px-10">
       <PageHeader
@@ -125,12 +113,12 @@ export function TemplateCatalogue({
             <Button
               className="h-8 min-h-8 px-3 sm:hidden"
               hiddenFrom="sm"
-              onClick={() => setShowBuilder(true)}
+              onClick={() => void router.navigate({ to: '/templates/new' })}
             >
               <Plus size={14} />
               Create
             </Button>
-            <Button visibleFrom="sm" onClick={() => setShowBuilder(true)}>
+            <Button visibleFrom="sm" onClick={() => void router.navigate({ to: '/templates/new' })}>
               <Plus size={16} />
               Create programme
             </Button>
@@ -162,8 +150,8 @@ export function TemplateCatalogue({
 
       <Panel surface="inset" className="mb-4 max-w-4xl" px="sm" py="xs">
         <Caption>
-          Built-in programs are original Sheetless programming tools and are not official, affiliated, or endorsed
-          templates from any coach, author, book, or program.
+          Built-in programmes are original Sheetless programming tools and are not official, affiliated, or endorsed
+          templates from any coach, author, book, or programme.
         </Caption>
       </Panel>
 
@@ -214,18 +202,18 @@ export function TemplateCatalogue({
         ) : null}
 
         {!builtInItems.length && !customItems.length ? (
-          <EmptyState title={activeTemplate ? 'No other matching programs' : 'No matching programs'}>
+          <EmptyState title={activeTemplate ? 'No other matching programmes' : 'No matching programmes'}>
             Adjust the search, level, or goal to see more templates.
           </EmptyState>
         ) : null}
-      </div>
 
-      <TemplateCatalogueBuilderModal
-        opened={showBuilder}
-        titleId={builderTitleId}
-        onClose={() => setShowBuilder(false)}
-        onCreated={handleCustomTemplateCreated}
-      />
+        <Panel p="md">
+          <SectionLabel>{programmeLibraryAbout[mode].title}</SectionLabel>
+          <Text mt={6} size="sm" tone="dimmed" lh={1.55}>
+            {programmeLibraryAbout[mode].body}
+          </Text>
+        </Panel>
+      </div>
 
       <FindMyPlanModal
         opened={showFinder}

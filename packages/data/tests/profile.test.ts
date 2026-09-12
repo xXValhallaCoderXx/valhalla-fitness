@@ -145,6 +145,9 @@ describe('updateSettings', () => {
         sex: null,
         auto_start_timer: true,
         default_rest_seconds: 120,
+        experience_mode: 'guided',
+        show_formulas: false,
+        full_mode_hint_dismissed_at: null,
       }],
     })
 
@@ -157,6 +160,8 @@ describe('updateSettings', () => {
       sex: 'female',
       autoStartTimer: false,
       defaultRestSeconds: 180,
+      experienceMode: 'full',
+      showFormulas: true,
     })
 
     expect(stub.updateCalls).toHaveLength(1)
@@ -169,11 +174,14 @@ describe('updateSettings', () => {
       sex: 'female',
       auto_start_timer: false,
       default_rest_seconds: 180,
+      experience_mode: 'full',
+      show_formulas: true,
     })
     expect(stub.updateCalls[0]?.values).not.toHaveProperty('timezone')
     expect(stub.updateCalls[0]?.values).not.toHaveProperty('onboarding_completed')
     expect(stub.updateCalls[0]?.values).not.toHaveProperty('live_onboarding_dismissed')
     expect(stub.updateCalls[0]?.values).not.toHaveProperty('post_workout_feedback_dismissed')
+    expect(stub.updateCalls[0]?.values).not.toHaveProperty('full_mode_hint_dismissed_at')
     expect(profile).toMatchObject({
       units: 'lb',
       rounding: 5,
@@ -186,7 +194,25 @@ describe('updateSettings', () => {
       sex: 'female',
       autoStartTimer: false,
       defaultRestSeconds: 180,
+      experienceMode: 'full',
+      showFormulas: true,
+      fullModeHintDismissedAt: null,
     })
+  })
+
+  it('leaves experience settings untouched when the payload omits them', async () => {
+    const { ctx, stub } = makeStubCtx({
+      profiles: [{ id: 'user-1', units: 'kg', rounding: 2.5, experience_mode: 'full' }],
+    })
+    await updateSettings(ctx, {
+      units: 'kg',
+      rounding: 2.5,
+      equipmentProfile: ['barbell'],
+      themePreference: 'system',
+      programStateDefaults: {},
+    })
+    expect(stub.updateCalls[0]?.values).not.toHaveProperty('experience_mode')
+    expect(stub.updateCalls[0]?.values).not.toHaveProperty('show_formulas')
   })
 
   it('rejects malformed and over-posted settings before issuing an update', async () => {

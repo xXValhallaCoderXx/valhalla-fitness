@@ -8,6 +8,7 @@ const authToken = z.string().trim().min(1).max(16_384)
 const databaseId = z.string().uuid()
 const unit = z.enum(['kg', 'lb'])
 const themePreference = z.enum(['system', 'dark', 'light'])
+const experienceMode = z.enum(['guided', 'full'])
 const sex = z.enum(['male', 'female'])
 const equipmentIdentifier = z.string().trim().min(1).max(100)
 const programStateKey = z.string().trim().min(1).max(200)
@@ -79,6 +80,8 @@ export const updateSettingsInputSchema = z
     sex: sex.nullable().optional(),
     autoStartTimer: z.boolean().optional(),
     defaultRestSeconds: z.number().int().min(30).max(600).optional(),
+    experienceMode: experienceMode.optional(),
+    showFormulas: z.boolean().optional(),
   })
   .strict()
 

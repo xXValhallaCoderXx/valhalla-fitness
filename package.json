@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "brand:generate": "node scripts/generate-brand-assets.mjs",
     "dev": "pnpm --filter sheetless-web dev",
     "build": "pnpm --filter sheetless-web build",
     "preview": "pnpm --filter sheetless-web preview",
@@ -36,7 +37,7 @@
     "pwa:verify": "pnpm --filter sheetless-web pwa:verify",
     "bundle:check": "pnpm --filter sheetless-web bundle:check",
     "architecture:check": "pnpm --filter sheetless-web architecture:check",
-    "verify:native": "pnpm --filter sheetless-native exec expo export --platform web --output-dir .expo/verify-export",
+    "verify:native": "pnpm --filter sheetless-native exec expo export --platform web --platform android --output-dir .expo/verify-export",
     "docs:check": "node apps/web/scripts/check-docs.mjs",
     "db:contract:check": "node apps/web/scripts/check-database-contract.mjs",
     "db:audit": "node apps/web/scripts/audit-release-integrity.mjs",
@@ -48,6 +49,7 @@
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm verify:native && pnpm pwa:verify && pnpm bundle:check && pnpm architecture:check && pnpm docs:check && pnpm db:contract:check"
   },
   "devDependencies": {
+    "sharp": "^0.35.4",
     "supabase": "^2.107.0"
   }
 }

@@ -60,7 +60,7 @@ export function RecentProgramSessions({ overview }: { overview: ProgramOverview 
           </div>
         </div>
       ) : (
-        <Caption mt="sm">No completed sessions for this program yet.</Caption>
+        <Caption mt="sm">No completed sessions for this programme yet.</Caption>
       )}
     </Card>
   )

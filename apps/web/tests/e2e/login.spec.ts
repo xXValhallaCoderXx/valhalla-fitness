@@ -14,7 +14,7 @@ function sessionCookies(page: Page) {
 
 test('demo user can log in and reopen with a persistent session', async ({ browser, page }) => {
   await login(page, DEMO_USER)
-  await expect(page.getByText('Sheetless').first()).toBeVisible()
+  await expect(page.getByText('Sheetless').filter({ visible: true }).first()).toBeVisible()
 
   const authCookies = await sessionCookies(page)
   expect(authCookies.length).toBeGreaterThan(0)
@@ -37,7 +37,13 @@ test('demo user can log in and reopen with a persistent session', async ({ brows
 })
 
 test('explicit log out removes the persistent session', async ({ page }) => {
-  await login(page, DEMO_USER)
+  // Sign-out is global scope: it revokes every session for the account, including the shared
+  // storageState other specs rely on. Run it on demo.logout, the account seeded for exactly
+  // this, and on one project only — the same rule avatar-menu.spec follows.
+  test.skip((page.viewportSize()?.width ?? 0) < 768, 'Global session revocation — desktop project only')
+
+  const DEMO_LOGOUT = { email: 'demo.logout@sheetless.local', password: 'DemoPass123!' }
+  await login(page, DEMO_LOGOUT)
   await page.getByRole('button', { name: 'Account menu' }).click()
   await page.getByRole('menuitem', { name: 'Log out' }).click()
 

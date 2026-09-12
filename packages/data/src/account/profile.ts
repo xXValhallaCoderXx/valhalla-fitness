@@ -7,7 +7,7 @@ import {
 import { normalizeEquipmentProfile } from '@sheetless/domain/account/equipment-profile'
 import { defaultProgramStateDefaults } from '@sheetless/domain/program/program-state-defaults'
 import { normalizeIanaTimeZone } from '@sheetless/domain/shared/calendar-date'
-import type { Sex, ThemePreference, UserProfile } from '@sheetless/domain/account/types'
+import type { ExperienceMode, Sex, ThemePreference, UserProfile } from '@sheetless/domain/account/types'
 import type { ProgramStateDefaults, Unit } from '@sheetless/domain/shared/types'
 import type { TablesUpdate } from '@sheetless/domain/shared/types/database'
 import type { UserContext } from '../shared/context'
@@ -74,6 +74,9 @@ export async function getMe(ctx: UserContext): Promise<UserProfile> {
     sex: (profile.sex ?? null) as Sex | null,
     autoStartTimer: (profile.auto_start_timer ?? true) as boolean,
     defaultRestSeconds: Number(profile.default_rest_seconds ?? 120),
+    experienceMode: (profile.experience_mode ?? 'guided') as ExperienceMode,
+    showFormulas: Boolean(profile.show_formulas),
+    fullModeHintDismissedAt: (profile.full_mode_hint_dismissed_at ?? null) as string | null,
   }
 }
 
@@ -95,6 +98,16 @@ export function dismissPostWorkoutFeedback(ctx: UserContext) {
   return updateProfile(ctx, { post_workout_feedback_dismissed: true })
 }
 
+/** Answers the one-time "Full mode is ready" hint, whichever action the lifter chose. */
+export function dismissFullModeHint(ctx: UserContext) {
+  return updateProfile(ctx, { full_mode_hint_dismissed_at: new Date().toISOString() })
+}
+
+/** Clears the stamp so Settings › Experience can put the hint back. */
+export function restoreFullModeHint(ctx: UserContext) {
+  return updateProfile(ctx, { full_mode_hint_dismissed_at: null })
+}
+
 export async function updateSettings(ctx: UserContext, data: z.infer<typeof updateSettingsInputSchema>) {
   const parsed = updateSettingsInputSchema.parse(data)
   const programStateDefaults = normalizeProgramStateDefaults(parsed.programStateDefaults, parsed.units)
@@ -107,6 +120,8 @@ export async function updateSettings(ctx: UserContext, data: z.infer<typeof upda
     ...(parsed.sex !== undefined ? { sex: parsed.sex } : {}),
     ...(parsed.autoStartTimer !== undefined ? { auto_start_timer: parsed.autoStartTimer } : {}),
     ...(parsed.defaultRestSeconds !== undefined ? { default_rest_seconds: parsed.defaultRestSeconds } : {}),
+    ...(parsed.experienceMode !== undefined ? { experience_mode: parsed.experienceMode } : {}),
+    ...(parsed.showFormulas !== undefined ? { show_formulas: parsed.showFormulas } : {}),
   })
 }
 

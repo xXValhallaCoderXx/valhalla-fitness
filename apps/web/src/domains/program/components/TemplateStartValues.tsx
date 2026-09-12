@@ -10,7 +10,6 @@ import {
   SetupValuesButton,
 } from './TemplateStartStrengthEstimates'
 
-export { DefaultsModal } from './TemplateStartDefaultsModal'
 export {
   MissingEstimatesPopover,
   MissingStrengthEstimatesNotice,

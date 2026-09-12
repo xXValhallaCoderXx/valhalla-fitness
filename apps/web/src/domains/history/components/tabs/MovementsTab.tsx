@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { TextInput } from '@mantine/core'
 import { ChevronDown, ChevronUp, Search } from 'lucide-react'
 import { useMemo } from 'react'
@@ -10,7 +11,7 @@ import {
   type MovementSortKey,
   type SortDir,
 } from '~/domains/history/lib/insights'
-import type { HistoryDashboard, HistoryMovementSummary } from '~/domains/history'
+import type { HistoryDashboardWithInsights, HistoryMovementSummary } from '~/domains/history'
 import type { Unit } from '~/shared/types'
 import { Caption, EmptyState, Panel, SectionLabel, Text } from '~/components'
 import {
@@ -34,7 +35,7 @@ export function MovementsTab({
   sort,
   onSortChange,
 }: {
-  data: HistoryDashboard
+  data: HistoryDashboardWithInsights
   query: string
   onQueryChange: (query: string) => void
   category: string | null
@@ -46,6 +47,12 @@ export function MovementsTab({
   const rows = useMemo(
     () => sortMovementSummaries(filterMovements(data.movementSummaries, query, category), sort.key, sort.dir),
     [data.movementSummaries, query, category, sort],
+  )
+
+  // A row is navigable only when the lift actually has a per-session series behind it.
+  const trackedMovementIds = useMemo(
+    () => new Set(data.insights.liftSeries.map((series) => series.movementId)),
+    [data.insights.liftSeries],
   )
 
   const toggleSort = (key: MovementSortKey) =>
@@ -85,7 +92,14 @@ export function MovementsTab({
             <SortHeader label="Sets" sortKey="sets" sort={sort} onToggle={toggleSort} align="right" />
           </div>
           {rows.map((movement) => (
-            <MovementRow key={movement.movementId} movement={movement} units={data.overview.units} />
+            <MovementRow
+              key={movement.movementId}
+              movement={movement}
+              units={data.overview.units}
+              // Only the lifts with a per-session series have a page to open; the rest would land
+              // on an empty one.
+              hasDetail={trackedMovementIds.has(movement.movementId)}
+            />
           ))}
         </Panel>
       ) : (
@@ -125,9 +139,42 @@ function SortHeader({
   )
 }
 
-function MovementRow({ movement, units }: { movement: HistoryMovementSummary; units?: Unit | null }) {
+function MovementRow({
+  movement,
+  units,
+  hasDetail,
+}: {
+  movement: HistoryMovementSummary
+  units?: Unit | null
+  hasDetail: boolean
+}) {
+  const className = cn(movementGridColumns, 'border-t px-5 py-3')
+  const style = { borderColor: 'var(--mantine-color-default-border)' }
+  const content = <MovementRowCells movement={movement} units={units} />
+
+  if (!hasDetail) {
+    return (
+      <div className={className} style={style}>
+        {content}
+      </div>
+    )
+  }
+
   return (
-    <div className={cn(movementGridColumns, 'border-t px-5 py-3')} style={{ borderColor: 'var(--mantine-color-default-border)' }}>
+    <Link
+      to="/history/$movementId"
+      params={{ movementId: movement.movementId }}
+      className={cn(className, 'vf-card-hover')}
+      style={style}
+    >
+      {content}
+    </Link>
+  )
+}
+
+function MovementRowCells({ movement, units }: { movement: HistoryMovementSummary; units?: Unit | null }) {
+  return (
+    <>
       <div className="min-w-0">
         <Text size="sm" fw={700} truncate>{movement.movementName}</Text>
         <Caption tt="capitalize" truncate>{movement.category.replaceAll('_', ' ')}</Caption>
@@ -147,6 +194,7 @@ function MovementRow({ movement, units }: { movement: HistoryMovementSummary; un
         )}
       </div>
       <Text size="sm" fw={700} ta="right">{movement.totalCompletedSets}</Text>
-    </div>
+    </>
   )
 }
+

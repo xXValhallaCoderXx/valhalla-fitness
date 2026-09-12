@@ -1,5 +1,7 @@
 import { Badge, Card, Group, SimpleGrid } from '@mantine/core'
+import { programLoadReferenceCopy } from '@sheetless/domain/program/program-loads'
 import { Caption, Panel, SectionLabel, StatValue, Text } from '~/components'
+import { useExperienceMode } from '~/domains/account/components'
 import type { ProgramInstance, ProgramOverview, ProgramStateOverview } from '~/domains/program'
 import { formatRelativeTime } from '~/shared/lib/dates'
 import { ProgramInfoHint } from './ProgramInfoHint'
@@ -36,6 +38,8 @@ export function CurrentLoadsCard({
   overview: ProgramOverview
   program: ProgramInstance
 }) {
+  const { mode } = useExperienceMode()
+  const referenceCopy = programLoadReferenceCopy(mode, program.rounding)
   const states = overview.stateValues
   // Lead with the most recently progressed lift — it's the freshest win.
   const hero = states.reduce<ProgramStateOverview | null>((top, state) => {
@@ -51,14 +55,14 @@ export function CurrentLoadsCard({
       <Group align="flex-start" justify="space-between" gap="md" wrap="nowrap">
         <div>
           <Group gap="xs">
-            <SectionLabel>Programme load references</SectionLabel>
+            <SectionLabel>{referenceCopy.label}</SectionLabel>
             <ProgramInfoHint label="Why these numbers?">
               Each planned weight is a percentage of your training max — a strength number set a little below your
               true max so the weights stay doable. Sheetless nudges it up or down based on how your sessions actually
               go.
             </ProgramInfoHint>
           </Group>
-<Caption mt={4}>Current programme values. Progression deltas exclude explicit resets.</Caption>
+          <Caption mt={4}>{referenceCopy.caption}</Caption>
           {program.lastLoadResetAt ? <Caption>Return reset recorded {program.lastLoadResetAt.slice(0, 10)}. Historical workouts retain their original results.</Caption> : null}
         </div>
         <Badge style={{ flexShrink: 0 }}>{program.units}</Badge>

@@ -6,11 +6,11 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View } from 'react-native'
-import { Dumbbell, Mail } from 'lucide-react-native'
+import { Mail } from 'lucide-react-native'
 import { getAuthPolicy } from '@sheetless/domain/shared/auth-config'
-import { Button, Caption, Heading, Panel, Screen, SectionLabel, Text, TextInput } from '@/components'
+import { BrandMark, Button, Caption, Heading, Panel, Screen, SectionLabel, Text, TextInput } from '@/components'
 import { getSupabase } from '@/lib/supabase'
-import { radii, spacing, useTokens } from '@/lib/tokens'
+import { spacing, useTokens } from '@/lib/tokens'
 
 const RESEND_COOLDOWN_SECONDS = 30
 
@@ -104,20 +104,7 @@ export function AuthScreen() {
   return (
     <Screen style={{ justifyContent: 'center', minHeight: '100%' }}>
       <Panel style={{ gap: spacing.md, padding: spacing.lg }}>
-        <View
-          style={{
-            alignItems: 'center',
-            backgroundColor: theme.tones.action.soft,
-            borderColor: theme.tones.action.border,
-            borderRadius: radii.md,
-            borderWidth: 1,
-            height: 44,
-            justifyContent: 'center',
-            width: 44,
-          }}
-        >
-          <Dumbbell size={22} color={theme.tones.action.text} />
-        </View>
+        <BrandMark />
 
         {!sent ? (
           <>

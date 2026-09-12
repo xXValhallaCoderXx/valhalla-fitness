@@ -1,9 +1,15 @@
 import type { DriveStep } from 'driver.js'
 
-/** Spotlight the visible nav for the current breakpoint (desktop header vs mobile bottom bar). */
+/**
+ * Spotlight whichever nav is actually on screen. Three of them exist: the sidebar rail from
+ * `lg` up, the header pill nav in the tablet band, and the bottom bar on phones. Anchoring on a
+ * hidden element leaves driver.js spotlighting nothing.
+ */
 function navSelector(slug: string) {
-  const desktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
-  return `[data-tour="${desktop ? 'nav' : 'mnav'}-${slug}"]`
+  if (typeof window === 'undefined') return `[data-tour="nav-${slug}"]`
+  if (window.matchMedia('(min-width: 64rem)').matches) return `[data-tour="snav-${slug}"]`
+  if (window.matchMedia('(min-width: 48rem)').matches) return `[data-tour="nav-${slug}"]`
+  return `[data-tour="mnav-${slug}"]`
 }
 
 export function buildOnboardingSteps(): DriveStep[] {
@@ -33,7 +39,7 @@ export function buildOnboardingSteps(): DriveStep[] {
     {
       element: navSelector('templates'),
       data: { stepId: 'templates' },
-      popover: { title: 'Programs', description: 'Browse training programs, or tap "Find my plan" to get a recommendation.' },
+      popover: { title: 'Programmes', description: 'Browse training programmes, or tap "Find my plan" to get a recommendation.' },
     },
     {
       data: { stepId: 'first-steps' },

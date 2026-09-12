@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { patchMovementInSession, patchSetInSession, sessionCompletion } from '@sheetless/domain/session/session-cache'
+import { patchMovementInSession, patchSetInSession, reconcileSessionSets, sessionCompletion } from '@sheetless/domain/session/session-cache'
 import type { WorkoutSession } from '@sheetless/domain/session/types'
 
 const session: WorkoutSession = {
@@ -39,6 +39,32 @@ const session: WorkoutSession = {
 }
 
 describe('session cache helpers', () => {
+  it('retains an unconfirmed edit across refetches, then clears it on an exact receipt', () => {
+    const current = patchSetInSession(session, {
+      movementSlotId: 'exercise-1', setIndex: 1, actualLoad: 125, actualReps: 6,
+      completed: true, clientMutationId: 'pending-1', syncState: 'syncFailed',
+    })
+    const refreshed = reconcileSessionSets(current, { ...session, stateVersion: 2 })
+    expect(refreshed.movements).toEqual(current.movements)
+    expect(refreshed.stateVersion).toBe(2)
+    const confirmed = patchSetInSession({ ...session, stateVersion: 3 }, {
+      movementSlotId: 'exercise-1', setIndex: 1, actualLoad: 125, actualReps: 6,
+      completed: true, clientMutationId: 'pending-1', syncState: 'synced',
+    })
+    expect(reconcileSessionSets(refreshed, confirmed)).toBe(confirmed)
+  })
+
+  it('does not carry an edit onto a different or completed workout, or a removed set', () => {
+    const current = patchSetInSession(session, {
+      movementSlotId: 'exercise-1', setIndex: 1, actualLoad: 125, syncState: 'syncFailed',
+    })
+    for (const incoming of [
+      { ...session, sessionId: 'other' },
+      { ...session, status: 'completed' as const },
+      { ...session, movements: [] },
+    ]) expect(reconcileSessionSets(current, incoming)).toBe(incoming)
+  })
+
   it('patches a set without changing the rest of the session', () => {
     const next = patchSetInSession(session, {
       movementSlotId: 'exercise-1',

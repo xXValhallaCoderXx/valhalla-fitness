@@ -241,7 +241,9 @@ for (const root of importScanRoots) {
 const serverModuleBudgets = new Map([
   ['src/domains/account/server/auth-functions.ts', 300],
   ['src/domains/account/server/profile-functions.ts', 90],
+  ['src/domains/account/server/app-links-functions.ts', 20],
   ['src/domains/account/server/bodyweight-functions.ts', 40],
+  ['src/domains/account/server/experience-functions.ts', 40],
   ['src/domains/account/server/data-rights-functions.ts', 40],
   ['src/domains/feedback/server/feedback-functions.ts', 40],
   ['src/domains/history/server/history-functions.ts', 40],

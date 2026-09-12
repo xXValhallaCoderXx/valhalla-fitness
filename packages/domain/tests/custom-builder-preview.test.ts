@@ -26,6 +26,9 @@ function makeProfile(programStateDefaults: ProgramStateDefaults, units: Unit = '
     postWorkoutFeedbackDismissed: true,
     autoStartTimer: true,
     defaultRestSeconds: 120,
+    experienceMode: 'guided',
+    showFormulas: false,
+    fullModeHintDismissedAt: null,
   }
 }
 

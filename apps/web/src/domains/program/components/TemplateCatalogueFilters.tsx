@@ -31,7 +31,7 @@ export function TemplateCatalogueFilters({
       <div className="max-w-4xl">
         <TextInput
           leftSection={<Search size={16} />}
-          placeholder="Search programs"
+          placeholder="Search programmes"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
         />

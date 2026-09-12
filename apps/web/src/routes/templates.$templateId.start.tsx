@@ -1,10 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { meQueryOptions } from '~/domains/account/queries'
+import { historyDashboardQueryOptions } from '~/domains/history/queries'
 import { TemplateStartPage } from '~/domains/program/components/TemplateStartPage'
-import { accountTemplatesQueryOptions, programSetupOptionsQueryOptions, publicTemplatesQueryOptions } from '~/domains/program/queries'
+import {
+  accountTemplatesQueryOptions,
+  programSetupOptionsQueryOptions,
+  publicTemplatesQueryOptions,
+} from '~/domains/program/queries'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { loadRouteQueries, loadRouteQuery } from '~/shared/lib/route-loading'
-
 export const Route = createFileRoute('/templates/$templateId/start')({
   validateSearch: (search: Record<string, unknown>): { variant?: string } => ({
     variant: typeof search.variant === 'string' ? search.variant : undefined,
@@ -13,19 +17,14 @@ export const Route = createFileRoute('/templates/$templateId/start')({
   loader: async ({ context, params, deps }) => {
     await loadRouteQuery(
       context.queryClient,
-      context.user
-        ? accountTemplatesQueryOptions(context.user.id)
-        : publicTemplatesQueryOptions(),
+      context.user ? accountTemplatesQueryOptions(context.user.id) : publicTemplatesQueryOptions(),
     )
     if (context.user) {
       await loadRouteQueries(context.queryClient, [
         meQueryOptions(context.user.id),
         todayQueryOptions(context.user.id),
-        // Preload the variant the page will actually render (falls back to the route template id).
-        programSetupOptionsQueryOptions(
-          context.user.id,
-          deps.variant ?? params.templateId,
-        ),
+        historyDashboardQueryOptions(context.user.id),
+        programSetupOptionsQueryOptions(context.user.id, deps.variant ?? params.templateId),
       ])
     }
   },

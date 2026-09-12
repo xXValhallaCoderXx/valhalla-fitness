@@ -648,7 +648,7 @@ Use `.env.example` for placeholders. Never commit real credentials.
 | `pnpm pwa:verify` | Verify built PWA artifacts. |
 | `pnpm bundle:check` | Enforce production entry-chunk and PWA-precache budgets. |
 | `pnpm architecture:check` | Enforce thin routes, domain boundaries, and component-size gates on both apps. |
-| `pnpm verify:native` | Bundle the Expo app with Metro (`expo export --platform web`). Catches missing platform variants and unresolvable imports that TypeScript cannot see, and regenerates typed routes. |
+| `pnpm verify:native` | Bundle the Expo app for web and Android with Metro (`expo export --platform web --platform android`). Retains the web check, adds the Android/Hermes bundle, catches unresolvable imports that TypeScript cannot see, and regenerates typed routes. |
 | `pnpm docs:check` | Enforce this README as the only human-facing document. |
 | `pnpm db:contract:check` | Statically verify lifecycle/integrity migrations and server call sites. |
 | `pnpm db:migrate:local` | Apply migrations to local Supabase. |
@@ -942,10 +942,37 @@ Nitro reads Railway's `PORT` value at runtime.
 
 ## Android release and internal-track runbook
 
+### Brand assets
+
+`assets/branding/sheetless-mark.svg` is the editable master for the original diagonal dumbbell:
+rounded ends, two stepped plates per side, white on Sheetless teal (`#197f9a`). Run
+`pnpm brand:generate` from the repository root after editing it. The Sharp development dependency
+exports the committed PNGs; normal builds do not run the exporter.
+
+The exporter checks that every visible Android foreground pixel fits inside a centered
+600-pixel-diameter circle on the 1024-pixel canvas, following the
+[Android adaptive-icon safe area](https://developer.android.com/develop/ui/compose/system/icon_design_adaptive).
+Native assets include an opaque square 1024-pixel icon, transparent foreground/monochrome/splash
+layers, a cropped mark for the shared `BrandMark`, and a 32-pixel Expo web favicon. The web app uses
+the same cropped silhouette through a theme-colored mask, 192/512-pixel PWA icons, a maskable
+512-pixel icon, a 180-pixel Apple touch icon, and a 32-pixel favicon. Keep custom `BrandMark`
+children, size variants, muted colors, borders, and adjacent wordmarks intact.
+
+Launcher icons and splash configuration require a new native binary; Fast Refresh cannot update
+them. The launch screen uses the white mark on teal in both appearances, with `contain` and
+`imageWidth: 200`. Inspect cold starts using a standalone preview APK as required by
+[Expo's splash-screen guidance](https://docs.expo.dev/develop/user-interface/splash-screen-and-app-icon/).
+Check small sizes, circular and rounded-square launcher masks, supported themed icons, and light/dark
+sign-in on the physical device. The explicit iOS PNG is configured; iOS device acceptance remains
+outside this Android increment. Website publication and Play distribution remain separate releases;
+the existing PWA update prompt and service-worker lifecycle are unchanged.
+
+### App identity and signing
+
 The Android application ID is permanently **`fitness.sheetless.app`**. Do not change it after the
 Play app is created: Play treats another ID as another app. `apps/native/app.json` owns the visible
 `expo.version`; bump it deliberately for a user-visible release. EAS owns the Android `versionCode`
-remotely, and the production profile increments it automatically. Development and preview profiles
+remotely, and the preview and production profiles increment it automatically. Development and preview profiles
 produce installable APKs; production produces the AAB required by Google Play. See Expo's
 [EAS build configuration](https://docs.expo.dev/eas/json/) and
 [APK profile guidance](https://docs.expo.dev/build-reference/apk/).
@@ -1006,6 +1033,25 @@ Confirm open-beta policy is disabled at both layers: the two client flags above 
 `app_config.auth_allowlist_enabled` is `false` in the hosted database.
 
 ### Development APK gate
+
+For the first personal Android test (SHE-1–3), use a **standalone preview APK** from a release
+branch based on `7a9e396`, including its committed shared-history changes. Keep app version `0.1.0`,
+package identity, and the existing signing credentials. Run the required checks below against the
+hosted backend with Metro stopped; this personal test can cover the core scenarios listed here.
+Record the verified commit, EAS build ID, APK link, version/build number, hosted compatibility,
+and device results in Linear. APK delivery completes the build milestone; each ticket remains open
+until its physical acceptance passes. Broader hosted-preview and Play release gates remain separate.
+
+The 2026-09-12 candidate check found hosted migrations through `202609060006`, including return
+support and the start/finish RPCs. `202609070001_add_experience_mode.sql` is still pending there;
+native core workout flows do not write its mode fields and profile reads provide defaults. Full
+candidate schema acceptance requires the protected database release above. The documented
+`production-database` GitHub environment is not yet configured; this prerequisite is tracked in
+SHE-28. No hosted migration was applied during this check.
+
+Native failed set edits now survive other confirmed saves and session refetches until their own
+mutation receipt is returned. Finish checks the current session cache for unresolved saves.
+This remains in-memory recovery: force-stop/reopen can recover confirmed server data only.
 
 Build and install the development client outside Expo Go:
 

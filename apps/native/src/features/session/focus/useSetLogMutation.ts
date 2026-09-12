@@ -7,7 +7,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 import { upsertSetLog } from '@sheetless/data/session/sets'
-import { patchSetInSession, type SetPatch } from '@sheetless/domain/session/session-cache'
+import { patchSetInSession, reconcileSessionSets, type SetPatch } from '@sheetless/domain/session/session-cache'
 import type { MovementSlot, WorkoutSession } from '@sheetless/domain/session/types/session'
 import type { TodayPayload } from '@sheetless/domain/session/types/read-models'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
@@ -59,10 +59,11 @@ export function useSetLogMutation(
     },
     onError: (_error, patch, context) => {
       // Not a rollback: the typed values stay on screen as syncFailed so the user can retry.
-      if (context?.previous) {
-        queryClient.setQueryData(
+      const previous = context?.previous
+      if (previous) {
+        queryClient.setQueryData<WorkoutSession>(
           accountQueryKeys.session(userId, session.sessionId),
-          patchSetInSession(context.previous, {
+          (current) => patchSetInSession(current ?? previous, {
             ...patch,
             movementSlotId: movement.id,
             setIndex,
@@ -72,11 +73,13 @@ export function useSetLogMutation(
       }
     },
     onSuccess: (nextSession, patch, context) => {
-      queryClient.setQueryData(accountQueryKeys.session(userId, session.sessionId), nextSession)
+      const sessionKey = accountQueryKeys.session(userId, session.sessionId)
+      const reconciled = reconcileSessionSets(queryClient.getQueryData<WorkoutSession>(sessionKey), nextSession)
+      queryClient.setQueryData(sessionKey, reconciled)
       queryClient.setQueryData(
         accountQueryKeys.today(userId),
         (current: TodayPayload | undefined) =>
-          current ? { ...current, activeSession: nextSession } : current,
+          current ? { ...current, activeSession: reconciled } : current,
       )
       // Auto-start rest only on a genuine incomplete -> complete transition (not edits/retries).
       if (patch.completed === true) {

@@ -16,7 +16,7 @@ export function InsightsBodyLoad({ data, gating }: { data: HistoryDashboardWithI
     id: region.regionId, label: region.label, value: `${region.impactPercent}%`, tier: bodyLoadTierLabels[region.tier],
     tone: (region.tier === 'high' ? 'danger' : region.tier === 'moderate' ? 'warning' : region.tier === 'low' ? 'action' : 'neutral') as ToneName,
     opacity: 0.35 + region.impactPercent / 100 * 0.65,
-    detail: `${region.recentSetCount} recent sets · ${region.movementNames.join(', ') || 'No recent work'}`,
+    detail: `Involved in ${region.recentSetCount} set${region.recentSetCount === 1 ? '' : 's'} · ${region.movementNames.join(', ') || 'No recent work'}`,
   })) : adequacy.regions.map((region) => ({
     id: region.regionId, label: region.label, value: `${region.weeklySets} sets/week`, tier: adequacyTierLabels[region.tier],
     tone: (region.tier === 'in_range' ? 'success' : region.tier === 'high' ? 'warning' : 'neutral') as ToneName,

@@ -1,4 +1,4 @@
-import { Cloud, Dumbbell, Gauge, Scale, SlidersHorizontal, User } from 'lucide-react'
+import { BookOpen, Cloud, Dumbbell, Gauge, Scale, SlidersHorizontal, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
 import { prefersReducedMotion } from '~/shared/lib/reduced-motion'
@@ -8,6 +8,7 @@ export const settingsSections = [
   { id: 'body-strength', label: 'Body & Strength', icon: Scale },
   { id: 'programme-loads', label: 'Strength Estimates', icon: Gauge },
   { id: 'equipment', label: 'Equipment', icon: Dumbbell },
+  { id: 'experience', label: 'Experience', icon: BookOpen },
   { id: 'data-sync', label: 'Data & Sync', icon: Cloud },
   { id: 'account', label: 'Account', icon: User },
 ]

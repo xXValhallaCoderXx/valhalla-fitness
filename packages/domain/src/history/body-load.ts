@@ -1,4 +1,10 @@
-import type { BodyLoadRegion, BodyLoadSummary, BodyRegionId, BodyLoadTier } from '@sheetless/domain/history/types'
+import type {
+  BodyLoadContribution,
+  BodyLoadRegion,
+  BodyLoadSummary,
+  BodyRegionId,
+  BodyLoadTier,
+} from '@sheetless/domain/history/types'
 import type { Movement } from '@sheetless/domain/movement/types'
 import type { MovementRole } from '@sheetless/domain/shared/types'
 import { movementCatalog } from '@sheetless/domain/movement/movements'
@@ -199,6 +205,7 @@ export function calculateBodyLoad(
     recentSetCount: number
     lastTrainedAt?: string | null
     movementNames: Set<string>
+    contributions: BodyLoadContribution[]
   }>()
 
   for (const regionId of bodyRegionOrder) {
@@ -207,6 +214,7 @@ export function calculateBodyLoad(
       recentSetCount: 0,
       lastTrainedAt: null,
       movementNames: new Set(),
+      contributions: [],
     })
   }
 
@@ -229,6 +237,17 @@ export function calculateBodyLoad(
       state.score += baseScore * regionWeight
       state.recentSetCount += item.completedSets
       state.movementNames.add(item.movementName)
+      state.contributions.push({
+        movementId: item.movementId,
+        movementName: item.movementName,
+        role: item.role,
+        sets: item.completedSets,
+        roleWeight,
+        recencyWeight,
+        regionWeight,
+        score: roundTwo(baseScore * regionWeight),
+        performedAt: item.performedAt ?? null,
+      })
       const lastTrained = parseDate(state.lastTrainedAt)
       if (!lastTrained || performedAt.getTime() > lastTrained.getTime()) {
         state.lastTrainedAt = item.performedAt ?? null
@@ -239,7 +258,7 @@ export function calculateBodyLoad(
   const regions = bodyRegionOrder.map((regionId): BodyLoadRegion => {
     const state = regionState.get(regionId)
     const score = roundOne(state?.score ?? 0)
-    const impactPercent = Math.min(100, Math.max(0, Math.round((score / 12) * 100)))
+    const impactPercent = Math.min(100, Math.max(0, Math.round((score / BODY_LOAD_FULL_SCORE) * 100)))
     return {
       regionId,
       label: bodyRegionLabels[regionId],
@@ -249,6 +268,10 @@ export function calculateBodyLoad(
       recentSetCount: state?.recentSetCount ?? 0,
       lastTrainedAt: state?.lastTrainedAt ?? null,
       movementNames: Array.from(state?.movementNames ?? []).slice(0, 4),
+      contributions: [...(state?.contributions ?? [])]
+        .sort((left, right) => right.score - left.score)
+        .slice(0, BODY_LOAD_CONTRIBUTION_LIMIT),
+      contributionCount: state?.contributions.length ?? 0,
     }
   })
 
@@ -281,10 +304,35 @@ export function resolveRegionWeights(
     ?? {}
 }
 
-function tierForImpact(impactPercent: number): BodyLoadTier {
-  if (impactPercent <= 0) return 'fresh'
-  if (impactPercent <= 33) return 'low'
-  if (impactPercent <= 66) return 'moderate'
+/**
+ * Tier boundaries, as percentages of the impact score. Exported so the legend can state the
+ * thresholds it is colouring rather than restating them.
+ */
+export const BODY_LOAD_TIER_MAX = { fresh: 0, low: 33, moderate: 66 } as const
+
+/**
+ * The impact score a region needs to read as fully worked.
+ *
+ * `impactPercent` is `score / BODY_LOAD_FULL_SCORE`, where score accumulates
+ * `sets × roleWeight × recencyWeight × regionWeight`. Twelve is roughly four sets of a main lift
+ * (role weight 3) done today (recency 1.0) landing entirely on one region — a hard session for a
+ * single muscle group.
+ */
+export const BODY_LOAD_FULL_SCORE = 12
+
+/**
+ * How many contributing sessions a region reports.
+ *
+ * The list is capped so the dashboard payload stays bounded, which means a region's shown rows may
+ * not add up to its score — `contributionCount` exists so the UI can say so instead of presenting
+ * arithmetic that visibly fails.
+ */
+export const BODY_LOAD_CONTRIBUTION_LIMIT = 4
+
+export function tierForImpact(impactPercent: number): BodyLoadTier {
+  if (impactPercent <= BODY_LOAD_TIER_MAX.fresh) return 'fresh'
+  if (impactPercent <= BODY_LOAD_TIER_MAX.low) return 'low'
+  if (impactPercent <= BODY_LOAD_TIER_MAX.moderate) return 'moderate'
   return 'high'
 }
 
@@ -303,4 +351,8 @@ function daysBetween(left: Date, right: Date) {
 
 function roundOne(value: number) {
   return Math.round(value * 10) / 10
+}
+
+function roundTwo(value: number) {
+  return Math.round(value * 100) / 100
 }

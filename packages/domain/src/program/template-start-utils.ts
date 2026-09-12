@@ -30,15 +30,22 @@ export function stateValuesForProfileTemplate(
   profile: UserProfile,
   trainingMaxPercent = DEFAULT_TRAINING_MAX_PERCENT,
   workingLoadPercent = DEFAULT_WORKING_LOAD_PERCENT,
+  options: {
+    /** Overrides the profile estimate — setup seeds from the best logged set where there is one. */
+    oneRepMaxFor?: (movementId: string) => number | null
+    /** Programme-scoped rounding, which setup lets the lifter change; defaults to the profile's. */
+    rounding?: number
+  } = {},
 ): ProgramStateInput[] {
   if (!template.requiredState.length) return []
   return buildProgramStartStateValues({
     unit: profile.units,
     requiredState: template.requiredState,
     defaults: profile.programStateDefaults,
-    rounding: profile.rounding,
+    rounding: options.rounding ?? profile.rounding,
     trainingMaxPercent,
     workingLoadPercent,
+    oneRepMaxFor: options.oneRepMaxFor,
   })
 }
 

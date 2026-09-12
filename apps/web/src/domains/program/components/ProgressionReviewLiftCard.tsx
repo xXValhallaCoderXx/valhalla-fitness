@@ -1,6 +1,8 @@
 import { Badge, Button } from '@mantine/core'
 import { ArrowRight, Check, Minus, Sparkles } from 'lucide-react'
-import { Caption, SectionLabel, Text } from '~/components'
+import { Caption, FormulaChip, SectionLabel, Text } from '~/components'
+import { useExperienceMode } from '~/domains/account/components'
+import { decisionScopeLabel, decisionSubject } from '~/domains/program/lib/decision-labels'
 import { DecisionFeedbackTrigger } from '~/domains/feedback/components/DecisionFeedback'
 import type { ReviewDecisionView } from '~/domains/program/lib/progression-review'
 import type { ProgressionDecision } from '~/domains/program'
@@ -20,6 +22,7 @@ export function ProgressionReviewLiftCard({
   onAccept: () => void
   onKeep: () => void
 }) {
+  const { mode, isFull, showFormulas } = useExperienceMode()
   const accepted = state === 'accepted'
   const kept = state === 'kept'
   const negative = typeof view.delta === 'number' && view.delta < 0
@@ -42,8 +45,16 @@ export function ProgressionReviewLiftCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <Text size="md" fw={800} truncate>{view.name}</Text>
+            <Text size="md" fw={800} className={isFull ? 'font-mono' : undefined} truncate>
+              {isFull ? decisionSubject(decision, mode) : view.name}
+            </Text>
             {view.kindLabel ? <Badge color="action" variant="light" size="xs">{view.kindLabel}</Badge> : null}
+            {/* A rule id is a machine identifier; Badge's uppercase would misspell it. */}
+            {isFull ? (
+              <Badge color="neutral" variant="light" size="xs" className="font-mono" tt="none">
+                {decision.ruleId}
+              </Badge>
+            ) : null}
           </div>
           {view.reason ? (
             <div className="mt-1.5 flex items-start gap-1.5">
@@ -71,6 +82,26 @@ export function ProgressionReviewLiftCard({
           {view.deltaLabel ? (
             <Badge color={negative ? 'warning' : 'success'} variant="light">{view.deltaLabel}</Badge>
           ) : null}
+        </div>
+      ) : null}
+
+      {/* Full adds what the rule read and the arithmetic it produced. The rationale above is
+          shipped copy and is shown in both modes — it is the explanation, not a Guided version. */}
+      {isFull ? (
+        <div className="mt-3">
+          {/* With no rationale stored, `view.reason` already falls back to the input summary —
+              printing it again here would just repeat the same sentence. */}
+          {decision.inputSummary.trim() !== view.reason.trim() ? (
+            <Caption component="p" lh={1.45}>{decision.inputSummary}</Caption>
+          ) : null}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {showFormulas && view.isNumeric && view.deltaLabel ? (
+              <FormulaChip result={view.nextLabel ?? undefined}>
+                {`${view.currentLabel} ${view.deltaLabel.startsWith('-') ? '−' : '+'} ${view.deltaLabel.replace(/^[+-]/, '')}`}
+              </FormulaChip>
+            ) : null}
+            <Caption className="font-mono">{decisionScopeLabel(decision, mode)}</Caption>
+          </div>
         </div>
       ) : null}
 

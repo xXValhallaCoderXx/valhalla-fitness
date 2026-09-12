@@ -1,4 +1,5 @@
 export { Badge, type BadgeProps } from './Badge'
+export { BrandMark, type BrandMarkProps } from './BrandMark'
 export { Button, type ButtonProps } from './Button'
 export { Caption, type CaptionProps } from './Caption'
 export {

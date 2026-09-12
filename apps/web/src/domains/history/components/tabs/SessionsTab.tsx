@@ -1,39 +1,64 @@
-import { Badge, TextInput } from '@mantine/core'
-import { ChevronRight, Search, Star } from 'lucide-react'
-import { describeWorkoutDate } from '~/shared/lib/dates'
-import { useAccountClock } from '~/domains/account/components/AccountIdentityProvider'
+import { Button, TextInput } from '@mantine/core'
+import { Search } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import {
-  availableIntensities,
-  filterSessions,
-  hasAdHocSessions,
-  intensityColor,
-  type SessionFilter,
-} from '~/domains/history/lib/insights'
-import { AD_HOC_BADGE_LABEL } from '~/domains/session/lib/ad-hoc'
-import type { RecentHistoryEntry } from '~/domains/history'
-import { Caption, EmptyState, EquipmentModeBadge, Panel, Text } from '~/components'
-import { ACCENT_SOFT, ACCENT_TEXT, FilterChip, historySearchInputStyles } from '../insight-format'
+  buildSessionLedgerRows,
+  filterLedgerRows,
+  type LedgerFilter,
+} from '~/domains/history/lib/session-ledger'
+import { availableIntensities, hasAdHocSessions } from '~/domains/history/lib/insights'
 
+/** Rows rendered before "Show older"; the design shows a paged ledger, not the whole history. */
+const SESSION_PAGE_SIZE = 20
+import { AD_HOC_BADGE_LABEL } from '~/domains/session/lib/ad-hoc'
+import type { HistoryDashboardWithInsights } from '~/domains/history'
+import type { ProgressionDecision } from '~/domains/program'
+import { Caption, EmptyState, Panel } from '~/components'
+import { useExperienceMode } from '~/domains/account/components'
+import { FilterChip, historySearchInputStyles } from '../insight-format'
+import { SessionLedgerRail } from '../sessions/SessionLedgerRail'
+import { SessionLedgerTable } from '../sessions/SessionLedgerTable'
+
+/**
+ * The ledger: every session, what it did, and what is waiting on a decision because of it.
+ *
+ * Rows are built for the whole history and filtered afterwards, so the totals in the rail keep
+ * describing everything in range rather than the current filter.
+ */
 export function SessionsTab({
-  sessions,
+  data,
   activeProgramTitle,
+  pendingDecisions,
   onOpenSession,
+  onReviewDecisions,
   filter,
   onFilterChange,
   search,
   onSearchChange,
 }: {
-  sessions: RecentHistoryEntry[]
+  data: HistoryDashboardWithInsights
   activeProgramTitle?: string | null
+  pendingDecisions: ProgressionDecision[]
   onOpenSession: (sessionId: string) => void
-  filter: SessionFilter
-  onFilterChange: (filter: SessionFilter) => void
+  onReviewDecisions: () => void
+  filter: LedgerFilter
+  onFilterChange: (filter: LedgerFilter) => void
   search: string
   onSearchChange: (value: string) => void
 }) {
+  const sessions = data.recentSessions
+  const rows = useMemo(
+    () => buildSessionLedgerRows({ sessions, liftSeries: data.insights.liftSeries }),
+    [sessions, data.insights.liftSeries],
+  )
+  const { isFull } = useExperienceMode()
+  // The dashboard ships up to RECENT_HISTORY_LIMIT rows; rendering all of them at once puts three
+  // times the DOM on a phone for a ledger nobody scrolls to the bottom of. The design pages it.
+  const [shown, setShown] = useState(SESSION_PAGE_SIZE)
+  const matching = filterLedgerRows(rows, filter, search, activeProgramTitle)
+  const visible = matching.slice(0, shown)
   const intensities = availableIntensities(sessions)
-  const showAdHocFilter = hasAdHocSessions(sessions)
-  const filtered = filterSessions(sessions, filter, search)
+  const total = data.overview.completedSessions
 
   if (!sessions.length) {
     return (
@@ -56,82 +81,51 @@ export function SessionsTab({
       />
       <div className="flex flex-wrap gap-2">
         <FilterChip label="All" active={filter === 'all'} onClick={() => onFilterChange('all')} />
+        {activeProgramTitle ? (
+          <FilterChip
+            label="This programme"
+            active={filter === 'programme'}
+            onClick={() => onFilterChange('programme')}
+          />
+        ) : null}
+        <FilterChip label="PRs only" active={filter === 'pr'} onClick={() => onFilterChange('pr')} />
         {intensities.map((level) => (
           <FilterChip key={level} label={level} active={filter === level} onClick={() => onFilterChange(level)} />
         ))}
-        {showAdHocFilter ? (
+        {hasAdHocSessions(sessions) ? (
           <FilterChip label={AD_HOC_BADGE_LABEL} active={filter === 'adhoc'} onClick={() => onFilterChange('adhoc')} />
         ) : null}
       </div>
-      <Panel px="md" py="xs">
-        {filtered.length ? (
-          filtered.map((session, index) => (
-            <SessionRow
-              key={session.id}
-              session={session}
-              last={index === filtered.length - 1}
-              onOpen={() => onOpenSession(session.id)}
-            />
-          ))
-        ) : (
-          <Text size="sm" tone="dimmed" className="py-3">No matching sessions.</Text>
-        )}
-      </Panel>
-    </div>
-  )
-}
 
-function SessionRow({ session, last, onOpen }: { session: RecentHistoryEntry; last: boolean; onOpen: () => void }) {
-  const color = intensityColor(session.hardness)
-  const clock = useAccountClock()
-  const date = describeWorkoutDate({
-    scheduledDate: session.scheduledDate,
-    completedAt: session.completedAt,
-    timeZone: session.timeZone ?? clock.timeZone,
-    today: clock.today,
-  })
-  return (
-    <div className="flex gap-4">
-      <div className="flex w-3.5 shrink-0 flex-col items-center">
-        <span
-          className="mt-5 h-3 w-3 shrink-0 rounded-full"
-          style={{ backgroundColor: ACCENT_TEXT[color], boxShadow: `0 0 0 3px ${ACCENT_SOFT[color]}` }}
+      {/* The totals rail is Full-only, and it splits at `xl` rather than `lg`: eight columns beside
+          a 20rem rail clip the table at 1280, and a ledger you cannot read is worse than one whose
+          totals sit underneath it. */}
+      <div className={isFull ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}>
+        <Panel px="md" py="sm" className="min-w-0">
+          <SessionLedgerTable rows={visible} units={data.overview.units ?? null} onOpen={onOpenSession} />
+        </Panel>
+        <SessionLedgerRail
+          rows={rows}
+          visibleRows={visible}
+          now={data.insights.today}
+          units={data.overview.units ?? null}
+          pendingDecisions={pendingDecisions}
+          onReviewDecisions={onReviewDecisions}
         />
-        {!last ? <span className="w-px flex-1" style={{ backgroundColor: 'var(--mantine-color-default-border)' }} /> : null}
       </div>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="flex flex-1 items-center justify-between gap-4 border-t py-3.5 text-left first:border-t-0"
-        style={{ borderColor: 'var(--mantine-color-default-border)' }}
-      >
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Text fw={800} truncate>{session.title}</Text>
-            {session.isFavorite ? (
-              <Star size={13} fill="var(--vf-accent-text)" color="var(--vf-accent-text)" style={{ flexShrink: 0 }} aria-label="Favourite workout" />
-            ) : null}
-            {session.hardness ? <Badge color={color} variant="light" style={{ flexShrink: 0 }}>{session.hardness}</Badge> : null}
-            {session.isAdHoc ? (
-              <Badge color="accent" variant="light" style={{ flexShrink: 0 }}>{AD_HOC_BADGE_LABEL}</Badge>
-            ) : null}
-            <EquipmentModeBadge equipmentMode={session.equipmentMode} className="shrink-0" />
-          </div>
-          <Caption mt={2} truncate>
-            {[session.weekLabel, `${session.movementCount} movements`, `${session.completedSetCount}/${session.plannedSetCount} sets`]
-              .filter(Boolean)
-              .join(' · ')}
-          </Caption>
-          {date.completionLabel ? <Caption mt={2} truncate>{date.completionLabel}</Caption> : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="text-right">
-            <Text size="xs" fw={700}>{date.compactDate}</Text>
-            <Caption size="0.625rem">{date.relativeDate}</Caption>
-          </div>
-          <ChevronRight size={16} color="var(--mantine-color-dimmed)" />
-        </div>
-      </button>
+
+      {/* Say what is not on screen rather than implying this is everything. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Caption component="p">
+          {`${visible.length} of ${matching.length} shown`}
+          {matching.length === total ? '' : ` · ${total} completed in total`}
+        </Caption>
+        {visible.length < matching.length ? (
+          <Button size="xs" variant="default" onClick={() => setShown((count) => count + SESSION_PAGE_SIZE)}>
+            Show older
+          </Button>
+        ) : null}
+      </div>
     </div>
   )
 }

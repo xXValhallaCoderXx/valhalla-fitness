@@ -4,9 +4,9 @@ import { Caption, Panel, SectionLabel, Text } from '~/components'
 export function ProgramProgressSkeleton() {
   return (
     <Panel p="sm" aria-busy="true" data-testid="program-progress-loading">
-      <VisuallyHidden>Loading program progress</VisuallyHidden>
+      <VisuallyHidden>Loading programme progress</VisuallyHidden>
       <div className="flex items-center justify-between gap-3">
-        <SectionLabel>Program</SectionLabel>
+        <SectionLabel>Programme</SectionLabel>
         <Skeleton width={72} height={20} radius="xl" aria-hidden="true" />
       </div>
       <Skeleton className="mt-3" height={6} radius="xl" aria-hidden="true" />

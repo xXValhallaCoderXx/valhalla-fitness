@@ -24,6 +24,7 @@ import type { ProgressionDecision } from '~/domains/program'
 import type { TodayPayload, WorkoutSession } from '~/domains/session'
 import { SessionProgress, SyncPill } from '../Session'
 import { DiscardWorkoutDialog } from '../DiscardWorkoutDialog'
+import { FullModeHint } from './FullModeHint'
 import { ProgramProgressPanel, StreakBadge, WeeklyVolumePanel } from './TodayPanels'
 
 /** Today view while a workout is live — resume card, progress stats, and side panels. */
@@ -71,6 +72,7 @@ export function TodayActiveSession({
   return (
     <Page className="max-w-5xl">
       <OnboardingPanel />
+      <FullModeHint />
       <PageHeader
         title="Today"
         eyebrow={eyebrow}

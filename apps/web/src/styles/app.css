@@ -1,3 +1,5 @@
+/* Figtree (SIL OFL), self-hosted — the CSP allows font-src 'self' only, never a font CDN. */
+@import "@fontsource-variable/figtree/wght.css";
 @import "@mantine/core/styles.css";
 @import "@mantine/charts/styles.css";
 @import "@mantine/notifications/styles.css";
@@ -13,6 +15,7 @@
     safe-area-max-inset-bottom,
     env(safe-area-inset-bottom, 0px)
   );
+  --vf-desktop-nav-width: 14.5rem;
   --vf-mobile-nav-height: 4rem;
   --vf-mobile-bottom-offset: calc(
     var(--vf-mobile-nav-height) + var(--vf-safe-bottom-max)
@@ -61,6 +64,13 @@ body {
 .vf-app-header-inner {
   padding-left: max(0.75rem, var(--vf-safe-left));
   padding-right: max(0.75rem, var(--vf-safe-right));
+}
+
+.vf-app-sidebar {
+  width: var(--vf-desktop-nav-width);
+  padding: 1.375rem 0.875rem 1.125rem;
+  padding-left: max(0.875rem, var(--vf-safe-left));
+  padding-top: max(1.375rem, var(--vf-safe-top));
 }
 
 .vf-app-scroll-region {
@@ -143,7 +153,6 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .vf-card-hover:hover {
   border-color: var(--vf-action-border) !important;
-  box-shadow: var(--vf-shadow-card-raised) !important;
   transform: translateY(-1px);
 }
 
