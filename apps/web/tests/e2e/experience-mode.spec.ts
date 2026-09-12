@@ -379,3 +379,81 @@ test.describe('programme builder', () => {
     await expect(page.getByTestId('template-validation')).toHaveCount(0)
   })
 })
+
+// The sessions ledger and the progression receipt. Here for the same reason as the rest: these
+// assert a reading mode on DEMO_WAVE, and a second file mutating that flag would race them.
+test.describe('sessions ledger', () => {
+  test('Full carries the spreadsheet columns, the totals rail and the pending decisions', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) < 768, 'server-flag mutation: desktop project only')
+
+    await setReadingMode(DEMO_WAVE, 'full', { hintDismissed: true, showFormulas: true })
+    await login(page, DEMO_WAVE)
+    await page.goto('/history?tab=sessions')
+    await expect(page.getByRole('tab', { selected: true })).toBeVisible({ timeout: 15000 })
+
+    for (const column of ['Date', 'Session', 'Week', 'Sets', 'Tonnage', 'Time']) {
+      await expect(page.getByRole('columnheader', { name: column, exact: true })).toBeVisible()
+    }
+    // The e1RM column says what it actually covers rather than implying every lift.
+    await expect(page.getByRole('columnheader', { name: /Top e1RM/ })).toContainText('main lifts only')
+
+    await expect(page.getByText('Totals · everything in range')).toBeVisible()
+    await expect(page.getByText('This week vs last')).toBeVisible()
+    await expect(page.getByText('in progress')).toBeVisible()
+    await expect(page.getByRole('button', { name: /Export these rows/ })).toBeVisible()
+
+    await setReadingMode(DEMO_WAVE, 'guided', { hintDismissed: true })
+  })
+
+  test('Guided drops the technical columns and the rail', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) < 768, 'server-flag mutation: desktop project only')
+
+    await setReadingMode(DEMO_WAVE, 'guided', { hintDismissed: true })
+    await login(page, DEMO_WAVE)
+    await page.goto('/history?tab=sessions')
+    await expect(page.getByRole('tab', { selected: true })).toBeVisible({ timeout: 15000 })
+
+    await expect(page.getByRole('columnheader', { name: 'Weight moved', exact: true })).toBeVisible()
+    await expect(page.getByRole('columnheader', { name: 'Best lift', exact: true })).toBeVisible()
+    for (const column of ['Week', 'Tonnage', 'Top e1RM']) {
+      await expect(page.getByRole('columnheader', { name: column, exact: true })).toHaveCount(0)
+    }
+    await expect(page.getByText('Totals · everything in range')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Export these rows/ })).toHaveCount(0)
+    // The receipt stays reachable: "no silent changes" is not a Full-mode feature.
+    await expect(page.getByText('Waiting on you')).toBeVisible()
+  })
+
+  test('the receipt names the rule in Full and explains itself in words in Guided', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) < 768, 'server-flag mutation: desktop project only')
+
+    await setReadingMode(DEMO_WAVE, 'full', { hintDismissed: true, showFormulas: true })
+    await login(page, DEMO_WAVE)
+    await page.goto('/history?tab=sessions')
+    await expect(page.getByRole('tab', { selected: true })).toBeVisible({ timeout: 15000 })
+
+    const review = page.getByRole('button', { name: /Review \d+ decision/ })
+    await expect(async () => {
+      await review.click()
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 2000 })
+    }).toPass({ timeout: 20000 })
+
+    const dialog = page.getByRole('dialog')
+    // Full names the state and the rule that produced the change.
+    await expect(dialog.getByText(/^TM_/)).toBeVisible()
+    await expect(dialog.getByText(/training_max_|simple_linear_|double_progression/)).toBeVisible()
+    // Full shows the arithmetic and how far the decision reaches.
+    await expect(dialog.getByText('cycle scope')).toBeVisible()
+    await expect(dialog.getByText(/165 kg \+ 5 kg/)).toBeVisible()
+
+    await setReadingMode(DEMO_WAVE, 'guided', { hintDismissed: true })
+    await page.reload()
+    await expect(page.getByRole('tab', { selected: true })).toBeVisible({ timeout: 15000 })
+    await expect(async () => {
+      await page.getByRole('button', { name: /Review \d+ decision/ }).click()
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 2000 })
+    }).toPass({ timeout: 20000 })
+    // Guided never shows a rule id.
+    await expect(page.getByRole('dialog').getByText(/training_max_|simple_linear_/)).toHaveCount(0)
+  })
+})

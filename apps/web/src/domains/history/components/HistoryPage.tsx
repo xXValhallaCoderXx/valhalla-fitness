@@ -7,8 +7,10 @@ import { useRequiredAccountId } from '~/domains/account/components/AccountIdenti
 import { useExperienceMode } from '~/domains/account/components'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
+import { PendingProgressionReviewModal } from '~/domains/program/components/PendingReview'
 import { historyDashboardQueryOptions } from '~/domains/history/queries'
-import type { MovementSortKey, SessionFilter, SortDir } from '~/domains/history/lib/insights'
+import type { MovementSortKey, SortDir } from '~/domains/history/lib/insights'
+import type { LedgerFilter } from '~/domains/history/lib/session-ledger'
 import type { HistoryTab } from '~/domains/history/lib/history-tabs'
 import type { InsightGating } from '~/domains/history'
 import type { InsightRange } from '~/domains/history/lib/insight-ranges'
@@ -73,7 +75,8 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
   const [movementQuery, setMovementQuery] = useState('')
   const [movementCategory, setMovementCategory] = useState<string | null>(null)
   const [movementSort, setMovementSort] = useState<{ key: MovementSortKey; dir: SortDir }>({ key: 'volume', dir: 'desc' })
-  const [sessionFilter, setSessionFilter] = useState<SessionFilter>('all')
+  const [sessionFilter, setSessionFilter] = useState<LedgerFilter>('all')
+  const [decisionReviewOpen, setDecisionReviewOpen] = useState(false)
   const [sessionSearch, setSessionSearch] = useState('')
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const selectedSessionQuery = useQuery({
@@ -209,9 +212,11 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
         <Tabs.Panel value="sessions">
           <HistoryTabBoundary>
             <SessionsTab
-              sessions={data.recentSessions}
+              data={data}
               activeProgramTitle={activeProgramTitle}
+              pendingDecisions={programOverview?.pendingDecisions ?? []}
               onOpenSession={setSelectedSessionId}
+              onReviewDecisions={() => setDecisionReviewOpen(true)}
               filter={sessionFilter}
               onFilterChange={setSessionFilter}
               search={sessionSearch}
@@ -220,6 +225,15 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
           </HistoryTabBoundary>
         </Tabs.Panel>
       </Tabs>
+
+      {/* Decisions are keyed to the programme instance, never to a session, so the review opened
+          from here is the programme's ledger and says so. */}
+      <PendingProgressionReviewModal
+        opened={decisionReviewOpen}
+        decisions={programOverview?.pendingDecisions ?? []}
+        contextLabel={activeProgramTitle ?? undefined}
+        onClose={() => setDecisionReviewOpen(false)}
+      />
 
       <WorkoutSummaryModal
         open={Boolean(selectedSessionId)}

@@ -95,7 +95,7 @@ export async function getHistoryInputs(
     (from, to) => {
       let sessionQuery = supabase
         .from('workout_sessions')
-        .select('id, program_instance_id, planned_session_id, status, completed_at, scheduled_date, prescription_snapshot, is_favorite, source_session_id')
+        .select('id, program_instance_id, planned_session_id, status, started_at, completed_at, scheduled_date, prescription_snapshot, is_favorite, source_session_id')
         .eq('user_id', userId)
         .eq('status', 'completed')
       if (options.programInstanceId) {
@@ -185,6 +185,7 @@ export async function getHistoryInputs(
       templateId: snapshot?.templateId ?? null,
       programInstanceId: row.program_instance_id,
       scheduledDate: row.scheduled_date,
+      startedAt: row.started_at,
       completedAt: row.completed_at,
       timeZone: snapshot?.timeZone ?? null,
       units: snapshot?.units ?? null,

@@ -15,6 +15,10 @@ export type RecentHistoryEntry = {
   movementCount: number
   completedSetCount: number
   plannedSetCount: number
+  /** Weight actually moved in this session, in the dashboard's display units. */
+  tonnage: number
+  /** Wall-clock minutes from start to finish; null when the session predates start tracking. */
+  durationMinutes: number | null
   isAdHoc?: boolean
   isFavorite?: boolean
 }

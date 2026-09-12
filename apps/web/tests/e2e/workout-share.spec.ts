@@ -74,7 +74,15 @@ test('file sharing uses the prepared PNG and cancellation leaves the preview ope
 test('history dialog switches to preview and back without stacking dialogs', async ({ page }) => {
   await page.goto('/history?tab=sessions')
   await expect(async () => {
-    await page.getByRole('button', { name: /movements.*sets/i }).first().click()
+    // The sessions tab is a table; each row's control is "Open <session title>". Skip ad-hoc rows:
+    // other specs seed synthetic one-movement workouts into this shared account, and the share
+    // preview needs a real programme session.
+    await page
+      .getByRole('row')
+      .filter({ hasNotText: 'Ad hoc' })
+      .getByRole('button', { name: /^Open / })
+      .first()
+      .click()
     await expect(page.getByRole('button', { name: 'Share workout', exact: true })).toBeVisible({ timeout: 1500 })
   }).toPass({ timeout: 15000 })
   await openPreview(page)
