@@ -1,20 +1,15 @@
-import { useIsMutating, useMutation, useQuery } from '@tanstack/react-query'
-import { notifications } from '@mantine/notifications'
-import { useRouter, useRouterState } from '@tanstack/react-router'
+import { useIsMutating, useQuery } from '@tanstack/react-query'
+import { useRouterState } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
-import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
-import { getApiErrorMessage } from '~/shared/lib/api-error'
-import { sessionQueryOptions, todayQueryOptions } from '~/domains/session/queries'
-import { finishSessionFn } from '~/domains/session/server/session-functions'
+import { sessionQueryOptions } from '~/domains/session/queries'
 import { isSessionMutationKey } from '~/domains/session/lib/session-mutations'
-import { useStableMutationRequest } from '~/domains/session/lib/useStableMutationRequest'
+import { useFinishSession } from '~/domains/session/lib/useFinishSession'
 import { buildFocusSessionSteps, buildLiveSessionSteps } from '~/domains/onboarding/onboarding-tour'
 import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
 import type { WorkoutSession } from '~/domains/session'
 import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
 import { cn } from '~/shared/lib/cn'
-import { accountQueryKeys } from '~/shared/lib/query-keys'
 import { FinishSessionModal, type FinishReflection } from './FinishSessionModal'
 import { DiscardWorkoutDialog } from './DiscardWorkoutDialog'
 import { LiveSessionFrame } from './LiveSession'
@@ -54,11 +49,8 @@ function LoadedSessionRoute({
   session: WorkoutSession
   sessionId: string
 }) {
-  const router = useRouter()
-  const userId = useRequiredAccountId()
-  const finishRequest = useStableMutationRequest()
   const [notes, setNotes] = useState(session.notes ?? '')
-  const [finishError, setFinishError] = useState<string | null>(null)
+  const finishMutation = useFinishSession(session, notes)
   const [showFinishModal, setShowFinishModal] = useState(false)
   const [showDiscardDialog, setShowDiscardDialog] = useState(false)
   const sessionMutationPending = useIsMutating({
@@ -110,59 +102,8 @@ function LoadedSessionRoute({
     ? `${failedSetCount} set ${failedSetCount === 1 ? 'needs' : 'need'} to be retried before finishing.`
     : null
 
-  const finishMutation = useMutation({
-    mutationKey: ['finishSession', sessionId],
-    scope: { id: `session:${sessionId}` },
-    mutationFn: ({ reflection, requestId }: { reflection: FinishReflection; requestId: string }) =>
-      finishSessionFn({ data: { sessionId, requestId, notes, ...reflection } }),
-    onMutate: () => {
-      setFinishError(null)
-    },
-    onSuccess: async (summary) => {
-      finishRequest.clearRequest()
-      const queryClient = router.options.context.queryClient
-      notifications.show({
-        color: 'success',
-        title: 'Session finished',
-        message: `${summary.completedSets} of ${summary.totalSets} sets completed. ${
-          session.isAdHoc ? 'Logged to your history.' : 'Your next session is ready.'
-        }`,
-      })
-      queryClient.setQueryData(accountQueryKeys.summary(userId, sessionId), summary)
-      queryClient.setQueryData(
-        accountQueryKeys.session(userId, sessionId),
-        summary.session,
-      )
-      // Cache refreshes are best-effort: the session is already finished on the
-      // server, so a failed refetch must never strand the user in the finish
-      // modal — always reach the summary.
-      try {
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) }),
-          queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(userId) }),
-          queryClient.invalidateQueries({ queryKey: accountQueryKeys.program(userId) }),
-        ])
-        await queryClient.fetchQuery(todayQueryOptions(userId))
-      } catch {
-        void queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) })
-      }
-      await router.navigate({ to: '/sessions/$sessionId/summary', params: { sessionId } })
-    },
-    onError: (error) => {
-      const message = getApiErrorMessage(error, 'Unable to finish this session')
-      // A retry after a lost response lands here even though the finish
-      // committed — treat it as success and get the user to their summary.
-      if (message.includes('already finished')) {
-        void router.navigate({ to: '/sessions/$sessionId/summary', params: { sessionId } })
-        return
-      }
-      setFinishError(message)
-      notifications.show({ color: 'danger', title: 'Could not finish session', message })
-    },
-  })
-
   const requestFinish = () => {
-    setFinishError(null)
+    finishMutation.clearError()
     if (finishBlocked || sessionMutationPending) return
     setShowFinishModal(true)
   }
@@ -177,7 +118,7 @@ function LoadedSessionRoute({
     finishMutation.mutate(
       {
         reflection,
-        requestId: finishRequest.requestIdFor({
+        requestId: finishMutation.requestIdFor({
           notes: notes.trim() || null,
           ...reflection,
         }),
@@ -213,7 +154,7 @@ function LoadedSessionRoute({
             finishLabel={finishMutation.isPending ? 'Finishing...' : 'Finish'}
             finishDisabled={finishMutation.isPending || finishBlocked || sessionMutationPending}
             finishBlockedReason={finishBlockedReason}
-            finishError={finishError}
+            finishError={finishMutation.errorMessage}
             onEnterFocus={() => setMobileView('focus')}
             managementPending={sessionMutationPending}
             onDiscard={requestDiscard}

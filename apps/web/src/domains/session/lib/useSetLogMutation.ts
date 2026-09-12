@@ -7,13 +7,13 @@ import { useRestTimerControls } from '~/domains/session/lib/rest-timer-context'
 import { upsertSetLogFn } from '~/domains/session/server/session-functions'
 import type { MovementSlot, WorkoutSession } from '~/domains/session'
 import { accountQueryKeys } from '~/shared/lib/query-keys'
+import { updateSessionManagementCaches } from '~/domains/session/lib/session-management-cache'
 
 /**
  * Optimistic set-log mutation shared by the Overview row (`LiveSetRow`) and the
  * mobile Focus card (`FocusSetCard`). Patches the account's session cache immediately
- * (syncState `saving`), mirrors the result into Today, and rolls back to
- * `syncFailed` on error. Lifted verbatim from `LiveSetRow` so both call sites behave
- * identically.
+ * (syncState `saving`), retains failed edits for retry, and reconciles server
+ * receipts before mirroring the result into Today.
  */
 export function useSetLogMutation(session: WorkoutSession, movement: MovementSlot, setIndex: number) {
   const userId = useRequiredAccountId()
@@ -57,10 +57,11 @@ export function useSetLogMutation(session: WorkoutSession, movement: MovementSlo
       return { previous }
     },
     onError: (error, patch, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(
+      const previous = context?.previous
+      if (previous) {
+        queryClient.setQueryData<WorkoutSession>(
           accountQueryKeys.session(userId, session.sessionId),
-          patchSetInSession(context.previous, {
+          (current) => patchSetInSession(current ?? previous, {
             ...patch,
             movementSlotId: movement.id,
             setIndex,
@@ -75,13 +76,7 @@ export function useSetLogMutation(session: WorkoutSession, movement: MovementSlo
       })
     },
     onSuccess: (nextSession, patch, context) => {
-      queryClient.setQueryData(
-        accountQueryKeys.session(userId, session.sessionId),
-        nextSession,
-      )
-      queryClient.setQueryData(accountQueryKeys.today(userId), (current: any) =>
-        current ? { ...current, activeSession: nextSession } : current,
-      )
+      updateSessionManagementCaches(queryClient, userId, nextSession)
       // Auto-start rest only on a genuine incomplete -> complete transition (not edits/retries).
       if (patch.completed === true) {
         const priorSet = context?.previous?.movements

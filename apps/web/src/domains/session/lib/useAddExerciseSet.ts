@@ -4,7 +4,7 @@ import { useRequiredAccountId } from '~/domains/account/components/AccountIdenti
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { addExerciseSetFn } from '~/domains/session/server/session-functions'
 import type { MovementSlot, WorkoutSession } from '~/domains/session'
-import { accountQueryKeys } from '~/shared/lib/query-keys'
+import { updateSessionManagementCaches } from '~/domains/session/lib/session-management-cache'
 import { useStableMutationRequest } from '~/domains/session/lib/useStableMutationRequest'
 
 /** Append a set to an accessory movement (mirrors LiveMovementCard's add-set), updating the session/today caches. */
@@ -33,13 +33,7 @@ export function useAddExerciseSet(session: WorkoutSession, movement: MovementSlo
     },
     onSuccess: (nextSession) => {
       clearRequest()
-      queryClient.setQueryData(
-        accountQueryKeys.session(userId, session.sessionId),
-        nextSession,
-      )
-      queryClient.setQueryData(accountQueryKeys.today(userId), (current: any) =>
-        current ? { ...current, activeSession: nextSession } : current,
-      )
+      updateSessionManagementCaches(queryClient, userId, nextSession)
     },
   })
 }
