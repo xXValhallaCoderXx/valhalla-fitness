@@ -19,6 +19,8 @@ test.describe('logged out', () => {
 test('authenticated app shell loads', async ({ page }) => {
   await page.goto('/today')
   await expect(page).toHaveURL(/\/today/)
-  await expect(page.getByText('Sheetless').first()).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Plan', exact: true }).first()).toBeVisible()
+  await expect(page.getByText('Sheetless').filter({ visible: true }).first()).toBeVisible()
+  await expect(
+    page.getByRole('link', { name: 'Plan', exact: true }).filter({ visible: true }).first(),
+  ).toBeVisible()
 })

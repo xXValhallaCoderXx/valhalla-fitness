@@ -41,7 +41,7 @@ export function DeleteAccountDialog({
       withCloseButton={!isPending}
     >
       <Text component="p" size="sm" tone="dimmed" lh={1.55}>
-        This permanently removes your login, profile, custom programs, workout history, set logs,
+        This permanently removes your login, profile, custom programmes, workout history, set logs,
         progression decisions, bodyweight entries, and feedback. This cannot be undone.
       </Text>
       <Caption component="p" mt="md" lh={1.5}>

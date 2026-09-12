@@ -1,4 +1,5 @@
 export { AuthCallbackPage } from './AuthCallbackPage'
 export { AuthPage } from './AuthPage'
+export { ExperienceModeProvider, useExperienceMode } from './ExperienceModeProvider'
 export { SettingsPage } from './SettingsPage'
 export { UserMenu } from './UserMenu'

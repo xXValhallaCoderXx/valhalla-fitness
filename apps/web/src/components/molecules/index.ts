@@ -9,6 +9,7 @@ export { CollapsiblePanel, type CollapsiblePanelProps } from './CollapsiblePanel
 export { ConfirmDialog } from './ConfirmDialog'
 export { EmptyState } from './EmptyState'
 export { InfoHint } from './InfoHint'
+export { InspectorLayout } from './InspectorLayout'
 export { MobileActionBar } from './MobileActionBar'
 export { Page } from './Page'
 export { PageLoadError, PageSkeleton } from './PageFeedback'

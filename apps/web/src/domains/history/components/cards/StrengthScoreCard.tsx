@@ -10,6 +10,8 @@ import type { HistoryInsights, StrengthScoreKind } from '~/domains/history'
 import { Caption, InfoHint, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { BodyweightPromptCard } from '../BodyweightPromptCard'
 import { formatLoad, formatNumber, type HistoryTab } from '../insight-format'
+import { useExperienceMode } from '~/domains/account/components'
+import { insightCardLabel } from '~/domains/history/lib/insight-labels'
 
 const SCORE_BADGE_COLOR: Record<StrengthScoreKind, string> = {
   dots: 'success',
@@ -30,6 +32,7 @@ export function StrengthScoreCard({
   range: InsightRange
   onNavigate: (tab: HistoryTab) => void
 }) {
+  const { mode } = useExperienceMode()
   const score = insights.strengthScore
   const hasBodyweight = insights.bodyweight.entries.length > 0
   const hasSex = insights.bodyweight.sex !== null
@@ -46,7 +49,7 @@ export function StrengthScoreCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <span className="inline-flex items-center gap-1">
-            <SectionLabel>Strength score</SectionLabel>
+            <SectionLabel>{insightCardLabel('strengthScore', mode)}</SectionLabel>
             <InfoHint label="About this metric">{strengthScoreExplanation}</InfoHint>
           </span>
           <StatValue size="xl" mt={4}>

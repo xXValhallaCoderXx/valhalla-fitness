@@ -3,6 +3,8 @@ import { calibrationSignalLabels } from '~/domains/history/lib/calibration'
 import type { CalibrationSummary, CalibrationSignal } from '~/domains/history'
 import { Caption, Panel, SectionLabel, Text } from '~/components'
 import { formatNumber } from '../insight-format'
+import { useExperienceMode } from '~/domains/account/components'
+import { insightCardLabel } from '~/domains/history/lib/insight-labels'
 
 const CALIBRATION_BADGE_COLOR: Record<CalibrationSignal, string> = {
   on_target: 'success',
@@ -13,12 +15,13 @@ const CALIBRATION_BADGE_COLOR: Record<CalibrationSignal, string> = {
 
 /** Rendered only when there's paired-RIR data — parent guards on signal !== 'no_rir_data'. */
 export function CalibrationCard({ calibration }: { calibration: CalibrationSummary }) {
+  const { mode } = useExperienceMode()
   const gap = calibration.meanGap ?? 0
 
   return (
     <Panel p="md">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <SectionLabel>Effort calibration</SectionLabel>
+        <SectionLabel>{insightCardLabel('effort', mode)}</SectionLabel>
         <Badge color={CALIBRATION_BADGE_COLOR[calibration.signal]} variant="light">
           {calibrationSignalLabels[calibration.signal]}
         </Badge>

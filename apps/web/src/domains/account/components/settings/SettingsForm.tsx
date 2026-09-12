@@ -240,6 +240,7 @@ export function SettingsForm({ me }: { me: UserProfile }) {
           onDiscard: discardChanges,
           onSave: () => updateMutation.mutate(),
         }}
+        me={me}
         activeSection={activeSection}
         activeSessionId={activeSessionId}
         email={me.email ?? ''}

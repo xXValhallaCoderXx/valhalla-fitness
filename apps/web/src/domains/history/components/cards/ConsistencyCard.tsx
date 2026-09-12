@@ -2,14 +2,18 @@ import type { ConsistencySummary } from '~/domains/history'
 import { consistencyExplanation } from '~/domains/history/lib/consistency'
 import { Caption, InfoHint, Panel, SectionLabel, StatValue, Text } from '~/components'
 import { formatNumber } from '../insight-format'
+import { useExperienceMode } from '~/domains/account/components'
+import { CONSISTENCY_MIN_WEEKS } from '~/domains/history/lib/insight-gates'
+import { insightCardLabel } from '~/domains/history/lib/insight-labels'
 
 export function ConsistencyCard({ consistency }: { consistency: ConsistencySummary }) {
-  const enoughHistory = consistency.totalWeeks >= 2
+  const { mode } = useExperienceMode()
+  const enoughHistory = consistency.totalWeeks >= CONSISTENCY_MIN_WEEKS
 
   return (
     <Panel p="md">
       <span className="inline-flex items-center gap-1">
-        <SectionLabel>Consistency</SectionLabel>
+        <SectionLabel>{insightCardLabel('consistency', mode)}</SectionLabel>
         <InfoHint label="About this metric">{consistencyExplanation}</InfoHint>
       </span>
       <div className="mt-1 flex items-end gap-2">

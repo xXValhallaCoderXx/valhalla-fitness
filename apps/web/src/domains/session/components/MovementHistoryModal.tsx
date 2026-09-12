@@ -54,7 +54,7 @@ export function MovementHistoryModal({ open, movement, onClose }: { open: boolea
     >
       <div className="space-y-3">
         <Text component="p" size="sm" tone="dimmed">
-          Recent completed logs for this movement, including sessions from any program.
+          Recent completed logs for this movement, including sessions from any programme.
         </Text>
 
         {historyQuery.isPending ? (

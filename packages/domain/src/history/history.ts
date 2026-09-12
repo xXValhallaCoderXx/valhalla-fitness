@@ -38,6 +38,8 @@ export type HistorySessionInput = {
   templateId?: string | null
   programInstanceId?: string | null
   scheduledDate: string
+  /** When the lifter actually started; null for sessions logged before this was recorded. */
+  startedAt?: string | null
   completedAt?: string | null
   timeZone?: string | null
   units?: Unit | null
@@ -112,7 +114,7 @@ export function buildHistoryDashboard({
     ? orderedSessions.reduce((total, session) => total + calculateSessionCompletedVolume(session, displayUnits), 0)
     : calculateCompletedVolume(completedSets)
   const movementSummaries = buildMovementSummaries(orderedSessions, catalog, displayUnits)
-  const recentSessions = buildRecentHistoryEntries(orderedSessions)
+  const recentSessions = buildRecentHistoryEntries(orderedSessions, displayUnits ?? 'kg')
 
   return {
     overview: {
@@ -330,8 +332,19 @@ export function buildSubstitutionSummaries(
     .map((candidate) => candidate.summary)
 }
 
-export function buildRecentHistoryEntries(sessions: HistorySessionInput[]): RecentHistoryEntry[] {
-  return sortHistorySessionsNewestFirst(sessions).slice(0, 20).map((session): RecentHistoryEntry => {
+/**
+ * How many sessions the dashboard ships.
+ *
+ * The ledger pages against this, and `overview.completedSessions` is the true total — so the screen
+ * can say "60 of 187" rather than implying the list is everything.
+ */
+export const RECENT_HISTORY_LIMIT = 60
+
+export function buildRecentHistoryEntries(
+  sessions: HistorySessionInput[],
+  displayUnits: Unit = 'kg',
+): RecentHistoryEntry[] {
+  return sortHistorySessionsNewestFirst(sessions).slice(0, RECENT_HISTORY_LIMIT).map((session): RecentHistoryEntry => {
     const completedSetCount = session.exercises.flatMap((exercise) => exercise.sets).filter((set) => set.completed).length
     return {
       id: session.id,
@@ -347,10 +360,21 @@ export function buildRecentHistoryEntries(sessions: HistorySessionInput[]): Rece
       movementCount: session.movementCount,
       completedSetCount,
       plannedSetCount: session.plannedSetCount,
+      tonnage: Math.round(calculateSessionCompletedVolume(session, displayUnits)),
+      durationMinutes: sessionDurationMinutes(session),
       isAdHoc: session.isAdHoc,
       isFavorite: session.isFavorite,
     }
   })
+}
+
+/** Wall-clock minutes actually spent, or null when the session has no recorded start. */
+function sessionDurationMinutes(session: HistorySessionInput): number | null {
+  if (!session.startedAt || !session.completedAt) return null
+  const started = new Date(session.startedAt).getTime()
+  const finished = new Date(session.completedAt).getTime()
+  if (Number.isNaN(started) || Number.isNaN(finished) || finished <= started) return null
+  return Math.round((finished - started) / 60000)
 }
 
 export function toBodyLoadWork(

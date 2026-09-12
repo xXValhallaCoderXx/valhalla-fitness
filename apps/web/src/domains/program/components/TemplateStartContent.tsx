@@ -1,93 +1,59 @@
 import { Badge, Button } from '@mantine/core'
-import { Check, Info } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Info } from 'lucide-react'
 import type { ReactNode } from 'react'
-import {
-  Caption,
-  ConfirmDialog,
-  MobileActionBar,
-  Page,
-  PageHeader,
-  Text,
-} from '~/components'
-import { defaultsSummary } from '~/domains/program/lib/template-start-utils'
+import { Caption, MobileActionBar, Page, PageHeader, Panel, Text } from '~/components'
+import { blockerForStep, continueToLabel, setupStepPosition } from '~/domains/program/lib/setup-steps'
 import type { UserProfile } from '~/domains/account'
 import type { ProgramSetupOptions, ProgramTemplateSummary } from '~/domains/program'
+import type { LiftE1rmSeries } from '~/domains/history'
 import type { TodayPayload } from '~/domains/session'
-import { StartInfoMetric } from './TemplateStartMetric'
-import { ProgrammeBlocksCard } from './TemplateStartBlocks'
-import { ProgrammeInfoModal } from './TemplateStartInfoModal'
-import { TemplateStartPreview } from './TemplateStartPreview'
-import { DefaultsModal, MissingEstimatesPopover, QuickFactsCard, SetupValuesButton, StartSummaryPanel } from './TemplateStartValues'
+import { EquipmentStep } from './template-start/EquipmentStep'
+import { MissingEstimatesPopover } from './TemplateStartValues'
+import { ReviewStep } from './template-start/ReviewStep'
+import { ScheduleStep } from './template-start/ScheduleStep'
+import { StartingNumbersStep } from './template-start/StartingNumbersStep'
+import { TemplateStartModals } from './template-start/TemplateStartModals'
+import { TemplateStartStepRail } from './template-start/TemplateStartStepRail'
+import { WeekOnePreview } from './template-start/WeekOnePreview'
 import { useTemplateStartController } from './useTemplateStartController'
-import { TemplateStartEquipmentModeSection } from './TemplateStartEquipmentModeSection'
 
+/**
+ * Programme setup, as four steps.
+ *
+ * Every step reads and writes the same controller, so the payload sent to `startProgramFn` is the
+ * single object it always was — splitting the page changed what is on screen at once, never what
+ * gets saved.
+ */
 export function TemplateStartContent({
   template,
   me,
   today,
   setupOptions,
+  liftSeries = null,
   scheduleSelector,
 }: {
   template: ProgramTemplateSummary
   me: UserProfile
   today: TodayPayload
   setupOptions: ProgramSetupOptions
-  /** Optional programme-family variant selector rendered under the header (see TemplateStartPage). */
+  liftSeries?: LiftE1rmSeries[] | null
+  /** Optional programme-family variant selector, rendered in the Schedule step. */
   scheduleSelector?: ReactNode
 }) {
-  const start = useTemplateStartController({ template, me, today, setupOptions })
-  const {
-    activeWeek,
-    activeWeekOption,
-    weekOptions,
-    phases,
-    mode,
-    activePhaseKey,
-    changedSlots,
-    quickFacts,
-    visibleState,
-    missingRequiredState,
-    hasTrainingMaxState,
-    hasWorkingLoadState,
-    customizationCount,
-    equipmentMode,
-    freeWeightChoices,
-    freeWeightPreview,
-    showEquipmentModePreview,
-    movementOverrides,
-    accessoryAdditions,
-    trainingMaxPercent,
-    workingLoadPercent,
-    startError,
-    isStarting,
-    showSwitchConfirm,
-    showDefaultsModal,
-    showProgrammeInfo,
-    setActiveWeekIndex,
-    setShowSwitchConfirm,
-    setShowDefaultsModal,
-    setShowProgrammeInfo,
-    setShowEquipmentModePreview,
-    updateStateValue,
-    updateDerivedStatePercent,
-    handleMovementOverrideChange,
-    handleAddAccessory,
-    requestEquipmentMode,
-    updateFreeWeightChoice,
-    confirmEquipmentMode,
-    handleRemoveAccessory,
-    requestStartProgram,
-    confirmSwitch,
-  } = start
+  const start = useTemplateStartController({ template, me, today, setupOptions, liftSeries })
+  const stepProps = { start, template, me, setupOptions, scheduleSelector }
+  const blocker = blockerForStep(start.blockers, start.step)
+  const forwardLabel = continueToLabel(start.step)
+  const isReview = start.step === 'review'
 
   return (
     <Page className="max-w-[1200px] pb-44 md:px-8 lg:px-10 lg:pb-8">
       <PageHeader
-        eyebrow="Start programme"
+        eyebrow="Set up programme"
         title={template.name}
         actions={
           <>
-            <Button variant="default" onClick={() => setShowProgrammeInfo(true)}>
+            <Button variant="default" onClick={() => start.setShowProgrammeInfo(true)}>
               <Info size={14} />
               How it works
             </Button>
@@ -99,77 +65,57 @@ export function TemplateStartContent({
         {template.description}
       </PageHeader>
 
-      {scheduleSelector}
+      <TemplateStartStepRail step={start.step} onSelect={start.setStep} />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
-        <div className="min-w-0 space-y-4">
-          <TemplateStartEquipmentModeSection
-            equipmentMode={equipmentMode}
-            freeWeightChoices={freeWeightChoices}
-            freeWeightPreview={freeWeightPreview}
-            showEquipmentModePreview={showEquipmentModePreview}
-            setShowEquipmentModePreview={setShowEquipmentModePreview}
-            requestEquipmentMode={requestEquipmentMode}
-            updateFreeWeightChoice={updateFreeWeightChoice}
-            confirmEquipmentMode={confirmEquipmentMode}
+      {start.step === 'numbers' ? (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+          <StartingNumbersStep
+            rows={start.liftRows}
+            units={start.units}
+            rounding={start.rounding}
+            trainingMaxPercent={start.trainingMaxPercent}
+            hasTrainingMaxState={start.hasTrainingMaxState}
+            onValueChange={start.updateStateValue}
+            onTrainingMaxPercentChange={(percent) => start.updateDerivedStatePercent('training_max', percent)}
+            onRoundingChange={start.updateRounding}
+            onUnitsChange={start.updateUnits}
           />
-
-          <ProgrammeBlocksCard
-            mode={mode}
-            phases={phases}
-            activePhaseKey={activePhaseKey}
-            weeks={setupOptions.previewWeeks}
-            onSelectPhase={setActiveWeekIndex}
-          />
-
-          <div className="grid gap-2 sm:grid-cols-3 lg:hidden">
-            <StartInfoMetric label="Schedule" value={`${template.daysPerWeek} days/wk`} />
-            <StartInfoMetric label="Progression" value={template.progressionLabel} />
-            <StartInfoMetric label="Complexity" value={template.complexity} />
-          </div>
-
-          <TemplateStartPreview
-            activeWeek={activeWeek}
-            activeWeekOption={activeWeekOption}
-            weekOptions={weekOptions}
-            mode={mode}
-            phases={phases}
-            activePhaseKey={activePhaseKey}
-            changedSlots={changedSlots}
-            units={me.units}
-            equipmentProfile={me.equipmentProfile}
-            setupOptions={setupOptions}
-            movementOverrides={movementOverrides}
-            accessoryAdditions={accessoryAdditions}
-            equipmentMode={equipmentMode}
-            freeWeightChoices={freeWeightChoices}
-            onWeekChange={setActiveWeekIndex}
-            onMovementOverrideChange={handleMovementOverrideChange}
-            onAddAccessory={handleAddAccessory}
-            onRemoveAccessory={handleRemoveAccessory}
-          />
+          <WeekOnePreview week={setupOptions.previewWeeks[0]} showAccessoryNote />
         </div>
+      ) : null}
+      {start.step === 'equipment' ? <EquipmentStep {...stepProps} /> : null}
+      {start.step === 'schedule' ? <ScheduleStep {...stepProps} /> : null}
+      {isReview ? <ReviewStep {...stepProps} /> : null}
 
-        <div className="hidden lg:sticky lg:top-0 lg:flex lg:flex-col lg:gap-4">
-          <QuickFactsCard facts={quickFacts} />
-          <StartSummaryPanel
-            units={me.units}
-            rounding={me.rounding}
-            visibleState={visibleState}
-            missingRequiredState={missingRequiredState}
-            hasTrainingMaxState={hasTrainingMaxState}
-            hasWorkingLoadState={hasWorkingLoadState}
-            customizationCount={customizationCount}
-            startError={startError}
-            isPending={isStarting}
-            onStart={requestStartProgram}
-            onViewDefaults={() => setShowDefaultsModal(true)}
-          />
-        </div>
+      {blocker ? (
+        <Panel
+          p="sm"
+          mt="md"
+          style={{ borderColor: 'var(--vf-warning-border)', backgroundColor: 'var(--vf-warning-soft)' }}
+        >
+          <Caption component="p" lh={1.5}>{blocker.message}</Caption>
+        </Panel>
+      ) : null}
+
+      <div className="mt-4 hidden items-center justify-between gap-3 lg:flex">
+        <Button
+          variant="default"
+          disabled={setupStepPosition(start.step) === 1}
+          onClick={() => start.goToStep('previous')}
+        >
+          <ArrowLeft size={15} />
+          Back
+        </Button>
+        {forwardLabel ? (
+          <Button disabled={Boolean(blocker)} onClick={() => start.goToStep('next')}>
+            {forwardLabel}
+            <ArrowRight size={15} />
+          </Button>
+        ) : null}
       </div>
 
       <MobileActionBar maxWidth="1200px">
-        {startError ? (
+        {start.startError ? (
           <Text
             size="xs"
             style={{
@@ -180,87 +126,45 @@ export function TemplateStartContent({
               padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-sm)',
             }}
           >
-            {startError}
+            {start.startError}
           </Text>
         ) : null}
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <Text size="xs" fw={800} truncate>{template.name}</Text>
             <Caption truncate>
-              {defaultsSummary(me.units, me.rounding, visibleState)}
+              Step {setupStepPosition(start.step)} of 4
             </Caption>
           </div>
           <div className="flex shrink-0 gap-2">
-            <SetupValuesButton
-              disabled={missingRequiredState.length > 0}
-              label={missingRequiredState.length === 0 && visibleState.length > 0 ? 'Modify values' : 'Values'}
-              onClick={() => setShowDefaultsModal(true)}
-            />
-            <MissingEstimatesPopover active={missingRequiredState.length > 0}>
-              <Button
-                disabled={isStarting || missingRequiredState.length > 0}
-                style={missingRequiredState.length > 0 ? { pointerEvents: 'none' } : undefined}
-                onClick={missingRequiredState.length > 0 ? undefined : requestStartProgram}
-              >
-                <Check size={16} />
-                Start
+            <Button
+              variant="default"
+              disabled={setupStepPosition(start.step) === 1}
+              onClick={() => start.goToStep('previous')}
+            >
+              Back
+            </Button>
+            {isReview ? (
+              <MissingEstimatesPopover active={start.missingRequiredState.length > 0}>
+                <Button
+                  disabled={start.isStarting || start.missingRequiredState.length > 0}
+                  style={start.missingRequiredState.length > 0 ? { pointerEvents: 'none' } : undefined}
+                  onClick={start.missingRequiredState.length > 0 ? undefined : start.requestStartProgram}
+                >
+                  <Check size={16} />
+                  Start
+                </Button>
+              </MissingEstimatesPopover>
+            ) : (
+              <Button disabled={Boolean(blocker)} onClick={() => start.goToStep('next')}>
+                Continue
               </Button>
-            </MissingEstimatesPopover>
+            )}
           </div>
         </div>
       </MobileActionBar>
 
-      <DefaultsModal
-        opened={showDefaultsModal}
-        units={me.units}
-        rounding={me.rounding}
-        profileDefaults={me.programStateDefaults}
-        visibleState={visibleState}
-        missingRequiredState={missingRequiredState}
-        trainingMaxPercent={trainingMaxPercent}
-        workingLoadPercent={workingLoadPercent}
-        hasTrainingMaxState={hasTrainingMaxState}
-        hasWorkingLoadState={hasWorkingLoadState}
-        onTrainingMaxPercentChange={(percent) => updateDerivedStatePercent('training_max', percent)}
-        onWorkingLoadPercentChange={(percent) => updateDerivedStatePercent('working_load', percent)}
-        onStateValueChange={updateStateValue}
-        onClose={() => setShowDefaultsModal(false)}
-      />
-      <ProgrammeInfoModal
-        opened={showProgrammeInfo}
-        template={template}
-        setupOptions={setupOptions}
-        phases={phases}
-        weekOptions={weekOptions}
-        onClose={() => setShowProgrammeInfo(false)}
-      />
-      <ConfirmDialog
-        open={showSwitchConfirm}
-        title="Replace active programme?"
-        confirmLabel="Replace programme"
-        confirmVariant="danger"
-        tone="danger"
-        isPending={isStarting}
-        onCancel={() => setShowSwitchConfirm(false)}
-        onConfirm={confirmSwitch}
-      >
-        <div className="space-y-2">
-          <Text>
-            You already have{' '}
-            <Text component="span" fw={600}>
-              {today.activeProgram?.title ?? 'an active programme'}
-            </Text>{' '}
-            active.
-          </Text>
-          <Text>
-            Starting <Text component="span" fw={600}>{template.name}</Text> will archive the current programme and make
-            this your new active programme.
-          </Text>
-          {today.activeSession ? (
-            <Text>Your workout in progress will be marked as abandoned. Saved lifts will be retained.</Text>
-          ) : null}
-        </div>
-      </ConfirmDialog>
+      <TemplateStartModals start={start} template={template} setupOptions={setupOptions} today={today} />
     </Page>
   )
 }

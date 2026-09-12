@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { setupStepRail } from './support/setup-wizard'
 
 // Uses the shared authenticated session from auth.setup.ts.
 test('find my plan recommends a plan and adapts to the answers', async ({ page }) => {
@@ -64,8 +65,7 @@ test('find my plan recommends a new gap-filling plan and starts it from the DB s
   // Start it — proves the DB-seeded template + version load the setup screen end-to-end.
   await dialog.getByRole('button', { name: 'View plan' }).click()
   await expect(page).toHaveURL(/\/templates\/beginner_upper_lower_lp\/start/)
-  // The start CTA label is responsive: "Start programme" on desktop (sidebar), a compact "Start"
-  // in the mobile sticky footer (the desktop button is not rendered at the mobile breakpoint).
-  const startCta = (page.viewportSize()?.width ?? 1280) < 1024 ? 'Start' : 'Start programme'
-  await expect(page.getByRole('button', { name: startCta, exact: true })).toBeVisible({ timeout: 10000 })
+  // Setup opens on step 1 of the wizard; the rail rendering is what proves the seeded template and
+  // its version resolved. Starting from the last step is covered in template-start.spec.
+  await expect(setupStepRail(page)).toBeVisible({ timeout: 10000 })
 })

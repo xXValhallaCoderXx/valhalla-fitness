@@ -9,6 +9,7 @@ import {
   programSetupOptionsQueryOptions,
 } from '~/domains/program/queries'
 import { familyMembersForTemplate } from '~/domains/program/lib/template-families'
+import { historyDashboardQueryOptions } from '~/domains/history/queries'
 import { todayQueryOptions } from '~/domains/session/queries'
 import { TemplateStartContent } from './TemplateStartContent'
 
@@ -43,6 +44,12 @@ export function TemplateStartPage({
     ...programSetupOptionsQueryOptions(user?.id ?? '', variantId),
     enabled: Boolean(user),
   })
+  // Starting numbers come from the best logged set where there is one. This is an enhancement over
+  // the saved estimate, never a requirement — an error here falls back rather than failing setup.
+  const historyQuery = useQuery({
+    ...historyDashboardQueryOptions(user?.id ?? ''),
+    enabled: Boolean(user),
+  })
 
   if (templatesQuery.isPending) return <PageSkeleton />
   if (templatesQuery.isError) return <PageLoadError error={templatesQuery.error} onRetry={() => void templatesQuery.refetch()} />
@@ -75,7 +82,9 @@ export function TemplateStartPage({
     )
   }
 
-  if (meQuery.isPending || todayQuery.isPending || setupQuery.isPending) return <PageSkeleton />
+  if (meQuery.isPending || todayQuery.isPending || setupQuery.isPending || historyQuery.isPending) {
+    return <PageSkeleton />
+  }
   if (meQuery.isError) return <PageLoadError error={meQuery.error} onRetry={() => void meQuery.refetch()} />
   if (todayQuery.isError) return <PageLoadError error={todayQuery.error} onRetry={() => void todayQuery.refetch()} />
   if (setupQuery.isError) return <PageLoadError error={setupQuery.error} onRetry={() => void setupQuery.refetch()} />
@@ -127,6 +136,7 @@ export function TemplateStartPage({
       me={meQuery.data}
       today={todayQuery.data}
       setupOptions={setupQuery.data}
+      liftSeries={historyQuery.data?.insights.liftSeries ?? null}
       scheduleSelector={scheduleSelector}
     />
   )

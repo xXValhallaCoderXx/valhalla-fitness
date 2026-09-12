@@ -73,8 +73,9 @@ test('session history keeps the scheduled day primary for an overnight workout',
 }) => {
   await page.goto('/history?tab=sessions')
 
+  // The sessions tab is a table now; the row carries the date, the title and the completion stamp.
   const overnightSession = page
-    .getByRole('button')
+    .getByRole('row')
     .filter({ hasText: 'Extra bench day' })
     .filter({ hasText: 'Yesterday' })
   await expect(overnightSession).toHaveCount(1)

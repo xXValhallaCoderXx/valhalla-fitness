@@ -9,6 +9,23 @@ import type { ProgramTimelineModel, TimelineWeek } from '@sheetless/domain/progr
  * no named waves still produce a sensible map (one phase / one unnamed wave).
  */
 
+/**
+ * Which week of the cycle a programme is on, 0-based.
+ *
+ * `ProgramInstance.currentWeekIndex` counts completed *sessions*, not weeks — dividing by
+ * `daysPerWeek` is what turns it back into a week, and the double modulo keeps the result in
+ * range when a programme runs past the end of its cycle and repeats.
+ */
+export function programmeWeekIndex(
+  currentSessionIndex: number,
+  definition: { durationWeeks: number; daysPerWeek: number },
+): number | null {
+  const { durationWeeks, daysPerWeek } = definition
+  if (!Number.isFinite(currentSessionIndex) || daysPerWeek <= 0 || durationWeeks <= 0) return null
+  const week = Math.floor(currentSessionIndex / daysPerWeek)
+  return ((week % durationWeeks) + durationWeeks) % durationWeeks
+}
+
 export type PhaseMapWeekStatus = 'done' | 'current' | 'upcoming'
 
 export type PhaseMapWeek = {

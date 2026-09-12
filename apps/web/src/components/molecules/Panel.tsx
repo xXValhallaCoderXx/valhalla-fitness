@@ -5,9 +5,9 @@ export interface PanelProps extends PaperProps, ElementProps<'div', keyof PaperP
 }
 
 /**
- * Themed surface. `panel` (default) is an elevated card; `inset` is a recessed
- * surface. Replaces the `vf-panel` / `vf-inset` utility classes and ad-hoc
- * `bg-[var(--vf-surface-2)]` cards.
+ * Themed surface. `panel` (default) is the standard card; `inset` is a recessed surface.
+ * Both are flat — depth is carried by the border, and shadows are reserved for things that
+ * genuinely float (modals, menus, the rest-timer pill).
  */
 export function Panel({ surface = 'panel', style, ...props }: PanelProps) {
   const inset = surface === 'inset'
@@ -18,7 +18,6 @@ export function Panel({ surface = 'panel', style, ...props }: PanelProps) {
       style={{
         backgroundColor: inset ? 'var(--vf-surface-2)' : 'var(--mantine-color-default)',
         borderColor: inset ? 'var(--mantine-color-default-border)' : 'var(--vf-card-border)',
-        boxShadow: inset ? undefined : 'var(--vf-shadow-card)',
         ...style,
       }}
       {...props}

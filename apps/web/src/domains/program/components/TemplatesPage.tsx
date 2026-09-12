@@ -28,10 +28,10 @@ function TemplatesIndexRoute({ user }: { user: AuthUser | null }) {
     return (
       <Page>
         <EmptyState
-          title="Sign in to start a program"
+          title="Sign in to start a programme"
           action={<Button onClick={() => router.navigate({ to: '/auth' })}>Sign in</Button>}
         >
-          Templates are visible, but starting a program requires a Supabase account.
+          Templates are visible, but starting a programme requires a Supabase account.
         </EmptyState>
       </Page>
     )

@@ -64,6 +64,8 @@ function session(partial: Partial<RecentHistoryEntry> & { id: string }): RecentH
     hardness: 'hardness' in partial ? partial.hardness : 'Medium',
     movementCount: partial.movementCount ?? 4,
     completedSetCount: partial.completedSetCount ?? 12,
+    tonnage: partial.tonnage ?? 0,
+    durationMinutes: partial.durationMinutes ?? null,
     plannedSetCount: partial.plannedSetCount ?? 15,
     isAdHoc: partial.isAdHoc,
     isFavorite: partial.isFavorite,

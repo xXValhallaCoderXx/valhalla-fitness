@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
-import { login } from './support/auth'
+import { DEMO_USER, login } from './support/auth'
+import { setReadingMode } from './support/profile'
 
 // The insight surface is server-rendered; charts (recharts) mount after hydration,
 // so assertions lean on text/numbers that paint immediately and use toPass where a
@@ -7,6 +8,12 @@ import { login } from './support/auth'
 // seeded, active plan) except the prompt-card test, which logs in as demo.wave.
 
 test.describe('insights', () => {
+  // Card and tab names differ between reading modes, so pin the shared account rather than
+  // inheriting whatever a previous spec left on it.
+  test.beforeEach(async () => {
+    await setReadingMode(DEMO_USER, 'guided')
+  })
+
   test('strength tab shows the DOTS score and per-lift trend cards', async ({ page }) => {
     await page.goto('/history?tab=strength')
 
@@ -39,9 +46,9 @@ test.describe('insights', () => {
     await page.goto('/history')
 
     await expect(page.getByText(/strength score/i)).toBeVisible()
-    await expect(page.getByText(/^consistency$/i)).toBeVisible()
+    await expect(page.getByText(/^showing up$/i)).toBeVisible()
     await expect(page.getByText(/muscle balance/i)).toBeVisible()
-    await expect(page.getByText(/weekly volume/i)).toBeVisible()
+    await expect(page.getByText(/weight moved each week/i)).toBeVisible()
 
     // demo.linear has bodyweight + sex + history, so the DOTS-over-time trend renders on the
     // Overview strength card (a LineChart) once recharts settles after hydration.
@@ -50,7 +57,21 @@ test.describe('insights', () => {
     }).toPass({ timeout: 15000 })
   })
 
-  test('settings logs a bodyweight entry', async ({ page }) => {
+  // Writes a bodyweight entry, which bodyweight-trend.spec asserts precisely on the shared
+  // account — so this drives its own, in its own context.
+  test('settings logs a bodyweight entry', async ({ browser }) => {
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+    const page = await context.newPage()
+    try {
+      await runBodyweightLog(page)
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+async function runBodyweightLog(page: import('@playwright/test').Page) {
+    await login(page, { email: 'demo.started@sheetless.local', password: 'DemoPass123!' })
     await page.goto('/settings')
 
     const input = page.getByLabel(/bodyweight in/i)
@@ -67,8 +88,9 @@ test.describe('insights', () => {
     await logButton.click()
     // On success the logger resets the weight, disabling the button again.
     await expect(logButton).toBeDisabled({ timeout: 10000 })
-  })
+}
 
+test.describe('insights · other accounts', () => {
   test('bodyweight prompt appears for a user without bodyweight', async ({ browser }) => {
     const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
     const page = await context.newPage()

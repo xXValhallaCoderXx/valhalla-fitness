@@ -8,6 +8,8 @@ import { listFavoriteWorkouts } from '@sheetless/data/session/favorites'
 import { listMovementSwapOptions } from '@sheetless/data/session/movements'
 import { getSession, getToday } from '@sheetless/data/session/reads'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
+import { reconcileSessionSets } from '@sheetless/domain/session/session-cache'
+import type { WorkoutSession } from '@sheetless/domain/session/types/session'
 import { queryStaleTimes } from '@sheetless/domain/shared/query-stale-times'
 import { buildUserContext } from '@/lib/account'
 
@@ -23,6 +25,10 @@ export function sessionQueryOptions(user: User, sessionId: string) {
   return queryOptions({
     queryKey: accountQueryKeys.session(user.id, sessionId),
     queryFn: () => getSession(buildUserContext(user), sessionId),
+    structuralSharing: (current, incoming) => reconcileSessionSets(
+      current as WorkoutSession | undefined,
+      incoming as WorkoutSession,
+    ),
     staleTime: queryStaleTimes.session,
   })
 }

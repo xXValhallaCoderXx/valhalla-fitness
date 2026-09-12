@@ -28,6 +28,29 @@ const week531 = [
   ],
 ] as const
 
+/**
+ * Progression constants, exported so copy can quote the rule instead of restating it.
+ *
+ * NOTE: the two rules disagree about `barbell_row`. The training-max band treats it as lower body
+ * (a 5 kg standard step); simple linear treats it as upper (2.5 kg). That difference is
+ * pre-existing and preserved here deliberately — unifying it would change how existing programmes
+ * progress, which is not a copy change.
+ */
+export const TRAINING_MAX_UPPER_LIFTS = ['bench_press', 'overhead_press'] as const
+export const SIMPLE_LINEAR_UPPER_LIFTS = ['bench_press', 'overhead_press', 'barbell_row'] as const
+
+/** Training-max band steps, in kg, before rounding. */
+export const TRAINING_MAX_STEP = {
+  standard: { upper: 2.5, lower: 5 },
+  double: { upper: 5, lower: 7.5 },
+} as const
+
+/** A missed minimum backs the training max off by a tenth. */
+export const TRAINING_MAX_RESET_FACTOR = 0.9
+
+/** Simple-linear completion step, in kg, before rounding. */
+export const SIMPLE_LINEAR_INCREMENT = { upper: 2.5, lower: 5 } as const
+
 export function computeTrainingMaxWaveSets(anchor: number, weekIndex: number, rounding: number) {
   const week = week531[weekIndex % 4]
   const main = week.map((target, index): SetTarget => ({
@@ -66,7 +89,7 @@ export function evaluateTrainingMaxBand(
   movementId: string,
   stateKey: string,
 ): ProgressionDecision {
-  const isUpper = movementId === 'bench_press' || movementId === 'overhead_press'
+  const isUpper = (TRAINING_MAX_UPPER_LIFTS as readonly string[]).includes(movementId)
   const minimumMissed = cycleTopSets.some(
     (set) => (set.actualReps ?? 0) < (set.targetReps ?? 0),
   )
@@ -82,18 +105,18 @@ export function evaluateTrainingMaxBand(
   let rationale: string
   if (minimumMissed) {
     band = 'reset'
-    next = mround(currentTm * 0.9, rounding)
+    next = mround(currentTm * TRAINING_MAX_RESET_FACTOR, rounding)
     rationale = 'You missed target reps, so Sheetless backs the weight off to rebuild it safely.'
   } else if (hasGrinder) {
     band = 'hold'
     rationale = 'Your last set was very hard (about 1 rep left), so Sheetless holds the weight to let you own it.'
   } else if (allDoubleEligible) {
     band = 'double'
-    next = mround(currentTm + (isUpper ? 5 : 7.5), rounding)
+    next = mround(currentTm + (isUpper ? TRAINING_MAX_STEP.double.upper : TRAINING_MAX_STEP.double.lower), rounding)
     rationale = 'You beat the target by 2+ reps with reps to spare, so Sheetless makes a bigger jump.'
   } else {
     band = 'standard'
-    next = mround(currentTm + (isUpper ? 2.5 : 5), rounding)
+    next = mround(currentTm + (isUpper ? TRAINING_MAX_STEP.standard.upper : TRAINING_MAX_STEP.standard.lower), rounding)
     rationale = 'You beat the target with good effort, so Sheetless progresses the lift.'
   }
 
@@ -173,8 +196,8 @@ export function evaluateSimpleLinearCompletion(
   })
   if (!completedAllTargets) return null
 
-  const isUpper = movementId === 'bench_press' || movementId === 'overhead_press' || movementId === 'barbell_row'
-  const incrementValue = increment ?? (isUpper ? 2.5 : 5)
+  const isUpper = (SIMPLE_LINEAR_UPPER_LIFTS as readonly string[]).includes(movementId)
+  const incrementValue = increment ?? (isUpper ? SIMPLE_LINEAR_INCREMENT.upper : SIMPLE_LINEAR_INCREMENT.lower)
   const recommended = Math.max(mround(currentAnchor + incrementValue, rounding), currentAnchor + rounding)
   return {
     id: `pending-simple-linear-${movementId}`,

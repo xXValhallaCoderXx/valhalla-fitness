@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildTodayLedgerCaption,
   buildTodayLedgerRows,
+  buildTodaySessionMeta,
   countPlannedSets,
   formatPreviousHero,
   formatPreviousLine,
@@ -194,5 +195,59 @@ describe('formatPreviousLine / formatPreviousHero', () => {
       workoutDate: '2026-07-03',
       performedAt: '2026-07-04T00:30:00+08:00',
     }, 'kg')).toContain('Jul 3')
+  })
+})
+
+describe('Guided vs Full notation', () => {
+  const previous: PreviousComparable = {
+    movementId: 'squat',
+    label: '',
+    load: 107.5,
+    reps: 6,
+    rir: 3,
+    e1rm: 140,
+    performedAt: '2026-07-03',
+  }
+
+  it('says how many reps were left instead of RIR on the ledger line', () => {
+    expect(formatPreviousLine(previous, 'guided')).toBe('107.5 × 6 · ~3 left')
+    expect(formatPreviousLine(previous, 'full')).toBe('107.5 × 6 @ RIR 3')
+  })
+
+  it('calls a taken-to-failure set max effort rather than RIR 0', () => {
+    expect(formatPreviousLine({ ...previous, rir: 0 }, 'guided')).toBe('107.5 × 6 · max effort')
+  })
+
+  it('drops the estimated max and the jargon from the hero line in Guided', () => {
+    const guided = formatPreviousHero(previous, 'kg', 'guided')
+    expect(guided).toBe('Last time · 107.5 kg × 6 · ~3 left · Jul 3')
+    expect(guided).not.toMatch(/e1RM|RIR|comparable/)
+    expect(formatPreviousHero(previous, 'kg', 'full')).toContain('e1RM 140 kg')
+  })
+
+  it('keeps the technical wording by default so existing callers are unaffected', () => {
+    expect(formatPreviousLine(previous)).toBe(formatPreviousLine(previous, 'full'))
+    expect(formatPreviousHero(previous, 'kg')).toBe(formatPreviousHero(previous, 'kg', 'full'))
+  })
+
+  it('turns a target RIR cue into plain words in the ledger target column', () => {
+    const cue = {
+      ...squat,
+      sets: squat.sets.map((set) => ({ ...set, targetLoad: null, targetRir: 2 })),
+    }
+    expect(buildTodayLedgerRows({ units: 'kg', movements: [cue] }, 'guided')[0].targetLabel).toBe('~2 left')
+    expect(buildTodayLedgerRows({ units: 'kg', movements: [cue] }, 'full')[0].targetLabel).toBe('RIR 2')
+  })
+
+  it('adds the set count and tightens the time estimate in Full', () => {
+    const session = { movements: [squat, press], estimatedMinutes: 75 }
+    expect(buildTodaySessionMeta(session, 'guided')).toBe('2 movements · about 75 min')
+    expect(buildTodaySessionMeta(session, 'full')).toBe(
+      `2 movements · ${countPlannedSets(session)} sets · ~75 min`,
+    )
+  })
+
+  it('omits the duration when the session has no estimate', () => {
+    expect(buildTodaySessionMeta({ movements: [squat] }, 'guided')).toBe('1 movement')
   })
 })

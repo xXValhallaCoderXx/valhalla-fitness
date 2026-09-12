@@ -101,10 +101,10 @@ export const mantineTheme = createTheme({
     defaultRadius: 'md',
     cursorType: 'pointer',
     fontFamily:
-        'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        '"Figtree Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     headings: {
         fontFamily:
-            'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+            '"Figtree Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         fontWeight: '700',
     },
     colors: {
@@ -135,7 +135,7 @@ export const mantineTheme = createTheme({
         xs: '0.25rem',
         sm: '0.5rem',
         md: '0.6875rem',
-        lg: '1rem',
+        lg: '0.75rem',
         xl: '1.25rem',
     },
     shadows: {
@@ -196,7 +196,6 @@ export const mantineTheme = createTheme({
                 root: {
                     backgroundColor: 'var(--mantine-color-default)',
                     borderColor: 'var(--vf-card-border)',
-                    boxShadow: 'var(--vf-shadow-card)',
                     color: 'var(--mantine-color-text)',
                 },
             },

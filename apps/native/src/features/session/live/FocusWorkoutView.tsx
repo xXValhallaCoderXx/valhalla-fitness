@@ -4,6 +4,7 @@ import { useIsMutating } from '@tanstack/react-query'
 import { router, useFocusEffect } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
 import type { WorkoutSession } from '@sheetless/domain/session/types/session'
+import { hasUnsettledSessionSets } from '@sheetless/domain/session/session-cache'
 import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
 import { PopulatedFocusWorkoutView } from '../focus/PopulatedFocusWorkoutView'
 import { RenameWorkoutSheet } from '../editing/RenameWorkoutSheet'
@@ -39,9 +40,7 @@ export function FocusWorkoutView({ user, session }: { user: User; session: Worko
     predicate: (mutation) => mutation.options.scope?.id === `session:${session.sessionId}`,
   })
   const sessionBusy = activeSessionMutations > 0
-  const hasUnsettledSet = session.movements.some((movement) =>
-    movement.sets.some((set) => set.syncState === 'saving' || set.syncState === 'syncFailed'),
-  )
+  const hasUnsettledSet = hasUnsettledSessionSets(session)
   const finishBlocked = sessionBusy || hasUnsettledSet
   const incompleteSetCount = session.movements.reduce(
     (count, movement) => count + movement.sets.filter((set) => !set.completed).length,

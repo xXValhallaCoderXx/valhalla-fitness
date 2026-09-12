@@ -1,4 +1,4 @@
-import { floorCappedIncrease } from './return-loads'
+import { floorCappedIncrease, percentOf } from './return-loads'
 import type { ProgramSessionStamp, ProgramStateOverview, ProgressionDecision } from '@sheetless/domain/program/types'
 import type { Unit } from '@sheetless/domain/shared/types'
 import { getMovementName } from '@sheetless/domain/movement/movements'
@@ -165,19 +165,13 @@ function weekTopSets(definition: TemplateDefinition, weekIndex: number): TopSetR
         progresses: PROGRESSING_RULE_IDS.has(prescription.progressionRuleId ?? ''),
       }
       const existing = byMovement.get(movementId)
-      if (!existing || percentOf(ref.set) > percentOf(existing.set)) byMovement.set(movementId, ref)
+      if (!existing || percentOf(ref.set.targetLoad) > percentOf(existing.set.targetLoad)) byMovement.set(movementId, ref)
       else if (ref.progresses && !existing.progresses) existing.progresses = true
     }
   }
   return Array.from(byMovement.values()).sort(
     (left, right) => liftSortIndex(left.movementId) - liftSortIndex(right.movementId),
   )
-}
-
-function percentOf(set: TemplateSetDefinition) {
-  const load = set.targetLoad
-  if (load?.kind !== 'percent_of_state') return 1
-  return load.default === 'high' && load.percentMax ? load.percentMax : load.percent
 }
 
 /** Standard "targets hit" increment for one progression event on a state. */
@@ -354,7 +348,7 @@ export function buildProgramTrajectory({
       if (value === null || !Number.isFinite(value) || value <= 0) continue
       const load =
         ref.set.targetLoad?.kind === 'percent_of_state'
-          ? mround(value * percentOf(ref.set), rounding)
+          ? mround(value * percentOf(ref.set.targetLoad), rounding)
           : value
       targets.push({ movementId: ref.movementId, label: shortLiftLabel(ref.movementId), load })
     }

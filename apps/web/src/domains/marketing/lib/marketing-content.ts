@@ -80,7 +80,7 @@ export const marketingFeatures: MarketingFeature[] = [
   },
   {
     id: 'history',
-    title: 'Real program history',
+    title: 'Real programme history',
     body: 'Track main lifts, variations, accessories, substitutions, and progression decisions in one place.',
   },
   {
@@ -105,7 +105,7 @@ export const howItWorksCopy = {
 export const howItWorksSteps = [
   {
     title: 'Pick a plan',
-    body: 'Start with a real strength program or a simple progression model.',
+    body: 'Start with a real strength programme or a simple progression model.',
   },
   {
     title: 'Log what happened',
@@ -194,7 +194,7 @@ export const footerNav = [
     links: [
       { label: 'Features', href: '#features' },
       { label: 'How it works', href: '#how' },
-      { label: 'Programs', href: '#programs' },
+      { label: 'Programmes', href: '#programs' },
     ],
   },
   {
@@ -216,12 +216,12 @@ export const footerNav = [
 
 export const footerLegal = {
   copyright:
-    '© 2026 Sheetless. Built-in programs are original Sheetless tools, not affiliated with any coach or book.',
+    '© 2026 Sheetless. Built-in programmes are original Sheetless tools, not affiliated with any coach or book.',
   tagline: 'Transparent strength training without the spreadsheet maintenance.',
 }
 
 export const marketingNavLinks = [
   { label: 'Features', href: '#features' },
   { label: 'How it works', href: '#how' },
-  { label: 'Programs', href: '#programs' },
+  { label: 'Programmes', href: '#programs' },
 ] as const

@@ -58,7 +58,7 @@ export function DataSyncSection({ activeSessionId }: { activeSessionId: string |
         <DataRow
           icon={Download}
           title="Export data"
-          caption="Download your profile, programs, workouts, sets, decisions, and feedback as JSON."
+          caption="Download your profile, programmes, workouts, sets, decisions, and feedback as JSON."
           action={
             <Button
               variant="default"

@@ -18,6 +18,9 @@ const profile = (overrides: Partial<UserProfile> = {}): UserProfile => ({
   sex: 'female',
   autoStartTimer: true,
   defaultRestSeconds: 150,
+  experienceMode: 'guided',
+  showFormulas: false,
+  fullModeHintDismissedAt: null,
   ...overrides,
 })
 

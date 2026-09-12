@@ -61,7 +61,7 @@ export function appRootHead() {
     links: [
       { rel: 'stylesheet', href: appCss },
       { rel: 'manifest', href: '/manifest.json', type: 'application/manifest+json' },
-      { rel: 'icon', href: '/pwa/icon-192.png', type: 'image/png', sizes: '192x192' },
+      { rel: 'icon', href: '/favicon.png', type: 'image/png', sizes: '32x32' },
       { rel: 'apple-touch-icon', href: '/pwa/apple-touch-icon.png' },
     ],
   }

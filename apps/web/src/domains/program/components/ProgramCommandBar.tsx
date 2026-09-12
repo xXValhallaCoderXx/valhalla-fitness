@@ -72,7 +72,7 @@ export function ProgramCommandBar({
 
       <div className="mb-3 flex flex-col gap-1 lg:flex-row lg:items-center lg:justify-between lg:gap-2">
         <Group gap="xs" wrap="nowrap">
-          <SectionLabel>Program timeline</SectionLabel>
+          <SectionLabel>Programme timeline</SectionLabel>
           <ProgramInfoHint label="What is a wave?">
             Your plan moves in phases made of waves — a few weeks building up, then a lighter week to recover before the next push. The map shows every week and where you are now.
           </ProgramInfoHint>

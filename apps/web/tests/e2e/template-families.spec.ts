@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { advanceSetupStep, setupStepRail } from './support/setup-wizard'
 
 // Programme families: the catalogue collapses same-family variants into one card, and the start
 // page offers a schedule/variant selector. Uses the authenticated demo session from auth.setup.ts,
@@ -21,7 +22,14 @@ test('start page switches schedule variant and swaps the programme structure', a
   await page.goto('/templates/power_hypertrophy_ul/start')
 
   // The 4-day U/L variant loads by default.
-  await expect(page.getByRole('heading', { name: 'Power + Hypertrophy U/L' })).toBeVisible()
+  // Setup resolves four queries before it paints; under a loaded suite that is slower than the
+  // default assertion timeout allows.
+  await expect(page.getByRole('heading', { name: 'Power + Hypertrophy U/L' })).toBeVisible({ timeout: 15000 })
+
+  // The variant selector lives in the wizard's Schedule step.
+  await expect(setupStepRail(page)).toBeVisible({ timeout: 15000 })
+  await advanceSetupStep(page, /Equipment & swaps/)
+  await advanceSetupStep(page, /Schedule/)
   await expect(page.getByText(/Choose your schedule/i)).toBeVisible()
 
   // Toggle to the 5-day PPL variant (retry past the SSR hydration race where an early click no-ops).

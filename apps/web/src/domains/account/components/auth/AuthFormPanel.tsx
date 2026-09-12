@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { AlertTriangle, ArrowRight, Check, Mail } from 'lucide-react'
 import { BrandMark, Caption, Heading, SectionLabel, Text } from '~/components'
 import { GoogleGIcon, PasswordStrengthMeter } from './AuthFormControls'
+import { MobileAppPrompt } from './MobileAppPrompt'
 import { AuthSentPanel, type SentState } from './AuthSentPanel'
 
 export type AuthMode = 'login' | 'signup'
@@ -76,6 +77,7 @@ export function AuthFormPanel({
   return (
     <Box component="section" className="flex min-h-screen items-center justify-center px-4 py-8 md:px-8">
       <div className="w-full max-w-[26rem]">
+        <MobileAppPrompt />
         <Card className="overflow-hidden" shadow="xl" radius="lg" p={0}>
           <div className="p-6 md:p-8">
             <Link to="/" aria-label="Sheetless home" className="inline-flex w-fit">
