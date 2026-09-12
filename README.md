@@ -942,6 +942,33 @@ Nitro reads Railway's `PORT` value at runtime.
 
 ## Android release and internal-track runbook
 
+### Brand assets
+
+`assets/branding/sheetless-mark.svg` is the editable master for the original diagonal dumbbell:
+rounded ends, two stepped plates per side, white on Sheetless teal (`#197f9a`). Run
+`pnpm brand:generate` from the repository root after editing it. The Sharp development dependency
+exports the committed PNGs; normal builds do not run the exporter.
+
+The exporter checks that every visible Android foreground pixel fits inside a centered
+600-pixel-diameter circle on the 1024-pixel canvas, following the
+[Android adaptive-icon safe area](https://developer.android.com/develop/ui/compose/system/icon_design_adaptive).
+Native assets include an opaque square 1024-pixel icon, transparent foreground/monochrome/splash
+layers, a cropped mark for the shared `BrandMark`, and a 32-pixel Expo web favicon. The web app uses
+the same cropped silhouette through a theme-colored mask, 192/512-pixel PWA icons, a maskable
+512-pixel icon, a 180-pixel Apple touch icon, and a 32-pixel favicon. Keep custom `BrandMark`
+children, size variants, muted colors, borders, and adjacent wordmarks intact.
+
+Launcher icons and splash configuration require a new native binary; Fast Refresh cannot update
+them. The launch screen uses the white mark on teal in both appearances, with `contain` and
+`imageWidth: 200`. Inspect cold starts using a standalone preview APK as required by
+[Expo's splash-screen guidance](https://docs.expo.dev/develop/user-interface/splash-screen-and-app-icon/).
+Check small sizes, circular and rounded-square launcher masks, supported themed icons, and light/dark
+sign-in on the physical device. The explicit iOS PNG is configured; iOS device acceptance remains
+outside this Android increment. Website publication and Play distribution remain separate releases;
+the existing PWA update prompt and service-worker lifecycle are unchanged.
+
+### App identity and signing
+
 The Android application ID is permanently **`fitness.sheetless.app`**. Do not change it after the
 Play app is created: Play treats another ID as another app. `apps/native/app.json` owns the visible
 `expo.version`; bump it deliberately for a user-visible release. EAS owns the Android `versionCode`

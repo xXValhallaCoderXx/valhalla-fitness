@@ -1,6 +1,6 @@
 import { Box, type BoxProps } from '@mantine/core'
-import { Dumbbell } from 'lucide-react'
 import type { ReactNode } from 'react'
+import markUrl from '~/assets/sheetless-mark.png'
 
 type BrandMarkSize = 'xs' | 'sm' | 'md' | 'lg'
 
@@ -36,7 +36,19 @@ export function BrandMark({ children, size = 'sm', withBorder = false, muted = f
       }}
       {...props}
     >
-      {children ?? <Dumbbell size={resolved.icon} />}
+      {children ?? (
+        <Box
+          component="span"
+          aria-hidden="true"
+          bg="currentColor"
+          style={{
+            width: resolved.icon,
+            height: resolved.icon,
+            mask: `url(${markUrl}) center / contain no-repeat`,
+            WebkitMask: `url(${markUrl}) center / contain no-repeat`,
+          }}
+        />
+      )}
     </Box>
   )
 }

@@ -76,11 +76,21 @@ if (manifest) {
   }
 }
 
+for (const [filename, expectedSize] of [['favicon.png', 32], ['pwa/apple-touch-icon.png', 180]]) {
+  const filePath = join(publicDir, filename)
+  assert(existsSync(filePath), `${filePath} is missing`)
+  if (existsSync(filePath)) {
+    const size = pngSize(filePath)
+    assert(size?.width === expectedSize && size?.height === expectedSize, `${filePath} must be ${expectedSize}x${expectedSize}`)
+  }
+}
+
 if (existsSync(swPath)) {
   const sw = readFileSync(swPath, 'utf8')
   assert(sw.includes('precacheAndRoute'), 'Service worker must include a precache manifest')
   assert(!sw.includes('index.html'), 'Service worker must not reference missing index.html navigation fallback')
   assert(sw.includes('manifest.json'), 'Service worker must precache manifest.json')
+  assert(sw.includes('favicon.png'), 'Service worker must precache favicon.png')
   assert(sw.includes('sheetless-script-assets-v1'), 'Service worker must cache hashed scripts on demand')
 
   const precacheUrls = [...sw.matchAll(/url:"([^"]+)"/g)].map((match) => match[1])

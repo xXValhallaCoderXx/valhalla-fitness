@@ -72,6 +72,7 @@ export default defineConfig({
       injectRegister: null,
       registerType: 'prompt',
       includeAssets: [
+        'favicon.png',
         'pwa/apple-touch-icon.png',
         'pwa/icon-192.png',
         'pwa/icon-512.png',
