@@ -648,7 +648,7 @@ Use `.env.example` for placeholders. Never commit real credentials.
 | `pnpm pwa:verify` | Verify built PWA artifacts. |
 | `pnpm bundle:check` | Enforce production entry-chunk and PWA-precache budgets. |
 | `pnpm architecture:check` | Enforce thin routes, domain boundaries, and component-size gates on both apps. |
-| `pnpm verify:native` | Bundle the Expo app with Metro (`expo export --platform web`). Catches missing platform variants and unresolvable imports that TypeScript cannot see, and regenerates typed routes. |
+| `pnpm verify:native` | Bundle the Expo app for web and Android with Metro (`expo export --platform web --platform android`). Retains the web check, adds the Android/Hermes bundle, catches unresolvable imports that TypeScript cannot see, and regenerates typed routes. |
 | `pnpm docs:check` | Enforce this README as the only human-facing document. |
 | `pnpm db:contract:check` | Statically verify lifecycle/integrity migrations and server call sites. |
 | `pnpm db:migrate:local` | Apply migrations to local Supabase. |
@@ -945,7 +945,7 @@ Nitro reads Railway's `PORT` value at runtime.
 The Android application ID is permanently **`fitness.sheetless.app`**. Do not change it after the
 Play app is created: Play treats another ID as another app. `apps/native/app.json` owns the visible
 `expo.version`; bump it deliberately for a user-visible release. EAS owns the Android `versionCode`
-remotely, and the production profile increments it automatically. Development and preview profiles
+remotely, and the preview and production profiles increment it automatically. Development and preview profiles
 produce installable APKs; production produces the AAB required by Google Play. See Expo's
 [EAS build configuration](https://docs.expo.dev/eas/json/) and
 [APK profile guidance](https://docs.expo.dev/build-reference/apk/).
@@ -1006,6 +1006,25 @@ Confirm open-beta policy is disabled at both layers: the two client flags above 
 `app_config.auth_allowlist_enabled` is `false` in the hosted database.
 
 ### Development APK gate
+
+For the first personal Android test (SHE-1–3), use a **standalone preview APK** from a release
+branch based on `7a9e396`, including its committed shared-history changes. Keep app version `0.1.0`,
+package identity, and the existing signing credentials. Run the required checks below against the
+hosted backend with Metro stopped; this personal test can cover the core scenarios listed here.
+Record the verified commit, EAS build ID, APK link, version/build number, hosted compatibility,
+and device results in Linear. APK delivery completes the build milestone; each ticket remains open
+until its physical acceptance passes. Broader hosted-preview and Play release gates remain separate.
+
+The 2026-09-12 candidate check found hosted migrations through `202609060006`, including return
+support and the start/finish RPCs. `202609070001_add_experience_mode.sql` is still pending there;
+native core workout flows do not write its mode fields and profile reads provide defaults. Full
+candidate schema acceptance requires the protected database release above. The documented
+`production-database` GitHub environment is not yet configured; this prerequisite is tracked in
+SHE-28. No hosted migration was applied during this check.
+
+Native failed set edits now survive other confirmed saves and session refetches until their own
+mutation receipt is returned. Finish checks the current session cache for unresolved saves.
+This remains in-memory recovery: force-stop/reopen can recover confirmed server data only.
 
 Build and install the development client outside Expo Go:
 

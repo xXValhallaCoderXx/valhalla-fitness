@@ -36,7 +36,7 @@
     "pwa:verify": "pnpm --filter sheetless-web pwa:verify",
     "bundle:check": "pnpm --filter sheetless-web bundle:check",
     "architecture:check": "pnpm --filter sheetless-web architecture:check",
-    "verify:native": "pnpm --filter sheetless-native exec expo export --platform web --output-dir .expo/verify-export",
+    "verify:native": "pnpm --filter sheetless-native exec expo export --platform web --platform android --output-dir .expo/verify-export",
     "docs:check": "node apps/web/scripts/check-docs.mjs",
     "db:contract:check": "node apps/web/scripts/check-database-contract.mjs",
     "db:audit": "node apps/web/scripts/audit-release-integrity.mjs",

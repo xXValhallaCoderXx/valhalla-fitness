@@ -29,6 +29,47 @@ function dashboardTables(count: number) {
 }
 
 describe('getHistoryDashboard bounds', () => {
+  it.each([
+    ['2026-08-22T23:14:30Z', 46],
+    [null, null],
+    [undefined, null],
+    ['not-a-date', null],
+    ['2026-08-23T00:00:00Z', null],
+    ['2026-08-23T00:01:00Z', null],
+  ])('maps recorded start %s into measured duration %s', async (startedAt, durationMinutes) => {
+    const tables = dashboardTables(1)
+    tables.workout_sessions[0].started_at = startedAt
+    const { ctx } = makeStubCtx(tables)
+
+    const result = await getHistoryDashboard(ctx)
+
+    expect(result.recentSessions[0]).toMatchObject({ durationMinutes, tonnage: 0 })
+  })
+
+  it('maps numeric loads and counts only completed work in the ledger tonnage', async () => {
+    const tables = dashboardTables(1)
+    tables.workout_sessions[0].prescription_snapshot = { units: 'kg', movements: [] }
+    const { ctx } = makeStubCtx({
+      ...tables,
+      exercise_logs: [{
+        id: 'exercise-1', user_id: 'user-1', session_id: 'session-0000',
+        performed_movement_id: 'barbell-bench-press', role: 'main', order_index: 0,
+      }],
+      set_logs: [
+        { actual_load: '100.5', actual_reps: 5, completed: true },
+        { actual_load: '80', actual_reps: 10, completed: false },
+        { actual_load: null, actual_reps: 10, completed: true },
+      ].map((set, index) => ({
+        ...set, id: `set-${index}`, exercise_log_id: 'exercise-1',
+        user_id: 'user-1', set_index: index,
+      })),
+    })
+
+    const result = await getHistoryDashboard(ctx)
+
+    expect(result.recentSessions[0]).toMatchObject({ tonnage: 503, completedSetCount: 2 })
+  })
+
   it('loads full paginated bodyweight history and account units without workouts', async () => {
     const entries = Array.from({ length: 1200 }, (_, index) => ({
       id: `weight-${index}`, user_id: 'user-1',
