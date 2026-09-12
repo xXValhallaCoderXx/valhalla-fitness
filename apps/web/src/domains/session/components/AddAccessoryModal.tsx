@@ -6,6 +6,7 @@ import { useRequiredAccountId } from '~/domains/account/components/AccountIdenti
 import { accessoryMovementOptionsQueryOptions } from '~/domains/session/queries'
 import { addSessionAccessoryFn } from '~/domains/session/server/session-functions'
 import { parseAccessoryRepTarget } from '~/domains/session/lib/accessories'
+import { updateSessionManagementCaches } from '~/domains/session/lib/session-management-cache'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { accountQueryKeys } from '~/shared/lib/query-keys'
 import { useStableMutationRequest } from '~/domains/session/lib/useStableMutationRequest'
@@ -118,13 +119,7 @@ export function AddAccessoryModal({
       const addedMovement =
         nextSession.movements.find((movement) => movement.isAdded && !previousIds.has(movement.id)) ??
         nextSession.movements.at(-1)
-      queryClient.setQueryData(
-        accountQueryKeys.session(userId, session.sessionId),
-        nextSession,
-      )
-      queryClient.setQueryData(accountQueryKeys.today(userId), (current: any) =>
-        current ? { ...current, activeSession: nextSession } : current,
-      )
+      updateSessionManagementCaches(queryClient, userId, nextSession)
       if (input.scope === 'phase_slot') {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) }),

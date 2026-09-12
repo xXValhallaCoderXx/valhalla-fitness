@@ -11,6 +11,8 @@ import {
 } from '~/domains/session/server/session-functions'
 import { queryStaleTimes } from '~/shared/lib/query-stale-times'
 import { accountQueryKeys } from '~/shared/lib/query-keys'
+import { reconcileSessionSets } from '~/domains/session/lib/session-cache'
+import type { WorkoutSession } from '~/domains/session/types'
 
 export const todayQueryOptions = (userId: string) =>
   queryOptions({
@@ -24,6 +26,8 @@ export const sessionQueryOptions = (userId: string, sessionId: string) =>
     queryKey: accountQueryKeys.session(userId, sessionId),
     queryFn: () => getSessionFn({ data: { sessionId } }),
     staleTime: queryStaleTimes.session,
+    structuralSharing: (current, incoming) =>
+      reconcileSessionSets(current as WorkoutSession | undefined, incoming as WorkoutSession),
   })
 
 export const movementSwapOptionsQueryOptions = (
