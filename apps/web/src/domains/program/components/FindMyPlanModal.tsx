@@ -27,6 +27,9 @@ export function FindMyPlanModal({
   templates,
   onStart,
   showBrowseAll = false,
+  templatesLoading = false,
+  templatesError = false,
+  onRetryTemplates,
 }: {
   opened: boolean
   onClose: () => void
@@ -34,6 +37,9 @@ export function FindMyPlanModal({
   onStart: (templateId: string) => void
   /** "Browse all" closes the modal onto the full catalogue — only meaningful inside the app. */
   showBrowseAll?: boolean
+  templatesLoading?: boolean
+  templatesError?: boolean
+  onRetryTemplates?: () => void
 }) {
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<WizardAnswers>({})
@@ -75,7 +81,7 @@ export function FindMyPlanModal({
 
   const weekQuery = useQuery({
     ...availableProgramSetupOptionsQueryOptions(userId, activeRec?.template.id ?? ''),
-    enabled: phase === 'result' && Boolean(activeRec),
+    enabled: opened && phase === 'result' && Boolean(activeRec),
   })
   const weekSessions = weekQuery.data?.previewWeeks?.[0]?.sessions ?? []
   const weekLoading = weekQuery.isFetching && !weekQuery.data
@@ -144,7 +150,12 @@ export function FindMyPlanModal({
           goodFits={goodFits}
           weekOpen={weekOpen}
           weekLoading={weekLoading}
+          weekError={weekQuery.isError}
+          onRetryWeek={() => void weekQuery.refetch()}
           weekSessions={weekSessions}
+          templatesLoading={templatesLoading}
+          templatesError={templatesError}
+          onRetryTemplates={onRetryTemplates}
           showBrowseAll={showBrowseAll}
           onEditAnswer={editAnswer}
           onReset={reset}

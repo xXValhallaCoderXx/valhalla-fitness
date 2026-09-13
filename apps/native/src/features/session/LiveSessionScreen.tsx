@@ -36,6 +36,7 @@ export function LiveSessionScreen({ sessionId }: { sessionId: string }) {
           <Text tone="danger" size="sm">
             {session.error instanceof Error ? session.error.message : 'This workout could not load.'}
           </Text>
+          <Button label="Retry" loading={session.isFetching} onPress={() => void session.refetch()} />
           <Button label="Back to Today" variant="default" onPress={() => router.replace('/(tabs)')} />
         </Panel>
       </Screen>

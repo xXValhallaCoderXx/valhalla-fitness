@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { Button } from '@mantine/core'
+import { Link } from '@tanstack/react-router'
 import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { meQueryOptions } from '~/domains/account/queries'
@@ -9,7 +11,12 @@ export function SettingsPage({ user }: { user: AuthUser | null }) {
   if (!user) {
     return (
       <Page>
-        <EmptyState title="Sign in to edit settings">Units, rounding, equipment, and sync state live on your profile.</EmptyState>
+        <EmptyState
+          title="Sign in to edit settings"
+          action={<Button component={Link} to="/auth">Sign in</Button>}
+        >
+          Units, rounding, equipment, and sync state live on your profile.
+        </EmptyState>
       </Page>
     )
   }

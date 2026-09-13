@@ -11,6 +11,9 @@ import {
   mapTemplateRow,
 } from './template-data'
 
+// Matches the anonymous column grant; ownership and internal metadata stay private.
+const templateSummaryColumns = 'id, name, source, origin, description, days_per_week, progression_label, complexity, tags' as const
+
 /**
  * Template browsing is deliberately unauthenticated — the caller passes
  * whichever anon client its shell owns, so signed-out visitors can browse.
@@ -18,7 +21,7 @@ import {
 export async function listTemplates(supabase: DataClient): Promise<ProgramTemplateSummary[]> {
   const { data, error } = await supabase
     .from('program_templates')
-    .select('*')
+    .select(templateSummaryColumns)
     .eq('is_active', true)
     .order('name', { ascending: true })
   if (error) throw new Error(error.message)
@@ -41,7 +44,7 @@ export async function getProgramSetupOptions(
   const input = programSetupOptionsInputSchema.parse(data)
   const { data: templateRow, error: templateError } = await supabase
     .from('program_templates')
-    .select('*')
+    .select(templateSummaryColumns)
     .eq('id', input.templateId)
     .eq('is_active', true)
     .single()

@@ -51,7 +51,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Area | Status | Current behavior and remaining work |
 | --- | --- | --- |
 | Authentication | **Shipped; production setup pending** | Web supports Magic Link and Google OAuth; native uses the six-digit code carried by the same Magic Link email. Password auth remains local/E2E only. Google, Resend SMTP, the hosted auth hook/template, callback URLs, and live delivery still require dashboard verification. |
-| Programme catalogue | **Shipped** | Fourteen concrete built-ins are grouped into six presentation families: Beginner Linear Strength, Intermediate Strength, Powerbuilding, Training Max Wave, Classic Volume Strength, and Bodybuilding Splits. |
+| Programme catalogue | **Shipped; public-read migration required** | Fourteen concrete built-ins are grouped into six presentation families: Beginner Linear Strength, Intermediate Strength, Powerbuilding, Training Max Wave, Classic Volume Strength, and Bodybuilding Splits. Signed-out catalogue and Find My Plan reads expose active public templates through a limited column projection; private custom programmes remain account-scoped. Failed recommendations and week previews offer retry while retaining wizard answers. |
 | Custom programmes | **Shipped** | Users can create constrained programmes from supported methodologies, including logger-only mode. Definitions are validated before storage. |
 | Programme start | **Shipped** | Units, rounding, required state values, allowed movement replacements, accessory additions, equipment mode, preview, and active-program replacement are supported. |
 | Equipment modes | **Shipped** | Programmes can use All equipment or Free weights only. The free-weight overlay is previewed before confirmation, reversible before a workout starts, pinned to an immutable policy, enforced for live additions/swaps, and frozen into session history. Ad-hoc workouts and favourites remain equipment-neutral. |
@@ -73,6 +73,13 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Guided return after a break | **Implemented; device/release acceptance pending** | Web and native Plan offer a return guide with explicit load resets, adjusted sets/effort, capped progression, and persistent review. Today can prompt after 14 days without a logged workout. Return settings belong to the programme instance and do not restart it. |
 | Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Web and native retain unconfirmed set values through other saves, session refetches, and exercise-management responses until the server returns the matching mutation receipt. Finish checks the current session cache and blocks while sets are saving or need retry. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
 | Privacy, deletion, and export | **Shipped; deployment/review pending** | Public Privacy, Terms, and account-deletion routes, paginated machine-readable account export, native JSON sharing, and confirmed self-service account deletion are available. Production must deploy the public deletion page, apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
+
+Entry recovery is available on both clients. Native Today and programme setup surface initial
+profile failures before waiting on dependent reads; Plan, Programs, live workouts and recaps retry
+failed reads in place. Signed-out native users can open Terms and Privacy. Web sign-in callbacks
+offer a new sign-in attempt when the link is incomplete or a request fails, signed-out Settings
+links to sign-in, and invalid or missing workout links show a useful unavailable state and return
+path. Native browser handoff still needs standalone-device acceptance.
 
 ### Beta work order
 
@@ -721,6 +728,12 @@ Database migrations also require a local Supabase stack:
 pnpm db:migrate:local
 pnpm db:test
 ```
+
+Signed-out catalogue and programme-preview reads require
+`202609130001_restore_public_template_projection.sql`. It restores only the public read projection;
+row policies limit anonymous visitors to active public programmes, preserve owner-only custom reads,
+and keep client writes restricted.
+Apply and verify it through the database release workflow before publishing the matching web build.
 
 ### Playwright prerequisites
 

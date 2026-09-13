@@ -1,6 +1,6 @@
 import { Button, Card } from '@mantine/core'
 import { useMutation } from '@tanstack/react-query'
-import { useRouter } from '@tanstack/react-router'
+import { useHydrated, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { Heading, Text } from '~/components'
 import { useCompleteAuthRedirect } from '~/domains/account/lib/useCompleteAuthRedirect'
@@ -36,10 +36,13 @@ function getCallbackMessage(message: string | undefined) {
 
 export function AuthCallbackPage({ search }: { search: AuthCallbackSearch }) {
   const router = useRouter()
+  const hydrated = useHydrated()
   const completeAuthRedirect = useCompleteAuthRedirect()
   const [hashParams] = useState(() =>
     typeof window === 'undefined' ? null : new URLSearchParams(window.location.hash.replace(/^#/, '')),
   )
+  const hashError = hydrated ? hashParams?.get('error_description') ?? hashParams?.get('error') : null
+  const callbackError = search.errorDescription ?? search.error ?? hashError
   const mutation = useMutation({
     mutationFn: (input: CallbackInput) => {
       if (input.kind === 'code') {
@@ -61,7 +64,7 @@ export function AuthCallbackPage({ search }: { search: AuthCallbackSearch }) {
   })
 
   useEffect(() => {
-    if (mutation.status !== 'idle' || search.error) return
+    if (!hydrated || mutation.status !== 'idle' || callbackError) return
 
     if (search.code) {
       mutation.mutate({ kind: 'code', code: search.code })
@@ -87,22 +90,29 @@ export function AuthCallbackPage({ search }: { search: AuthCallbackSearch }) {
       window.history.replaceState(null, '', window.location.pathname + window.location.search)
       mutation.mutate({ kind: 'tokens', accessToken, refreshToken })
     }
-  }, [hashParams, mutation, search.code, search.error, search.tokenHash, search.type])
+  }, [callbackError, hydrated, hashParams, mutation, search.code, search.tokenHash, search.type])
 
-  const hashError = hashParams?.get('error_description') ?? hashParams?.get('error')
-  const callbackError = search.errorDescription ?? search.error ?? hashError
-  const message = getCallbackMessage(callbackError ?? mutation.data?.message) ?? 'Completing sign in...'
+  const hasInput = Boolean(search.code || (search.tokenHash && search.type) ||
+    (hashParams?.get('access_token') && hashParams.get('refresh_token')))
+  const failure = callbackError ?? (mutation.isError
+    ? 'We could not complete sign in. Check your connection and request a new sign-in link.'
+    : mutation.data && !mutation.data.ok
+      ? mutation.data.message || 'This sign-in link could not be used. Request a new link.'
+      : hydrated && !hasInput
+        ? 'This sign-in link is incomplete. Return to sign in to request a new link.'
+        : undefined)
+  const message = getCallbackMessage(failure) ?? 'Completing sign in...'
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
       <Card className="max-w-md" p="lg">
         <Heading order={1} size="h3">
-          Auth callback
+          Complete sign in
         </Heading>
         <Text component="p" mt="xs" size="sm" tone="dimmed">
           {message}
         </Text>
-        {callbackError || (mutation.data && !mutation.data.ok) ? (
+        {failure ? (
           <Button mt="md" onClick={() => router.navigate({ to: '/auth' })}>
             Back to sign in
           </Button>

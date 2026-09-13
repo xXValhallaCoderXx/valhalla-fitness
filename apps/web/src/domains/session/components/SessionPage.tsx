@@ -8,7 +8,8 @@ import { useFinishSession } from '~/domains/session/lib/useFinishSession'
 import { buildFocusSessionSteps, buildLiveSessionSteps } from '~/domains/onboarding/onboarding-tour'
 import { useOnboardingTour } from '~/domains/onboarding/useOnboardingTour'
 import type { WorkoutSession } from '~/domains/session'
-import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
+import { EmptyState, Page, PageSkeleton } from '~/components'
+import { SessionLoadError } from './SessionLoadError'
 import { cn } from '~/shared/lib/cn'
 import { FinishSessionModal, type FinishReflection } from './FinishSessionModal'
 import { DiscardWorkoutDialog } from './DiscardWorkoutDialog'
@@ -37,7 +38,7 @@ export function SessionPage({
   }
 
   if (sessionQuery.isPending) return <PageSkeleton />
-  if (sessionQuery.isError) return <PageLoadError error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
+  if (sessionQuery.isError) return <SessionLoadError error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
 
   return <LoadedSessionRoute sessionId={sessionId} session={sessionQuery.data} />
 }

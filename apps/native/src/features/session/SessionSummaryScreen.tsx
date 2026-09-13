@@ -67,7 +67,8 @@ function AccountSummary({ user, sessionId }: { user: User; sessionId: string }) 
         <EmptyState title="This recap could not load">
           {session.error instanceof Error ? session.error.message : 'The workout was not found.'}
         </EmptyState>
-        <Button label="Back to Today" fullWidth onPress={() => router.replace('/(tabs)')} />
+        <Button label="Retry" fullWidth loading={session.isFetching} onPress={() => void session.refetch()} />
+        <Button label="Back to Today" variant="default" fullWidth onPress={() => router.replace('/(tabs)')} />
       </Screen>
     )
   }

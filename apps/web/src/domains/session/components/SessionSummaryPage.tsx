@@ -14,7 +14,6 @@ import {
   EmptyState,
   MobileActionBar,
   Page,
-  PageLoadError,
   PageSkeleton,
   SectionLabel,
   Text,
@@ -31,6 +30,7 @@ import { accountQueryKeys } from '~/shared/lib/query-keys'
 import { useStableProgramMutationRequest } from '~/domains/program/lib/useStableProgramMutationRequest'
 import { CompletedWorkCard, PrBanner, ReflectionRow, SummaryStat, WhatChangedCard } from './SessionSummaryDetails'
 import { SessionSummaryHeader } from './SessionSummaryHeader'
+import { SessionLoadError } from './SessionLoadError'
 
 export function SessionSummaryPage({
   sessionId,
@@ -53,7 +53,7 @@ export function SessionSummaryPage({
   }
 
   if (sessionQuery.isPending) return <PageSkeleton />
-  if (sessionQuery.isError) return <PageLoadError error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
+  if (sessionQuery.isError) return <SessionLoadError error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
 
   return <LoadedSummaryRoute sessionId={sessionId} session={sessionQuery.data} />
 }
