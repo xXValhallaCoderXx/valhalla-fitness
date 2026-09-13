@@ -17,7 +17,8 @@ type ProfileRow = Record<string, unknown> & { id: string }
 export async function ensureProfile(ctx: UserContext) {
   const { supabase, user } = ctx
   const email = user.email ?? null
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+  if (profileError) throw new Error(profileError.message)
   if (profile) return profile
   // OAuth providers (Google) put a name in user metadata — capture it so the profile has a display
   // name from the start. Magic-link users have none, so this stays null.

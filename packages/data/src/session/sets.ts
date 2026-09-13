@@ -13,6 +13,11 @@ export async function upsertSetLog(
   input: z.infer<typeof upsertSetLogInputSchema>,
 ): Promise<WorkoutSession> {
   const data = upsertSetLogInputSchema.parse(input)
+  // A failed response may hide a committed save. Read its current revision before
+  // retrying/correcting; the RPC still rejects a concurrent change after this read.
+  const expectedStateVersion = data.reconcileBeforeSave
+    ? (await getSession(ctx, data.sessionId)).stateVersion
+    : data.expectedStateVersion
   const { error } = await ctx.supabase.rpc('upsert_session_set_v2', {
     p_session_id: data.sessionId,
     p_exercise_log_id: data.exerciseLogId,
@@ -24,7 +29,7 @@ export async function upsertSetLog(
     p_completed: data.completed ?? false,
     p_note: data.note ?? null,
     p_client_mutation_id: data.clientMutationId,
-    p_expected_state_version: data.expectedStateVersion,
+    p_expected_state_version: expectedStateVersion,
   })
   if (error) throw new Error(error.message)
   return getSession(ctx, data.sessionId)

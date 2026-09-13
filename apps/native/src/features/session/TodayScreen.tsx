@@ -90,26 +90,27 @@ export function TodayScreen() {
     </View>
   )
 
+  const failedQuery = me.isError ? me : today.isError ? today : null
+  if (failedQuery) {
+    return (
+      <Screen>
+        <PageHeader title="Today" actions={settingsAction} />
+        <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
+          <Text tone="danger" size="sm">
+            {failedQuery.error instanceof Error ? failedQuery.error.message : 'The screen could not load.'}
+          </Text>
+          <Button label="Retry" variant="default" loading={failedQuery.isFetching} onPress={() => void failedQuery.refetch()} />
+        </Panel>
+      </Screen>
+    )
+  }
+
   if (me.isPending || today.isPending) {
     return (
       <Screen>
         <PageHeader title="Today" actions={settingsAction} />
         <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
           <Text tone="dimmed">Loading your training day…</Text>
-        </Panel>
-      </Screen>
-    )
-  }
-
-  if (today.isError) {
-    return (
-      <Screen>
-        <PageHeader title="Today" actions={settingsAction} />
-        <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
-          <Text tone="danger" size="sm">
-            {today.error instanceof Error ? today.error.message : 'The screen could not load.'}
-          </Text>
-          <Button label="Retry" variant="default" onPress={() => today.refetch()} />
         </Panel>
       </Screen>
     )
@@ -192,7 +193,7 @@ export function TodayScreen() {
       />
 
       <ProgressionReviewAlert decisions={pending} onReview={openReview} />
-      <ReturnGuideCard program={program} today lastWorkoutLogged={data.lastWorkoutLogged} />
+      <ReturnGuideCard program={program} today lastWorkoutLogged={data?.lastWorkoutLogged} />
       <TodayPlannedSessionCard
         session={planned}
         units={me.data?.units ?? program.units}

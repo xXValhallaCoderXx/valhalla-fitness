@@ -14,7 +14,7 @@ import { useRequiredAccountId } from '~/domains/account/components/AccountIdenti
 import { useAddExerciseSet } from '~/domains/session/lib/useAddExerciseSet'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { cn } from '~/shared/lib/cn'
-import { accountQueryKeys } from '~/shared/lib/query-keys'
+import { updateSessionManagementCaches } from '~/domains/session/lib/session-management-cache'
 import { removeAdHocExerciseFn } from '~/domains/session/server/session-functions'
 import { useStableMutationRequest } from '~/domains/session/lib/useStableMutationRequest'
 import type { MovementSlot, WorkoutSession } from '~/domains/session'
@@ -95,13 +95,7 @@ export function LiveMovementCard({
     onSuccess: (nextSession) => {
       removeRequest.clearRequest()
       setRemoveOpen(false)
-      queryClient.setQueryData(
-        accountQueryKeys.session(userId, session.sessionId),
-        nextSession,
-      )
-      queryClient.setQueryData(accountQueryKeys.today(userId), (current: any) =>
-        current ? { ...current, activeSession: nextSession } : current,
-      )
+      updateSessionManagementCaches(queryClient, userId, nextSession)
     },
   })
 

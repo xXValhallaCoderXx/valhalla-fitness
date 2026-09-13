@@ -6,7 +6,7 @@ import { decisionUpdate, type DecisionUpdate } from '~/domains/session/lib/summa
 import type { ProgressionDecision } from '~/domains/program'
 import type { Unit } from '~/shared/types'
 
-export type DecidedState = 'applied' | 'kept'
+export type DecidedState = 'applied' | 'kept' | 'superseded'
 
 /**
  * The Session Summary v2 hero: when load updates are pending it leads with each lift's from → to (+delta)
@@ -36,7 +36,7 @@ export function SessionSummaryDecisionHero({
 }) {
   const pendingCount = decisions.filter((decision) => !decided.has(decision.id)).length
 
-  if (pendingCount === 0) return <DonePanel appliedCount={appliedCount} />
+  if (pendingCount === 0) return <DonePanel appliedCount={appliedCount} decisions={decisions} />
 
   return (
     <Panel p={0} style={{ borderColor: 'var(--vf-action-border)' }}>
@@ -139,7 +139,7 @@ function DecisionRow({
           ) : (
             <Minus size={14} color="var(--mantine-color-dimmed)" />
           )}
-          <Caption fw={700} tone={applied ? 'success' : 'dimmed'}>{applied ? 'Applied' : 'Kept'}</Caption>
+          <Caption fw={700} tone={applied ? 'success' : 'dimmed'}>{applied ? 'Applied' : state === 'superseded' ? 'Superseded' : 'Kept'}</Caption>
         </span>
       ) : (
         <div className="flex shrink-0 items-center gap-1.5">
@@ -163,8 +163,17 @@ function DecisionRow({
   )
 }
 
-function DonePanel({ appliedCount }: { appliedCount: number }) {
+function DonePanel({ appliedCount, decisions }: { appliedCount: number; decisions: ProgressionDecision[] }) {
   const applied = appliedCount > 0
+  const keptCount = decisions.filter((decision) => decision.status === 'dismissed').length
+  const supersededCount = decisions.filter((decision) => decision.status === 'superseded').length
+  const detail = decisions.length === 0
+    ? 'No progression choices were generated for this workout.'
+    : [
+        appliedCount ? `${appliedCount} applied` : null,
+        keptCount ? `${keptCount} kept at the previous value` : null,
+        supersededCount ? `${supersededCount} superseded by later programme changes` : null,
+      ].filter(Boolean).join(' · ')
   return (
     <Panel p="lg" style={{ borderColor: 'var(--vf-success-border)' }}>
       <div className="flex flex-col items-center">
@@ -175,12 +184,10 @@ function DonePanel({ appliedCount }: { appliedCount: number }) {
           <Check size={26} color="var(--vf-success-text)" />
         </div>
         <Heading order={2} size="h4" mt="sm" ta="center">
-          {applied ? 'Next workout updated' : 'All set'}
+          {applied ? 'Updates applied' : 'Workout saved'}
         </Heading>
         <Text mt={4} size="sm" tone="dimmed" lh={1.5} ta="center">
-          {applied
-            ? `${appliedCount} load${appliedCount === 1 ? '' : 's'} increased for your next session. Nothing else to do.`
-            : 'You kept your current loads. Nothing else to do.'}
+          {detail}
         </Text>
         <Link to="/today" className="mt-4 w-full">
           <Button fullWidth size="md" radius="md">Back to Today</Button>

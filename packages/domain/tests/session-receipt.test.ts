@@ -46,6 +46,21 @@ describe('summarizeMovementPerformance', () => {
 })
 
 describe('buildSessionReceipt', () => {
+  it.each([
+    ['accepted', 'Applied: 100 kg → 102.5 kg', 'success'],
+    ['dismissed', 'Kept at 100 kg', 'neutral'],
+    ['superseded', 'Later programme changes replaced this recommendation.', 'neutral'],
+  ] as const)('describes a %s choice using its saved outcome', (status, change, tone) => {
+    const decision: ProgressionDecision = {
+      id: 'resolved', movementId: 'squat', movementName: 'Squat', ruleId: 'lp', scope: 'session',
+      status, inputSummary: 'Target met', recommendation: 'Add load next time', previousValue: 100, recommendedValue: 102.5,
+    }
+    const [entry] = buildSessionReceipt(session([movement({})]), summaryWith([decision]))
+    expect(entry.change).toBe(change)
+    expect(entry.tone).toBe(tone)
+    expect(entry.decision?.status).toBe(status)
+  })
+
   it('turns a progression decision into a learned/change/why entry', () => {
     const main = movement({
       sets: [set({ setIndex: 1, targetReps: 5, actualReps: 5, actualLoad: 100, actualRir: 2, isTopSet: true })],

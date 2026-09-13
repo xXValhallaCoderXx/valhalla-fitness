@@ -49,8 +49,14 @@ function normalizeTemplateOrigin(
   return 'system_default'
 }
 
+export type TemplateSummaryRow = Pick<
+  Tables<'program_templates'>,
+  'id' | 'name' | 'source' | 'origin' | 'description' | 'days_per_week' |
+  'progression_label' | 'complexity' | 'tags'
+>
+
 export function mapTemplateRow(
-  row: Tables<'program_templates'>,
+  row: TemplateSummaryRow,
   available = true,
   definition?: TemplateDefinition | null,
 ): ProgramTemplateSummary {
@@ -182,7 +188,7 @@ export async function getFreeWeightPolicyVersionById(
 }
 
 export function latestTemplateSummaries(
-  templates: Tables<'program_templates'>[],
+  templates: TemplateSummaryRow[],
   versions: Array<
     Pick<
       Tables<'program_template_versions'>,

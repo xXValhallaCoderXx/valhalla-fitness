@@ -1,15 +1,21 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { accountQueryKeys } from '~/shared/lib/query-keys'
 import type { TodayPayload, WorkoutSession } from '~/domains/session'
+import { reconcileSessionSets } from '~/domains/session/lib/session-cache'
 
 export function updateSessionManagementCaches(
   queryClient: QueryClient,
   userId: string,
   session: WorkoutSession,
 ) {
-  queryClient.setQueryData(accountQueryKeys.session(userId, session.sessionId), session)
+  const sessionKey = accountQueryKeys.session(userId, session.sessionId)
+  const reconciled = reconcileSessionSets(queryClient.getQueryData<WorkoutSession>(sessionKey), session)
+  queryClient.setQueryData(sessionKey, reconciled)
   queryClient.setQueryData<TodayPayload>(accountQueryKeys.today(userId), (current) =>
-    current ? { ...current, activeSession: session } : current,
+    current && session.status === 'in_progress' &&
+    (!current.activeSession || current.activeSession.sessionId === session.sessionId)
+      ? { ...current, activeSession: reconciled }
+      : current,
   )
 }
 

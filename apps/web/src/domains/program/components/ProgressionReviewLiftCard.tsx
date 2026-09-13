@@ -17,7 +17,7 @@ export function ProgressionReviewLiftCard({
 }: {
   decision: ProgressionDecision
   view: ReviewDecisionView
-  state?: 'accepted' | 'kept'
+  state?: 'accepted' | 'kept' | 'superseded'
   isSaving: boolean
   onAccept: () => void
   onKeep: () => void
@@ -25,8 +25,11 @@ export function ProgressionReviewLiftCard({
   const { mode, isFull, showFormulas } = useExperienceMode()
   const accepted = state === 'accepted'
   const kept = state === 'kept'
+  const superseded = state === 'superseded'
   const negative = typeof view.delta === 'number' && view.delta < 0
-  const confirmText = accepted
+  const confirmText = superseded
+    ? 'Later programme changes replaced this recommendation.'
+    : accepted
     ? view.nextLabel
       ? `Next block uses ${view.nextLabel}`
       : 'Update applied'
@@ -63,8 +66,8 @@ export function ProgressionReviewLiftCard({
             </div>
           ) : null}
         </div>
-        <Badge color={accepted ? 'success' : kept ? 'neutral' : 'warning'} className="shrink-0">
-          {accepted ? 'Accepted' : kept ? 'Kept' : 'Pending'}
+        <Badge color={accepted ? 'success' : state ? 'neutral' : 'warning'} className="shrink-0">
+          {accepted ? 'Accepted' : kept ? 'Kept' : superseded ? 'Superseded' : 'Pending'}
         </Badge>
       </div>
 
@@ -129,7 +132,10 @@ export function ProgressionReviewLiftCard({
         </div>
       )}
       <div className="mt-2">
-        <DecisionFeedbackTrigger decision={decision} />
+        <DecisionFeedbackTrigger decision={{
+          ...decision,
+          status: accepted ? 'accepted' : kept ? 'dismissed' : superseded ? 'superseded' : decision.status,
+        }} />
       </div>
     </div>
   )

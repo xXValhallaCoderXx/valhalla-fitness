@@ -1,8 +1,8 @@
 /** Native port of web FocusRirRow: large 0/1/2/3+ reps-in-reserve picker. */
-import { Pressable, View } from 'react-native'
+import { View } from 'react-native'
 import { RIR_OPTIONS } from '@sheetless/domain/session/live-session-utils'
-import { Caption, Text } from '@/components'
-import { radii, spacing, useTokens } from '@/lib/tokens'
+import { Caption, SegmentedControl } from '@/components'
+import { spacing } from '@/lib/tokens'
 import { FocusStepper } from './FocusStepper'
 
 export function FocusRirRow({
@@ -16,7 +16,6 @@ export function FocusRirRow({
   disabled?: boolean
   targetRir?: number | null
 }) {
-  const { theme } = useTokens()
   if ((targetRir ?? 0) > 3) {
     return (
       <FocusStepper
@@ -32,36 +31,20 @@ export function FocusRirRow({
   return (
     <View>
       <Caption>Reps in reserve · could you do more?</Caption>
-      <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs }}>
-        {RIR_OPTIONS.map((option) => {
-          // The 3+ bucket also reflects any legacy values logged above 3.
-          const selected = option.value === 3 ? (value ?? -1) >= 3 : value === option.value
-          return (
-            <Pressable
-              key={option.value}
-              disabled={disabled}
-              onPress={() => onChange(option.value)}
-              style={({ pressed }) => ({
-                alignItems: 'center',
-                backgroundColor: selected ? theme.primaryFill : theme.surface,
-                borderColor: selected ? theme.primaryFill : theme.border,
-                borderRadius: radii.lg,
-                borderWidth: 1,
-                flex: 1,
-                opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
-                paddingVertical: spacing.sm,
-              })}
-            >
-              <Text
-                size="sm"
-                style={{ color: selected ? theme.primaryFillText : theme.text, fontWeight: '800' }}
-              >
-                {option.label}
-              </Text>
-            </Pressable>
-          )
-        })}
-      </View>
+      <SegmentedControl
+        accessibilityRole="radiogroup"
+        accessibilityLabel="Actual reps in reserve"
+        variant="segments"
+        options={RIR_OPTIONS.map((option) => ({
+          value: String(option.value),
+          label: option.label,
+          accessibilityLabel: `${option.value === 3 ? '3 or more' : option.value} ${option.value === 1 ? 'rep' : 'reps'} in reserve`,
+        }))}
+        value={value == null ? null : String(Math.min(value, 3))}
+        disabled={disabled}
+        onChange={(next) => onChange(Number(next))}
+        style={{ marginTop: spacing.xs }}
+      />
     </View>
   )
 }

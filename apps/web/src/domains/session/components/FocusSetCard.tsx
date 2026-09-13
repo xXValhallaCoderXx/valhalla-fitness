@@ -58,9 +58,11 @@ export function FocusSetCard({
         actualReps: Number(draft.actualReps),
         actualRir: effectiveActualRir,
         completed,
-        clientMutationId: saveFailed ? set.clientMutationId ?? crypto.randomUUID() : crypto.randomUUID(),
+        clientMutationId: crypto.randomUUID(),
       },
-      { onSuccess: (nextSession) => onLogged(nextSession, set.setIndex) },
+      { onSuccess: (nextSession) => {
+        if (completed && !set.completed) onLogged(nextSession, set.setIndex)
+      } },
     )
   }
 
@@ -119,7 +121,7 @@ export function FocusSetCard({
         {draft.actualLoad === null ? <Caption>Enter a load, or 0 for bodyweight.</Caption> : null}
         {saveFailed ? (
           <Text component="p" size="xs" c="var(--vf-danger-text)">
-            Last save failed — tap Retry to try again.
+            Last save was not confirmed. Retry these values, or change them and save again.
           </Text>
         ) : null}
 
@@ -127,7 +129,7 @@ export function FocusSetCard({
           fullWidth
           size="lg"
           radius="lg"
-          disabled={isSaving}
+          disabled={isSaving || draft.actualLoad === null}
           onClick={logSet}
           data-testid="focus-log-set"
           data-tour="focus-log"

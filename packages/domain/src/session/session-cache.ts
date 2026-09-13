@@ -1,4 +1,5 @@
 import type { SetLog, WorkoutSession } from '@sheetless/domain/session/types'
+import { sameSetLogValues } from './set-log-intent'
 
 export type SetPatch = Partial<
   Pick<
@@ -31,7 +32,11 @@ export function reconcileSessionSets(
     for (const set of movement.sets) {
       if (set.syncState !== 'saving' && set.syncState !== 'syncFailed') continue
       const serverSet = serverMovement?.sets.find((item) => item.setIndex === set.setIndex)
-      if (!serverSet || (set.clientMutationId && set.clientMutationId === serverSet.clientMutationId)) continue
+      // Query structural sharing also sees our local patches. A new optimistic
+      // correction must replace the old failed intent, not be mistaken for a refetch.
+      if (serverSet?.syncState === 'saving' || serverSet?.syncState === 'syncFailed') continue
+      if (!serverSet || (set.clientMutationId && set.clientMutationId === serverSet.clientMutationId
+        && sameSetLogValues(set, serverSet))) continue
       next = patchSetInSession(next, { ...set, movementSlotId: movement.id })
     }
   }

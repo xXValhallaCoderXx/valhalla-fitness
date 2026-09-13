@@ -1,5 +1,5 @@
 import { Badge, Button, Popover } from '@mantine/core'
-import { Check, ChevronDown, ChevronRight, Info, Pencil, RotateCcw } from 'lucide-react'
+import { Check, ChevronRight, Info, Pencil, RotateCcw } from 'lucide-react'
 import { Caption, Heading, SectionLabel, Text } from '~/components'
 import { answerLabel, levelTone, tagLabel, type WizardAnswers } from '~/domains/program/lib/find-my-plan'
 import {
@@ -7,9 +7,9 @@ import {
   TAG_GLOSSARY,
   type FamilyRecommendation,
 } from '~/domains/program/lib/recommend-plan'
-import { cn } from '~/shared/lib/cn'
 import type { ProgramSetupOptions } from '~/domains/program'
 import { ModalHeader } from './FindMyPlanControls'
+import { FindMyPlanWeekPreview } from './FindMyPlanWeekPreview'
 
 /** Result phase — the ranked recommendation with an editable recap and a "typical week" peek. */
 export function FindMyPlanResult({
@@ -19,7 +19,12 @@ export function FindMyPlanResult({
   goodFits,
   weekOpen,
   weekLoading,
+  weekError,
+  onRetryWeek,
   weekSessions,
+  templatesLoading,
+  templatesError,
+  onRetryTemplates,
   showBrowseAll,
   onEditAnswer,
   onReset,
@@ -34,7 +39,12 @@ export function FindMyPlanResult({
   goodFits: Array<{ rec: FamilyRecommendation; index: number }>
   weekOpen: boolean
   weekLoading: boolean
+  weekError: boolean
+  onRetryWeek: () => void
   weekSessions: NonNullable<ProgramSetupOptions['previewWeeks']>[number]['sessions']
+  templatesLoading: boolean
+  templatesError: boolean
+  onRetryTemplates?: () => void
   showBrowseAll: boolean
   onEditAnswer: (index: number) => void
   onReset: () => void
@@ -77,7 +87,14 @@ export function FindMyPlanResult({
             </button>
           </div>
 
-          {activeRec ? (
+          {templatesLoading ? (
+            <Text component="p" tone="dimmed" mt="md">Loading programmes…</Text>
+          ) : templatesError ? (
+            <div className="mt-4 space-y-3" role="alert">
+              <Text component="p">We couldn't load the programmes. Your answers are saved here.</Text>
+              {onRetryTemplates ? <Button onClick={onRetryTemplates}>Retry programmes</Button> : null}
+            </div>
+          ) : activeRec ? (
             <div className="mt-4">
               <Badge color={isReco ? 'action' : 'warning'} variant="light" radius="xl">
                 {isReco ? 'We recommend' : 'Also a good fit'}
@@ -135,53 +152,14 @@ export function FindMyPlanResult({
                 ) : null}
               </div>
 
-              {/* typical week */}
-              <div className="mt-5 flex items-center justify-between">
-                <SectionLabel className="hidden md:block">A typical week</SectionLabel>
-                <button
-                  type="button"
-                  onClick={onToggleWeek}
-                  className="inline-flex items-center gap-1 md:hidden"
-                >
-                  <Caption component="span" fw={700} tone="action">
-                    {weekOpen ? 'Hide the week' : "See what's inside"}
-                  </Caption>
-                  <ChevronDown
-                    size={16}
-                    color="var(--vf-action-text)"
-                    style={{ transform: weekOpen ? 'rotate(180deg)' : undefined, transition: 'transform .2s' }}
-                  />
-                </button>
-              </div>
-              <div className={cn('mt-3 flex-col gap-2', weekOpen ? 'flex' : 'hidden', 'md:flex')}>
-                {weekLoading ? (
-                  <Caption>Loading the week…</Caption>
-                ) : weekSessions.length ? (
-                  weekSessions.map((session) => (
-                    <div
-                      key={session.id}
-                      className="flex items-start gap-3 rounded-xl border p-3"
-                      style={{ borderColor: 'var(--mantine-color-default-border)', backgroundColor: 'var(--mantine-color-default)' }}
-                    >
-                      <span className="shrink-0 rounded-md px-2 py-1" style={{ backgroundColor: 'var(--vf-action-soft)' }}>
-                        <Caption component="span" fw={800} tone="action">
-                          {session.label}
-                        </Caption>
-                      </span>
-                      <div className="min-w-0">
-                        <Text component="p" size="sm" fw={700}>
-                          {session.title}
-                        </Text>
-                        <Caption component="p" mt={2} lh={1.4}>
-                          {session.movementSummary}
-                        </Caption>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <Caption>Plan preview is unavailable right now.</Caption>
-                )}
-              </div>
+              <FindMyPlanWeekPreview
+                weekOpen={weekOpen}
+                weekLoading={weekLoading}
+                weekError={weekError}
+                onRetryWeek={onRetryWeek}
+                weekSessions={weekSessions}
+                onToggleWeek={onToggleWeek}
+              />
 
               {/* actions */}
               <div className="mt-5 flex flex-wrap gap-2.5">

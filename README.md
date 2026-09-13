@@ -51,7 +51,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Area | Status | Current behavior and remaining work |
 | --- | --- | --- |
 | Authentication | **Shipped; production setup pending** | Web supports Magic Link and Google OAuth; native uses the six-digit code carried by the same Magic Link email. Password auth remains local/E2E only. Google, Resend SMTP, the hosted auth hook/template, callback URLs, and live delivery still require dashboard verification. |
-| Programme catalogue | **Shipped** | Fourteen concrete built-ins are grouped into six presentation families: Beginner Linear Strength, Intermediate Strength, Powerbuilding, Training Max Wave, Classic Volume Strength, and Bodybuilding Splits. |
+| Programme catalogue | **Shipped; public-read migration required** | Fourteen concrete built-ins are grouped into six presentation families: Beginner Linear Strength, Intermediate Strength, Powerbuilding, Training Max Wave, Classic Volume Strength, and Bodybuilding Splits. Signed-out catalogue and Find My Plan reads expose active public templates through a limited column projection; private custom programmes remain account-scoped. Failed recommendations and week previews offer retry while retaining wizard answers. |
 | Custom programmes | **Shipped** | Users can create constrained programmes from supported methodologies, including logger-only mode. Definitions are validated before storage. |
 | Programme start | **Shipped** | Units, rounding, required state values, allowed movement replacements, accessory additions, equipment mode, preview, and active-program replacement are supported. |
 | Equipment modes | **Shipped** | Programmes can use All equipment or Free weights only. The free-weight overlay is previewed before confirmation, reversible before a workout starts, pinned to an immutable policy, enforced for live additions/swaps, and frozen into session history. Ad-hoc workouts and favourites remain equipment-neutral. |
@@ -71,8 +71,35 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
 | Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, profile/settings, template/history drill-ins, logging, finish/recap, persistent progression review, SecureStore auth, haptics, keep-awake, and rest notifications. Native supports blank/ad-hoc starts, Repeat and favourites, workout rename, Focus/Overview navigation, programme-added accessory ordering, movement swaps, session- and phase-scoped live accessories, resumed ad-hoc exercise management, notes, movement history, and plate calculation. Programs exposes all 14 built-in variants through six families, catalogue search/filters, Find My Plan, equipment-aware setup-time substitutions/accessories, free-weight review, active-program start/replacement, and reversible active-plan equipment conversion. Native Settings includes appearance, units, rest preferences, bodyweight, strength estimates, equipment profile, JSON sharing, legal/account actions, and deletion. Custom-programme creation and walkthrough replay remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
 | Guided return after a break | **Implemented; device/release acceptance pending** | Web and native Plan offer a return guide with explicit load resets, adjusted sets/effort, capped progression, and persistent review. Today can prompt after 14 days without a logged workout. Return settings belong to the programme instance and do not restart it. |
-| Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Failed sets must be retried before finishing. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
+| Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Web and native retain unconfirmed set values through other saves, session refetches, and exercise-management responses until the server returns the matching mutation receipt. Finish checks the current session cache and blocks while sets are saving or need retry. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
 | Privacy, deletion, and export | **Shipped; deployment/review pending** | Public Privacy, Terms, and account-deletion routes, paginated machine-readable account export, native JSON sharing, and confirmed self-service account deletion are available. Production must deploy the public deletion page, apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
+
+Entry recovery is available on both clients. Native Today and programme setup surface initial
+profile failures before waiting on dependent reads; Plan, Programs, live workouts and recaps retry
+failed reads in place. Signed-out native users can open Terms and Privacy. Web sign-in callbacks
+offer a new sign-in attempt when the link is incomplete or a request fails, signed-out Settings
+links to sign-in, and invalid or missing workout links show a useful unavailable state and return
+path. Native browser handoff still needs standalone-device acceptance.
+
+Live-workout entry verifies the saved status before mounting logging controls or the native
+keep-awake/rest timer. Completed links replace the live route with the recap; other non-active
+workouts show a safe return path. Once an active workout opens, background read failures preserve
+the editor's in-memory drafts.
+
+SHE-33 recaps read saved progression decisions on every visit, including Apply, Keep and superseded
+outcomes. Failed receipt reads offer Retry without claiming that changes were applied. Migration
+`202609130002_session_progression_receipts.sql` links newly generated decisions to their workout in
+the finish transaction; repeated finish requests reuse that receipt. Older workouts deliberately
+remain unlinked and point to Your Plan for current choices. Fresh-finish feedback remains a one-visit
+invitation. The migration is required before deploying these recap changes to a hosted environment.
+
+Local SHE-33 verification on 13 September 2026 passed `pnpm verify` (1,302 tests, four existing
+skips), final web type/lint/build/PWA/bundle checks, 247 database assertions, and six desktop/mobile
+browser cases. These cover ended links, Apply/Keep and bulk review, a committed decision with a lost
+response, recap revisit/reload, failed-read Retry, and existing set-save/finish recovery. The final
+review-modal unit checks also cover saved workout units differing from the profile. Native screen
+checks cover entry, refocus and authoritative receipt states; physical deep links, hosted migration
+and standalone acceptance remain separate. Changes are local and awaiting review.
 
 ### Beta work order
 
@@ -104,6 +131,44 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 - Native custom-programme creation and walkthrough replay.
 - Wearables, Health integrations, social features, public leaderboards, and coaching marketplace.
 - AI-generated workouts, autonomous substitutions, readiness automation, and injury/pain gating.
+
+#### Mobile and desktop UI/UX revamp preparation
+
+The SHE-29 audit defines the next UX work. SHE-31/42 entry and public-catalogue recovery are
+committed in the current baseline. SHE-32 now preserves exact failed-save identities, gives changed
+values a new identity, and reads the current workout revision before retrying. Native can mark a set
+incomplete while retaining its values; undo and completed-set edits keep focus and do not start rest.
+RIR suggestions belong to the workout and performed exercise. SHE-44 bounds long sheet content below
+the header and above the footer, with the backdrop outside the content's touch hierarchy and explicit
+Android keyboard avoidance.
+
+Local verification on 13 September 2026 passed `pnpm verify` (1,265 tests, four existing skips),
+217 database assertions and five browser recovery cases against local Supabase. The final keyboard
+adjustment also passed native lint/typecheck and Android/web Metro export. Samsung SM-S938B/Android
+16 checks used the actual sheet and Focus components in an isolated Expo Go 57 fixture: long review
+scrolling, fixed footer, keyboard, larger text, dismissal guards, RIR accessibility metadata, and
+log/undo/retry controls passed. Fixture saves were in memory; full-app standalone/network recovery,
+spoken TalkBack and iOS acceptance remain separate.
+
+Preserve the confirmed scope when preparing designs:
+
+- All surfaces offer Focus and Overview; desktop defaults to Overview and mobile defaults to Focus.
+- Guided is the default. Full is available in Settings immediately; eight completed sessions offer
+  an optional invitation, never an automatic switch or feature lock. Reading mode, workout view,
+  and screen size are independent and do not change training calculations.
+- Every surface offers Find My Plan, existing-programme setup, and immediate ad-hoc entry after
+  sign-in. Mobile supports desktop-created programmes, repeat and favourites. Custom authoring stays
+  on desktop; mobile retains trends, records, history/details and basic filters.
+
+Start with reviewable Today/navigation and live-workout flows, then recap/Plan and Insights/setup.
+Use fresh, active, completed and pending-review states on desktop and phone widths. Carry the
+SHE-32/44 recovery and scrolling checks forward, including keyboard, accessibility and light/dark.
+SHE-33's ended-workout/receipt behavior is implemented locally. Before rebuilding the affected
+surfaces, settle SHE-35/SHE-16's record, unit and ledger correctness. Include SHE-17/26's progression and methodology
+wording, SHE-34's notification cancellation and SHE-39's draft/read recovery in their owning flows.
+SHE-39's recommendation-preview retry is already covered by SHE-42. SHE-18 owns integrated web
+acceptance and SHE-19 documentation reconciliation. SHE-28, hosted migrations, standalone Android
+and Play acceptance remain separate release work. This preparation does not claim the revamp is built.
 
 #### Native migration milestones
 
@@ -722,6 +787,12 @@ pnpm db:migrate:local
 pnpm db:test
 ```
 
+Signed-out catalogue and programme-preview reads require
+`202609130001_restore_public_template_projection.sql`. It restores only the public read projection;
+row policies limit anonymous visitors to active public programmes, preserve owner-only custom reads,
+and keep client writes restricted.
+Apply and verify it through the database release workflow before publishing the matching web build.
+
 ### Playwright prerequisites
 
 1. Start the local Supabase project.
@@ -1191,7 +1262,8 @@ credential and submission behavior.
 - A network connection is required to open and use workout routes; the installed PWA is not an
   offline workout logger.
 - Optimistic changes exist only in memory until Supabase confirms them. Failed set saves stay
-  visibly flagged for retry, and reloading can discard an unconfirmed edit.
+  visibly flagged for retry across session data refreshes and in-app navigation. Reloading the
+  browser page or restarting the app can discard an unconfirmed edit.
 - Rest-timer state does not survive reload. Native locked-screen notifications and Android exactness
   are release gates, not yet a general reliability claim.
 - Previous-set ghosts do not yet fill the current set on tap.

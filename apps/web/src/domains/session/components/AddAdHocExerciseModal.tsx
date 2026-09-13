@@ -6,7 +6,7 @@ import { useRequiredAccountId } from '~/domains/account/components/AccountIdenti
 import { movementOptionsQueryOptions } from '~/domains/session/queries'
 import { addAdHocExerciseFn } from '~/domains/session/server/session-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
-import { accountQueryKeys } from '~/shared/lib/query-keys'
+import { updateSessionManagementCaches } from '~/domains/session/lib/session-management-cache'
 import { useStableMutationRequest } from '~/domains/session/lib/useStableMutationRequest'
 import type { WorkoutSession } from '~/domains/session'
 import { AccessoryMovementPicker } from './AccessoryMovementPicker'
@@ -87,13 +87,7 @@ export function AddAdHocExerciseModal({
       const addedMovement =
         nextSession.movements.find((movement) => movement.isAdded && !previousIds.has(movement.id)) ??
         nextSession.movements.at(-1)
-      queryClient.setQueryData(
-        accountQueryKeys.session(userId, session.sessionId),
-        nextSession,
-      )
-      queryClient.setQueryData(accountQueryKeys.today(userId), (current: any) =>
-        current ? { ...current, activeSession: nextSession } : current,
-      )
+      updateSessionManagementCaches(queryClient, userId, nextSession)
       if (addedMovement) onAdded(addedMovement.id)
       onClose()
     },

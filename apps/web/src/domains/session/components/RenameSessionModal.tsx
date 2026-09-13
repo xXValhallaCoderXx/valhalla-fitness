@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { AD_HOC_TITLE_MAX_LENGTH } from '~/domains/session/lib/ad-hoc'
+import { updateSessionManagementCaches } from '~/domains/session/lib/session-management-cache'
 import { renameSessionFn } from '~/domains/session/server/session-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { accountQueryKeys } from '~/shared/lib/query-keys'
@@ -45,10 +46,7 @@ export function RenameSessionModal({
     },
     onSuccess: async (nextSession) => {
       renameRequest.clearRequest()
-      queryClient.setQueryData(
-        accountQueryKeys.session(userId, session.sessionId),
-        nextSession,
-      )
+      updateSessionManagementCaches(queryClient, userId, nextSession)
       await queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) })
       onClose()
     },

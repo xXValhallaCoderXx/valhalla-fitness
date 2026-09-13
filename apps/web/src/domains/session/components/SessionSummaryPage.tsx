@@ -1,36 +1,33 @@
 import { ReturnSessionNotice } from './ReturnSessionNotice'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, Card } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight, Check, Dumbbell, ListChecks, NotebookText, Trophy } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
-import { sessionQueryOptions } from '~/domains/session/queries'
-import type { SessionSummary, WorkoutSession } from '~/domains/session'
+import { sessionSummaryQueryOptions } from '~/domains/session/queries'
+import type { SessionSummary } from '~/domains/session'
 import {
   Caption,
   EmptyState,
   MobileActionBar,
   Page,
-  PageLoadError,
   PageSkeleton,
   SectionLabel,
   Text,
 } from '~/components'
-import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { buildSessionReceipt } from '~/domains/session/lib/session-receipt'
 import { buildWorkoutSummary, topSetCountExplanation } from '~/domains/history/lib/workout-summary'
 import { summaryHeadline, updatesStat } from '~/domains/session/lib/summary-decisions'
-import { SessionSummaryDecisionHero, type DecidedState } from './SessionSummaryDecisionHero'
-import { PendingProgressionReviewModal, useResolveProgressionDecision } from '~/domains/program/components/PendingReview'
+import { SessionSummaryDecisionHero } from './SessionSummaryDecisionHero'
+import { PendingProgressionReviewModal } from '~/domains/program/components/PendingReview'
 import { PostWorkoutFeedbackPrompt } from '~/domains/feedback/components/PostWorkoutFeedbackPrompt'
-import { resolveProgressionDecisionsFn } from '~/domains/program/server/program-functions'
 import { accountQueryKeys } from '~/shared/lib/query-keys'
-import { useStableProgramMutationRequest } from '~/domains/program/lib/useStableProgramMutationRequest'
 import { CompletedWorkCard, PrBanner, ReflectionRow, SummaryStat, WhatChangedCard } from './SessionSummaryDetails'
 import { SessionSummaryHeader } from './SessionSummaryHeader'
+import { SessionLoadError } from './SessionLoadError'
+import { useSummaryProgression } from '../lib/useSummaryProgression'
 
 export function SessionSummaryPage({
   sessionId,
@@ -39,11 +36,6 @@ export function SessionSummaryPage({
   sessionId: string
   user: AuthUser | null
 }) {
-  const sessionQuery = useQuery({
-    ...sessionQueryOptions(user?.id ?? '', sessionId),
-    enabled: Boolean(user),
-  })
-
   if (!user) {
     return (
       <Page>
@@ -52,70 +44,36 @@ export function SessionSummaryPage({
     )
   }
 
-  if (sessionQuery.isPending) return <PageSkeleton />
-  if (sessionQuery.isError) return <PageLoadError error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
-
-  return <LoadedSummaryRoute sessionId={sessionId} session={sessionQuery.data} />
+  return <AccountSummary key={`${user.id}-${sessionId}`} sessionId={sessionId} userId={user.id} />
 }
 
-function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; sessionId: string }) {
-  const userId = useRequiredAccountId()
+function AccountSummary({ sessionId, userId }: { sessionId: string; userId: string }) {
   const queryClient = useQueryClient()
-  const summary = queryClient.getQueryData<SessionSummary>(
-    accountQueryKeys.summary(userId, sessionId),
-  )
+  const [freshFinish] = useState(() => Boolean(
+    queryClient.getQueryData<SessionSummary>(accountQueryKeys.summary(userId, sessionId)),
+  ))
+  useEffect(() => {
+    queryClient.removeQueries({ queryKey: accountQueryKeys.summary(userId, sessionId), exact: true })
+  }, [queryClient, userId, sessionId])
+  const summaryQuery = useQuery(sessionSummaryQueryOptions(userId, sessionId))
+
+  if (summaryQuery.isError) return <SessionLoadError error={summaryQuery.error} onRetry={() => void summaryQuery.refetch()} />
+  if (summaryQuery.isPending || !summaryQuery.isFetchedAfterMount) return <PageSkeleton />
+
+  return <LoadedSummaryRoute summary={summaryQuery.data} freshFinish={freshFinish} />
+}
+
+function LoadedSummaryRoute({ summary, freshFinish }: { summary: SessionSummary; freshFinish: boolean }) {
+  const userId = useRequiredAccountId()
+  const session = summary.session
+  const sessionId = session.sessionId
   const recap = buildWorkoutSummary(session)
+  const receiptAvailable = summary.decisionReceiptAvailable !== false
   const receipt = buildSessionReceipt(session, summary)
-  const allDecisions = summary?.decisions ?? []
-
+  const allDecisions = summary.decisions
   const [reviewOpen, setReviewOpen] = useState(false)
-  const [decided, setDecided] = useState<Map<string, DecidedState>>(() => new Map())
-  const applyAllRequest = useStableProgramMutationRequest()
-  const pendingDecisions = allDecisions.filter((decision) => !decided.has(decision.id))
-  const appliedCount = [...decided.values()].filter((state) => state === 'applied').length
-
-  // Single Apply / Keep — reuse the shared resolve hook; mark the row instead of pruning it (decided rows
-  // stay as quiet confirmations until all are done).
-  const decisionMutation = useResolveProgressionDecision({
-    onResolved: (decisionId, action) => {
-      setDecided((current) => new Map(current).set(decisionId, action === 'accepted' ? 'applied' : 'kept'))
-    },
-  })
-
-  // "Apply all" — accept every pending decision in one go, one toast.
-  const applyAllMutation = useMutation({
-    mutationFn: (ids: string[]) =>
-      resolveProgressionDecisionsFn({
-        data: {
-          decisionIds: ids,
-          action: 'accepted',
-          requestId: applyAllRequest.requestIdFor({
-            decisionIds: ids,
-            action: 'accepted',
-          }),
-        },
-      }),
-    onSuccess: async (ids) => {
-      applyAllRequest.clearRequest()
-      setDecided((current) => {
-        const next = new Map(current)
-        for (const id of ids) next.set(id, 'applied')
-        return next
-      })
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) }),
-        queryClient.invalidateQueries({ queryKey: accountQueryKeys.program(userId) }),
-      ])
-      notifications.show({ color: 'success', title: 'Loads updated', message: 'Your next workout is ready.' })
-    },
-    onError: (error) => {
-      notifications.show({
-        color: 'danger',
-        title: 'Could not apply updates',
-        message: getApiErrorMessage(error, 'Unable to apply the load updates'),
-      })
-    },
-  })
+  const { decisionMutation, applyAllMutation, onResolved, decided, pendingDecisions, appliedCount } =
+    useSummaryProgression(userId, sessionId, allDecisions)
 
   const isSaving = decisionMutation.isPending || applyAllMutation.isPending
   const hasPending = pendingDecisions.length > 0
@@ -129,7 +87,7 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
 
   const handleApplyAll = () => applyAllMutation.mutate(pendingDecisions.map((decision) => decision.id))
 
-  const hero = (
+  const hero = receiptAvailable ? (
     <SessionSummaryDecisionHero
       decisions={allDecisions}
       decided={decided}
@@ -141,6 +99,11 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
       onApplyAll={handleApplyAll}
       onReviewEach={() => setReviewOpen(true)}
     />
+  ) : (
+    <Card>
+      <Text size="sm">Progression details are unavailable for this older workout.</Text>
+      <Button component={Link} to="/program" variant="default" mt="sm">Review current choices in Your Plan</Button>
+    </Card>
   )
 
   return (
@@ -180,7 +143,7 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
               value={recap.stats.topSetCount}
               hint={topSetCountExplanation}
             />
-            <SummaryStat icon={<ArrowRight size={15} />} label="Updates" value={updates.value} tone={updates.tone} />
+            <SummaryStat icon={<ArrowRight size={15} />} label="Updates" value={receiptAvailable ? updates.value : 'Unavailable'} tone={updates.tone} />
           </div>
 
           <Card>
@@ -214,8 +177,8 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
 
           {receipt.length ? <WhatChangedCard receipt={receipt} sessionId={sessionId} /> : null}
 
-          {/* Fresh finishes only: `summary` lives in the finish-time cache, so revisits skip the prompt. */}
-          {summary && !session.isAdHoc && (allDecisions.length > 0 || receipt.length > 0) ? (
+          {/* Only the initial finish visit invites feedback; decisions always come from the saved receipt. */}
+          {freshFinish && receiptAvailable && !session.isAdHoc && (allDecisions.length > 0 || receipt.length > 0) ? (
             <PostWorkoutFeedbackPrompt session={session} decisions={allDecisions} />
           ) : null}
         </div>
@@ -244,10 +207,11 @@ function LoadedSummaryRoute({ session, sessionId }: { session: WorkoutSession; s
 
       <PendingProgressionReviewModal
         opened={reviewOpen}
-        decisions={pendingDecisions}
+        decisions={allDecisions}
+        units={session.units}
         contextLabel={session.title}
         onClose={() => setReviewOpen(false)}
-        onResolved={(decisionId, action) => setDecided((current) => new Map(current).set(decisionId, action === 'accepted' ? 'applied' : 'kept'))}
+        onResolved={onResolved}
       />
     </Page>
   )

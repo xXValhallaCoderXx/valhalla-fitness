@@ -10,6 +10,7 @@ import {
   selectVisibleMovementSwapOption,
 } from '~/domains/session/lib/movement-swap-options'
 import { patchMovementInSession } from '~/domains/session/lib/session-cache'
+import { updateSessionManagementCaches } from '~/domains/session/lib/session-management-cache'
 import { substituteMovementFn } from '~/domains/session/server/session-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { accountQueryKeys } from '~/shared/lib/query-keys'
@@ -133,10 +134,7 @@ export function MovementSwapModal({
     },
     onSuccess: async (nextSession, input) => {
       swapRequest.clearRequest()
-      queryClient.setQueryData(sessionKey, nextSession)
-      queryClient.setQueryData(accountQueryKeys.today(userId), (current: any) =>
-        current ? { ...current, activeSession: nextSession } : current,
-      )
+      updateSessionManagementCaches(queryClient, userId, nextSession)
       await queryClient.invalidateQueries({
         queryKey: accountQueryKeys.movementSwapOptions(userId, session.sessionId, movement.id),
       })

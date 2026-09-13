@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View } from 'react-native'
 import { Mail } from 'lucide-react-native'
+import * as WebBrowser from 'expo-web-browser'
 import { getAuthPolicy } from '@sheetless/domain/shared/auth-config'
 import { BrandMark, Button, Caption, Heading, Panel, Screen, SectionLabel, Text, TextInput } from '@/components'
 import { getSupabase } from '@/lib/supabase'
@@ -29,6 +30,7 @@ export function AuthScreen() {
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState<'send' | 'verify' | null>(null)
   const [message, setMessage] = useState<Message>(null)
+  const [legalError, setLegalError] = useState<string | null>(null)
   const [cooldown, setCooldown] = useState(0)
   const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -100,6 +102,15 @@ export function AuthScreen() {
     setCode('')
     setMessage(null)
   }, [])
+
+  const openLegal = async (path: '/terms' | '/privacy') => {
+    setLegalError(null)
+    try {
+      await WebBrowser.openBrowserAsync(`https://www.sheetless.fitness${path}`)
+    } catch {
+      setLegalError('Unable to open that page. Please try again.')
+    }
+  }
 
   return (
     <Screen style={{ justifyContent: 'center', minHeight: '100%' }}>
@@ -208,6 +219,11 @@ export function AuthScreen() {
           Didn't get it? Check your spam folder. By continuing you agree to the Terms and
           acknowledge the Privacy Policy.
         </Caption>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+          <Button label="Terms" variant="subtle" accessibilityLabel="Open Terms in browser" onPress={() => void openLegal('/terms')} />
+          <Button label="Privacy Policy" variant="subtle" accessibilityLabel="Open Privacy Policy in browser" onPress={() => void openLegal('/privacy')} />
+        </View>
+        {legalError ? <Text size="sm" tone="danger">{legalError}</Text> : null}
       </Panel>
     </Screen>
   )

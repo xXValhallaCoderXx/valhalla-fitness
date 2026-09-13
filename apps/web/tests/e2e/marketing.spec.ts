@@ -103,6 +103,9 @@ test.describe('logged out marketing', () => {
     // The finder leads with the programme family; the concrete pick shows as its recommended schedule.
     await expect(dialog.getByRole('heading', { name: 'Beginner Linear Strength' })).toBeVisible()
     await expect(dialog.getByText(/Recommended schedule: 3-day/)).toBeVisible()
+    const expandWeek = dialog.getByRole('button', { name: "See what's inside" })
+    if (await expandWeek.isVisible()) await expandWeek.click()
+    await expect(dialog.getByText(/^Squat, Bench Press, Barbell Row/).first()).toBeVisible()
 
     // Viewing a plan requires an account, so it funnels to /auth.
     await dialog.getByRole('button', { name: 'View plan' }).click()

@@ -1,5 +1,4 @@
 import { ReturnSessionNotice } from '../live/ReturnSessionNotice'
-import { useEffect, useState } from 'react'
 import { ScrollView, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { User } from '@supabase/supabase-js'
@@ -8,7 +7,6 @@ import { sessionCompletion } from '@sheetless/domain/session/session-cache'
 import {
   advanceAfterLog,
   exerciseNeighbors,
-  firstActionableSetIndex,
   upcomingMovements,
 } from '@sheetless/domain/session/live-focus-utils'
 import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
@@ -23,6 +21,7 @@ import { FocusTopBar } from '../live/FocusTopBar'
 import { AddSetAction, WorkoutCompleteBanner } from '../live/FocusWorkoutActions'
 import { useAddExerciseSet } from './useAddExerciseSet'
 import { useSetLogMutation } from './useSetLogMutation'
+import { useFocusSetState } from './useFocusSetState'
 import { WorkoutManagementSheets } from '../editing/WorkoutManagementSheets'
 import { WorkoutToolsPanel } from '../editing/WorkoutToolsPanel'
 import { useWorkoutManagement } from '../editing/useWorkoutManagement'
@@ -59,18 +58,8 @@ export function PopulatedFocusWorkoutView({
   const activeMovement = (
     session.movements.find((movement) => movement.id === activeMovementId) ?? session.movements[0]
   )!
-  const [selectedSetIndex, setSelectedSetIndex] = useState(() =>
-    firstActionableSetIndex(activeMovement),
-  )
-  const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<
-    Record<number, number | undefined>
-  >({})
-
-  useEffect(() => {
-    setSelectedSetIndex(firstActionableSetIndex(activeMovement))
-    // The selected movement ID is the navigation boundary for set focus.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeMovementId])
+  const { selectedSetIndex, selectSet, carryRirToNextSet, suggestedRir } =
+    useFocusSetState(session.sessionId, activeMovement)
 
   const selectedSet = activeMovement.sets.find((set) => set.setIndex === selectedSetIndex)
     ?? activeMovement.sets[0]
@@ -93,21 +82,17 @@ export function PopulatedFocusWorkoutView({
     onSelectMovement,
   })
 
-  const carryRirToNextSet = (setIndex: number, value: number) => {
-    const nextSet = activeMovement.sets.find((set) => set.setIndex > setIndex && !set.completed)
-    if (!nextSet || typeof nextSet.actualRir === 'number') return
-    setSuggestedRirBySetIndex((current) => ({ ...current, [nextSet.setIndex]: value }))
-  }
   const handleLogged = (nextSession: WorkoutSession, loggedSetIndex: number) => {
     const result = advanceAfterLog(nextSession, activeMovement.id, loggedSetIndex)
     if (result.kind === 'sessionComplete') return
     if (result.movementId !== activeMovement.id) onSelectMovement(result.movementId)
-    setSelectedSetIndex(result.setIndex)
+    else selectSet(result.setIndex)
   }
   const saveFailed = selectedSet?.syncState === 'syncFailed'
   const isSaving = setLog.isPending || selectedSet?.syncState === 'saving'
   const logSet = (draft: SetDraft) => {
     if (!selectedSet || isSaving || sessionBusy) return
+    selectSet(selectedSet.setIndex)
     setLog.mutate(
       {
         movementSlotId: activeMovement.id,
@@ -115,12 +100,12 @@ export function PopulatedFocusWorkoutView({
         actualLoad: draft.actualLoad,
         actualReps: draft.actualReps,
         actualRir: draft.actualRir,
-        completed: saveFailed ? selectedSet.completed : true,
-        clientMutationId: saveFailed
-          ? selectedSet.clientMutationId ?? crypto.randomUUID()
-          : crypto.randomUUID(),
+        completed: draft.completed,
+        clientMutationId: crypto.randomUUID(),
       },
-      { onSuccess: (nextSession) => handleLogged(nextSession, selectedSet.setIndex) },
+      { onSuccess: (nextSession) => {
+        if (draft.completed && !selectedSet.completed) handleLogged(nextSession, selectedSet.setIndex)
+      } },
     )
   }
   const allComplete = session.movements.every((movement) =>
@@ -180,18 +165,18 @@ export function PopulatedFocusWorkoutView({
         <FocusSetProgressBar
           movement={activeMovement}
           selectedSetIndex={selectedSetIndex}
-          onSelectSet={setSelectedSetIndex}
+          onSelectSet={selectSet}
         />
 
         {selectedSet ? (
           <FocusSetCard
-            key={`${activeMovement.id}-${activeMovement.performedMovementId ?? activeMovement.movementId}-${selectedSet.setIndex}`}
+            key={`${session.sessionId}-${activeMovement.id}-${activeMovement.performedMovementId ?? activeMovement.movementId}-${selectedSet.setIndex}`}
             session={session}
             movement={activeMovement}
             set={selectedSet}
             setNumber={setNumber}
             setTotal={setTotal}
-            suggestedRir={suggestedRirBySetIndex[selectedSet.setIndex]}
+            suggestedRir={suggestedRir}
             isSaving={Boolean(isSaving)}
             disabled={sessionBusy}
             saveFailed={saveFailed}
@@ -215,7 +200,7 @@ export function PopulatedFocusWorkoutView({
                 (movement) => movement.id === activeMovement.id,
               )
               const newSetIndex = nextMovement?.sets.at(-1)?.setIndex
-              if (newSetIndex) setSelectedSetIndex(newSetIndex)
+              if (newSetIndex) selectSet(newSetIndex)
             },
           })}
         />

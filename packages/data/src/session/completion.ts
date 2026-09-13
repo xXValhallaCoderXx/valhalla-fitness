@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import type { ProgramInstance, ProgressionDecision } from '@sheetless/domain/program/types'
-import type { SessionPr, SessionSummary, WorkoutSession } from '@sheetless/domain/session/types'
+import type { SessionPr, SessionSummary } from '@sheetless/domain/session/types'
 import {
   buildPriorBests,
   detectSessionPrs,
@@ -16,13 +16,13 @@ import {
   normalizeSessionRpe,
 } from '@sheetless/domain/session/session-reflection'
 import {
-  accessoryOutcomeSummary,
   buildProgressionDecisionsForSession,
 } from '@sheetless/domain/program/progression-decisions'
 import { finishSessionInputSchema } from '@sheetless/domain/session/schemas'
 import type { Json } from '@sheetless/domain/shared/types/database'
-import { getActiveProgram, getPendingDecisions } from '../program/active-program'
+import { getActiveProgram } from '../program/active-program'
 import { getSession } from './reads'
+import { getSessionSummary } from './summary'
 import type { DataClient, UserContext } from '../shared/context'
 
 /**
@@ -126,8 +126,7 @@ export async function finishSession(
       p_expected_session_version: Math.max(0, session.stateVersion - 1),
     })
     if (replayError) throw new Error(replayError.message)
-    const decisions = session.isAdHoc ? [] : await getPendingDecisions(ctx)
-    return sessionSummaryFromSession(session, decisions)
+    return getSessionSummary(ctx, data.sessionId)
   }
   if (session.status !== 'in_progress') throw new Error('Only in-progress sessions can be finished')
 
@@ -183,24 +182,5 @@ export async function finishSession(
   })
   if (finishError) throw new Error(finishError.message)
 
-  const completedSession = await getSession(ctx, data.sessionId)
-  const insertedDecisions = activeProgram ? await getPendingDecisions(ctx, activeProgram.id) : []
-  return sessionSummaryFromSession(completedSession, insertedDecisions)
-}
-
-function sessionSummaryFromSession(
-  session: WorkoutSession,
-  decisions: ProgressionDecision[],
-): SessionSummary {
-  const sets = session.movements.flatMap((movement) => movement.sets)
-  return {
-    session,
-    completedSets: sets.filter((set) => set.completed).length,
-    totalSets: sets.length,
-    topSets: sets.filter((set) => set.isTopSet || set.isAmrap),
-    accessoryOutcomes: session.movements
-      .filter((movement) => movement.role === 'accessory')
-      .map((movement) => `${movement.movementName}: ${accessoryOutcomeSummary(movement)}`),
-    decisions,
-  }
+  return getSessionSummary(ctx, data.sessionId)
 }
