@@ -78,6 +78,15 @@ function sessionTables(): TestTables {
 }
 
 describe('getSession', () => {
+  it.each(['missing-session', 'other-account-session'])('does not expose an unavailable workout (%s)', async (sessionId) => {
+    const tables = sessionTables()
+    tables.workout_sessions.push({ ...tables.workout_sessions[0], id: 'other-account-session', user_id: 'other-user' })
+    const { ctx, stub } = makeStubCtx(tables)
+
+    await expect(getSession(ctx, sessionId)).rejects.toThrow('Workout unavailable')
+    expect(stub.fromCalls).toEqual(['workout_sessions'])
+  })
+
   it('merges snapshot movements with logged sets and numbers strings', async () => {
     const { ctx } = makeStubCtx(sessionTables())
 

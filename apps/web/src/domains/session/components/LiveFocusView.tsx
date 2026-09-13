@@ -46,7 +46,7 @@ export function LiveFocusView({
   const [selectedSetIndex, setSelectedSetIndex] = useState(() =>
     activeMovement ? firstActionableSetIndex(activeMovement) : 1,
   )
-  const [suggestedRirBySetIndex, setSuggestedRirBySetIndex] = useState<Record<number, number | undefined>>({})
+  const [suggestedRirBySet, setSuggestedRirBySet] = useState<Record<string, number | undefined>>({})
   const [historyOpen, setHistoryOpen] = useState(false)
   const [plateOpen, setPlateOpen] = useState(false)
   const [addExerciseOpen, setAddExerciseOpen] = useState(false)
@@ -117,11 +117,15 @@ export function LiveFocusView({
   const { hasPrev, hasNext, prevId, nextId } = exerciseNeighbors(session, activeMovement.id)
   const overall = sessionCompletion(session)
   const coming = upcomingMovements(session, activeMovement.id, 2)
+  const suggestionKey = (setIndex: number) => JSON.stringify([
+    session.sessionId, activeMovement.id,
+    activeMovement.performedMovementId ?? activeMovement.movementId, setIndex,
+  ])
 
   const carryRirToNextSet = (setIndex: number, value: number) => {
     const nextSet = activeMovement.sets.find((set) => set.setIndex > setIndex && !set.completed)
     if (!nextSet || typeof nextSet.actualRir === 'number') return
-    setSuggestedRirBySetIndex((current) => ({ ...current, [nextSet.setIndex]: value }))
+    setSuggestedRirBySet((current) => ({ ...current, [suggestionKey(nextSet.setIndex)]: value }))
   }
 
   const handleLogged = (nextSession: WorkoutSession, loggedSetIndex: number) => {
@@ -177,13 +181,13 @@ export function LiveFocusView({
 
         {selectedSet ? (
           <FocusSetCard
-            key={`${activeMovement.id}-${activeMovement.performedMovementId ?? activeMovement.movementId}-${selectedSet.setIndex}`}
+            key={`${session.sessionId}-${activeMovement.id}-${activeMovement.performedMovementId ?? activeMovement.movementId}-${selectedSet.setIndex}`}
             session={session}
             movement={activeMovement}
             set={selectedSet}
             setNumber={setNumber}
             setTotal={setTotal}
-            suggestedRir={suggestedRirBySetIndex[selectedSet.setIndex]}
+            suggestedRir={suggestedRirBySet[suggestionKey(selectedSet.setIndex)]}
             onLogged={handleLogged}
             onRirSelected={carryRirToNextSet}
           />

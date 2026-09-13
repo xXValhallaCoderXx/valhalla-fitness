@@ -68,6 +68,7 @@ export function TemplatesScreen() {
         <EmptyState title="Programs could not load">
           {templates.error instanceof Error ? templates.error.message : 'Try again in a moment.'}
         </EmptyState>
+        <Button label="Retry" variant="default" loading={templates.isFetching} onPress={() => void templates.refetch()} />
       </Screen>
     )
   }
@@ -116,6 +117,7 @@ export function TemplatesScreen() {
           <Caption tone="warning">
             Active programme status could not load. You can still browse the library.
           </Caption>
+          <Button label="Retry active programme" variant="subtle" loading={activeProgram.isFetching} onPress={() => void activeProgram.refetch()} />
         </Panel>
       ) : null}
       <TemplateFinderPrompt onOpen={() => setFinderOpen(true)} />

@@ -43,6 +43,28 @@ export function TemplateDetailScreen({ templateId }: { templateId: string }) {
     }
   }
 
+  const failedQuery = templates.isError ? templates : profile.isError ? profile : today.isError ? today : setup.isError ? setup : null
+  if (failedQuery) {
+    return (
+      <Screen>
+        <PageHeader title="Programme" />
+        <EmptyState title="Programme could not load">
+          {failedQuery.error instanceof Error ? failedQuery.error.message : 'Try again in a moment.'}
+        </EmptyState>
+        <Button
+          label="Retry"
+          variant="default"
+          loading={failedQuery.isFetching || reloadPending}
+          fullWidth
+          onPress={() => {
+            if (failedQuery === setup) void reloadSetup()
+            else void failedQuery.refetch()
+          }}
+        />
+      </Screen>
+    )
+  }
+
   if (
     templates.isPending ||
     profile.isPending ||
@@ -59,33 +81,7 @@ export function TemplateDetailScreen({ templateId }: { templateId: string }) {
     )
   }
 
-  if (templates.isError || profile.isError || today.isError || setup.isError) {
-    const error = templates.error ?? profile.error ?? today.error ?? setup.error
-    return (
-      <Screen>
-        <PageHeader title="Programme" />
-        <EmptyState title="Programme could not load">
-          {error instanceof Error ? error.message : 'Try again in a moment.'}
-        </EmptyState>
-        <Button
-          label={reloadPending ? 'Retrying…' : 'Retry'}
-          variant="default"
-          loading={reloadPending}
-          fullWidth
-          onPress={() => {
-            if (setup.isError) void reloadSetup()
-            else {
-              void templates.refetch()
-              void profile.refetch()
-              void today.refetch()
-            }
-          }}
-        />
-      </Screen>
-    )
-  }
-
-  if (!user || !template || !setup.data || !profile.data || !today.data) {
+  if (!user || !templates.data || !template || !setup.data || !profile.data || !today.data) {
     return (
       <Screen>
         <PageHeader title="Programme" />

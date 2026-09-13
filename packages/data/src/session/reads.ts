@@ -6,6 +6,7 @@ import type {
   WorkoutSession,
 } from '@sheetless/domain/session/types'
 import { sessionLineageKey } from '@sheetless/domain/session/ad-hoc'
+import { WORKOUT_UNAVAILABLE_MESSAGE } from '@sheetless/domain/session/session-errors'
 import { expandPlannedSession, programForNextUncompletedSession } from '@sheetless/domain/program/templates'
 import { getMovementName } from '@sheetless/domain/movement/movements'
 import {
@@ -113,8 +114,9 @@ export async function getSession(ctx: UserContext, sessionId: string): Promise<W
     .select('*')
     .eq('id', sessionId)
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
   if (error) throw new Error(error.message)
+  if (!sessionRow) throw new Error(WORKOUT_UNAVAILABLE_MESSAGE)
 
   const { data: exerciseRows, error: exerciseError } = await supabase
     .from('exercise_logs')

@@ -24,6 +24,8 @@ export type SessionSummary = {
   topSets: SetLog[]
   accessoryOutcomes: string[]
   decisions: ProgressionDecision[]
+  /** False for older workouts whose exact decision provenance was not recorded. */
+  decisionReceiptAvailable?: boolean
 }
 
 /** A favourited ad-hoc session, listed on the Plans page as a restartable workout. */

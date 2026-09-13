@@ -105,6 +105,36 @@ afterEach(async () => {
 })
 
 describe('web session save recovery', () => {
+  it('does not let an earlier failure overwrite a queued correction of the same set', async () => {
+    const first = deferred()
+    const second = deferred()
+    const correction = { ...editA, actualLoad: 125, clientMutationId: 'queued-correction' }
+    boundary.save.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    let firstResult!: Promise<unknown>
+    let secondResult!: Promise<unknown>
+    await settle(() => { firstResult = mutations[0].mutateAsync(editA).catch(() => undefined) })
+    await settle(() => { secondResult = mutations[0].mutateAsync(correction) })
+    await settle(async () => { first.reject(new Error('Earlier request failed')); await firstResult })
+    expect(set(1)).toMatchObject({ ...correction, syncState: 'saving' })
+    await settle(async () => { second.resolve(serverSession(correction)); await secondResult })
+    expect(set(1)).toMatchObject({ ...correction, syncState: 'synced' })
+  })
+  it('distinguishes an exact retry from a corrected failed set without losing the draft', async () => {
+    boundary.save.mockRejectedValue(new Error('Response lost'))
+    await settle(() => mutations[0].mutateAsync(editA).catch(() => undefined))
+    await settle(() => mutations[0].mutateAsync({ ...editA, clientMutationId: 'unused' }).catch(() => undefined))
+    expect(boundary.save.mock.calls[1][0].data).toMatchObject({
+      ...editA, reconcileBeforeSave: true,
+    })
+    const correction = { ...editA, actualLoad: 125, actualReps: 6, clientMutationId: 'corrected-a' }
+    await settle(() => mutations[0].mutateAsync(correction).catch(() => undefined))
+    expect(boundary.save.mock.calls[2][0].data).toMatchObject({ ...correction, reconcileBeforeSave: true })
+    expect(set(1)).toMatchObject({ ...correction, syncState: 'syncFailed' })
+    boundary.save.mockResolvedValue(serverSession(correction))
+    await settle(() => mutations[0].mutateAsync({ ...correction, clientMutationId: 'another-unused' }))
+    expect(boundary.save.mock.calls[3][0].data.clientMutationId).toBe('corrected-a')
+    expect(set(1)).toMatchObject({ ...correction, syncState: 'synced' })
+  })
   it('retains failed A through B, refetch and unrelated management changes until A has an exact receipt', async () => {
     const otherKey = accountQueryKeys.session('account-b', 'session-1')
     const otherTodayKey = accountQueryKeys.today('account-b')

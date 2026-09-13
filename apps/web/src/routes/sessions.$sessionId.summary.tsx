@@ -1,12 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { SessionSummaryPage } from '~/domains/session/components/SessionSummaryPage'
-import { sessionQueryOptions } from '~/domains/session/queries'
-import { loadRouteQuery } from '~/shared/lib/route-loading'
+import { loadSessionRoute } from '~/domains/session/lib/session-route'
 
 export const Route = createFileRoute('/sessions/$sessionId/summary')({
   loader: async ({ context, params }) => {
     if (context.user) {
-      await loadRouteQuery(context.queryClient, sessionQueryOptions(context.user.id, params.sessionId))
+      await loadSessionRoute(context.queryClient, context.user.id, params.sessionId)
     }
   },
   component: SessionSummaryRoute,

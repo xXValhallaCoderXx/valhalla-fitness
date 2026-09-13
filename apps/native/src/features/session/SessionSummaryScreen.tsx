@@ -6,13 +6,13 @@ import { PostWorkoutFeedback } from '@/features/feedback/PostWorkoutFeedback'
 import { WhatChangedCard } from './summary/WhatChangedCard'
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { router } from 'expo-router'
+import { router, useIsFocused } from 'expo-router'
 import { buildWorkoutSummary } from '@sheetless/domain/history/workout-summary'
 import { summaryHeadline } from '@sheetless/domain/session/summary-decisions'
 import type { SessionSummary } from '@sheetless/domain/session/types/read-models'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { Button, EmptyState, PageHeader, Panel, Screen, Text } from '@/components'
-import { sessionQueryOptions } from './queries'
+import { sessionSummaryQueryOptions } from './queries'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { WorkoutSummaryRecap } from './summary/WorkoutSummaryRecap'
@@ -22,22 +22,18 @@ import { ShareWorkoutButton } from '@/features/history/sharing/ShareWorkoutButto
 
 export function SessionSummaryScreen({ sessionId }: { sessionId: string }) {
   const { user } = useSession()
+  const focused = useIsFocused()
+  if (!focused) return null
   if (!user) return <Screen><Text>Sign in to view your workout summary.</Text></Screen>
   return <AccountSummary key={`${user.id}-${sessionId}`} user={user} sessionId={sessionId} />
 }
 
 function AccountSummary({ user, sessionId }: { user: User; sessionId: string }) {
-  const [resolved, setResolved] = useState<Record<string, 'accepted' | 'dismissed'>>({})
   const queryClient = useQueryClient()
-  // Snapshot the finish payload once: the effect below drops it from the cache so
-  // a revisit shows the persisted session rather than a stale one-shot summary.
-  // useState's lazy initializer keeps that one-shot semantic without reading a ref
-  // during render (and without re-reading the cache on every render).
-  const [finishSummary] = useState(() =>
-    user
-      ? queryClient.getQueryData<SessionSummary>(accountQueryKeys.summary(user.id, sessionId))
-      : undefined,
-  )
+  // Consume only the feedback invitation; saved decisions are read on every visit.
+  const [freshFinish] = useState(() => Boolean(
+    queryClient.getQueryData<SessionSummary>(accountQueryKeys.summary(user.id, sessionId)),
+  ))
   useEffect(() => {
     if (!user) return
     queryClient.removeQueries({
@@ -46,11 +42,11 @@ function AccountSummary({ user, sessionId }: { user: User; sessionId: string }) 
     })
   }, [queryClient, sessionId, user])
   const session = useQuery({
-    ...sessionQueryOptions(user!, sessionId),
+    ...sessionSummaryQueryOptions(user, sessionId),
     enabled: Boolean(user && sessionId),
   })
 
-  if (session.isPending) {
+  if (session.isPending || (!session.isError && !session.isFetchedAfterMount)) {
     return (
       <Screen>
         <PageHeader title="Workout summary" />
@@ -67,38 +63,53 @@ function AccountSummary({ user, sessionId }: { user: User; sessionId: string }) 
         <EmptyState title="This recap could not load">
           {session.error instanceof Error ? session.error.message : 'The workout was not found.'}
         </EmptyState>
-        <Button label="Back to Today" fullWidth onPress={() => router.replace('/(tabs)')} />
+        <Button label="Retry" fullWidth loading={session.isFetching} onPress={() => void session.refetch()} />
+        <Button label="Back to Today" variant="default" fullWidth onPress={() => router.replace('/(tabs)')} />
       </Screen>
     )
   }
 
-  const recap = buildWorkoutSummary(session.data)
-  const decisions = (finishSummary?.decisions ?? []).map((decision) => ({ ...decision, status: resolved[decision.id] ?? decision.status }))
-  const effectiveSummary = finishSummary ? { ...finishSummary, decisions } : undefined
-  const receipt = buildSessionReceipt(session.data, effectiveSummary)
+  const summary = session.data
+  const workout = summary.session
+  const receiptAvailable = summary.decisionReceiptAvailable !== false
+  const recap = buildWorkoutSummary(workout)
+  const decisions = summary.decisions
+  const receipt = buildSessionReceipt(workout, summary)
+  const onResolved = (id: string, action: 'accepted' | 'dismissed') => {
+    queryClient.setQueryData<SessionSummary>(accountQueryKeys.sessionReceipt(user.id, sessionId), (current) => current && ({
+      ...current,
+      decisions: current.decisions.map((decision) => decision.id === id ? { ...decision, status: action } : decision),
+    }))
+  }
   return (
     <Screen>
       <PageHeader
-        eyebrow={`${session.data.title} · Session summary`}
+        eyebrow={`${workout.title} · Session summary`}
         title={summaryHeadline(recap.completion.completed, recap.completion.planned)}
         subtitle={`${recap.completion.completed} of ${recap.completion.planned} sets · ${recap.stats.durationMinutes} min`}
       />
-      {finishSummary?.decisions.length ? (
+      {!receiptAvailable ? (
+        <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
+          <Text>Progression details are unavailable for this older workout.</Text>
+          <Button label="Review current choices in Your Plan" variant="default" onPress={() => router.push('/(tabs)/program')} />
+        </Panel>
+      ) : null}
+      {decisions.length ? (
         <SummaryDecisions
           decisions={decisions}
-          onResolved={(id, action) => setResolved((current) => ({ ...current, [id]: action }))}
-          units={session.data.units}
-          user={user!}
+          onResolved={onResolved}
+          units={workout.units}
+          user={user}
         />
       ) : null}
-      <ReturnSessionNotice session={session.data} />
+      <ReturnSessionNotice session={workout} />
       <WhatChangedCard receipt={receipt} user={user} sessionId={sessionId} />
-      {postWorkoutFeedbackEligible(session.data, effectiveSummary) ? (
-        <PostWorkoutFeedback key={`${user.id}-${sessionId}`} user={user} session={session.data} decisions={decisions} />
+      {freshFinish && receiptAvailable && postWorkoutFeedbackEligible(workout, summary) ? (
+        <PostWorkoutFeedback key={`${user.id}-${sessionId}`} user={user} session={workout} decisions={decisions} />
       ) : null}
-      <WorkoutSummaryRecap session={session.data} recap={recap} />
-      <AdHocSessionActions user={user!} session={session.data} />
-      <ShareWorkoutButton session={session.data} />
+      <WorkoutSummaryRecap session={workout} recap={recap} />
+      <AdHocSessionActions user={user} session={workout} />
+      <ShareWorkoutButton session={workout} />
       <Button label="Back to Today" fullWidth onPress={() => router.dismissTo('/(tabs)')} />
     </Screen>
   )

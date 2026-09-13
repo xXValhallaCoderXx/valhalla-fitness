@@ -94,6 +94,14 @@ export function ProgramsShowcase() {
               Find my plan
             </Button>
           </div>
+          {templatesQuery.isError ? (
+            <div className="space-y-2" role="alert">
+              <Text component="p" size="sm">We couldn't load the programme library.</Text>
+              <Button variant="light" onClick={() => void templatesQuery.refetch()}>
+                Retry programmes
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -101,6 +109,9 @@ export function ProgramsShowcase() {
         opened={showFinder}
         onClose={() => setShowFinder(false)}
         templates={quizTemplates}
+        templatesLoading={templatesQuery.isPending}
+        templatesError={templatesQuery.isError}
+        onRetryTemplates={() => void templatesQuery.refetch()}
         onStart={() => {
           // Logged-out visitors need an account to start a plan — funnel them to sign-up.
           setShowFinder(false)

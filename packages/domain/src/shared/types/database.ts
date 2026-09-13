@@ -1177,6 +1177,7 @@ export type Database = {
           resolved_at: string | null
           rule_id: string
           scope: string
+          session_id: string | null
           state_key: string | null
           state_type: string | null
           status: string
@@ -1195,6 +1196,7 @@ export type Database = {
           resolved_at?: string | null
           rule_id: string
           scope: string
+          session_id?: string | null
           state_key?: string | null
           state_type?: string | null
           status?: string
@@ -1213,6 +1215,7 @@ export type Database = {
           resolved_at?: string | null
           rule_id?: string
           scope?: string
+          session_id?: string | null
           state_key?: string | null
           state_type?: string | null
           status?: string
@@ -1238,6 +1241,13 @@ export type Database = {
             columns: ["program_instance_id", "user_id"]
             isOneToOne: false
             referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "progression_decisions_session_owner_fkey"
+            columns: ["session_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
             referencedColumns: ["id", "user_id"]
           },
           {
@@ -1549,6 +1559,7 @@ export type Database = {
           planned_session_id: string | null
           prescription_snapshot: Json
           program_instance_id: string | null
+          progression_receipt_recorded: boolean
           prs: Json | null
           reflection_improve: string | null
           return_recommendations: Json | null
@@ -1575,6 +1586,7 @@ export type Database = {
           planned_session_id?: string | null
           prescription_snapshot: Json
           program_instance_id?: string | null
+          progression_receipt_recorded?: boolean
           prs?: Json | null
           reflection_improve?: string | null
           return_recommendations?: Json | null
@@ -1601,6 +1613,7 @@ export type Database = {
           planned_session_id?: string | null
           prescription_snapshot?: Json
           program_instance_id?: string | null
+          progression_receipt_recorded?: boolean
           prs?: Json | null
           reflection_improve?: string | null
           return_recommendations?: Json | null

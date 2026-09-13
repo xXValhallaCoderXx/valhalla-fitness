@@ -8,8 +8,9 @@ import type { SessionSummary } from '@sheetless/domain/session/types/read-models
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { patchSetInSession } from '@sheetless/domain/session/session-cache'
 
-const api = vi.hoisted(() => ({ save: vi.fn(), finish: vi.fn(), replace: vi.fn(), prime: vi.fn(), start: vi.fn() }))
+const api = vi.hoisted(() => ({ save: vi.fn(), read: vi.fn(), finish: vi.fn(), replace: vi.fn(), prime: vi.fn(), start: vi.fn() }))
 vi.mock('@sheetless/data/session/sets', () => ({ upsertSetLog: api.save }))
+vi.mock('@sheetless/data/session/reads', () => ({ getSession: api.read, getToday: vi.fn() }))
 vi.mock('@sheetless/data/session/completion', () => ({ finishSession: api.finish }))
 vi.mock('@/lib/account', () => ({ buildUserContext: (user: User) => ({ user }) }))
 vi.mock('expo-router', () => ({ router: { replace: api.replace } }))
@@ -18,6 +19,7 @@ vi.mock('../src/features/session/rest-timer/rest-timer-context', () => ({
 }))
 import { useSetLogMutation } from '../src/features/session/focus/useSetLogMutation'
 import { useFinishSession } from '../src/features/session/lifecycle/useFinishSession'
+import { sessionQueryOptions } from '../src/features/session/queries'
 
 const user = { id: 'user-1' } as User
 const sessionKey = accountQueryKeys.session(user.id, 'session-1')
@@ -38,6 +40,9 @@ function workout(): WorkoutSession {
 
 function harness(session = workout()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  client.setQueryDefaults(sessionKey, {
+    structuralSharing: sessionQueryOptions(user, session.sessionId).structuralSharing,
+  })
   client.setQueryData(sessionKey, session)
   client.setQueryData(accountQueryKeys.today(user.id), { activeSession: session })
   const wrapper = ({ children }: PropsWithChildren) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -71,14 +76,54 @@ describe('native set saving', () => {
     expect(cached().movements[0].sets[0]).toMatchObject({ ...patch, syncState: 'syncFailed' })
     expect(api.save).toHaveBeenCalledTimes(1)
     rerender({ current: cached() })
-    act(() => result.current.mutate(patch))
+    act(() => result.current.mutate({ ...patch, clientMutationId: 'new-ui-retry-token' }))
     await waitFor(() => expect(api.save).toHaveBeenCalledTimes(2))
-    expect(api.save.mock.calls[1][1]).toEqual(api.save.mock.calls[0][1])
+    expect(api.save.mock.calls[1][1]).toEqual({ ...api.save.mock.calls[0][1], reconcileBeforeSave: true })
     expect(cached().movements[0].sets[0].syncState).toBe('saving')
     const saved = patchSetInSession({ ...session, stateVersion: 5 }, { ...patch, movementSlotId: 'exercise-1', syncState: 'synced' })
     await act(async () => retry.resolve(saved))
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(cached()).toEqual(saved)
+    expect(api.start).not.toHaveBeenCalled()
+  })
+
+  it('keeps a corrected failed undo through refetch and retries its exact values without restarting rest', async () => {
+    const session = workout()
+    const original = {
+      movementSlotId: 'exercise-1', setIndex: 1, actualLoad: 82.5, actualReps: 5,
+      actualRir: 2, actualRpe: 8, note: 'Keep this note', completed: true, clientMutationId: 'save-1',
+    }
+    const failed = patchSetInSession(session, { ...original, syncState: 'syncFailed' })
+    const { client, wrapper, cached } = harness(failed)
+    const { result } = renderHook(() => useSetLogMutation(user, failed, failed.movements[0], 1), { wrapper })
+    const corrected = { setIndex: 1, actualLoad: 80, actualReps: 6, actualRir: 1, completed: false, clientMutationId: 'undo-1' }
+    const pending = deferred<WorkoutSession>()
+    api.save.mockReturnValueOnce(pending.promise)
+    act(() => result.current.mutate(corrected))
+    await waitFor(() => expect(api.save).toHaveBeenCalledTimes(1))
+    expect(api.save.mock.calls[0][1]).toMatchObject({
+      ...corrected, actualRpe: 8, note: 'Keep this note', reconcileBeforeSave: true,
+    })
+    expect(cached().movements[0].sets[0]).toMatchObject({ ...original, ...corrected, syncState: 'saving' })
+    await act(async () => pending.reject(new Error('Response lost')))
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(cached().movements[0].sets[0]).toMatchObject({ ...original, ...corrected, syncState: 'syncFailed' })
+
+    const stale = patchSetInSession({ ...session, stateVersion: 5 }, { ...original, syncState: 'synced' })
+    api.read.mockResolvedValue(stale)
+    await act(async () => { await client.fetchQuery({ ...sessionQueryOptions(user, session.sessionId), staleTime: 0 }) })
+    expect(cached().stateVersion).toBe(5)
+    expect(cached().movements[0].sets[0]).toMatchObject({ ...corrected, syncState: 'syncFailed' })
+
+    const saved = patchSetInSession({ ...session, stateVersion: 6 }, { ...original, ...corrected, syncState: 'synced' })
+    api.save.mockResolvedValueOnce(saved)
+    await act(async () => { await result.current.mutateAsync({ ...corrected, clientMutationId: 'ignored-ui-token' }) })
+    expect(api.save.mock.calls[1][1]).toMatchObject({
+      ...corrected, actualRpe: 8, note: 'Keep this note', expectedStateVersion: 5, reconcileBeforeSave: true,
+    })
+    expect(cached()).toEqual(saved)
+    expect(client.getQueryData(accountQueryKeys.today(user.id))).toEqual({ activeSession: saved })
+    expect(api.prime).not.toHaveBeenCalled()
     expect(api.start).not.toHaveBeenCalled()
   })
 

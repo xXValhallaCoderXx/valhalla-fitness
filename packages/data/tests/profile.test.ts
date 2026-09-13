@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   ensureProfile,
   getMe,
@@ -9,6 +9,18 @@ import {
 import { makeStubCtx, makeStubUser } from './support/supabase-stub'
 
 describe('ensureProfile', () => {
+  it('propagates a failed read without trying to create a profile, then recovers on retry', async () => {
+    const { ctx, stub } = makeStubCtx({ profiles: [{ id: 'user-1', units: 'lb' }] })
+    const query = stub.from('profiles')
+    vi.spyOn(query, 'maybeSingle').mockResolvedValueOnce({ data: null, error: { message: 'Connection lost' } })
+    vi.spyOn(stub, 'from').mockReturnValueOnce(query)
+
+    await expect(ensureProfile(ctx)).rejects.toThrow('Connection lost')
+    expect(stub.insertCalls).toHaveLength(0)
+    await expect(ensureProfile(ctx)).resolves.toMatchObject({ id: 'user-1', units: 'lb' })
+    expect(stub.insertCalls).toHaveLength(0)
+  })
+
   it('creates a defaults-seeded profile row on first sign-in', async () => {
     const { ctx, stub } = makeStubCtx({ profiles: [] })
 

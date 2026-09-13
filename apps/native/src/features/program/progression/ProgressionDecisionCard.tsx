@@ -57,7 +57,7 @@ export function ProgressionDecisionCard({
         </View>
         {state ? (
           <Badge tone={accepted ? 'success' : 'neutral'}>
-            {accepted ? 'Applied' : 'Kept'}
+            {accepted ? 'Applied' : state === 'superseded' ? 'Superseded' : 'Kept'}
           </Badge>
         ) : null}
       </View>
@@ -90,7 +90,7 @@ export function ProgressionDecisionCard({
             <Minus color={theme.textMuted} size={14} />
           )}
           <Caption tone={accepted ? 'success' : 'dimmed'}>
-            {accepted ? 'Your next workout will use this change.' : 'Your current value stays in place.'}
+            {accepted ? 'This change was applied.' : state === 'superseded' ? 'Later programme changes replaced this recommendation.' : 'You kept the previous value.'}
           </Caption>
         </View>
       ) : (

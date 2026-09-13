@@ -33,6 +33,9 @@ export const accountQueryKeys = {
   summaries: (userId: string) => ['account', userId, 'summaries'] as const,
   summary: (userId: string, sessionId: string) =>
     ['account', userId, 'summaries', sessionId] as const,
+  sessionReceipts: (userId: string) => ['account', userId, 'session-receipts'] as const,
+  sessionReceipt: (userId: string, sessionId: string) =>
+    ['account', userId, 'session-receipts', sessionId] as const,
   movementSwapOptions: (userId: string, sessionId: string, exerciseLogId?: string) =>
     exerciseLogId
       ? ['account', userId, 'sessions', sessionId, 'movement-swap-options', exerciseLogId] as const

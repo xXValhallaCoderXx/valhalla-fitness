@@ -41,6 +41,7 @@ export function ProgramScreen() {
         <EmptyState title="Your plan could not load">
           {overview.error instanceof Error ? overview.error.message : 'Try again in a moment.'}
         </EmptyState>
+        <Button label="Retry" variant="default" loading={overview.isFetching} onPress={() => void overview.refetch()} />
       </Screen>
     )
   }

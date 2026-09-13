@@ -39,6 +39,17 @@ const session: WorkoutSession = {
 }
 
 describe('session cache helpers', () => {
+  it('does not treat an old receipt with different values as a confirmed correction', () => {
+    const server = patchSetInSession(session, {
+      movementSlotId: 'exercise-1', setIndex: 1, actualLoad: 120,
+      completed: true, clientMutationId: 'old-token', syncState: 'synced',
+    })
+    const draft = patchSetInSession(server, {
+      movementSlotId: 'exercise-1', setIndex: 1, actualLoad: 125, syncState: 'syncFailed',
+    })
+    expect(reconcileSessionSets(draft, server).movements[0].sets[0])
+      .toMatchObject({ actualLoad: 125, syncState: 'syncFailed' })
+  })
   it('retains an unconfirmed edit across refetches, then clears it on an exact receipt', () => {
     const current = patchSetInSession(session, {
       movementSlotId: 'exercise-1', setIndex: 1, actualLoad: 125, actualReps: 6,

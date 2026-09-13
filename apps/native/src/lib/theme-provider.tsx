@@ -49,7 +49,8 @@ export function SheetlessThemeProvider({ children }: { children: ReactNode }) {
   const effectiveScheme = preference === 'system' ? systemScheme : preference
   // Use a promptly returned saved theme without allowing an offline or stalled
   // profile request to hold the splash indefinitely.
-  const isThemeReady = !user || !profile.isPending || timedOutUserId === userId
+  // A retry after a failed lookup must not hide the mounted navigator again.
+  const isThemeReady = !user || !profile.isPending || profile.isFetched || timedOutUserId === userId
   const setPreviewPreference = useCallback((nextPreference: ThemePreference | null) => {
     setPreview(nextPreference ? { userId, preference: nextPreference } : null)
   }, [userId])

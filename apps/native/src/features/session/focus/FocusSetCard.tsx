@@ -18,7 +18,7 @@ import { cardShadow, radii, spacing, useTokens } from '@/lib/tokens'
 import { FocusRirRow } from './FocusRirRow'
 import { FocusStepper } from './FocusStepper'
 
-export type SetDraft = { actualLoad: number; actualReps: number; actualRir?: number }
+export type SetDraft = { actualLoad: number | null; actualReps: number; actualRir?: number; completed: boolean }
 
 export function FocusSetCard({
   session,
@@ -62,9 +62,20 @@ export function FocusSetCard({
   const adjustReps = (delta: number) =>
     setDraft((current) => ({ ...current, actualReps: Math.max(0, Number(current.actualReps) + delta) }))
 
-  const ctaLabel = saveFailed ? 'Retry save' : set.completed ? 'Update set' : 'Log set'
+  const hasDraftChanges = draft.actualLoad !== (set.actualLoad ?? null)
+    || Number(draft.actualReps) !== (set.actualReps ?? null)
+    || (effectiveActualRir ?? null) !== (set.actualRir ?? null)
+  const ctaLabel = saveFailed
+    ? hasDraftChanges ? 'Save changes' : 'Retry save'
+    : set.completed ? 'Update set' : 'Log set'
   const previousLine = previousSetShort(movement.previous, set.setIndex)
   const controlsDisabled = isSaving || disabled
+  const submit = (completed: boolean) => onLogSet({
+    actualLoad: draft.actualLoad,
+    actualReps: Number(draft.actualReps),
+    actualRir: effectiveActualRir,
+    completed,
+  })
 
   return (
     <View
@@ -126,7 +137,9 @@ export function FocusSetCard({
         {draft.actualLoad === null ? <Caption>Enter a load, or 0 for bodyweight.</Caption> : null}
         {saveFailed ? (
           <Text size="xs" tone="danger">
-            Last save failed — tap Retry to try again.
+            {hasDraftChanges
+              ? 'Last save failed. Save changes to keep these updated values.'
+              : 'Last save failed. Retry to save this set.'}
           </Text>
         ) : null}
 
@@ -134,16 +147,19 @@ export function FocusSetCard({
           label={ctaLabel}
           fullWidth
           loading={isSaving}
-          disabled={controlsDisabled || draft.actualLoad === null}
-          onPress={() =>
-            onLogSet({
-              actualLoad: Number(draft.actualLoad),
-              actualReps: Number(draft.actualReps),
-              actualRir: effectiveActualRir,
-            })
-          }
+          disabled={controlsDisabled || (draft.actualLoad === null && (!saveFailed || set.completed))}
+          onPress={() => submit(saveFailed ? set.completed : true)}
           testID="focus-log-set"
         />
+        {set.completed ? (
+          <Button
+            label="Mark incomplete"
+            variant="default"
+            fullWidth
+            disabled={controlsDisabled}
+            onPress={() => submit(false)}
+          />
+        ) : null}
       </View>
     </View>
   )
