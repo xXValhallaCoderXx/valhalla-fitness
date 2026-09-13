@@ -112,6 +112,44 @@ path. Native browser handoff still needs standalone-device acceptance.
 - Wearables, Health integrations, social features, public leaderboards, and coaching marketplace.
 - AI-generated workouts, autonomous substitutions, readiness automation, and injury/pain gating.
 
+#### Mobile and desktop UI/UX revamp preparation
+
+The SHE-29 audit defines the next UX work. SHE-31/42 entry and public-catalogue recovery are
+committed in the current baseline. SHE-32 now preserves exact failed-save identities, gives changed
+values a new identity, and reads the current workout revision before retrying. Native can mark a set
+incomplete while retaining its values; undo and completed-set edits keep focus and do not start rest.
+RIR suggestions belong to the workout and performed exercise. SHE-44 bounds long sheet content below
+the header and above the footer, with the backdrop outside the content's touch hierarchy and explicit
+Android keyboard avoidance.
+
+Local verification on 13 September 2026 passed `pnpm verify` (1,265 tests, four existing skips),
+217 database assertions and five browser recovery cases against local Supabase. The final keyboard
+adjustment also passed native lint/typecheck and Android/web Metro export. Samsung SM-S938B/Android
+16 checks used the actual sheet and Focus components in an isolated Expo Go 57 fixture: long review
+scrolling, fixed footer, keyboard, larger text, dismissal guards, RIR accessibility metadata, and
+log/undo/retry controls passed. Fixture saves were in memory; full-app standalone/network recovery,
+spoken TalkBack and iOS acceptance remain separate.
+
+Preserve the confirmed scope when preparing designs:
+
+- All surfaces offer Focus and Overview; desktop defaults to Overview and mobile defaults to Focus.
+- Guided is the default. Full is available in Settings immediately; eight completed sessions offer
+  an optional invitation, never an automatic switch or feature lock. Reading mode, workout view,
+  and screen size are independent and do not change training calculations.
+- Every surface offers Find My Plan, existing-programme setup, and immediate ad-hoc entry after
+  sign-in. Mobile supports desktop-created programmes, repeat and favourites. Custom authoring stays
+  on desktop; mobile retains trends, records, history/details and basic filters.
+
+Start with reviewable Today/navigation and live-workout flows, then recap/Plan and Insights/setup.
+Use fresh, active, completed and pending-review states on desktop and phone widths. Carry the
+SHE-32/44 recovery and scrolling checks forward, including keyboard, accessibility and light/dark.
+Before rebuilding the affected surfaces, settle SHE-33's ended-workout/receipt behavior and
+SHE-35/SHE-16's record, unit and ledger correctness. Include SHE-17/26's progression and methodology
+wording, SHE-34's notification cancellation and SHE-39's draft/read recovery in their owning flows.
+SHE-39's recommendation-preview retry is already covered by SHE-42. SHE-18 owns integrated web
+acceptance and SHE-19 documentation reconciliation. SHE-28, hosted migrations, standalone Android
+and Play acceptance remain separate release work. This preparation does not claim the revamp is built.
+
 #### Native migration milestones
 
 Ordered by dependency rather than by size. The shared segmented control and chart primitives are

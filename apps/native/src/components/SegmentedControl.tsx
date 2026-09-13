@@ -5,6 +5,7 @@ import { SectionLabel } from './SectionLabel'
 export interface SegmentedControlOption<T extends string> {
   value: T
   label: string
+  accessibilityLabel?: string
   disabled?: boolean
   testID?: string
 }
@@ -23,6 +24,7 @@ export interface SegmentedControlProps<T extends string> {
   label?: string
   disabled?: boolean
   accessibilityLabel: string
+  accessibilityRole?: 'tablist' | 'radiogroup'
   style?: StyleProp<ViewStyle>
 }
 
@@ -39,6 +41,7 @@ export function SegmentedControl<T extends string>({
   label,
   disabled = false,
   accessibilityLabel,
+  accessibilityRole = 'tablist',
   style,
 }: SegmentedControlProps<T>) {
   const { theme } = useTokens()
@@ -49,8 +52,12 @@ export function SegmentedControl<T extends string>({
     return (
       <Pressable
         key={option.value}
-        accessibilityRole="tab"
-        accessibilityState={{ disabled: inactive, selected }}
+        accessibilityRole={accessibilityRole === 'radiogroup' ? 'radio' : 'tab'}
+        accessibilityLabel={option.accessibilityLabel}
+        accessibilityState={accessibilityRole === 'radiogroup'
+          ? { disabled: inactive, checked: selected }
+          : { disabled: inactive, selected }}
+        aria-checked={accessibilityRole === 'radiogroup' ? selected : undefined}
         disabled={inactive}
         onPress={() => onChange(option.value)}
         testID={option.testID}
@@ -92,7 +99,7 @@ export function SegmentedControl<T extends string>({
       // The group identity lives on one container node, not on the scroll
       // viewport — a ScrollView is a viewport, and react-native-web renders it
       // as two nested elements, which would announce the group twice.
-      accessibilityRole="tablist"
+      accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       style={[label ? { gap: spacing.xs } : null, style]}
     >

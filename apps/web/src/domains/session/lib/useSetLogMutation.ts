@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { prepareSetLogAttempt, type SetLogAttempt } from '@sheetless/domain/session/set-log-intent'
 import { notifications } from '@mantine/notifications'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
@@ -19,10 +20,11 @@ export function useSetLogMutation(session: WorkoutSession, movement: MovementSlo
   const userId = useRequiredAccountId()
   const queryClient = useQueryClient()
   const rest = useRestTimerControls()
-  return useMutation({
+  const sessionKey = accountQueryKeys.session(userId, session.sessionId)
+  const mutation = useMutation({
     mutationKey: ['setLog', session.sessionId, movement.id, setIndex],
     scope: { id: `session:${session.sessionId}` },
-    mutationFn: (patch: SetPatch) =>
+    mutationFn: (patch: SetLogAttempt) =>
       upsertSetLogFn({
         data: {
           sessionId: session.sessionId,
@@ -31,13 +33,17 @@ export function useSetLogMutation(session: WorkoutSession, movement: MovementSlo
           actualLoad: patch.actualLoad,
           actualReps: patch.actualReps,
           actualRir: patch.actualRir,
+          actualRpe: patch.actualRpe,
           completed: patch.completed,
           note: patch.note,
           clientMutationId: patch.clientMutationId ?? crypto.randomUUID(),
-          expectedStateVersion: session.stateVersion,
+          expectedStateVersion: queryClient.getQueryData<WorkoutSession>(sessionKey)?.stateVersion ?? session.stateVersion,
+          reconcileBeforeSave: patch.reconcileBeforeSave,
         },
       }),
-    onMutate: async (patch) => {
+    onMutate: async (attempt) => {
+      const patch = { ...attempt }
+      delete patch.reconcileBeforeSave
       // Unlock the audio cue inside the tap gesture (before any await) so the beep can fire later.
       if (patch.completed) rest.prime()
       const sessionKey = accountQueryKeys.session(userId, session.sessionId)
@@ -56,17 +62,24 @@ export function useSetLogMutation(session: WorkoutSession, movement: MovementSlo
       }
       return { previous }
     },
-    onError: (error, patch, context) => {
+    onError: (error, attempt, context) => {
+      const patch = { ...attempt }
+      delete patch.reconcileBeforeSave
       const previous = context?.previous
       if (previous) {
         queryClient.setQueryData<WorkoutSession>(
           accountQueryKeys.session(userId, session.sessionId),
-          (current) => patchSetInSession(current ?? previous, {
-            ...patch,
-            movementSlotId: movement.id,
-            setIndex,
-            syncState: 'syncFailed',
-          }),
+          (current) => {
+            const latestSet = current?.movements.find((item) => item.id === movement.id)
+              ?.sets.find((item) => item.setIndex === setIndex)
+            if (current && latestSet?.clientMutationId !== patch.clientMutationId) return current
+            return patchSetInSession(current ?? previous, {
+              ...patch,
+              movementSlotId: movement.id,
+              setIndex,
+              syncState: 'syncFailed',
+            })
+          },
         )
       }
       notifications.show({
@@ -86,4 +99,14 @@ export function useSetLogMutation(session: WorkoutSession, movement: MovementSlo
       }
     },
   })
+  const prepare = (patch: SetPatch) => {
+    const current = queryClient.getQueryData<WorkoutSession>(sessionKey) ?? session
+    const set = current.movements.find((item) => item.id === movement.id)?.sets.find((item) => item.setIndex === setIndex)
+    return prepareSetLogAttempt(set, patch, () => crypto.randomUUID())
+  }
+  return {
+    ...mutation,
+    mutate: (patch: SetPatch, options?: Parameters<typeof mutation.mutate>[1]) => mutation.mutate(prepare(patch), options),
+    mutateAsync: (patch: SetPatch, options?: Parameters<typeof mutation.mutateAsync>[1]) => mutation.mutateAsync(prepare(patch), options),
+  }
 }

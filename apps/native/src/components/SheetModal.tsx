@@ -38,9 +38,9 @@ export function SheetModal({
     if (!closeDisabled) onClose()
   }
   const content = (
-    <>
-      <View style={{ gap: spacing.md, padding: spacing.lg }}>{children}</View>
-    </>
+    <View style={{ flexShrink: scroll ? 0 : 1, gap: spacing.md, minHeight: 0, padding: spacing.lg }}>
+      {children}
+    </View>
   )
 
   return (
@@ -51,97 +51,104 @@ export function SheetModal({
       statusBarTranslucent
       onRequestClose={close}
     >
-      <Pressable
-        accessible={false}
-        onPress={closeDisabled ? undefined : onClose}
-        style={{ backgroundColor: 'rgba(6, 12, 14, 0.6)', flex: 1, justifyContent: 'flex-end' }}
-      >
+      <View style={{ backgroundColor: 'rgba(6, 12, 14, 0.6)', flex: 1 }}>
+        {/* The backdrop must not compete with the sheet's scrolling responder. */}
+        <Pressable
+          accessible={false}
+          disabled={closeDisabled}
+          onPress={close}
+          style={{ bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 }}
+        />
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          // Android's edge-to-edge Modal can keep full height despite adjustResize.
+          behavior={Platform.select({ ios: 'padding', android: 'height' })}
           pointerEvents="box-none"
           style={{ flex: 1, justifyContent: 'flex-end', paddingTop: insets.top + spacing.lg }}
         >
-          <Pressable accessible={false} onPress={() => {}} style={{ cursor: 'auto' }}>
+          <View
+            accessibilityViewIsModal
+            onAccessibilityEscape={close}
+            testID={testID}
+            style={{
+              backgroundColor: theme.surface,
+              borderColor: theme.cardBorder,
+              borderTopLeftRadius: radii.xl,
+              borderTopRightRadius: radii.xl,
+              borderWidth: 1,
+              flexShrink: 1,
+              maxHeight,
+              minHeight: 0,
+              overflow: 'hidden',
+              ...cardShadow(theme),
+            }}
+          >
             <View
-              accessibilityViewIsModal
-              onAccessibilityEscape={close}
-              testID={testID}
               style={{
-                backgroundColor: theme.surface,
-                borderColor: theme.cardBorder,
-                borderTopLeftRadius: radii.xl,
-                borderTopRightRadius: radii.xl,
-                borderWidth: 1,
-                maxHeight,
-                overflow: 'hidden',
-                ...cardShadow(theme),
+                alignItems: 'flex-start',
+                borderBottomColor: theme.border,
+                borderBottomWidth: 1,
+                flexDirection: 'row',
+                flexShrink: 0,
+                gap: spacing.sm,
+                paddingBottom: spacing.sm,
+                paddingLeft: spacing.lg,
+                paddingRight: spacing.sm,
+                paddingTop: spacing.md,
               }}
             >
+              <View style={{ flex: 1, gap: 3, minWidth: 0, paddingTop: 4 }}>
+                <Heading order={2}>{title}</Heading>
+                {subtitle ? <Caption>{subtitle}</Caption> : null}
+              </View>
+              <Pressable
+                accessibilityLabel={`Close ${title}`}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: closeDisabled }}
+                disabled={closeDisabled}
+                hitSlop={4}
+                onPress={close}
+                style={({ pressed }) => ({
+                  alignItems: 'center',
+                  borderRadius: 22,
+                  height: 44,
+                  justifyContent: 'center',
+                  opacity: closeDisabled ? 0.35 : pressed ? 0.6 : 1,
+                  width: 44,
+                })}
+              >
+                <X color={theme.textMuted} size={22} />
+              </Pressable>
+            </View>
+
+            {scroll ? (
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                style={{ flexGrow: 0, flexShrink: 1, minHeight: 0 }}
+                contentContainerStyle={{ paddingBottom: footer ? 0 : spacing.lg + insets.bottom }}
+              >
+                {content}
+              </ScrollView>
+            ) : (
+              content
+            )}
+
+            {footer ? (
               <View
                 style={{
-                  alignItems: 'flex-start',
-                  borderBottomColor: theme.border,
-                  borderBottomWidth: 1,
-                  flexDirection: 'row',
-                  gap: spacing.sm,
-                  paddingBottom: spacing.sm,
-                  paddingLeft: spacing.lg,
-                  paddingRight: spacing.sm,
-                  paddingTop: spacing.md,
+                  backgroundColor: theme.surface,
+                  borderTopColor: theme.border,
+                  borderTopWidth: 1,
+                  flexShrink: 0,
+                  padding: spacing.md,
+                  paddingBottom: spacing.md + insets.bottom,
                 }}
               >
-                <View style={{ flex: 1, gap: 3, minWidth: 0, paddingTop: 4 }}>
-                  <Heading order={2}>{title}</Heading>
-                  {subtitle ? <Caption>{subtitle}</Caption> : null}
-                </View>
-                <Pressable
-                  accessibilityLabel={`Close ${title}`}
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: closeDisabled }}
-                  disabled={closeDisabled}
-                  hitSlop={4}
-                  onPress={onClose}
-                  style={({ pressed }) => ({
-                    alignItems: 'center',
-                    borderRadius: 22,
-                    height: 44,
-                    justifyContent: 'center',
-                    opacity: closeDisabled ? 0.35 : pressed ? 0.6 : 1,
-                    width: 44,
-                  })}
-                >
-                  <X color={theme.textMuted} size={22} />
-                </Pressable>
+                {footer}
               </View>
-
-              {scroll ? (
-                <ScrollView
-                  keyboardShouldPersistTaps="handled"
-                  contentContainerStyle={{ paddingBottom: footer ? 0 : spacing.lg + insets.bottom }}
-                >
-                  {content}
-                </ScrollView>
-              ) : (
-                <View style={{ flexShrink: 1 }}>{content}</View>
-              )}
-
-              {footer ? (
-                <View
-                  style={{
-                    backgroundColor: theme.surface,
-                    borderTopColor: theme.border,
-                    borderTopWidth: 1,
-                    padding: spacing.md,
-                    paddingBottom: spacing.md + insets.bottom,
-                  }}
-                >
-                  {footer}
-                </View>
-              ) : null}
-            </View>
-          </Pressable>
+            ) : null}
+          </View>
         </KeyboardAvoidingView>
-      </Pressable>
+      </View>
     </Modal>
   )
 }

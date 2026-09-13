@@ -76,6 +76,7 @@ export const upsertSetLogInputSchema = z
     note: z.string().trim().max(2_000).nullable().optional(),
     clientMutationId: requestId,
     expectedStateVersion,
+    reconcileBeforeSave: z.boolean().optional(),
   })
   .strict()
 
