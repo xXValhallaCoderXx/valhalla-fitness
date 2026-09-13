@@ -12,7 +12,7 @@ import { buildUserContext } from '@/lib/account'
 import { useStableMutationRequest } from '@/lib/useStableMutationRequest'
 
 export type ProgressionResolution = 'accepted' | 'dismissed'
-export type ProgressionDecisionState = 'accepted' | 'kept'
+export type ProgressionDecisionState = 'accepted' | 'kept' | 'superseded'
 
 type ResolveVariables = {
   decisionId: string
@@ -80,6 +80,7 @@ export function useProgressionReview({
         action,
         requestId: singleRequest.requestIdFor({ decisionId, action }),
       }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: accountQueryKeys.sessionReceipts(user.id) }),
     onSuccess: (_remaining, variables) => {
       singleRequest.clearRequest()
       onResolved?.(variables.decisionId, variables.action)
@@ -94,6 +95,7 @@ export function useProgressionReview({
         action: 'accepted',
         requestId: allRequest.requestIdFor({ decisionIds, action: 'accepted' }),
       }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: accountQueryKeys.sessionReceipts(user.id) }),
     onSuccess: (decisionIds) => {
       allRequest.clearRequest()
       for (const decisionId of decisionIds) onResolved?.(decisionId, 'accepted')

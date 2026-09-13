@@ -81,6 +81,26 @@ offer a new sign-in attempt when the link is incomplete or a request fails, sign
 links to sign-in, and invalid or missing workout links show a useful unavailable state and return
 path. Native browser handoff still needs standalone-device acceptance.
 
+Live-workout entry verifies the saved status before mounting logging controls or the native
+keep-awake/rest timer. Completed links replace the live route with the recap; other non-active
+workouts show a safe return path. Once an active workout opens, background read failures preserve
+the editor's in-memory drafts.
+
+SHE-33 recaps read saved progression decisions on every visit, including Apply, Keep and superseded
+outcomes. Failed receipt reads offer Retry without claiming that changes were applied. Migration
+`202609130002_session_progression_receipts.sql` links newly generated decisions to their workout in
+the finish transaction; repeated finish requests reuse that receipt. Older workouts deliberately
+remain unlinked and point to Your Plan for current choices. Fresh-finish feedback remains a one-visit
+invitation. The migration is required before deploying these recap changes to a hosted environment.
+
+Local SHE-33 verification on 13 September 2026 passed `pnpm verify` (1,302 tests, four existing
+skips), final web type/lint/build/PWA/bundle checks, 247 database assertions, and six desktop/mobile
+browser cases. These cover ended links, Apply/Keep and bulk review, a committed decision with a lost
+response, recap revisit/reload, failed-read Retry, and existing set-save/finish recovery. The final
+review-modal unit checks also cover saved workout units differing from the profile. Native screen
+checks cover entry, refocus and authoritative receipt states; physical deep links, hosted migration
+and standalone acceptance remain separate. Changes are local and awaiting review.
+
 ### Beta work order
 
 #### P0 — release gates
@@ -143,8 +163,8 @@ Preserve the confirmed scope when preparing designs:
 Start with reviewable Today/navigation and live-workout flows, then recap/Plan and Insights/setup.
 Use fresh, active, completed and pending-review states on desktop and phone widths. Carry the
 SHE-32/44 recovery and scrolling checks forward, including keyboard, accessibility and light/dark.
-Before rebuilding the affected surfaces, settle SHE-33's ended-workout/receipt behavior and
-SHE-35/SHE-16's record, unit and ledger correctness. Include SHE-17/26's progression and methodology
+SHE-33's ended-workout/receipt behavior is implemented locally. Before rebuilding the affected
+surfaces, settle SHE-35/SHE-16's record, unit and ledger correctness. Include SHE-17/26's progression and methodology
 wording, SHE-34's notification cancellation and SHE-39's draft/read recovery in their owning flows.
 SHE-39's recommendation-preview retry is already covered by SHE-42. SHE-18 owns integrated web
 acceptance and SHE-19 documentation reconciliation. SHE-28, hosted migrations, standalone Android

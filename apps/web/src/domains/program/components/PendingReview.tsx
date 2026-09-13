@@ -1,21 +1,20 @@
 import { Button, Modal } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, Clock } from 'lucide-react'
-import { useState } from 'react'
 import { Caption, Heading, Panel, Text } from '~/components'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { accountQueryKeys } from '~/shared/lib/query-keys'
-import { meQueryOptions } from '~/domains/account/queries'
 import {
   resolveProgressionDecisionFn,
-  resolveProgressionDecisionsFn,
 } from '~/domains/program/server/program-functions'
 import { reviewDecisionView } from '~/domains/program/lib/progression-review'
 import { useStableProgramMutationRequest } from '~/domains/program/lib/useStableProgramMutationRequest'
 import type { ProgressionDecision } from '~/domains/program'
+import type { Unit } from '~/shared/types'
 import { ProgressionReviewLiftCard } from './ProgressionReviewLiftCard'
+import { usePendingProgressionReview } from '../lib/usePendingProgressionReview'
 
 export { PendingReviewAlert, PendingReviewGate } from './PendingReviewSurfaces'
 
@@ -53,11 +52,12 @@ export function useResolveProgressionDecision({
       ])
       notifications.show({ color: 'success', title: 'Progression updated', message: 'Your decision was saved.' })
     },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: accountQueryKeys.sessionReceipts(userId) }),
     onError: (error) => {
       notifications.show({
         color: 'danger',
-        title: 'Could not save decision',
-        message: getApiErrorMessage(error, 'Unable to save progression decision'),
+        title: 'Could not confirm decision',
+        message: getApiErrorMessage(error, 'Unable to confirm progression decision'),
       })
     },
   })
@@ -72,104 +72,22 @@ export function useResolveProgressionDecision({
 export function PendingProgressionReviewModal({
   opened,
   decisions,
+  units: receiptUnits,
   contextLabel,
   onClose,
   onResolved,
 }: {
   opened: boolean
   decisions: ProgressionDecision[]
+  units?: Unit
   contextLabel?: string
   onClose: () => void
   onResolved?: (decisionId: string, action: ProgressionDecisionResolution) => void
 }) {
-  const userId = useRequiredAccountId()
-  const queryClient = useQueryClient()
-  const units = useQuery(meQueryOptions(userId)).data?.units ?? 'kg'
-  const resolveRequest = useStableProgramMutationRequest()
-  const acceptAllRequest = useStableProgramMutationRequest()
-
-  // Snapshot the pending set when the modal opens, so decided lifts stay visible (collapsed) even as the
-  // caller's pending list shrinks underneath us.
-  const [lifts, setLifts] = useState<ProgressionDecision[]>([])
-  const [decided, setDecided] = useState<Map<string, 'accepted' | 'kept'>>(() => new Map())
-  // Snapshot the pending set on the closed→open transition (adjusting state during render — the React-blessed
-  // pattern) so decided lifts stay visible as the caller's pending list shrinks underneath us.
-  const [prevOpened, setPrevOpened] = useState(false)
-  if (opened !== prevOpened) {
-    setPrevOpened(opened)
-    if (opened) {
-      setLifts(decisions)
-      setDecided(new Map())
-    }
-  }
-
-  const invalidate = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: accountQueryKeys.activeProgram(userId) }),
-      queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) }),
-      queryClient.invalidateQueries({ queryKey: accountQueryKeys.programOverview(userId) }),
-    ])
-
-  const resolveMutation = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: ProgressionDecisionResolution }) =>
-      resolveProgressionDecisionFn({
-        data: {
-          decisionId: id,
-          action,
-          requestId: resolveRequest.requestIdFor({ decisionId: id, action }),
-        },
-      }),
-    onSuccess: async (_result, { id, action }) => {
-      resolveRequest.clearRequest()
-      setDecided((current) => new Map(current).set(id, action === 'accepted' ? 'accepted' : 'kept'))
-      onResolved?.(id, action)
-      await invalidate()
-    },
-    onError: (error) =>
-      notifications.show({ color: 'danger', title: 'Could not save decision', message: getApiErrorMessage(error, 'Unable to save progression decision') }),
-  })
-
-  const acceptAllMutation = useMutation({
-    mutationFn: (ids: string[]) =>
-      resolveProgressionDecisionsFn({
-        data: {
-          decisionIds: ids,
-          action: 'accepted',
-          requestId: acceptAllRequest.requestIdFor({
-            decisionIds: ids,
-            action: 'accepted',
-          }),
-        },
-      }),
-    onSuccess: async (ids) => {
-      acceptAllRequest.clearRequest()
-      setDecided((current) => {
-        const next = new Map(current)
-        for (const id of ids) next.set(id, 'accepted')
-        return next
-      })
-      for (const id of ids) onResolved?.(id, 'accepted')
-      await invalidate()
-      notifications.show({ color: 'success', title: 'Loads updated', message: 'Your next workout is ready.' })
-    },
-    onError: (error) =>
-      notifications.show({ color: 'danger', title: 'Could not apply updates', message: getApiErrorMessage(error, 'Unable to apply the load updates') }),
-  })
-
-  const isSaving = resolveMutation.isPending || acceptAllMutation.isPending
-  const pending = lifts.filter((decision) => !decided.has(decision.id))
-  const pendingCount = pending.length
-  const decidedCount = lifts.length - pendingCount
-  const pendingDelta = pending.reduce(
-    (sum, decision) =>
-      sum +
-      (typeof decision.recommendedValue === 'number' && typeof decision.previousValue === 'number'
-        ? decision.recommendedValue - decision.previousValue
-        : 0),
-    0,
-  )
-  const roundedDelta = Math.round(pendingDelta * 10) / 10
-  const acceptAllDelta = roundedDelta !== 0 ? `${roundedDelta > 0 ? '+' : ''}${Number.isInteger(roundedDelta) ? roundedDelta : roundedDelta.toFixed(1)} ${units}` : ''
+  const {
+    units, lifts, reviewedLifts, pending, pendingCount, decidedCount, isSaving,
+    acceptAllDelta, resolveMutation, acceptAllMutation,
+  } = usePendingProgressionReview({ opened, decisions, units: receiptUnits, onResolved })
   const subline = `${contextLabel ? `You finished ${contextLabel} · ` : ''}${lifts.length} lift${lifts.length === 1 ? '' : 's'} ready to review`
   const progressText = pendingCount === 0 ? `All ${lifts.length} reviewed` : `${decidedCount} of ${lifts.length} reviewed`
 
@@ -218,12 +136,12 @@ export function PendingProgressionReviewModal({
 
         <div className="mt-3 min-h-0 flex-1 space-y-2.5 overflow-y-auto px-5 pb-2">
           {lifts.length ? (
-            lifts.map((decision) => (
+            reviewedLifts.map(({ decision, state }) => (
               <ProgressionReviewLiftCard
                 key={decision.id}
                 decision={decision}
                 view={reviewDecisionView(decision, units)}
-                state={decided.get(decision.id)}
+                state={state}
                 isSaving={isSaving}
                 onAccept={() => resolveMutation.mutate({ id: decision.id, action: 'accepted' })}
                 onKeep={() => resolveMutation.mutate({ id: decision.id, action: 'dismissed' })}

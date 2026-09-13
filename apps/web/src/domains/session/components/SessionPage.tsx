@@ -1,5 +1,6 @@
 import { useIsMutating, useQuery } from '@tanstack/react-query'
-import { useRouterState } from '@tanstack/react-router'
+import { Button } from '@mantine/core'
+import { Link, Navigate, useRouterState } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { sessionQueryOptions } from '~/domains/session/queries'
@@ -24,11 +25,6 @@ export function SessionPage({
   sessionId: string
   user: AuthUser | null
 }) {
-  const sessionQuery = useQuery({
-    ...sessionQueryOptions(user?.id ?? '', sessionId),
-    enabled: Boolean(user),
-  })
-
   if (!user) {
     return (
       <Page>
@@ -37,10 +33,58 @@ export function SessionPage({
     )
   }
 
-  if (sessionQuery.isPending) return <PageSkeleton />
-  if (sessionQuery.isError) return <SessionLoadError error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
+  return <SessionEntry key={`${user.id}:${sessionId}`} userId={user.id} sessionId={sessionId} />
+}
 
-  return <LoadedSessionRoute sessionId={sessionId} session={sessionQuery.data} />
+function SessionEntry({ userId, sessionId }: { userId: string; sessionId: string }) {
+  const sessionQuery = useQuery({
+    ...sessionQueryOptions(userId, sessionId),
+    refetchOnMount: 'always',
+  })
+  const [entry, setEntry] = useState<{ ready: boolean; error?: unknown }>({ ready: false })
+  const [entryAttempt, setEntryAttempt] = useState(0)
+  const { refetch } = sessionQuery
+
+  // A cached active workout may have ended elsewhere. Verify every entry before
+  // mounting loggers, then preserve their drafts during ordinary background reads.
+  // Observe the actual read promise: optimistic cache writes also count as fetches
+  // for isFetchedAfterMount, so that flag cannot certify the entry on its own.
+  useEffect(() => {
+    let current = true
+    void refetch({ cancelRefetch: false, throwOnError: true }).then(
+      () => { if (current) setEntry({ ready: true }) },
+      (error: unknown) => { if (current) setEntry({ ready: false, error }) },
+    )
+    return () => { current = false }
+  }, [entryAttempt, refetch])
+
+  if (!entry.ready) {
+    return entry.error
+      ? <SessionLoadError error={entry.error} onRetry={() => {
+          setEntry({ ready: false })
+          setEntryAttempt((attempt) => attempt + 1)
+        }} />
+      : <PageSkeleton />
+  }
+
+  const session = sessionQuery.data!
+  if (session.status === 'completed') {
+    return <Navigate to="/sessions/$sessionId/summary" params={{ sessionId }} replace />
+  }
+  if (session.status !== 'in_progress') {
+    return (
+      <Page>
+        <EmptyState
+          title="Workout is not active"
+          action={<Button component={Link} to="/today">Back to Today</Button>}
+        >
+          Return to Today to start or resume an available workout.
+        </EmptyState>
+      </Page>
+    )
+  }
+
+  return <LoadedSessionRoute sessionId={sessionId} session={session} />
 }
 
 function LoadedSessionRoute({

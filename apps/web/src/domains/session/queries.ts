@@ -13,6 +13,15 @@ import { queryStaleTimes } from '~/shared/lib/query-stale-times'
 import { accountQueryKeys } from '~/shared/lib/query-keys'
 import { reconcileSessionSets } from '~/domains/session/lib/session-cache'
 import type { WorkoutSession } from '~/domains/session/types'
+import { getSessionSummaryFn } from './server/session-summary-functions'
+
+export const sessionSummaryQueryOptions = (userId: string, sessionId: string) =>
+  queryOptions({
+    queryKey: accountQueryKeys.sessionReceipt(userId, sessionId),
+    queryFn: () => getSessionSummaryFn({ data: { sessionId } }),
+    staleTime: 0,
+    refetchOnMount: 'always',
+  })
 
 export const todayQueryOptions = (userId: string) =>
   queryOptions({

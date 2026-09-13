@@ -7,11 +7,21 @@ import {
 import { listFavoriteWorkouts } from '@sheetless/data/session/favorites'
 import { listMovementSwapOptions } from '@sheetless/data/session/movements'
 import { getSession, getToday } from '@sheetless/data/session/reads'
+import { getSessionSummary } from '@sheetless/data/session/summary'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { reconcileSessionSets } from '@sheetless/domain/session/session-cache'
 import type { WorkoutSession } from '@sheetless/domain/session/types/session'
 import { queryStaleTimes } from '@sheetless/domain/shared/query-stale-times'
 import { buildUserContext } from '@/lib/account'
+
+export function sessionSummaryQueryOptions(user: User, sessionId: string) {
+  return queryOptions({
+    queryKey: accountQueryKeys.sessionReceipt(user.id, sessionId),
+    queryFn: () => getSessionSummary(buildUserContext(user), sessionId),
+    staleTime: 0,
+    refetchOnMount: 'always',
+  })
+}
 
 export function todayQueryOptions(user: User, timeZone?: string) {
   return queryOptions({

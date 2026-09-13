@@ -73,15 +73,21 @@ export function summarizeMovementPerformance(movement: MovementSlot, units?: Uni
  */
 function describeDecisionChange(decision: ProgressionDecision, units?: Unit | string): string {
   const { previousValue, recommendedValue } = decision
-  if (previousValue != null && recommendedValue != null) {
-    if (previousValue === recommendedValue) return `Hold at ${formatWeight(previousValue, units)}`
-    return `${formatWeight(previousValue, units)} → ${formatWeight(recommendedValue, units)}`
+  if (decision.status === 'superseded') return 'Later programme changes replaced this recommendation.'
+  if (decision.status === 'dismissed') {
+    return previousValue != null ? `Kept at ${formatWeight(previousValue, units)}` : 'Kept the previous plan.'
   }
-  if (decision.recommendation === 'Add load next time') return 'Add a little weight next time'
-  return decision.recommendation
+  const prefix = decision.status === 'accepted' ? 'Applied: ' : ''
+  if (previousValue != null && recommendedValue != null) {
+    if (previousValue === recommendedValue) return `${prefix}Hold at ${formatWeight(previousValue, units)}`
+    return `${prefix}${formatWeight(previousValue, units)} → ${formatWeight(recommendedValue, units)}`
+  }
+  if (decision.recommendation === 'Add load next time') return `${prefix}Add a little weight next time`
+  return `${prefix}${decision.recommendation}`
 }
 
 function decisionTone(decision: ProgressionDecision): ReceiptTone {
+  if (decision.status === 'dismissed' || decision.status === 'superseded') return 'neutral'
   if (decision.previousValue != null && decision.recommendedValue != null) {
     if (decision.recommendedValue > decision.previousValue) return 'success'
     if (decision.recommendedValue < decision.previousValue) return 'warning'

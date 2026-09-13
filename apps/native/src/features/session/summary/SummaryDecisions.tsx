@@ -40,9 +40,9 @@ export function SummaryDecisions({
         <TrendingUp color={theme.tones.action.text} size={22} />
         <View style={{ flex: 1 }}>
           <Heading order={3}>
-            {pending.length ? `${pending.length} load updates ready` : appliedCount ? 'Next workout updated' : 'Current loads kept'}
+            {pending.length ? `${pending.length} load updates ready` : appliedCount ? 'Updates applied' : 'Choices reviewed'}
           </Heading>
-          <Caption>Applies to your next workout.</Caption>
+          <Caption>{pending.length ? 'Applies to your next workout.' : 'Saved decisions for this workout.'}</Caption>
         </View>
       </View>
 
@@ -53,7 +53,7 @@ export function SummaryDecisions({
             decision={decision}
             user={user}
             units={units}
-            state={decision.status === 'pending' ? undefined : decision.status === 'accepted' ? 'accepted' : 'kept'}
+            state={decision.status === 'pending' ? undefined : decision.status === 'accepted' ? 'accepted' : decision.status === 'superseded' ? 'superseded' : 'kept'}
             isSaving={review.isSaving}
             onResolve={(action) => review.resolve({ decisionId: decision.id, action })}
           />

@@ -6,18 +6,22 @@ import { themeProviderMock } from './support/theme'
 // Exercise query gates and retry wiring, not native layout, sheets, charts or navigation.
 const api = vi.hoisted(() => ({
   profile: vi.fn(), today: vi.fn(), templates: vi.fn(), setup: vi.fn(),
-  program: vi.fn(), activeProgram: vi.fn(), session: vi.fn(), openBrowser: vi.fn(), navigate: vi.fn(),
+  program: vi.fn(), activeProgram: vi.fn(), session: vi.fn(), summary: vi.fn(), openBrowser: vi.fn(), navigate: vi.fn(),
 }))
 vi.mock('@/lib/theme-provider', () => themeProviderMock())
 vi.mock('@/lib/session-provider', () => ({ useSession: () => ({ user: { id: 'account-a', email: 'member@example.test' } }) }))
 vi.mock('@/lib/supabase', () => ({ getSupabase: () => ({}) }))
 vi.mock('@/lib/use-timezone-sync', () => ({ useTimezoneSync: () => {} }))
-vi.mock('expo-router', () => ({ router: { push: api.navigate, replace: api.navigate, navigate: api.navigate } }))
+vi.mock('expo-router', () => ({
+  router: { push: api.navigate, replace: api.navigate, navigate: api.navigate },
+  useIsFocused: () => true,
+}))
 vi.mock('expo-keep-awake', () => ({ useKeepAwake: () => {} }))
 vi.mock('expo-web-browser', () => ({ openBrowserAsync: api.openBrowser }))
 vi.mock('lucide-react-native', () => ({ Mail: () => null }))
 vi.mock('@sheetless/data/account/profile', () => ({ getMe: api.profile }))
 vi.mock('@sheetless/data/session/reads', () => ({ getToday: api.today, getSession: api.session }))
+vi.mock('@sheetless/data/session/summary', () => ({ getSessionSummary: api.summary }))
 vi.mock('@sheetless/data/session/lifecycle', () => ({ startSession: vi.fn() }))
 vi.mock('@sheetless/data/program/templates', () => ({ listTemplates: api.templates, getProgramSetupOptions: api.setup }))
 vi.mock('@sheetless/data/history/history', () => ({ getProgramOverview: api.program }))
@@ -93,7 +97,11 @@ beforeEach(() => {
   api.setup.mockResolvedValue({})
   api.program.mockResolvedValue({ activeProgram: null })
   api.activeProgram.mockResolvedValue(null)
-  api.session.mockResolvedValue({ sessionId: 'session-a', title: 'Workout', movements: [], units: 'kg' })
+  api.session.mockResolvedValue({ sessionId: 'session-a', status: 'in_progress', title: 'Workout', movements: [], units: 'kg' })
+  api.summary.mockResolvedValue({
+    session: { sessionId: 'session-a', status: 'completed', title: 'Workout', movements: [], units: 'kg' },
+    decisions: [], decisionReceiptAvailable: true,
+  })
   api.openBrowser.mockResolvedValue({ type: 'dismiss' })
 })
 afterEach(() => client.clear())
@@ -128,7 +136,7 @@ describe('native load recovery wiring', () => {
     { name: 'Plan', renderScreen: () => <ProgramScreen />, read: api.program, recovered: 'No active program' },
     { name: 'Programs', renderScreen: () => <TemplatesScreen />, read: api.templates, recovered: 'No matching programs' },
     { name: 'Workout', renderScreen: () => <LiveSessionScreen sessionId="session-a" />, read: api.session, recovered: 'Workout ready' },
-    { name: 'Recap', renderScreen: () => <SessionSummaryScreen sessionId="session-a" />, read: api.session, recovered: 'Recap ready' },
+    { name: 'Recap', renderScreen: () => <SessionSummaryScreen sessionId="session-a" />, read: api.summary, recovered: 'Recap ready' },
   ])('recovers $name in place after a failed read', async ({ renderScreen, read, recovered }) => {
     read.mockRejectedValueOnce(new Error('Connection failed'))
     mount(renderScreen())
