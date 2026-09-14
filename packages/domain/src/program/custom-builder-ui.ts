@@ -12,16 +12,40 @@ import {
 export type CustomBuilderStep = 'methodology' | 'main_lifts' | 'accessories' | 'review'
 
 const customBuilderSteps: Array<{ id: CustomBuilderStep; label: string }> = [
-  { id: 'methodology', label: 'Goal & methodology' },
+  { id: 'methodology', label: 'Goal & method' },
   { id: 'main_lifts', label: 'Main lifts' },
   { id: 'accessories', label: 'Accessories' },
   { id: 'review', label: 'Review' },
 ]
 
+/**
+ * What this step is asking for.
+ *
+ * One line per step: the page used to print the step-2 sentence above every step, which was simply
+ * wrong on three of the four.
+ */
+export function customBuilderStepSubtitle(
+  step: CustomBuilderStep,
+  methodology: CustomProgramMethodology,
+): string {
+  if (step === 'methodology') {
+    return 'Name the programme and choose how Sheetless should regulate your training.'
+  }
+  if (step === 'main_lifts') {
+    return methodology === 'none'
+      ? 'Set your week, then add the exercises you want to repeat each day.'
+      : 'Set your week, then pick a main lift for each day. Sheetless fills in the sets and the rule for adding weight.'
+  }
+  if (step === 'accessories') {
+    return 'Add the supporting work for each day. Accessories stay at a load you choose.'
+  }
+  return 'Check the week Sheetless built, then create the programme.'
+}
+
 export function customBuilderStepsFor(methodology: CustomProgramMethodology): Array<{ id: CustomBuilderStep; label: string }> {
   if (methodology === 'none') {
     return [
-      { id: 'methodology', label: 'Goal & schedule' },
+      { id: 'methodology', label: 'Goal & method' },
       { id: 'main_lifts', label: 'Exercises' },
       { id: 'review', label: 'Review' },
     ]
@@ -81,6 +105,52 @@ export function resizeCustomSessions(
       return nextDefault.sessions[index]!
     }),
   }
+}
+
+/**
+ * What the main lift will do each day, in plain words — the Guided card's rule line.
+ *
+ * `mainWorkSummary` is notation ("3x5 @ current working load") and belongs to Full. Guided's whole
+ * premise is that it never shows the working, so it gets a sentence describing what Sheetless will
+ * actually do with the lift.
+ */
+export function mainWorkSentence(
+  methodology: CustomProgramMethodology,
+  session: CustomProgramBuilderInput['sessions'][number],
+): string {
+  if (methodology === 'training_max_wave') {
+    return 'Three sets that ramp up in weight, the last pushed for extra reps, then lighter back-off sets.'
+  }
+  if (methodology === 'plus_set_wave') {
+    return 'A few sets at one weight, with the last pushed for as many good reps as you can.'
+  }
+  if (methodology === 'simple_linear') {
+    return 'Three sets of five. Get every rep and the weight goes up next time.'
+  }
+  const sets = session.mainSetCount
+  const reps = session.mainTargetReps
+  return `${sets} ${sets === 1 ? 'set' : 'sets'} of ${reps}, logged as you go.`
+}
+
+/**
+ * One day, in a few words — the "Your week" right-hand column.
+ *
+ * Deliberately not `${mainSetCount} sets of ${mainTargetReps}`: those two fields only survive
+ * normalisation for `simple_linear` (which forces 3×5 anyway), so a training-max wave was reporting
+ * the untouched draft defaults — "4 sets of 8" for a day that runs three ramping sets and five
+ * back-offs.
+ */
+export function weekDaySummary(
+  methodology: CustomProgramMethodology,
+  session: CustomProgramBuilderInput['sessions'][number],
+): string {
+  if (methodology === 'none') {
+    const count = session.loggerExercises.length
+    return `${count} exercise${count === 1 ? '' : 's'}`
+  }
+  if (methodology === 'training_max_wave') return '3 sets, then back-off'
+  if (methodology === 'plus_set_wave') return 'Sets, last one pushed'
+  return '3 sets of 5'
 }
 
 export function mainWorkSummary(methodology: CustomProgramMethodology, session: CustomProgramBuilderInput['sessions'][number]) {

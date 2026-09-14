@@ -3,12 +3,19 @@ import {
   buildTemplateGrid,
   templateCellAddress,
   templateDefinitionChecks,
+  templateGridCellValue,
+  templateGridStateValues,
+  templatePrescriptionFormula,
+  templateRowStateLabel,
   templateSetFormula,
   templateSetRows,
   templateSetTarget,
 } from '../src/program/template-grid'
 import { buildCustomProgramTemplateDefinition } from '../src/program/custom-templates'
-import type { CustomProgramBuilderInput } from '../src/program/custom-program-meta'
+import {
+  createDefaultCustomProgramBuilderInput,
+  type CustomProgramBuilderInput,
+} from '../src/program/custom-program-meta'
 import type { TemplateSetDefinition } from '../src/program/types'
 
 // Built from the real generator, not a hand-written fixture: the grid's whole claim is that it is
@@ -173,5 +180,122 @@ describe('templateDefinitionChecks', () => {
     const result = templateDefinitionChecks(definition)
     expect(result.valid).toBe(false)
     expect(result.checks.some((check) => !check.ok && check.detail.startsWith('missing '))).toBe(true)
+  })
+})
+
+describe('templatePrescriptionFormula', () => {
+  const slot = { movementId: 'squat', anchorMovementId: 'squat' }
+
+  // The formula bar names a whole cell. Printing only set one of a ramp states a third of the truth.
+  it('collapses a wave into one vector expression', () => {
+    const definition = definitionFor()
+    const prescription = definition.weeks[2].prescriptions['day-1-main']
+    expect(templatePrescriptionFormula({ prescription, slot, rounding: 2.5 })).toBe(
+      '=MROUND(TM_squat × {0.75, 0.85, 0.95}, 2.5) · reps {5, 3, 1+} · top set RIR 2 · back-off 5 × 5 @ 0.65',
+    )
+  })
+
+  it('keeps a single working set scalar rather than a one-element vector', () => {
+    const prescription = {
+      targetSummary: '',
+      sets: [
+        {
+          targetLoad: { kind: 'percent_of_state' as const, stateType: 'training_max' as const, percent: 0.8, default: 'low' as const },
+          targetReps: 5,
+        },
+      ],
+    }
+    expect(templatePrescriptionFormula({ prescription, slot, rounding: 2.5 })).toBe(
+      '=MROUND(TM_squat × 0.8, 2.5) · reps {5}',
+    )
+  })
+
+  // Nothing to collapse when the loads are not percentages — the caller falls back to the set form.
+  it('declines a prescription with no percentage-driven work', () => {
+    const prescription = {
+      targetSummary: '',
+      sets: [{ targetLoad: { kind: 'user_selected' as const }, targetReps: 5 }],
+    }
+    expect(templatePrescriptionFormula({ prescription, slot, rounding: 2.5 })).toBeNull()
+    expect(templatePrescriptionFormula({ prescription: { targetSummary: '', sets: [] }, slot, rounding: 2.5 })).toBeNull()
+  })
+})
+
+describe('templateGridStateValues', () => {
+  it('derives each required state from the lifter’s anchor, rounded', () => {
+    const definition = definitionFor()
+    const values = templateGridStateValues({
+      definition,
+      resolveOneRepMax: (movementId) => (movementId === 'squat' ? 150 : null),
+      rounding: 2.5,
+    })
+    // 150 × 0.9 = 135, and the two lifts with no anchor are absent rather than zero.
+    expect(values).toEqual({ squat_training_max: 135 })
+  })
+
+  it('uses the working-load percentage for working-load states', () => {
+    const definition = definitionFor({ methodology: 'simple_linear' })
+    const values = templateGridStateValues({
+      definition,
+      resolveOneRepMax: () => 100,
+      rounding: 2.5,
+    })
+    expect(values.squat_working_load).toBe(75)
+  })
+})
+
+describe('templateGridCellValue', () => {
+  const definition = definitionFor()
+  const grid = buildTemplateGrid(definition)
+  const stateValues = { squat_training_max: 130 }
+
+  // The week is built around its top set; the opening 75 % warm-up is the same shape every week.
+  it('quotes the top set, its formula and the load it comes to', () => {
+    expect(
+      templateGridCellValue({ grid, address: 'day-1.main.W3', rounding: 2.5, units: 'kg', stateValues }),
+    ).toEqual({
+      target: '95 % × 1+ · top · RIR 2',
+      formula: '=MROUND(TM_squat × 0.95, 2.5)',
+      value: '122.5 kg',
+    })
+  })
+
+  // Without a training max there is nothing to resolve, but the target and the formula still stand.
+  it('leaves the load blank when no state value exists', () => {
+    const value = templateGridCellValue({ grid, address: 'day-1.main.W3', rounding: 2.5, units: 'kg' })
+    expect(value.value).toBeNull()
+    expect(value.formula).toBe('=MROUND(TM_squat × 0.95, 2.5)')
+  })
+
+  it('falls back to the first resolvable set when no set is the top one', () => {
+    // Week 4 is the deload: three ramping sets, none of them marked as the top set.
+    const value = templateGridCellValue({ grid, address: 'day-1.main.W4', rounding: 2.5, units: 'kg', stateValues })
+    expect(value.target).toBe('40 % × 5')
+    expect(value.value).toBe('52.5 kg')
+  })
+
+  it('reads an absent prescription as empty', () => {
+    const sparse = buildTemplateGrid(definitionFor())
+    sparse.cells['day-1.main.W2'].prescription = null
+    const empty = { target: null, formula: null, value: null }
+    expect(templateGridCellValue({ grid: sparse, address: 'day-1.main.W2', rounding: 2.5, units: 'kg' })).toEqual(empty)
+    expect(templateGridCellValue({ grid: sparse, address: 'nope', rounding: 2.5, units: 'kg' })).toEqual(empty)
+  })
+})
+
+describe('templateRowStateLabel', () => {
+  it('names the state a row reads', () => {
+    const grid = buildTemplateGrid(definitionFor())
+    expect(templateRowStateLabel(grid, grid.rows[0])).toBe('TM_squat')
+  })
+
+  it('returns null for a row that prescribes no loads', () => {
+    // Logger-only days are user-selected all the way down, so they read no programme state.
+    const loggerOnly = buildCustomProgramTemplateDefinition({
+      input: createDefaultCustomProgramBuilderInput({ methodology: 'none', daysPerWeek: 3 }),
+      templateId: 'custom-logger',
+    }).definition
+    const grid = buildTemplateGrid(loggerOnly)
+    expect(templateRowStateLabel(grid, grid.rows[0])).toBeNull()
   })
 })
