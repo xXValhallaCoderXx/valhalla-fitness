@@ -1,7 +1,7 @@
 import { ActionIcon, Badge, Button, Card, Popover } from '@mantine/core'
 import { Check, Eye, Info, Layers, Lock } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { Caption, FormulaChip, Heading, Panel, SectionLabel, Text } from '~/components'
+import { Caption, FormulaChip, Heading, SectionLabel, Text } from '~/components'
 import { useExperienceMode } from '~/domains/account/components'
 import type { ProgramTemplateSummary } from '~/domains/program'
 import {
@@ -39,10 +39,6 @@ export function TemplateCard({
   const complexity = isFamily ? complexityRangeLabel(familyMembers) : template.complexity
   const complexityAccent = isFamily ? lowestComplexity(familyMembers) : template.complexity
   const scheduleLabel = isFamily ? scheduleRangeLabel(familyMembers) : `${template.daysPerWeek}/wk`
-  const scheduleCaption = isFamily ? scheduleRangeLabel(familyMembers) : `${template.daysPerWeek} days/wk`
-  const tags = isFamily
-    ? [...new Set(familyMembers.flatMap((member) => member.tags))]
-    : template.tags
   const [methodOpen, setMethodOpen] = useState(false)
   const { isFull } = useExperienceMode()
   // Methodology copy comes from the family (every built-in belongs to one); custom plans, which have
@@ -71,7 +67,6 @@ export function TemplateCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Badge color={template.origin === 'user_created' ? 'accent' : 'neutral'}>{template.sourceLabel}</Badge>
-            <Caption fw={600}>{scheduleCaption}</Caption>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {isActive ? <Badge color="action" variant="filled">Active</Badge> : null}
@@ -113,13 +108,15 @@ export function TemplateCard({
           </Text>
         </div>
 
-        <Panel surface="inset" p="xs">
-          <div className="grid grid-cols-3 gap-2">
-            <TemplateMetric label="Schedule" value={scheduleLabel} />
-            <TemplateMetric label="Level" value={complexity} valueColor={complexityColor(complexityAccent)} />
-            <TemplateMetric label="Progression" value={isFamily ? `${familyMembers.length} variants` : template.progressionLabel} />
-          </div>
-        </Panel>
+        {/* A hairline and two facts, per the comp — the variant count the third metric carried is
+            already said by the "Choose your schedule" line below. */}
+        <div
+          className="grid grid-cols-2 gap-3 pt-3"
+          style={{ borderTop: '1px solid var(--vf-surface-3)' }}
+        >
+          <TemplateMetric label="Schedule" value={scheduleLabel} />
+          <TemplateMetric label="Experience" value={complexity} valueColor={complexityColor(complexityAccent)} />
+        </div>
 
         {/* Full names the plan the way the DSL does. The design shows a methodology id, but only
             custom programmes carry one — the honest machine identifier for a built-in is the
@@ -129,7 +126,7 @@ export function TemplateCard({
         ) : null}
 
         {isFamily ? (
-          <div className="flex items-center gap-1.5">
+          <div className="mt-auto flex items-center gap-1.5">
             <Layers size={13} color="var(--vf-action-text)" />
             <Caption fw={700} tone="action">
               Choose your schedule · {familyMembers.length} options
@@ -137,15 +134,6 @@ export function TemplateCard({
           </div>
         ) : null}
 
-        <div className="mt-auto hidden flex-wrap gap-1 sm:flex">
-          {tags.slice(0, 3).map((tag) => (
-            <Panel key={tag} surface="inset" px={6} py={1}>
-              <Caption size="0.625rem" fw={700}>
-                {tag}
-              </Caption>
-            </Panel>
-          ))}
-        </div>
       </div>
 
       {isActive ? (

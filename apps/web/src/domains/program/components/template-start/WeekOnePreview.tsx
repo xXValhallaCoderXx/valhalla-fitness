@@ -35,6 +35,10 @@ export function WeekOnePreview({
       <div className="mt-3 flex flex-col">
         {week.sessions.map((session) => {
           const main = session.movements.find((movement) => movement.role === 'main') ?? session.movements[0]
+          const detail = isFull ? (main?.targetSummary ?? session.keyPrescription) : session.movementSummary
+          // Every day of a wave week shares one prescription, so printing it per row just repeats
+          // the week line above it. Show it only where it actually differs.
+          const showDetail = Boolean(detail) && normalise(detail) !== normalise(week.summary)
           return (
             <div
               key={session.id}
@@ -47,9 +51,11 @@ export function WeekOnePreview({
                 </Text>
                 <Caption>{session.estimatedMinutes} min</Caption>
               </div>
-              <Caption mt={1} lh={1.4}>
-                {isFull ? (main?.targetSummary ?? session.keyPrescription) : session.movementSummary}
-              </Caption>
+              {showDetail ? (
+                <Caption mt={1} lh={1.4}>
+                  {detail}
+                </Caption>
+              ) : null}
             </div>
           )
         })}
@@ -60,4 +66,9 @@ export function WeekOnePreview({
       ) : null}
     </Panel>
   )
+}
+
+/** Compare prescription strings by content, not punctuation — "65%x5 · 75%x5" vs "65%x5, 75%x5". */
+function normalise(value: string | null | undefined): string {
+  return (value ?? '').toLowerCase().replace(/[^a-z0-9+]/g, '')
 }

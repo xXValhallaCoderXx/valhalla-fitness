@@ -25,21 +25,32 @@ export function TemplateStartStepRail({
   const currentPosition = setupStepPosition(step)
 
   return (
-    <ol className="mb-4 flex flex-wrap gap-2" aria-label="Setup steps">
-      {SETUP_STEPS.map((id) => {
+    // Pills joined by dashes, per the comp. They stay real buttons rather than the comp's inert
+    // chips because a completed step is navigable — and the e2e clicks one.
+    <ol className="mb-4 flex flex-wrap items-center gap-1.5" aria-label="Setup steps">
+      {SETUP_STEPS.map((id, index) => {
         const position = setupStepPosition(id)
         const state = position === currentPosition ? 'current' : position < currentPosition ? 'done' : 'todo'
         return (
-          <li key={id}>
+          <li key={id} className="flex items-center gap-1.5">
+            {index ? (
+              <span
+                aria-hidden="true"
+                className="h-px w-3.5 shrink-0"
+                style={{ backgroundColor: 'var(--mantine-color-default-border)' }}
+              />
+            ) : null}
             <button
               type="button"
               disabled={state === 'todo'}
               aria-current={state === 'current' ? 'step' : undefined}
               onClick={() => onSelect(id)}
-              className="flex items-center gap-2 rounded-md px-3 py-2"
+              className="flex items-center gap-2 px-3"
               style={{
-                border: '1px solid var(--mantine-color-default-border)',
-                background: state === 'current' ? 'var(--vf-action-soft)' : 'none',
+                height: '1.875rem',
+                borderRadius: 9999,
+                border: `1px solid ${state === 'current' ? 'var(--vf-action-border)' : 'var(--mantine-color-default-border)'}`,
+                background: state === 'current' ? 'var(--vf-action-soft)' : 'var(--mantine-color-default)',
                 cursor: state === 'todo' ? 'default' : 'pointer',
                 opacity: state === 'todo' ? 0.55 : 1,
                 appearance: 'none',
@@ -48,9 +59,14 @@ export function TemplateStartStepRail({
               {state === 'done' ? (
                 <Check size={13} color="var(--vf-success-text)" />
               ) : (
-                <Caption fw={800}>{position}</Caption>
+                <Caption fw={800} tone={state === 'current' ? 'action' : 'dimmed'}>{position}</Caption>
               )}
-              <Text component="span" size="xs" fw={800}>
+              <Text
+                component="span"
+                size="xs"
+                fw={state === 'current' ? 800 : 600}
+                tone={state === 'current' ? 'action' : 'dimmed'}
+              >
                 {setupStepLabel(id, mode)}
               </Text>
             </button>

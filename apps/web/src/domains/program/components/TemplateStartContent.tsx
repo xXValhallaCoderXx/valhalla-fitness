@@ -1,7 +1,8 @@
-import { Badge, Button } from '@mantine/core'
+import { Button } from '@mantine/core'
 import { ArrowLeft, ArrowRight, Check, Info } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
-import { Caption, MobileActionBar, Page, PageHeader, Panel, Text } from '~/components'
+import { Caption, MobileActionBar, Page, Panel, ScreenHeader, Text } from '~/components'
 import { blockerForStep, continueToLabel, setupStepPosition } from '~/domains/program/lib/setup-steps'
 import type { UserProfile } from '~/domains/account'
 import type { ProgramSetupOptions, ProgramTemplateSummary } from '~/domains/program'
@@ -48,27 +49,32 @@ export function TemplateStartContent({
 
   return (
     <Page className="max-w-[1200px] pb-44 md:px-8 lg:px-10 lg:pb-8">
-      <PageHeader
-        eyebrow="Set up programme"
-        title={template.name}
-        actions={
-          <>
-            <Button variant="default" onClick={() => start.setShowProgrammeInfo(true)}>
-              <Info size={14} />
-              How it works
-            </Button>
-            <Badge color={template.origin === 'licensed_partner' ? 'warning' : 'action'}>{template.sourceLabel}</Badge>
-            <Badge color="neutral">{template.daysPerWeek} days/wk</Badge>
-          </>
+      <ScreenHeader
+        eyebrow={`Programmes › ${template.name}`}
+        title={`Set up ${template.name}`}
+        subtitle={
+          [
+            setupOptions.previewWeeks.length
+              ? `${setupOptions.previewWeeks.length} ${setupOptions.previewWeeks.length === 1 ? 'week' : 'weeks'}`
+              : null,
+            `${template.daysPerWeek} days a week`,
+            template.progressionLabel,
+          ]
+            .filter(Boolean)
+            .join(' · ')
         }
-      >
-        {template.description}
-      </PageHeader>
+        actions={
+          <Button variant="default" onClick={() => start.setShowProgrammeInfo(true)}>
+            <Info size={14} />
+            How it works
+          </Button>
+        }
+      />
 
       <TemplateStartStepRail step={start.step} onSelect={start.setStep} />
 
       {start.step === 'numbers' ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start">
           <StartingNumbersStep
             rows={start.liftRows}
             units={start.units}
@@ -97,15 +103,21 @@ export function TemplateStartContent({
         </Panel>
       ) : null}
 
-      <div className="mt-4 hidden items-center justify-between gap-3 lg:flex">
-        <Button
-          variant="default"
-          disabled={setupStepPosition(start.step) === 1}
-          onClick={() => start.goToStep('previous')}
-        >
-          <ArrowLeft size={15} />
-          Back
-        </Button>
+      <div
+        className="mt-6 hidden items-center justify-between gap-3 pt-4 lg:flex"
+        style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}
+      >
+        {setupStepPosition(start.step) === 1 ? (
+          <Button component={Link} to="/templates" variant="subtle">
+            <ArrowLeft size={15} />
+            Back to programmes
+          </Button>
+        ) : (
+          <Button variant="default" onClick={() => start.goToStep('previous')}>
+            <ArrowLeft size={15} />
+            Back
+          </Button>
+        )}
         {forwardLabel ? (
           <Button disabled={Boolean(blocker)} onClick={() => start.goToStep('next')}>
             {forwardLabel}
