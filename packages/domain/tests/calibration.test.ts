@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildCalibration,
   calibrationSignalLabels,
+  weeklyRirComparison,
 } from '@sheetless/domain/history/calibration'
 import type {
   HistoryExerciseInput,
@@ -279,5 +280,28 @@ describe('calibrationSignalLabels', () => {
       leaning_hard: 'Running hot',
       no_rir_data: 'Not enough RIR data',
     })
+  })
+})
+
+describe('weeklyRirComparison', () => {
+  const weekly = [
+    { weekStart: '2026-08-03', weekLabel: 'w1', pairedSets: 40, meanActualRir: 2.4, meanGap: 0.4 },
+    { weekStart: '2026-08-10', weekLabel: 'w2', pairedSets: 20, meanActualRir: 2.1, meanGap: 0.1 },
+  ]
+  const NOW = '2026-08-12'
+
+  it('compares this calendar week against the one before', () => {
+    expect(weeklyRirComparison(weekly, NOW)).toEqual({ current: 2.1, previous: 2.4, target: 2 })
+  })
+
+  // Weekly samples only exist for weeks with paired sets, so "the previous entry" could be a month
+  // ago — the comparison is anchored to the calendar, never to array position.
+  it('leaves a week with nothing logged null rather than reaching back', () => {
+    expect(weeklyRirComparison([weekly[0]], NOW)).toEqual({ current: null, previous: 2.4, target: 2 })
+  })
+
+  it('says nothing when neither week has paired data', () => {
+    expect(weeklyRirComparison([], NOW)).toBeNull()
+    expect(weeklyRirComparison([{ ...weekly[0], weekStart: '2026-01-05' }], NOW)).toBeNull()
   })
 })

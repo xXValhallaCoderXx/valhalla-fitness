@@ -1,3 +1,5 @@
+import type { ExperienceMode } from '@sheetless/domain/account/types'
+import type { Unit } from '@sheetless/domain/shared/types'
 import type { LiftE1rmSeries, RecentHistoryEntry } from '@sheetless/domain/history/types'
 import { formatDateKey, parseDate, startOfWeek } from '@sheetless/domain/history/history'
 import type { SessionFilter } from '@sheetless/domain/history/insights'
@@ -114,6 +116,29 @@ export function sessionLedgerTotals(rows: SessionLedgerRow[]): SessionLedgerTota
       : null,
     prCount: rows.filter((row) => row.isPr).length,
   }
+}
+
+/**
+ * "12 in range · 257 sets · 84.7 t · 3 PRs" — what the ledger is showing, in one line.
+ *
+ * Clauses that would read as a number the lifter does not have are dropped rather than zeroed: no
+ * PRs means no PR clause, not "0 PRs".
+ */
+export function sessionsSubtitle(
+  totals: SessionLedgerTotals,
+  mode: ExperienceMode,
+  units: Unit | null,
+): string {
+  const parts = [`${totals.sessions} in range`, `${totals.completedSets} sets`]
+  if (totals.tonnage > 0) {
+    parts.push(
+      mode === 'full'
+        ? `${Math.round((totals.tonnage / 1000) * 10) / 10} t`
+        : `${Math.round(totals.tonnage).toLocaleString()} ${units ?? 'kg'} moved`,
+    )
+  }
+  if (totals.prCount > 0) parts.push(`${totals.prCount} PR${totals.prCount === 1 ? '' : 's'}`)
+  return parts.join(' · ')
 }
 
 export type WeekComparison = {

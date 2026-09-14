@@ -47,6 +47,20 @@ export function formatCompactDate(value?: string | null) {
   return parseDate(value)?.format('MMM D') ?? '—'
 }
 
+/**
+ * "6 Aug" — day before month, matching `formatWeekdayShortDate`.
+ *
+ * `formatCompactDate` is the same date the other way round ("Aug 6"). Both orders are already in
+ * the app; this exists so a panel that prints "As of Thu 6 Aug" can date its inputs the same way
+ * instead of mixing the two in one column.
+ */
+export function formatDayMonth(value?: string | null) {
+  if (value && isCalendarDate(value)) {
+    return formatCalendarDate(value, { day: 'numeric', month: 'short' }, 'en-GB') ?? '—'
+  }
+  return parseDate(value)?.format('D MMM') ?? '—'
+}
+
 export function formatFullDate(value?: string | null) {
   if (value && isCalendarDate(value)) {
     return formatCalendarDate(value, {

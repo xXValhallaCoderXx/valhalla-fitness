@@ -13,14 +13,14 @@ vi.mock('@tanstack/react-router', async (original) => ({
   ...await original<typeof import('@tanstack/react-router')>(),
   Link: 'a',
 }))
-const { BodyweightTrendCard } = await import('../src/domains/history/components/cards/BodyweightTrendCard')
+const { OverviewFooterRule } = await import('../src/domains/history/components/overview/OverviewFooterRule')
 
 function render(entries: HistoryInsights['bodyweight']['entries'], range: '8w' | 'all' = '8w') {
   const insights = { bodyweight: { entries, units: 'kg', sex: null }, today: '2026-09-05' } as HistoryInsights
-  return renderToStaticMarkup(<MantineProvider><BodyweightTrendCard insights={insights} range={range} /></MantineProvider>)
+  return renderToStaticMarkup(<MantineProvider><OverviewFooterRule insights={insights} range={range} /></MantineProvider>)
 }
 
-describe('Overview bodyweight presentation', () => {
+describe('Overview footer bodyweight presentation', () => {
   it('renders measurements before a tooltip date is selected', () => {
     const html = render([{ id: 'one', recordedOn: '2026-09-01', weightKg: 80 }, { id: 'two', recordedOn: '2026-09-05', weightKg: 81 }])
     expect(html).toContain('81 kg')

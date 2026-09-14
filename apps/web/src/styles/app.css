@@ -278,6 +278,26 @@ html {
   color: var(--vf-action-text);
 }
 
+.vf-insight-tab {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+  /* The 2px underline sits over the list's 1px rule rather than below it. */
+  margin-bottom: -1px;
+}
+
+/* Bare [data-active]: Mantine's `mod` helper emits the attribute only when it is true. */
+.vf-insight-tab[data-active] {
+  border-color: var(--vf-action-text);
+  color: var(--vf-action-text);
+  font-weight: 700;
+}
+
+.vf-insight-tab:hover:not([data-active]) {
+  background-color: transparent;
+  border-color: transparent;
+}
+
 .vf-chip[data-tone="success"] {
   background: var(--vf-success-soft);
   border-color: var(--vf-success-border);

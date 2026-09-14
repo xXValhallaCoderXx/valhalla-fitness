@@ -107,6 +107,24 @@ describe('resolveInsightGates — boundaries', () => {
     const scored = { kind: 'dots' as const, value: 338.1, total: 454.5, totalKg: 454.5, bodyweightKg: 71, asOfDate: '2026-08-06' }
     expect(resolveInsightGates(input({ strengthScore: scored })).strength_score.unlocked).toBe(true)
   })
+
+  // The counter used to tally every tracked lift, so squat + press + row read "3 of 3" beside a
+  // card that was still locked.
+  it('counts only the three lifts the score is made of, and names the one it waits on', () => {
+    const partial = resolveInsightGates(input({
+      liftSeries: [lift('squat', 'Squat', 4, 7), lift('overhead_press', 'Overhead Press', 4, 7)],
+    })).strength_score.progress
+    expect(partial).toEqual({ current: 1, required: 3, subject: 'bench' })
+
+    const complete = resolveInsightGates(input({
+      liftSeries: [
+        lift('squat', 'Squat', 4, 7),
+        lift('bench_press', 'Bench Press', 4, 7),
+        lift('deadlift', 'Deadlift', 4, 7),
+      ],
+    })).strength_score.progress
+    expect(complete).toEqual({ current: 3, required: 3, subject: undefined })
+  })
 })
 
 describe('lockedInsightSteps', () => {

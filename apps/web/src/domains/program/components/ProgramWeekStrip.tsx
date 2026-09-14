@@ -18,7 +18,7 @@ const statusAccent: Record<WeekStatus, string> = {
  * The cycle at a glance: one cell per week of the programme.
  *
  * Built as a single bordered card whose `gap-px` *is* the divider, the technique
- * `OverviewKpiStrip` already uses — cleaner than the comp's negative-margin trick and it keeps the
+ * the insights stat strip already uses — cleaner than the comp's negative-margin trick and it keeps the
  * outer radius intact. Guided reads the programme's own word for each week; Full reads the
  * percentages the week actually prescribes.
  */
