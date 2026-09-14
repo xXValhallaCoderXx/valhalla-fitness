@@ -32,10 +32,11 @@ function parseDate(value?: string | null) {
 function formatCalendarDate(
   value: string,
   options: Intl.DateTimeFormatOptions,
+  locale: 'en-US' | 'en-GB' = 'en-US',
 ) {
   const date = calendarDateToUtcDate(value)
   return date
-    ? new Intl.DateTimeFormat('en-US', { ...options, timeZone: 'UTC' }).format(date)
+    ? new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(date)
     : null
 }
 
@@ -55,6 +56,28 @@ export function formatFullDate(value?: string | null) {
     }) ?? '—'
   }
   return parseDate(value)?.format('MMM D, YYYY') ?? '—'
+}
+
+/**
+ * "Friday 7 August" — the Today header eyebrow.
+ *
+ * Day-first on purpose: the v3 design doc writes dates British-style, while the rest of the app
+ * still formats month-first through `formatCompactDate`. Scoped to Today rather than flipping the
+ * locale everywhere.
+ */
+export function formatWeekdayLongDate(value?: string | null) {
+  if (value && isCalendarDate(value)) {
+    return formatCalendarDate(value, { weekday: 'long', day: 'numeric', month: 'long' }, 'en-GB') ?? '—'
+  }
+  return parseDate(value)?.format('dddd D MMMM') ?? '—'
+}
+
+/** "Thu 6 Aug" — the Last-session card's date. Same day-first reasoning as above. */
+export function formatWeekdayShortDate(value?: string | null) {
+  if (value && isCalendarDate(value)) {
+    return formatCalendarDate(value, { weekday: 'short', day: 'numeric', month: 'short' }, 'en-GB') ?? '—'
+  }
+  return parseDate(value)?.format('ddd D MMM') ?? '—'
 }
 
 export function formatRelativeTime(value?: string | null) {

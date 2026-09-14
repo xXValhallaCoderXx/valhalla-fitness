@@ -7,24 +7,25 @@ import {
   EquipmentModeBadge,
   Heading,
   Page,
-  PageHeader,
   Panel,
   SectionLabel,
   StatCard,
   Text,
 } from '~/components'
+import { useExperienceMode } from '~/domains/account/components'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
 import { PendingProgressionReviewModal, PendingReviewAlert } from '~/domains/program/components/PendingReview'
 import type { TodayHistorySupport } from '~/domains/history'
 import { AD_HOC_BADGE_LABEL, DEFAULT_AD_HOC_TITLE } from '~/domains/session/lib/ad-hoc'
 import { isSessionMutationKey } from '~/domains/session/lib/session-mutations'
 import { countCompletedSets, isMeaningfulSyncState, nextIncompleteSetLabel } from '~/domains/session/lib/today-page'
-import { countPlannedSets } from '~/domains/session/lib/today-numbers'
+import { buildTodaySessionMeta, countPlannedSets } from '~/domains/session/lib/today-numbers'
 import type { ProgressionDecision } from '~/domains/program'
 import type { TodayPayload, WorkoutSession } from '~/domains/session'
 import { SessionProgress, SyncPill } from '../Session'
 import { DiscardWorkoutDialog } from '../DiscardWorkoutDialog'
 import { FullModeHint } from './FullModeHint'
+import { TodayHeader } from './TodayHeader'
 import { ProgramProgressPanel, StreakBadge, WeeklyVolumePanel } from './TodayPanels'
 
 /** Today view while a workout is live — resume card, progress stats, and side panels. */
@@ -52,6 +53,7 @@ export function TodayActiveSession({
   onDecisionResolved: (decisionId: string) => void
 }) {
   const router = useRouter()
+  const { mode } = useExperienceMode()
   const [discardOpen, setDiscardOpen] = useState(false)
   const sessionMutationPending = useIsMutating({
     predicate: (mutation) => isSessionMutationKey(mutation.options.mutationKey, session.sessionId),
@@ -70,16 +72,14 @@ export function TodayActiveSession({
       : DEFAULT_AD_HOC_TITLE
 
   return (
-    <Page className="max-w-5xl">
+    <Page className="pb-24 md:pb-16">
       <OnboardingPanel />
       <FullModeHint />
-      <PageHeader
-        title="Today"
-        eyebrow={eyebrow}
+      <TodayHeader
+        scheduledDate={session.scheduledDate}
+        subtitle={eyebrow}
         actions={syncAction}
-      >
-        Resume the workout currently in progress.
-      </PageHeader>
+      />
       {pendingDecisions.length ? (
         <PendingReviewAlert decisions={pendingDecisions} onReview={onReviewOpen} className="mb-4" />
       ) : null}
@@ -101,8 +101,7 @@ export function TodayActiveSession({
                 {session.title}
               </Heading>
               <Text mt="xs" size="sm" tone="dimmed">
-                {session.movements.length} movements
-                {session.estimatedMinutes ? ` · ${session.estimatedMinutes} min` : ''}
+                {buildTodaySessionMeta(session, mode)}
               </Text>
             </div>
             <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">

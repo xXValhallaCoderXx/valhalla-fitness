@@ -87,7 +87,22 @@ test('return preview, explicit reset, editing and review persist across reloads'
     await login(page, { email, password })
     await page.goto('/program')
     const dialog = page.getByRole('dialog')
+    // On Plan the return guide lives inside the Programme settings disclosure panel, so it has to
+    // be opened first. Today still renders the guide card directly, and this helper is called from
+    // both — so it no-ops wherever that toggle does not exist.
+    const openSettings = async () => {
+      const panel = page.getByTestId('programme-settings')
+      if (await panel.isVisible().catch(() => false)) return
+      const toggle = page.getByRole('button', { name: 'Programme settings' })
+      if ((await toggle.count()) === 0) return
+      await expect(async () => {
+        if (await panel.isVisible().catch(() => false)) return
+        await toggle.click()
+        await expect(panel).toBeVisible({ timeout: 2000 })
+      }).toPass({ timeout: 20000 })
+    }
     const openGuide = async (label: string) => {
+      await openSettings()
       await expect(async () => {
         if (!(await dialog.isVisible()))
           await page.getByRole('button', { name: label, exact: true }).click()

@@ -246,6 +246,40 @@ export async function getPendingDecisions(
   return (data ?? []).map(mapProgressionDecision)
 }
 
+/**
+ * The most recent *accepted* progression per state key.
+ *
+ * Today's rows explain a load that has already moved, which `getPendingDecisions` cannot answer —
+ * pending decisions are changes not yet applied. Scoped to one programme and deduped newest-first
+ * so a state that moved twice in a cycle reports its latest change.
+ */
+export async function getAcceptedDecisions(
+  ctx: UserContext,
+  programInstanceId?: string,
+) {
+  const { supabase, user } = ctx
+  let query = supabase
+    .from('progression_decisions')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('status', 'accepted')
+    .order('created_at', { ascending: false })
+    .limit(60)
+  if (programInstanceId) {
+    query = query.eq('program_instance_id', programInstanceId)
+  }
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+
+  const newestByStateKey = new Map<string, ReturnType<typeof mapProgressionDecision>>()
+  for (const row of data ?? []) {
+    const decision = mapProgressionDecision(row)
+    const key = decision.stateKey ?? decision.movementId
+    if (!newestByStateKey.has(key)) newestByStateKey.set(key, decision)
+  }
+  return [...newestByStateKey.values()]
+}
+
 export async function updateProgramCurrentWeekIndex(
   ctx: UserContext,
   program: ProgramInstance,

@@ -1,4 +1,4 @@
-import { formatWeight, repsLeftLabel } from '@sheetless/domain/shared/set-notation'
+import { formatNumber, formatWeight, repsLeftLabel } from '@sheetless/domain/shared/set-notation'
 import type { ExperienceMode } from '@sheetless/domain/account/types'
 import { formatCompactDate } from '@sheetless/domain/shared/dates'
 import { externalLoadOrNull, isPositiveLoad } from '@sheetless/domain/shared/load'
@@ -26,7 +26,7 @@ export function hasTargetLoads(session: PlannedMovements): boolean {
   return session.movements.some((movement) => movement.sets.some((set) => isPositiveLoad(set.targetLoad)))
 }
 
-/** One movement's row in the "Today's workout" sheet ledger (Exercise / Sets / Target columns). */
+/** One movement's row in the Today session card. */
 export type TodayLedgerRow = {
   slotId: string
   movementName: string
@@ -39,6 +39,19 @@ export type TodayLedgerRow = {
   targetIsLoad: boolean
   /** "107.5 × 6 @ RIR 3" — unitless last-performance line; null when nothing comparable. */
   historyLine: string | null
+  /**
+   * What the row prescribes. Full prints the authored notation ("75%x5 · 85%x3 · 95%x1+ ·
+   * back-off 5x5"); Guided prints the sets label, which stays free of percentages.
+   */
+  prescriptionLabel: string
+  /**
+   * Every distinct working load the row ramps through — "145 · 162.5 · 182.5 kg". Collapses to
+   * the single load when the row does not ramp, and to the effort cue when nothing is projected.
+   * Back-off sets are excluded; the notation names them instead.
+   */
+  loadsLabel: string
+  /** Guided only: "up 2.5 kg — you got every rep last time". Null when nothing honest to say. */
+  reason: string | null
 }
 
 /** Reps label for the ledger's Sets column; en-dash ranges, AMRAP renders "5+" (or "AMRAP"). */
@@ -77,24 +90,70 @@ function ledgerTarget(sets: SetLog[], units: string, mode: Notation): { label: s
   return { label: '—', isLoad: false }
 }
 
-export function buildTodayLedgerRows(session: PlannedNumbers, mode: Notation = 'full'): TodayLedgerRow[] {
+/**
+ * Every distinct working load the row ramps through, e.g. "145 · 162.5 · 182.5 kg".
+ *
+ * Back-off sets are dropped: the comp shows the ramp, and the notation names the back-off
+ * separately. Uses `formatWeight` like the trace panel does, so the row and the trace can never
+ * disagree about a number.
+ */
+function ledgerLoads(sets: SetLog[], units: string, fallback: string): string {
+  const working = sets.filter((set) => !set.isBackoff)
+  const loads: number[] = []
+  for (const set of working) {
+    const load = set.targetLoad
+    if (!isPositiveLoad(load)) continue
+    if (!loads.includes(load)) loads.push(load)
+  }
+  if (!loads.length) return fallback
+  const units_ = units ? ` ${units}` : ''
+  return `${loads.map((load) => formatNumber(load)).join(' · ')}${units_}`
+}
+
+export type TodayRowOptions = {
+  mode?: Notation
+  /**
+   * The most recent accepted progression per state key, already turned into a sentence. Rows join
+   * to it through `set.sourceBinding.stateKey` — the only link the schema records between a
+   * planned row and the decision that moved its load.
+   */
+  reasonByStateKey?: Record<string, string>
+}
+
+export function buildTodayLedgerRows(
+  session: PlannedNumbers & { returnContext?: PlannedSession['returnContext'] },
+  modeOrOptions: Notation | TodayRowOptions = 'full',
+): TodayLedgerRow[] {
+  const options: TodayRowOptions =
+    typeof modeOrOptions === 'string' ? { mode: modeOrOptions } : modeOrOptions
+  const mode = options.mode ?? 'full'
+  const reasonByStateKey = options.reasonByStateKey ?? {}
+
   return session.movements.map((movement) => {
     const target = ledgerTarget(movement.sets, session.units, mode)
+    const setsLabel = ledgerSetsLabel(movement.sets)
+    // `movement.id` and `movement.slotId` are both `slot-<session>-<slot>` after template
+    // expansion; the trace inspector looks the row up by `slotId ?? id`, so they must agree.
+    const stateKey = movement.sets.find((set) => set.sourceBinding?.stateKey)?.sourceBinding?.stateKey
     return {
       slotId: movement.id,
       movementName: movement.movementName,
       role: movement.role,
-      setsLabel: ledgerSetsLabel(movement.sets),
+      setsLabel,
       targetLabel: target.label,
       targetIsLoad: target.isLoad,
       historyLine: formatPreviousLine(movement.previous, mode),
+      // Guided normally says "5 × 5" rather than the authored notation — but a return-period
+      // session rewrites targetSummary to "3 of 5 sets · lighter", which is the whole point of
+      // the reduced volume and must not be swallowed.
+      prescriptionLabel:
+        mode === 'guided' && !session.returnContext
+          ? setsLabel
+          : movement.targetSummary || setsLabel,
+      loadsLabel: ledgerLoads(movement.sets, session.units, target.label),
+      reason: mode === 'guided' && stateKey ? reasonByStateKey[stateKey] ?? null : null,
     }
   })
-}
-
-/** Collapsed teaser under the drawer title, e.g. "Day 2 target loads" — no totals by design. */
-export function buildTodayLedgerCaption(session: Pick<PlannedSession, 'title' | 'movements'>): string {
-  return hasTargetLoads(session) ? `${session.title} target loads` : `${session.title} targets`
 }
 
 /** Unitless ledger history line: "107.5 × 6 @ RIR 3" (Full) or "107.5 × 6 · ~3 left" (Guided). */
@@ -148,10 +207,15 @@ export function formatPreviousHero(
  * The line under the session title.
  *
  * Guided: "6 movements · about 75 min". Full adds the set count and drops the softener:
- * "6 movements · 23 sets · ~75 min".
+ * "6 movements · 23 sets · ~75 min". Both gain a "free weights" tail when the programme is in
+ * free-weight mode — `standard` is the default and stays unsaid, exactly as `EquipmentModeBadge`
+ * treats it.
  */
 export function buildTodaySessionMeta(
-  session: PlannedMovements & { estimatedMinutes?: number | null },
+  session: PlannedMovements & {
+    estimatedMinutes?: number | null
+    equipmentMode?: PlannedSession['equipmentMode']
+  },
   mode: Notation = 'full',
 ): string {
   const movements = session.movements.length
@@ -163,5 +227,6 @@ export function buildTodaySessionMeta(
   if (session.estimatedMinutes != null) {
     parts.push(mode === 'guided' ? `about ${session.estimatedMinutes} min` : `~${session.estimatedMinutes} min`)
   }
+  if (session.equipmentMode === 'free_weight') parts.push('free weights')
   return parts.join(' · ')
 }
