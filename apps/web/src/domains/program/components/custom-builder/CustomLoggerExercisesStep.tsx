@@ -5,6 +5,7 @@ import type { GuidanceIssue } from '~/domains/program/lib/custom-builder-guidanc
 import { loggerMovementOptions } from '~/domains/program/lib/custom-builder-ui'
 import { MAX_LOGGER_EXERCISES_PER_DAY, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-program-meta'
 import { GuidanceList, issuesForScope } from './CustomBuilderGuidance'
+import { BuilderDayCountTiles } from './BuilderDayCountTiles'
 import { BuilderExerciseRow, BuilderNumberField, BuilderSelect, DeleteRowAction } from './CustomBuilderFields'
 
 export function CustomLoggerExercisesStep({
@@ -14,6 +15,7 @@ export function CustomLoggerExercisesStep({
   onExerciseChange,
   onAddExercise,
   onRemoveExercise,
+  onDaysChange,
 }: {
   draft: CustomProgramBuilderInput
   issues: GuidanceIssue[]
@@ -25,9 +27,18 @@ export function CustomLoggerExercisesStep({
   ) => void
   onAddExercise: (sessionIndex: number) => void
   onRemoveExercise: (sessionIndex: number, exerciseIndex: number) => void
+  onDaysChange: (daysPerWeek: number) => void
 }) {
   return (
     <div className="grid gap-3">
+      <Panel surface="inset" p="sm">
+        <BuilderDayCountTiles
+          methodology={draft.methodology}
+          daysPerWeek={draft.daysPerWeek}
+          onChange={onDaysChange}
+        />
+      </Panel>
+
       <Panel surface="inset" p="sm">
         <div className="flex items-start gap-2.5">
           <PencilLine size={16} color="var(--mantine-color-dimmed)" className="mt-0.5 shrink-0" />

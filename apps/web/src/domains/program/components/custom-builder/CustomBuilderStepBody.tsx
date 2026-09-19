@@ -32,10 +32,9 @@ export function CustomBuilderStepBody({
     return (
       <CustomMethodologyStep
         draft={draft}
-        issues={issuesForChecks(issues, ['name', 'schedule_fit'])}
+        issues={issuesForChecks(issues, ['name'])}
         onDraftChange={draftState.updateDraft}
         onMethodologyChange={draftState.setMethodology}
-        onDaysChange={draftState.setDaysPerWeek}
       />
     )
   }
@@ -44,11 +43,12 @@ export function CustomBuilderStepBody({
     return (
       <CustomLoggerExercisesStep
         draft={draft}
-        issues={issuesForChecks(issues, ['logger_empty', 'session_count'])}
+        issues={issuesForChecks(issues, ['logger_empty', 'session_count', 'schedule_fit'])}
         onSessionChange={draftState.updateSession}
         onExerciseChange={draftState.updateLoggerExercise}
         onAddExercise={draftState.addLoggerExercise}
         onRemoveExercise={draftState.removeLoggerExercise}
+        onDaysChange={draftState.setDaysPerWeek}
       />
     )
   }
@@ -57,8 +57,9 @@ export function CustomBuilderStepBody({
     return (
       <CustomMovementsStep
         draft={draft}
-        issues={issuesForChecks(issues, ['duplicate_main', 'weekly_balance', 'session_count'])}
+        issues={issuesForChecks(issues, ['duplicate_main', 'weekly_balance', 'session_count', 'schedule_fit'])}
         onSessionChange={draftState.updateSession}
+        onDaysChange={draftState.setDaysPerWeek}
       />
     )
   }

@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BODY_LOAD_TIER_MAX,
   allFreshRecoveryLabel,
+  bodyLoadCoverageNote,
+  bodyLoadTierNote,
+  bodyLoadWindowLabel,
   calculateBodyLoad,
   recoverySummaryLine,
   resolveRegionWeights,
+  tierForImpact,
+  untrainedRegions,
   worstBodyLoadTier,
 } from '@sheetless/domain/history/body-load'
 import type { BodyLoadRegion } from '@sheetless/domain/history/types'
@@ -117,5 +123,52 @@ describe('recoverySummaryLine', () => {
 
   it('falls back to the all-fresh label when nothing was trained recently', () => {
     expect(recoverySummaryLine([])).toBe(allFreshRecoveryLabel)
+  })
+})
+
+describe('body load coverage and tiers', () => {
+  const region = (label: string, recentSetCount: number, impactPercent = 40) => ({
+    regionId: label.toLowerCase() as never,
+    label,
+    score: impactPercent / 10,
+    impactPercent,
+    tier: tierForImpact(impactPercent),
+    recentSetCount,
+    movementNames: [],
+    contributions: [],
+    contributionCount: 0,
+  })
+
+  it('names what the programme never touches', () => {
+    expect(untrainedRegions([region('Quads', 8), region('Calves', 0)])).toEqual(['Calves'])
+  })
+
+  // "Nothing logged" is the reading most likely to be mistaken for "recovered".
+  it('says what the map is, and what it is missing', () => {
+    expect(bodyLoadCoverageNote([region('Quads', 8)], 'full')).toBe(
+      'Based on logged sets, not a recovery measurement.',
+    )
+    expect(bodyLoadCoverageNote([region('Quads', 8), region('Calves', 0)], 'full')).toContain(
+      'Calves has no direct work',
+    )
+    expect(
+      bodyLoadCoverageNote([region('Calves', 0), region('Biceps', 0), region('Core', 0)], 'full'),
+    ).toContain('Calves, Biceps and 1 more have no direct work')
+  })
+
+  it('speaks plainly in Guided', () => {
+    expect(bodyLoadCoverageNote([region('Quads', 8)], 'guided')).toContain('not how recovered you are')
+  })
+
+  it('states the bound a tier sits in', () => {
+    expect(bodyLoadTierNote(region('Quads', 8, 0))).toContain('nothing logged')
+    expect(bodyLoadTierNote(region('Quads', 8, 80))).toContain(`above ${BODY_LOAD_TIER_MAX.moderate} %`)
+    expect(bodyLoadTierNote(region('Quads', 8, 40))).toContain(`${BODY_LOAD_TIER_MAX.low + 1}–${BODY_LOAD_TIER_MAX.moderate} %`)
+  })
+
+  it('labels the window the map covers', () => {
+    expect(
+      bodyLoadWindowLabel({ generatedAt: '2026-08-06T10:00:00.000Z', windowDays: 7, freshRegionCount: 0, regions: [], topRegions: [] }),
+    ).toBe('31 Jul – 6 Aug')
   })
 })

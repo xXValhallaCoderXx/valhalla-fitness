@@ -1,3 +1,4 @@
+import { projectTrainingMaxBands } from '@sheetless/domain/program/load-trace'
 import type { MovementRole } from '@sheetless/domain/shared/types'
 import type {
   ProgressionDecision,
@@ -32,6 +33,23 @@ export type CycleProjection = {
   projected: number | null
 }
 
+/**
+ * Where a training max lands next cycle if the top set goes to plan.
+ *
+ * Distinct from `CycleProjection` above: that is the heaviest planned top-set *load* ahead, a
+ * weight the lifter will lift. This is the *training max* the rule would write — the number every
+ * future percentage is taken from.
+ */
+export type CycleTrainingMaxProjection = {
+  movementId: string
+  label: string
+  current: number
+  /** Null when the lift has no training max to project (a working-load lift). */
+  projected: number | null
+  /** The rule that would produce it, e.g. `training_max_standard`. */
+  ruleId: string | null
+}
+
 export type CycleInspectorModel = {
   /** "Week 3 of 4" */
   position: string
@@ -39,6 +57,8 @@ export type CycleInspectorModel = {
   decisionNote: string
   rules: CycleRule[]
   projections: CycleProjection[]
+  /** Full-mode only: next cycle's training maxes, assuming the standard band. */
+  trainingMaxProjections: CycleTrainingMaxProjection[]
 }
 
 const ROLE_LABELS: Record<MovementRole, string> = {
@@ -110,6 +130,8 @@ export function buildCycleInspector({
   stateValues,
   decisions,
   projectedByMovement,
+  rounding,
+  topSetReps = 1,
 }: {
   definition: TemplateDefinition
   weekNumber: number
@@ -119,6 +141,10 @@ export function buildCycleInspector({
   decisions: ProgressionDecision[]
   /** Heaviest upcoming top-set load per movement, from the trajectory's projection. */
   projectedByMovement?: Record<string, number>
+  /** Programme rounding; without it a projected training max cannot be computed. */
+  rounding?: number
+  /** Target reps on the deciding top set — the band table keys off it. */
+  topSetReps?: number
 }): CycleInspectorModel {
   const rules = collectCycleRules(definition, decisions)
 
@@ -129,6 +155,28 @@ export function buildCycleInspector({
     projected: projectedByMovement?.[state.movementId] ?? null,
   }))
 
+  // Only a training max has bands to project; a working load progresses by a different rule, so
+  // it reports no projection rather than a number produced by the wrong arithmetic.
+  const trainingMaxProjections: CycleTrainingMaxProjection[] = stateValues.map((state) => {
+    if (state.stateType !== 'training_max' || !rounding) {
+      return { movementId: state.movementId, label: state.movementName, current: state.value, projected: null, ruleId: null }
+    }
+    const standard = projectTrainingMaxBands({
+      currentTm: state.value,
+      rounding,
+      movementId: state.movementId,
+      stateKey: state.stateKey,
+      targetReps: topSetReps,
+    }).find((band) => band.band === 'standard')
+    return {
+      movementId: state.movementId,
+      label: state.movementName,
+      current: state.value,
+      projected: standard?.value ?? null,
+      ruleId: standard?.ruleId ?? null,
+    }
+  })
+
   return {
     position: `Week ${weekNumber} of ${totalWeeks}`,
     decisionNote:
@@ -137,5 +185,6 @@ export function buildCycleInspector({
         : `Decisions are written when week ${totalWeeks} closes.`,
     rules,
     projections,
+    trainingMaxProjections,
   }
 }

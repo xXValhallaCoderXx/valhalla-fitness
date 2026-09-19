@@ -14,10 +14,13 @@ import { useExperienceMode } from '~/domains/account/components'
 export function InspectorLayout({
   children,
   inspector,
+  label = 'Trace',
 }: {
   children: ReactNode
   /** Null collapses the layout back to a single column — no empty rail. */
   inspector?: ReactNode | null
+  /** What the rail is. Most rails explain one number; the sessions rail totals many. */
+  label?: string
 }) {
   const { isFull } = useExperienceMode()
   if (!isFull || !inspector) return <>{children}</>
@@ -25,7 +28,7 @@ export function InspectorLayout({
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
       <div className="min-w-0">{children}</div>
-      <aside className="hidden lg:sticky lg:top-2 lg:block" aria-label="Trace">
+      <aside className="hidden lg:sticky lg:top-2 lg:block" aria-label={label}>
         {inspector}
       </aside>
     </div>

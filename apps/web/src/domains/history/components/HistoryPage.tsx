@@ -1,10 +1,8 @@
-import { Badge, Tabs } from '@mantine/core'
+import { Tabs } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Outlet, useRouterState } from '@tanstack/react-router'
-import { Activity, BarChart3, Dumbbell, History, TrendingUp, Trophy } from 'lucide-react'
 import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
-import { useExperienceMode } from '~/domains/account/components'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
 import { PendingProgressionReviewModal } from '~/domains/program/components/PendingReview'
@@ -12,15 +10,14 @@ import { historyDashboardQueryOptions } from '~/domains/history/queries'
 import type { MovementSortKey, SortDir } from '~/domains/history/lib/insights'
 import type { LedgerFilter } from '~/domains/history/lib/session-ledger'
 import type { HistoryTab } from '~/domains/history/lib/history-tabs'
-import type { InsightGating } from '~/domains/history'
 import type { InsightRange } from '~/domains/history/lib/insight-ranges'
 import { resolveInsightGates } from '~/domains/history/lib/insight-gates'
-import { insightTabLabel } from '~/domains/history/lib/insight-labels'
-import { dataLifecycleLabels, ESTABLISHED_MIN_SESSIONS, resolveInsightGating } from '~/domains/history/lib/insight-state'
+import { resolveInsightGating } from '~/domains/history/lib/insight-state'
 import { sessionQueryOptions } from '~/domains/session/queries'
-import { EmptyState, Page, PageHeader, PageLoadError, PageSkeleton } from '~/components'
+import { EmptyState, Page, PageLoadError, PageSkeleton } from '~/components'
 import { WorkoutSummaryModal } from './WorkoutSummaryModal'
-import { InsightRangeSwitch } from './InsightRangeSwitch'
+import { InsightsHeader } from './InsightsHeader'
+import { InsightTabs } from './InsightTabs'
 
 const BodyLoadTab = lazy(() => import('./tabs/BodyLoadTab').then((module) => ({ default: module.BodyLoadTab })))
 const MovementsTab = lazy(() => import('./tabs/MovementsTab').then((module) => ({ default: module.MovementsTab })))
@@ -29,21 +26,11 @@ const RecordsTab = lazy(() => import('./tabs/RecordsTab').then((module) => ({ de
 const SessionsTab = lazy(() => import('./tabs/SessionsTab').then((module) => ({ default: module.SessionsTab })))
 const StrengthTab = lazy(() => import('./tabs/StrengthTab').then((module) => ({ default: module.StrengthTab })))
 
+/** Tabs whose cards respond to the global range switch. */
+const RANGED_TABS: HistoryTab[] = ['overview', 'strength', 'sessions', 'movements']
+
 export { HISTORY_TAB_VALUES } from '~/domains/history/lib/history-tabs'
 export type { HistoryTab } from '~/domains/history/lib/history-tabs'
-
-/** Labels come from `insightTabLabel` per reading mode; the values are URL state and never move. */
-const HISTORY_TABS: Array<{ value: HistoryTab; icon: ReactNode }> = [
-  { value: 'overview', icon: <BarChart3 size={14} /> },
-  { value: 'strength', icon: <TrendingUp size={14} /> },
-  { value: 'body-load', icon: <Activity size={14} /> },
-  { value: 'movements', icon: <Dumbbell size={14} /> },
-  { value: 'records', icon: <Trophy size={14} /> },
-  { value: 'sessions', icon: <History size={14} /> },
-]
-
-/** Tabs whose trend cards respond to the global range switch. */
-const RANGED_TABS: HistoryTab[] = ['overview', 'strength']
 
 export function HistoryPage({
   user,
@@ -67,7 +54,6 @@ export function HistoryPage({
 
 function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
   const userId = useRequiredAccountId()
-  const { mode } = useExperienceMode()
   const historyQuery = useQuery(historyDashboardQueryOptions(userId))
   const programOverviewQuery = useQuery(programOverviewQueryOptions(userId))
   const [activeTab, setActiveTab] = useState<HistoryTab>(initialTab ?? 'overview')
@@ -114,59 +100,16 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
   })
 
   return (
-    <Page>
-      <PageHeader
-        title="Training Insights"
-        eyebrow="Logged work"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <LifecycleChip gating={gating} completedSessions={data.overview.completedSessions} />
-            {activeProgramTitle ? <Badge color="action">Active · {activeProgramTitle}</Badge> : null}
-          </div>
-        }
-      >
-        Your strength, consistency, and output — built from every logged set.
-      </PageHeader>
+    <Page className="max-w-[1400px] md:px-8 lg:px-10">
+      <InsightsHeader
+        gating={gating}
+        completedSessions={data.overview.completedSessions}
+        range={range}
+        showRange={RANGED_TABS.includes(activeTab)}
+        onRangeChange={setRange}
+      />
 
-      {RANGED_TABS.includes(activeTab) ? (
-        <div className="mb-3 flex justify-end">
-          <InsightRangeSwitch value={range} onChange={setRange} />
-        </div>
-      ) : null}
-
-      <Tabs
-        variant="pills"
-        keepMounted={false}
-        value={activeTab}
-        onChange={(value) => setActiveTab((value as HistoryTab | null) ?? 'overview')}
-        classNames={{
-          list: 'mb-4 !flex !flex-nowrap gap-1 overflow-x-auto border-b px-0.5 pb-2 pt-1 no-scrollbar',
-          tab: '!my-0.5 !min-h-9 !shrink-0 !rounded-md !border-0 !px-2.5 !py-2',
-          panel: 'focus-visible:outline-none',
-        }}
-        styles={{
-          list: {
-            borderColor: 'var(--mantine-color-default-border)',
-          },
-          tab: {
-            fontSize: 'var(--mantine-font-size-xs)',
-            fontWeight: 800,
-            lineHeight: 1,
-            '&[data-active]': {
-              backgroundColor: 'var(--vf-action-soft)',
-              color: 'var(--vf-action-text)',
-            },
-          },
-        }}
-      >
-        <Tabs.List>
-          {HISTORY_TABS.map((tab) => (
-            <Tabs.Tab key={tab.value} value={tab.value}>
-              <TabLabel icon={tab.icon} label={insightTabLabel(tab.value, mode)} />
-            </Tabs.Tab>
-          ))}
-        </Tabs.List>
-
+      <InsightTabs value={activeTab} onChange={setActiveTab}>
         <Tabs.Panel value="overview">
           <HistoryTabBoundary>
             <OverviewTab
@@ -176,14 +119,19 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
               range={range}
               programOverview={programOverview}
               activeProgramTitle={activeProgramTitle}
-              onOpenSession={setSelectedSessionId}
               onNavigate={setActiveTab}
             />
           </HistoryTabBoundary>
         </Tabs.Panel>
         <Tabs.Panel value="strength">
           <HistoryTabBoundary>
-            <StrengthTab insights={data.insights} gating={gating} range={range} />
+            <StrengthTab
+              insights={data.insights}
+              gating={gating}
+              range={range}
+              programOverview={programOverview}
+              completedSessions={data.overview.completedSessions}
+            />
           </HistoryTabBoundary>
         </Tabs.Panel>
         <Tabs.Panel value="body-load">
@@ -195,6 +143,7 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
           <HistoryTabBoundary>
             <MovementsTab
               data={data}
+              range={range}
               query={movementQuery}
               onQueryChange={setMovementQuery}
               category={movementCategory}
@@ -206,13 +155,14 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
         </Tabs.Panel>
         <Tabs.Panel value="records">
           <HistoryTabBoundary>
-            <RecordsTab data={data} />
+            <RecordsTab data={data} milestones={data.insights.milestones} />
           </HistoryTabBoundary>
         </Tabs.Panel>
         <Tabs.Panel value="sessions">
           <HistoryTabBoundary>
             <SessionsTab
               data={data}
+              range={range}
               activeProgramTitle={activeProgramTitle}
               pendingDecisions={programOverview?.pendingDecisions ?? []}
               onOpenSession={setSelectedSessionId}
@@ -224,7 +174,7 @@ function AuthedHistory({ initialTab }: { initialTab?: HistoryTab }) {
             />
           </HistoryTabBoundary>
         </Tabs.Panel>
-      </Tabs>
+      </InsightTabs>
 
       {/* Decisions are keyed to the programme instance, never to a session, so the review opened
           from here is the programme's ledger and says so. */}
@@ -252,28 +202,5 @@ function HistoryTabBoundary({ children }: { children: ReactNode }) {
     <Suspense fallback={<div className="min-h-40" aria-label="Loading insights" />}>
       {children}
     </Suspense>
-  )
-}
-
-/**
- * Where this account sits on the data curve. The counter is the honest part: "Building your
- * baseline" alone doesn't tell a lifter how much more training opens the rest of the screen.
- */
-function LifecycleChip({ gating, completedSessions }: { gating: InsightGating; completedSessions: number }) {
-  const label = dataLifecycleLabels[gating.lifecycle]
-  const showCount = gating.lifecycle === 'warming' || gating.lifecycle === 'cold_start'
-  return (
-    <Badge color="neutral" variant="light">
-      {showCount ? `${label} · ${completedSessions} of ${ESTABLISHED_MIN_SESSIONS} sessions` : label}
-    </Badge>
-  )
-}
-
-function TabLabel({ icon, label }: { icon: ReactNode; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-      <span className="inline-flex shrink-0">{icon}</span>
-      <span>{label}</span>
-    </span>
   )
 }

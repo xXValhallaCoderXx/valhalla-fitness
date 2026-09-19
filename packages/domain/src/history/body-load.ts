@@ -5,11 +5,14 @@ import type {
   BodyRegionId,
   BodyLoadTier,
 } from '@sheetless/domain/history/types'
+import type { ExperienceMode } from '@sheetless/domain/account/types'
 import type { Movement } from '@sheetless/domain/movement/types'
 import type { MovementRole } from '@sheetless/domain/shared/types'
 import { movementCatalog } from '@sheetless/domain/movement/movements'
 import { regionWeightsFromMovementMetadata } from '@sheetless/domain/history/movement-region-metadata'
 import { isCalendarDate } from '@sheetless/domain/shared/calendar-date'
+import { formatDayMonth } from '@sheetless/domain/shared/dates'
+import { formatDateKey } from '@sheetless/domain/history/history'
 
 export type BodyLoadWork = {
   movementId: string
@@ -355,4 +358,50 @@ function roundOne(value: number) {
 
 function roundTwo(value: number) {
   return Math.round(value * 100) / 100
+}
+
+/** Regions the programme never touches in the window — the honest half of a coverage note. */
+export function untrainedRegions(regions: BodyLoadRegion[]): string[] {
+  return regions.filter((region) => region.recentSetCount === 0).map((region) => region.label)
+}
+
+/**
+ * What the map is and is not.
+ *
+ * The second sentence names what the programme is missing, because "nothing logged" is the one
+ * reading a lifter is most likely to mistake for "recovered".
+ */
+export function bodyLoadCoverageNote(regions: BodyLoadRegion[], mode: ExperienceMode): string {
+  const base =
+    mode === 'full'
+      ? 'Based on logged sets, not a recovery measurement.'
+      : 'Built from the sets you logged — it shows what you worked, not how recovered you are.'
+  const untrained = untrainedRegions(regions)
+  if (!untrained.length) return base
+  const named =
+    untrained.length <= 2
+      ? untrained.join(' and ')
+      : `${untrained.slice(0, 2).join(', ')} and ${untrained.length - 2} more`
+  const verb = untrained.length === 1 ? 'has' : 'have'
+  return `${base} ${named} ${verb} no direct work in this programme.`
+}
+
+/** "31 Jul – 6 Aug" — the window the map covers. */
+export function bodyLoadWindowLabel(summary: BodyLoadSummary): string {
+  const end = new Date(summary.generatedAt)
+  if (Number.isNaN(end.getTime())) return `Last ${summary.windowDays} days`
+  const start = new Date(end.getTime() - (summary.windowDays - 1) * 24 * 60 * 60 * 1000)
+  return `${formatDayMonth(formatDateKey(start))} – ${formatDayMonth(formatDateKey(end))}`
+}
+
+/** "Worked hard · 41–70 % of a full week's load" — the tier, with the bound it sits in. */
+export function bodyLoadTierNote(region: BodyLoadRegion): string {
+  const label = bodyLoadTierLabels[region.tier]
+  const bounds: Record<BodyLoadTier, string> = {
+    fresh: 'nothing logged',
+    low: `up to ${BODY_LOAD_TIER_MAX.low} %`,
+    moderate: `${BODY_LOAD_TIER_MAX.low + 1}–${BODY_LOAD_TIER_MAX.moderate} %`,
+    high: `above ${BODY_LOAD_TIER_MAX.moderate} %`,
+  }
+  return `${label} · ${bounds[region.tier]} of a full week's load`
 }

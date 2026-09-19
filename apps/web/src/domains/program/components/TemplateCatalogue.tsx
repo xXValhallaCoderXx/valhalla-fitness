@@ -1,7 +1,7 @@
-import { Badge, Button } from '@mantine/core'
+import { Button } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useRouterState } from '@tanstack/react-router'
-import { Layers3, Plus, Star, Wrench } from 'lucide-react'
+import { Compass, Layers3, Plus, Star, Wrench } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import {
   filterCatalogueItems,
@@ -9,10 +9,10 @@ import {
   type CatalogueLevelFilter,
 } from '@sheetless/domain/program/catalogue-filters'
 import { track } from '~/shared/lib/analytics'
-import { Caption, EmptyState, Page, PageHeader, Panel, SectionLabel, Text } from '~/components'
+import { EmptyState, Page, Panel, ScreenHeader, SectionLabel, Text } from '~/components'
 import { useExperienceMode } from '~/domains/account/components'
 import { programmeLibraryAbout } from '~/domains/program/lib/setup-labels'
-import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
+import { useAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { FavoriteWorkoutCard } from '~/domains/session/components/FavoriteWorkoutCard'
 import { favoriteWorkoutsQueryOptions } from '~/domains/session/queries'
 import { programOverviewQueryOptions } from '~/domains/program/queries'
@@ -22,11 +22,7 @@ import { buildCatalogueItems, type CatalogueItem } from '~/domains/program/lib/t
 import { FindMyPlanModal } from './FindMyPlanModal'
 import { TemplateCard, TemplateGrid } from './TemplateCard'
 import { TemplateCatalogueFilters } from './TemplateCatalogueFilters'
-import {
-  ActiveProgramBand,
-  TemplateFinderPrompt,
-  TemplateSectionHeader,
-} from './TemplateCataloguePresentation'
+import { ActiveProgramBand, TemplateSectionHeader } from './TemplateCataloguePresentation'
 
 // Surface the most approachable plans first.
 const COMPLEXITY_ORDER: Record<string, number> = { Beginner: 0, Intermediate: 1, Advanced: 2 }
@@ -35,22 +31,26 @@ export function TemplateCatalogue({
   today,
   templates,
 }: {
-  today: TodayPayload
+  /** Absent when signed out — the library is public, only starting one needs an account. */
+  today?: TodayPayload
   templates: ProgramTemplateSummary[]
 }) {
-  const userId = useRequiredAccountId()
+  const userId = useAccountId()
   const router = useRouter()
   const [levelFilter, setLevelFilter] = useState<CatalogueLevelFilter>('All')
   const [goalFilter, setGoalFilter] = useState<CatalogueGoalFilter>('all')
   const [query, setQuery] = useState('')
   const [showFinder, setShowFinder] = useState(false)
   const { mode } = useExperienceMode()
-  const activeTemplateId = today.activeProgram?.templateId ?? null
+  const activeTemplateId = today?.activeProgram?.templateId ?? null
   const overviewQuery = useQuery({
-    ...programOverviewQueryOptions(userId),
-    enabled: Boolean(activeTemplateId),
+    ...programOverviewQueryOptions(userId ?? ''),
+    enabled: Boolean(userId && activeTemplateId),
   })
-  const favoritesQuery = useQuery(favoriteWorkoutsQueryOptions(userId))
+  const favoritesQuery = useQuery({
+    ...favoriteWorkoutsQueryOptions(userId ?? ''),
+    enabled: Boolean(userId),
+  })
   const favoriteWorkouts = favoritesQuery.data ?? []
 
   // Open Find-my-plan once when arriving from the onboarding checklist (`?find=1`), then strip
@@ -80,10 +80,13 @@ export function TemplateCatalogue({
   const filters = { level: levelFilter, goal: goalFilter, query }
   const builtInItems = filterCatalogueItems(buildCatalogueItems(builtInAvailable), filters)
   const customItems = filterCatalogueItems(buildCatalogueItems(customAvailable), filters)
-  // Header badge counts the whole library (collapsed cards), independent of the active filters.
-  const catalogueCount = buildCatalogueItems(templates).length
 
   const selectTemplateId = (templateId: string) => {
+    // Browsing is public; setting one up is not.
+    if (!userId) {
+      void router.navigate({ to: '/auth' })
+      return
+    }
     void router.navigate({ to: '/templates/$templateId/start', params: { templateId } })
   }
   const selectTemplate = (template: ProgramTemplateSummary) => selectTemplateId(template.id)
@@ -105,55 +108,43 @@ export function TemplateCatalogue({
 
   return (
     <Page className="max-w-[1180px] md:px-8 lg:px-10">
-      <PageHeader
-        title="Choose a plan"
+      <ScreenHeader
+        title="Programmes"
+        subtitle="Structure for your next training cycle."
         actions={
-          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-wrap sm:justify-end">
-            <Badge color="neutral" variant="light">{catalogueCount} plans available</Badge>
-            <Button
-              className="h-8 min-h-8 px-3 sm:hidden"
-              hiddenFrom="sm"
-              onClick={() => void router.navigate({ to: '/templates/new' })}
-            >
-              <Plus size={14} />
-              Create
+          <>
+            <Button variant="default" onClick={() => setShowFinder(true)}>
+              <Compass size={16} />
+              Find my plan
             </Button>
-            <Button visibleFrom="sm" onClick={() => void router.navigate({ to: '/templates/new' })}>
+            <Button onClick={() => void router.navigate({ to: '/templates/new' })}>
               <Plus size={16} />
               Create programme
             </Button>
-          </div>
+          </>
         }
-      >
-        Select a structured plan to start your next training cycle.
-      </PageHeader>
+      />
 
       {activeTemplate ? (
         <ActiveProgramBand
           template={activeTemplate}
           position={overviewQuery.data?.position ?? null}
           className="mb-4"
-          onResume={() => router.navigate({ to: '/today' })}
-          onView={() => router.navigate({ to: '/templates/$templateId/start', params: { templateId: activeTemplate.id } })}
+          // The plan lives at /program; sending "View plan" back into the setup wizard was a
+          // long-standing mis-wire.
+          onView={() => router.navigate({ to: '/program' })}
         />
       ) : null}
 
-      <TemplateFinderPrompt onOpen={() => setShowFinder(true)} />
       <TemplateCatalogueFilters
         level={levelFilter}
         goal={goalFilter}
         query={query}
+        resultCount={builtInItems.length + customItems.length}
         onLevelChange={setLevelFilter}
         onGoalChange={setGoalFilter}
         onQueryChange={setQuery}
       />
-
-      <Panel surface="inset" className="mb-4 max-w-4xl" px="sm" py="xs">
-        <Caption>
-          Built-in programmes are original Sheetless programming tools and are not official, affiliated, or endorsed
-          templates from any coach, author, book, or programme.
-        </Caption>
-      </Panel>
 
       <div className="space-y-6">
         {favoriteWorkouts.length ? (
@@ -170,7 +161,7 @@ export function TemplateCatalogue({
                 <FavoriteWorkoutCard
                   key={workout.sessionId}
                   workout={workout}
-                  activeSessionId={today.activeSession?.sessionId ?? null}
+                  activeSessionId={today?.activeSession?.sessionId ?? null}
                 />
               ))}
             </TemplateGrid>
@@ -179,12 +170,16 @@ export function TemplateCatalogue({
 
         {builtInItems.length ? (
           <section>
-            <TemplateSectionHeader
-              icon={Layers3}
-              label="Sheetless library"
-              count={builtInItems.length}
-              helper="Original presets and progression tools."
-            />
+            {/* The header earns its place only when another section follows it; on its own it
+                just repeats the count already sitting in the filter row. */}
+            {favoriteWorkouts.length || customItems.length ? (
+              <TemplateSectionHeader
+                icon={Layers3}
+                label="Sheetless library"
+                count={builtInItems.length}
+                helper="Original presets and progression tools."
+              />
+            ) : null}
             <TemplateGrid>{builtInItems.map(renderItem)}</TemplateGrid>
           </section>
         ) : null}
@@ -211,6 +206,12 @@ export function TemplateCatalogue({
           <SectionLabel>{programmeLibraryAbout[mode].title}</SectionLabel>
           <Text mt={6} size="sm" tone="dimmed" lh={1.55}>
             {programmeLibraryAbout[mode].body}
+          </Text>
+          {/* The provenance statement is deliberate, not decoration — the comp has no slot for it,
+              so it lives here rather than being dropped. */}
+          <Text mt={8} size="xs" tone="dimmed" lh={1.5}>
+            Built-in programmes are original Sheetless programming tools and are not official, affiliated,
+            or endorsed templates from any coach, author, book, or programme.
           </Text>
         </Panel>
       </div>

@@ -1,6 +1,10 @@
 import { BALANCE_MIN_SETS } from '@sheetless/domain/history/muscle-volume'
 import { CALIBRATION_MIN_PAIRED_SETS } from '@sheetless/domain/history/calibration'
-import { TREND_MIN_POINTS, TREND_MIN_SPAN_DAYS } from '@sheetless/domain/history/strength'
+import {
+  POWERLIFTING_TOTAL_LIFTS,
+  TREND_MIN_POINTS,
+  TREND_MIN_SPAN_DAYS,
+} from '@sheetless/domain/history/strength'
 import type {
   CalibrationSummary,
   ConsistencySummary,
@@ -79,17 +83,33 @@ function spanDays(series: LiftE1rmSeries | null): number {
   return (Math.max(...times) - Math.min(...times)) / MS_PER_DAY
 }
 
+/** How the counter names the lift it is still waiting on. */
+const liftGateLabels: Record<(typeof POWERLIFTING_TOTAL_LIFTS)[number], string> = {
+  squat: 'squat',
+  bench_press: 'bench',
+  deadlift: 'deadlift',
+}
+
 export function resolveInsightGates(input: InsightGateInput): Record<InsightGateId, InsightGate> {
   const lead = leadingLift(input.liftSeries)
   const leadPoints = lead?.points.length ?? 0
   const totalRegionSets = input.weeklyRegionSets.reduce((sum, week) => sum + week.totalSets, 0)
-  const liftsWithWork = input.liftSeries.filter((series) => series.points.length > 0).length
+  // Only the three lifts the score is actually made of. Counting every tracked lift meant an
+  // account training squat, press and row read "3 of 3" while the score stayed locked.
+  const totalLifts = POWERLIFTING_TOTAL_LIFTS.filter((liftId) =>
+    input.liftSeries.some((series) => series.movementId === liftId && series.points.some((point) => !point.outlier)),
+  )
+  const missingLift = POWERLIFTING_TOTAL_LIFTS.find((liftId) => !totalLifts.includes(liftId))
 
   return {
     strength_score: {
       id: 'strength_score',
       unlocked: input.strengthScore.kind !== 'insufficient',
-      progress: { current: Math.min(liftsWithWork, 3), required: 3 },
+      progress: {
+        current: totalLifts.length,
+        required: POWERLIFTING_TOTAL_LIFTS.length,
+        subject: missingLift ? liftGateLabels[missingLift] : undefined,
+      },
       requirement: 'Opens once squat, bench and deadlift each have a logged set, plus a bodyweight.',
       requirementTechnical: 'Needs squat + bench + deadlift e1RM and a bodyweight entry (sex for DOTS).',
     },

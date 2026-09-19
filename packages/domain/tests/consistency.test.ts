@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildConsistency, buildWeeklySessionCounts, streakBadgeLabel } from '@sheetless/domain/history/consistency'
+import {
+  buildConsistency,
+  buildWeeklySessionCounts,
+  joinPlannedConsistency,
+  streakBadgeLabel,
+} from '@sheetless/domain/history/consistency'
 import type { HistorySessionInput } from '@sheetless/domain/history/history'
 import type { WeeklyCount } from '@sheetless/domain/history/types'
 
@@ -127,6 +132,34 @@ describe('buildConsistency', () => {
     const summary = buildConsistency(makeWeekly([3, 2, 2]))
 
     expect(summary.avgSessionsPerWeek).toBe(2.3)
+  })
+})
+
+describe('joinPlannedConsistency', () => {
+  const base = buildConsistency([
+    { weekStart: '2026-07-06', weekLabel: 'w1', sessionCount: 1 },
+    { weekStart: '2026-07-13', weekLabel: 'w2', sessionCount: 2 },
+    { weekStart: '2026-07-20', weekLabel: 'w3', sessionCount: 1 },
+    { weekStart: '2026-07-27', weekLabel: 'w4', sessionCount: 1 },
+    { weekStart: '2026-08-03', weekLabel: 'w5', sessionCount: 1 },
+  ])
+
+  it('reports what was done against what the plan asks for', () => {
+    // 1.2 a week against a 5-day plan is the design doc's own 24 %.
+    expect(base.avgSessionsPerWeek).toBe(1.2)
+    expect(joinPlannedConsistency(base, 5)).toMatchObject({ plannedPerWeek: 5, adherencePercent: 24 })
+  })
+
+  it('stays silent without a plan to compare against', () => {
+    expect(joinPlannedConsistency(base, null)).toMatchObject({ plannedPerWeek: null, adherencePercent: null })
+    expect(joinPlannedConsistency(base, 0)).toMatchObject({ plannedPerWeek: null, adherencePercent: null })
+  })
+
+  it('keeps the summary it was handed', () => {
+    expect(joinPlannedConsistency(base, 3)).toMatchObject({
+      longestStreakWeeks: base.longestStreakWeeks,
+      totalWeeks: base.totalWeeks,
+    })
   })
 })
 

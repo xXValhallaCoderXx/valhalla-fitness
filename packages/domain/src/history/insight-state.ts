@@ -121,4 +121,4 @@ export const volumeTrendLabels: Record<VolumeTrendSignal, string> = {
 }
 
 export const volumeTrendExplanation =
-  'Total weight moved each week: weight × reps, added up across every completed set. A steady or gently rising line means you are doing more work over time.'
+  'Weight × reps, added up across every completed set. A steady or gently rising line means you are doing more work over time.'

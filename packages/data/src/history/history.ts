@@ -407,7 +407,12 @@ export async function getProgramOverview(ctx: UserContext): Promise<ProgramOverv
         .filter((session): session is typeof session & { weekIndex: number; completedAt: string } =>
           typeof session.weekIndex === 'number' && Boolean(session.completedAt),
         )
-        .map((session) => ({ weekIndex: session.weekIndex, completedAt: session.completedAt }))
+        .map((session) => ({
+          weekIndex: session.weekIndex,
+          completedAt: session.completedAt,
+          id: session.id,
+          title: session.title,
+        }))
     : []
   return buildProgramOverview({
     today,

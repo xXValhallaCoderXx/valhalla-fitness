@@ -18,6 +18,11 @@ export function CycleInspectorPanel({
   // Only pair a value with a forward number when there is one. Without a projection this section
   // would just restate the loads card sitting directly below it.
   const projected = model.projections.filter((projection) => projection.projected !== null)
+  // Distinct from the above: this is the training max the rule would write, not the heaviest
+  // planned top-set load. Both are true and neither substitutes for the other.
+  const trainingMax = model.trainingMaxProjections.filter(
+    (projection) => projection.projected !== null && projection.projected !== projection.current,
+  )
 
   return (
     <Panel p="md" className="space-y-4" data-testid="cycle-inspector-panel">
@@ -52,6 +57,42 @@ export function CycleInspectorPanel({
                     </Badge>
                   ) : null}
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {trainingMax.length ? (
+        <div>
+          <SectionLabel className="mb-1">Projected training maxes</SectionLabel>
+          <Caption lh={1.4}>If each top set goes to plan.</Caption>
+          <div className="mt-2 flex flex-col">
+            {trainingMax.map((projection) => (
+              <div
+                key={projection.movementId}
+                className="border-t py-2 first:border-t-0 first:pt-0"
+                style={{ borderColor: 'var(--mantine-color-default-border)' }}
+              >
+                {/* Two lines: the rail is 20rem and a rule id on the value line truncates the
+                    lift's name away, which is the one thing the row must never lose. */}
+                <div className="flex items-baseline justify-between gap-2">
+                  <Text component="span" size="xs" fw={700} tone="dimmed" truncate>
+                    {projection.label}
+                  </Text>
+                  <div className="flex shrink-0 items-baseline gap-1.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    <Text component="span" size="sm" fw={800}>
+                      {projection.current}
+                    </Text>
+                    <Text component="span" size="xs" tone="dimmed" aria-hidden="true">
+                      →
+                    </Text>
+                    <Text component="span" size="sm" fw={800} c="var(--vf-action-text)">
+                      {projection.projected}
+                    </Text>
+                  </div>
+                </div>
+                <Caption mt={1} className="font-mono">{projection.ruleId}</Caption>
               </div>
             ))}
           </div>

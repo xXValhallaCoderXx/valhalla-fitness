@@ -13,8 +13,13 @@ export type TodayPayload = {
   activeProgram: ProgramInstance | null
   plannedSession: PlannedSession | null
   activeSession: WorkoutSession | null
+  /** A session finished *today*; drives the "next session" framing. Not the same as the one below. */
   completedSession: WorkoutSession | null
+  /** The most recent finished workout whenever it happened — the Today "Last session" card. */
+  lastCompletedSession?: WorkoutSession | null
   pendingDecisions: ProgressionDecision[]
+  /** Newest accepted progression per state key, for the per-row "why this load moved" reason. */
+  acceptedDecisions?: ProgressionDecision[]
 }
 
 export type SessionSummary = {

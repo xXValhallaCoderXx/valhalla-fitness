@@ -140,7 +140,7 @@ test.describe('load trace', () => {
     await setReadingMode(DEMO_WAVE, 'full', { showFormulas: true })
     await login(page, DEMO_WAVE)
 
-    // The ledger is the selection surface, and Full opens it by default.
+    // The session card's rows are the selection surface, and they are always on screen.
     const row = page.getByRole('option', { name: /Deadlift/ }).first()
     await expect(async () => {
       await row.click()
@@ -155,6 +155,9 @@ test.describe('load trace', () => {
     await expect(panel).toContainText(/reset/i)
 
     // The assertion that matters: the trace must explain the load actually shown beside it.
+    // A wave row lists its ramp ("145 · 162.5 · 182.5 kg") with one unit suffix, so the only
+    // number adjacent to "kg" is the top set — which is exactly the set `definingSet` traces.
+    // Back-off sets are excluded from the row, so the last figure cannot be the 65% load.
     const target = (await row.innerText()).match(/(\d+(?:\.\d+)?)\s*kg/)?.[1]
     expect(target).toBeTruthy()
     await expect(panel).toContainText(`${target} kg`)
@@ -169,6 +172,8 @@ test.describe('load trace', () => {
     await expect(page.getByTestId('today-workout')).toBeVisible({ timeout: 15000 })
     await expect(page.getByTestId('load-trace-panel')).toHaveCount(0)
     await expect(page.getByRole('option')).toHaveCount(0)
+    // Guided never shows a percentage or a formula on a row.
+    await expect(page.getByTestId('show-formulas-toggle')).toHaveCount(0)
   })
 
   // The "no computed load" case (manually added accessories carry no prescription) is covered by

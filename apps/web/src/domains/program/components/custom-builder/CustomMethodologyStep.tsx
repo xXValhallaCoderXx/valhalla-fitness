@@ -1,10 +1,7 @@
-import { Badge, NumberInput, TextInput, Tooltip } from '@mantine/core'
+import { Badge, TextInput, Tooltip } from '@mantine/core'
 import { Check, Gauge, Info } from 'lucide-react'
 import { Caption, SectionLabel, Text } from '~/components'
-import { ProgramInfoHint } from '~/domains/program/components/ProgramInfoHint'
 import type { GuidanceIssue } from '~/domains/program/lib/custom-builder-guidance'
-import { recommendedDaysFor } from '~/domains/program/lib/custom-builder-guidance'
-import { clampBuilderDayCount } from '~/domains/program/lib/custom-builder-ui'
 import {
   customProgramMethodologies,
   type CustomProgramBuilderInput,
@@ -17,18 +14,16 @@ export function CustomMethodologyStep({
   issues,
   onDraftChange,
   onMethodologyChange,
-  onDaysChange,
 }: {
   draft: CustomProgramBuilderInput
   issues: GuidanceIssue[]
   onDraftChange: (patch: Partial<CustomProgramBuilderInput>) => void
   onMethodologyChange: (methodology: CustomProgramMethodology) => void
-  onDaysChange: (daysPerWeek: number) => void
 }) {
-  const recommendedDays = recommendedDaysFor(draft.methodology)
   return (
     <div className="grid gap-4">
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem]">
+      {/* The schedule used to sit here; it moved to step 2, beside the days it actually shapes. */}
+      <div className="grid gap-3 md:grid-cols-2">
         <TextInput
           label="Programme name"
           value={draft.name}
@@ -39,20 +34,6 @@ export function CustomMethodologyStep({
           placeholder="e.g. Add 10kg to squat"
           value={draft.goal ?? ''}
           onChange={(event) => onDraftChange({ goal: event.target.value })}
-        />
-        <NumberInput
-          label={
-            <span className="inline-flex items-center gap-1">
-              Days per week
-              <ProgramInfoHint label="Day count guidance">{recommendedDays.rationale}</ProgramInfoHint>
-            </span>
-          }
-          min={1}
-          max={7}
-          allowDecimal={false}
-          clampBehavior="strict"
-          value={draft.daysPerWeek}
-          onChange={(value) => onDaysChange(clampBuilderDayCount(value, draft.daysPerWeek))}
         />
       </div>
 

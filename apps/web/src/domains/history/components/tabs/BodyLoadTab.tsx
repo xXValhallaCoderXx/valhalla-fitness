@@ -1,26 +1,29 @@
-import { Badge, SegmentedControl } from '@mantine/core'
 import { useState } from 'react'
-import { bodyLoadExplanation } from '~/domains/history/lib/body-load'
 import { buildBodyLoadTrace } from '~/domains/history/lib/body-load-trace'
+import { bodyLoadWindowLabel } from '~/domains/history/lib/body-load'
 import {
   ADEQUACY_HIGH_SETS,
-  adequacyExplanation,
   buildRegionAdequacy,
   buildRegionDeltas,
 } from '~/domains/history/lib/muscle-volume'
 import { bodyLoadLabel } from '~/domains/history/lib/insight-labels'
 import type { BodyRegionId, HistoryDashboardWithInsights, InsightGating } from '~/domains/history'
 import { useExperienceMode } from '~/domains/account/components'
-import { Caption, InspectorLayout, Panel, SectionLabel, Text } from '~/components'
+import { InspectorLayout } from '~/components'
 import { formatCompactDate } from '~/shared/lib/dates'
-import { LoadTracePanel } from '~/domains/program/components/inspector/LoadTracePanel'
-import { AdequacyRow, FatigueRow } from '../body-load/BodyLoadRows'
-import { BodyLoadLegend } from '../body-load/BodyLoadLegend'
-import { BodyLoadMap } from '../body-load/BodyLoadMap'
+import { BodyLoadMapPanel, type BodyMapView } from '../body-load/BodyLoadMapPanel'
+import { BodyLoadRegionTable } from '../body-load/BodyLoadRegionTable'
+import { BodyLoadTracePanel } from '../inspector/BodyLoadTracePanel'
+import { InsightTabHeader } from '../insights/InsightTabHeader'
 import { adequacyFill, bodyLoadFill } from '../body-load/body-load-style'
 
-type BodyMapView = 'fatigue' | 'sets'
-
+/**
+ * Which muscles the programme is actually working.
+ *
+ * Deliberately no range switch: both views run on windows fixed server-side — seven days of
+ * recency-weighted load, four weeks of weekly sets — so the window is stated as a chip rather than
+ * offered as a control that would not change anything.
+ */
 export function BodyLoadTab({ data, gating }: { data: HistoryDashboardWithInsights; gating: InsightGating }) {
   const { mode, isFull, showFormulas } = useExperienceMode()
   const [view, setView] = useState<BodyMapView>('fatigue')
@@ -30,27 +33,30 @@ export function BodyLoadTab({ data, gating }: { data: HistoryDashboardWithInsigh
     .filter((region) => region.impactPercent > 0)
     .sort((left, right) => right.impactPercent - left.impactPercent)
   const adequacy = buildRegionAdequacy(data.insights.weeklyRegionSets, data.insights.today)
-  // The 10–20 coloring is misleading on a near-empty history — hold it back
-  // until the window has enough sets (mirrors the muscle-balance card's gate).
+  // The 10–20 colouring is misleading on a near-empty history — hold it back until the window has
+  // enough sets (mirrors the muscle-balance card's gate).
   const setsGated = adequacy.insufficient || gating.lifecycle === 'empty' || gating.lifecycle === 'cold_start'
 
   // Calendar-anchored and deload-aware; `reason` says why there is no comparison when there isn't.
   const weekChange = buildRegionDeltas(data.insights.weeklyRegionSets, data.insights.today, {
     suppress: gating.suppressWeekComparison,
   })
-  const deltaById = new Map(weekChange.deltas.map((entry) => [entry.regionId, entry]))
+  const deltaById = new Map(weekChange.deltas.map((delta) => [delta.regionId, delta]))
   const showDelta = weekChange.reason === 'ok'
 
   const fatigueById = new Map(data.bodyLoad.regions.map((region) => [region.regionId, region]))
   const adequacyById = new Map(adequacy.regions.map((region) => [region.regionId, region]))
-  const fatigueStyle = (regionId: BodyRegionId) => {
-    const region = fatigueById.get(regionId)
-    return {
-      fill: bodyLoadFill(region?.tier ?? 'fresh'),
-      opacity: 0.35 + ((region?.impactPercent ?? 0) / 100) * 0.65,
+
+  // Colour names the tier; opacity carries "more work → darker", which is what the ramp legend
+  // beneath the map is describing.
+  const styleFor = (regionId: BodyRegionId) => {
+    if (view === 'fatigue') {
+      const region = fatigueById.get(regionId)
+      return {
+        fill: bodyLoadFill(region?.tier ?? 'fresh'),
+        opacity: 0.35 + ((region?.impactPercent ?? 0) / 100) * 0.65,
+      }
     }
-  }
-  const adequacyStyle = (regionId: BodyRegionId) => {
     const region = adequacyById.get(regionId)
     return {
       fill: adequacyFill(region?.tier ?? 'below'),
@@ -64,128 +70,59 @@ export function BodyLoadTab({ data, gating }: { data: HistoryDashboardWithInsigh
     ? buildBodyLoadTrace({ region: selectedRegion, windowDays: data.bodyLoad.windowDays })
     : null
 
-  const mapPanel = (
-    <Panel p="md">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <SectionLabel>
-            {bodyLoadLabel(view === 'fatigue' ? 'fatigueHeading' : 'setsHeading', mode)}
-          </SectionLabel>
-          <Text mt={4} size="sm" fw={900}>
-            {view === 'fatigue' ? `Last ${data.bodyLoad.windowDays} days` : `Last ${adequacy.weeks || 4} weeks`}
-          </Text>
-        </div>
-        {view === 'fatigue' ? (
-          <Badge color="success">{data.bodyLoad.freshRegionCount} of {data.bodyLoad.regions.length} fresh</Badge>
-        ) : null}
-      </div>
-      <SegmentedControl
-        size="xs"
-        radius="md"
-        fullWidth
-        value={view}
-        onChange={(next) => setView(next as BodyMapView)}
-        data={[
-          { value: 'fatigue', label: bodyLoadLabel('fatigueToggle', mode) },
-          { value: 'sets', label: bodyLoadLabel('setsToggle', mode) },
-        ]}
-        styles={{
-          root: { backgroundColor: 'var(--vf-surface-2)', border: '1px solid var(--mantine-color-default-border)' },
-          label: { fontWeight: 700 },
-        }}
-        className="mb-3"
-      />
-      {view === 'sets' && setsGated ? (
-        <Caption component="p" ta="center" className="py-10">
-          Your weekly-sets picture appears after about 20 logged sets in the last few weeks. Keep training — it&apos;s
-          on its way.
-        </Caption>
-      ) : (
-        <>
-          <BodyLoadMap
-            ariaLabel={view === 'fatigue' ? 'Muscle fatigue map' : 'Weekly sets per muscle map'}
-            styleFor={view === 'fatigue' ? fatigueStyle : adequacyStyle}
-          />
-          <BodyLoadLegend view={view} />
-        </>
-      )}
-    </Panel>
-  )
-
-  const listPanel = (
-    <Panel p="md">
-      {view === 'fatigue' ? (
-        <>
-          <SectionLabel>{bodyLoadLabel('fatigueRows', mode)}</SectionLabel>
-          <Caption mt={4}>{bodyLoadExplanation}</Caption>
-          {isFull ? <Caption mt={1}>Pick a muscle to see how its number was built.</Caption> : null}
-          <div className="mt-2 flex flex-col">
-            {fatigueRegions.length ? (
-              fatigueRegions.map((region) => (
-                <FatigueRow
-                  key={region.regionId}
-                  region={region}
-                  onSelect={isFull ? setSelectedRegionId : undefined}
-                  selected={region.regionId === selectedRegionId}
-                />
-              ))
-            ) : (
-              <Text size="sm" tone="dimmed" mt="sm">No completed sets in the recent window.</Text>
-            )}
-          </div>
-        </>
-      ) : (
-        <>
-          <SectionLabel>{bodyLoadLabel('setsRows', mode)}</SectionLabel>
-          <Caption mt={4}>{adequacyExplanation}</Caption>
-          {!setsGated ? (
-            <Caption mt={1}>{weekChangeNote(weekChange.reason, gating, weekChange.weekStart, mode)}</Caption>
-          ) : null}
-          <div className="mt-2 flex flex-col">
-            {setsGated ? (
-              <Text size="sm" tone="dimmed" mt="sm">Not enough recent sets to judge weekly volume fairly yet.</Text>
-            ) : (
-              adequacy.regions.map((region) => (
-                <AdequacyRow
-                  key={region.regionId}
-                  region={region}
-                  delta={deltaById.get(region.regionId)}
-                  showDelta={showDelta}
-                />
-              ))
-            )}
-          </div>
-        </>
-      )}
-    </Panel>
-  )
+  const sessionCount = data.bodyLoad.regions.length ? data.overview.completedSessions : 0
 
   return (
-    <InspectorLayout
-      inspector={trace ? <LoadTracePanel trace={trace} showFormulas={showFormulas} /> : null}
-    >
-      {/* Map beside the list only while no trace is open: with the 20rem inspector rail out, a
-          third column squeezes the list until its percentages clip. When the rail is open the
-          list leads instead — it is what was just clicked, and burying it under a full-width
-          figure would scroll the selected row off screen. */}
-      <div
-        className={`grid grid-cols-1 items-start gap-4 ${
-          trace ? '' : 'lg:grid-cols-[24rem_minmax(0,1fr)]'
-        }`}
+    <div>
+      <InsightTabHeader
+        title={bodyLoadLabel('screenTitle', mode)}
+        subtitle={
+          view === 'fatigue'
+            ? `${bodyLoadLabel('subtitleMetric', mode)} · ${bodyLoadWindowLabel(data.bodyLoad)}`
+            // Not "sets per week" — that is the row heading's wording, and two elements matching
+            // the same phrase is a locator collision waiting to happen.
+            : `${bodyLoadLabel('setsHeading', mode)} · last ${adequacy.weeks || 4} weeks · ${ADEQUACY_HIGH_SETS} sets is a full week for most muscles`
+        }
+        note={
+          sessionCount
+            ? undefined
+            : 'Nothing logged in this window yet — the map stays grey rather than guessing.'
+        }
+      />
+
+      <InspectorLayout
+        inspector={
+          trace && selectedRegion ? (
+            <BodyLoadTracePanel trace={trace} region={selectedRegion} showFormulas={showFormulas} />
+          ) : null
+        }
       >
-        {trace ? (
-          <>
-            {listPanel}
-            {mapPanel}
-          </>
-        ) : (
-          <>
-            {mapPanel}
-            {listPanel}
-          </>
-        )}
-      </div>
-    </InspectorLayout>
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+          <BodyLoadMapPanel
+            view={view}
+            onViewChange={setView}
+            mode={mode}
+            bodyLoad={data.bodyLoad}
+            adequacyWeeks={adequacy.weeks}
+            gated={setsGated}
+            styleFor={styleFor}
+          />
+          <BodyLoadRegionTable
+            view={view}
+            mode={mode}
+            isFull={isFull}
+            fatigueRegions={fatigueRegions}
+            adequacyRegions={adequacy.regions}
+            deltaById={deltaById}
+            showDelta={showDelta}
+            gated={setsGated}
+            weekNote={weekChangeNote(weekChange.reason, gating, weekChange.weekStart, mode)}
+            selectedRegionId={selectedRegionId}
+            onSelectRegion={isFull ? setSelectedRegionId : undefined}
+          />
+        </div>
+      </InspectorLayout>
+    </div>
   )
 }
 

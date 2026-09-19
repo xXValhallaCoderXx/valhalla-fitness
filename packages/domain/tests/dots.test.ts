@@ -6,6 +6,7 @@ import {
   decorateTotalPoints,
   dotsScore,
   nearestBodyweight,
+  nearestBodyweightWithAge,
   resolveStrengthScore,
   strengthScoreKindLabels,
 } from '@sheetless/domain/history/dots'
@@ -117,6 +118,23 @@ describe('nearestBodyweight', () => {
       bwEntry({ id: 'b', recordedOn: '2026-07-05' }),
     ]
     expect(nearestBodyweight(entries, '2026-07-03T23:59:00.000Z')?.id).toBe('a')
+  })
+})
+
+describe('nearestBodyweightWithAge', () => {
+  const entries = [
+    { id: 'a', recordedOn: '2026-07-06', weightKg: 71 },
+    { id: 'b', recordedOn: '2026-08-20', weightKg: 72 },
+  ]
+
+  it('reports how far the nearest entry is from the date asked about', () => {
+    expect(nearestBodyweightWithAge(entries, '2026-08-06')).toMatchObject({ ageDays: 14 })
+    expect(nearestBodyweightWithAge(entries, '2026-08-06')?.entry.id).toBe('b')
+    expect(nearestBodyweightWithAge(entries, '2026-07-06')).toMatchObject({ ageDays: 0 })
+  })
+
+  it('has nothing to age when there are no entries', () => {
+    expect(nearestBodyweightWithAge([], '2026-08-06')).toBeNull()
   })
 })
 

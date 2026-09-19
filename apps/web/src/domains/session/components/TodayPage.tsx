@@ -5,7 +5,7 @@ import { Link, useRouter } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { EmptyState, Page, PageLoadError } from '~/components'
-import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
+import { useAccountClock, useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { todayHistorySupportQueryOptions } from '~/domains/history/queries'
 import { OnboardingPanel } from '~/domains/onboarding/OnboardingPanel'
@@ -16,6 +16,7 @@ import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { browserIanaTimeZone } from '~/shared/lib/calendar-date'
 import { accountQueryKeys } from '~/shared/lib/query-keys'
 import { TodayActiveSession } from './today/TodayActiveSession'
+import { TodayHeader } from './today/TodayHeader'
 import { TodayPageSkeleton } from './today/TodayPageSkeleton'
 import { TodayPlannedSession } from './today/TodayPlannedSession'
 
@@ -41,6 +42,7 @@ export function TodayPage({ user }: { user: AuthUser | null }) {
 function AuthedToday() {
   const router = useRouter()
   const userId = useRequiredAccountId()
+  const clock = useAccountClock()
   const { active: onboardingActive, pending: onboardingPending } = useOnboardingActive()
   const todayQuery = useQuery(todayQueryOptions(userId))
   const historyQuery = useQuery({
@@ -129,6 +131,12 @@ function AuthedToday() {
     return (
       <Page>
         <OnboardingPanel />
+        {/* Same header as the other two Today states — without it this branch is the only one with
+            no title or date, which reads as a different screen rather than an empty one. */}
+        <TodayHeader
+          scheduledDate={clock.today}
+          subtitle="No active programme yet."
+        />
         {!onboardingActive && !onboardingPending ? (
           <EmptyState
             centered

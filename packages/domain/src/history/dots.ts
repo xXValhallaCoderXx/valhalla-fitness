@@ -70,6 +70,25 @@ export function nearestBodyweight(entries: BodyweightEntry[], isoDate: string): 
   return best
 }
 
+/**
+ * The nearest entry plus how stale it is.
+ *
+ * `nearestBodyweight` computes the day delta and throws it away, which is fine for decorating a
+ * series but not for a trace: a score standing on a reading from six weeks ago should say so.
+ * Kept as a separate export so the two existing callers keep their signature.
+ */
+export function nearestBodyweightWithAge(
+  entries: BodyweightEntry[],
+  isoDate: string,
+): { entry: BodyweightEntry; ageDays: number } | null {
+  const entry = nearestBodyweight(entries, isoDate)
+  if (!entry) return null
+  const target = dayIndex(isoDate)
+  const day = dayIndex(entry.recordedOn)
+  if (target == null || day == null) return null
+  return { entry, ageDays: Math.abs(target - day) }
+}
+
 export function decorateTotalPoints(
   points: Array<Pick<TotalPoint, 'date' | 'total' | 'totalKg'>>,
   entries: BodyweightEntry[],

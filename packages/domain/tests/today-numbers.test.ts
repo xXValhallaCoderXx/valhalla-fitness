@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildTodayLedgerCaption,
   buildTodayLedgerRows,
   buildTodaySessionMeta,
   countPlannedSets,
@@ -140,16 +139,6 @@ describe('buildTodayLedgerRows', () => {
   })
 })
 
-describe('buildTodayLedgerCaption', () => {
-  it('mentions target loads when any are projected', () => {
-    expect(buildTodayLedgerCaption({ title: 'Day 2', movements: [squat] })).toBe('Day 2 target loads')
-  })
-
-  it('softens to plain targets when nothing projects a load', () => {
-    expect(buildTodayLedgerCaption({ title: 'Day 2', movements: [loadless] })).toBe('Day 2 targets')
-  })
-})
-
 describe('formatPreviousLine / formatPreviousHero', () => {
   const full: PreviousComparable = {
     movementId: 'squat',
@@ -249,5 +238,85 @@ describe('Guided vs Full notation', () => {
 
   it('omits the duration when the session has no estimate', () => {
     expect(buildTodaySessionMeta({ movements: [squat] }, 'guided')).toBe('1 movement')
+  })
+})
+
+describe('Today v3 row fields', () => {
+  const deadlift = {
+    id: 'slot-day-3-main',
+    movementId: 'deadlift',
+    movementName: 'Deadlift',
+    role: 'main' as const,
+    orderIndex: 1,
+    targetSummary: '75%x5 · 85%x3 · 95%x1+ · back-off 5x5',
+    sets: [
+      { id: 's1', setIndex: 1, targetLoad: 145, targetReps: 5, sourceBinding: { stateKey: 'deadlift_training_max' } },
+      { id: 's2', setIndex: 2, targetLoad: 162.5, targetReps: 3 },
+      { id: 's3', setIndex: 3, targetLoad: 182.5, targetReps: 1, isTopSet: true, isAmrap: true },
+      { id: 's4', setIndex: 4, targetLoad: 125, targetReps: 5, isBackoff: true },
+    ],
+  } as never
+
+  it('lists every distinct ramp load and excludes the back-off', () => {
+    const [row] = buildTodayLedgerRows({ units: 'kg', movements: [deadlift] })
+    expect(row.loadsLabel).toBe('145 · 162.5 · 182.5 kg')
+  })
+
+  it('collapses to a single load when the row does not ramp', () => {
+    const flat = {
+      ...(deadlift as unknown as Record<string, unknown>),
+      sets: [
+        { id: 'a', setIndex: 1, targetLoad: 112.5, targetReps: 5 },
+        { id: 'b', setIndex: 2, targetLoad: 112.5, targetReps: 5 },
+      ],
+    } as never
+    expect(buildTodayLedgerRows({ units: 'kg', movements: [flat] })[0].loadsLabel).toBe('112.5 kg')
+  })
+
+  it('falls back to the effort cue when nothing is projected', () => {
+    const cue = {
+      ...(deadlift as unknown as Record<string, unknown>),
+      sets: [{ id: 'a', setIndex: 1, targetRir: 2, targetReps: 10 }],
+    } as never
+    expect(buildTodayLedgerRows({ units: 'kg', movements: [cue] }, 'guided')[0].loadsLabel).toBe('~2 left')
+    expect(buildTodayLedgerRows({ units: 'kg', movements: [cue] }, 'full')[0].loadsLabel).toBe('RIR 2')
+  })
+
+  it('prints the authored notation in Full and a plain sets label in Guided', () => {
+    expect(buildTodayLedgerRows({ units: 'kg', movements: [deadlift] }, 'full')[0].prescriptionLabel).toBe(
+      '75%x5 · 85%x3 · 95%x1+ · back-off 5x5',
+    )
+    // Guided never shows a percentage.
+    const guided = buildTodayLedgerRows({ units: 'kg', movements: [deadlift] }, 'guided')[0]
+    expect(guided.prescriptionLabel).toBe('4 sets')
+    expect(guided.prescriptionLabel).not.toContain('%')
+  })
+
+  it('attaches the reason to the row whose set binds that state key, in Guided only', () => {
+    const options = { mode: 'guided' as const, reasonByStateKey: { deadlift_training_max: 'up 5 kg — you got every rep last time' } }
+    expect(buildTodayLedgerRows({ units: 'kg', movements: [deadlift] }, options).at(0)?.reason).toBe(
+      'up 5 kg — you got every rep last time',
+    )
+    expect(
+      buildTodayLedgerRows({ units: 'kg', movements: [deadlift] }, { ...options, mode: 'full' }).at(0)?.reason,
+    ).toBeNull()
+  })
+
+  it('leaves the reason null when no decision matches the row', () => {
+    expect(
+      buildTodayLedgerRows({ units: 'kg', movements: [deadlift] }, { mode: 'guided', reasonByStateKey: {} })[0].reason,
+    ).toBeNull()
+  })
+
+  it('names the equipment mode in the meta line only when it is not standard', () => {
+    const session = { movements: [deadlift], estimatedMinutes: 75 }
+    expect(buildTodaySessionMeta(session, 'guided')).toBe('1 movement · about 75 min')
+    expect(buildTodaySessionMeta({ ...session, equipmentMode: 'standard' }, 'guided')).toBe('1 movement · about 75 min')
+    expect(buildTodaySessionMeta({ ...session, equipmentMode: 'free_weight' }, 'guided')).toBe(
+      '1 movement · about 75 min · free weights',
+    )
+    expect(buildTodaySessionMeta({ ...session, equipmentMode: 'free_weight' }, 'full')).toBe(
+      '1 movement · 4 sets · ~75 min · free weights',
+    )
   })
 })

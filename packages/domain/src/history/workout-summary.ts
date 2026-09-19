@@ -183,7 +183,8 @@ export function buildWorkoutSummary(session: WorkoutSession): WorkoutSummaryMode
   }
 }
 
-function elapsedMinutes(session: WorkoutSession): number {
+/** Actual wall-clock length of a finished workout; 0 when it was never properly bracketed. */
+export function elapsedMinutes(session: WorkoutSession): number {
   if (!session.startedAt || !session.completedAt) return 0
   const elapsedMs = new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()
   if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return 0

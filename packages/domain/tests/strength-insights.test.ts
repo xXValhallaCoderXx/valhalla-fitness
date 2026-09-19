@@ -6,6 +6,7 @@ import {
   computeVelocity,
   detectStall,
   e1rmTrendLabels,
+  selectPowerliftingComponents,
   stallSignalLabels,
 } from '@sheetless/domain/history/strength'
 import type {
@@ -394,6 +395,50 @@ describe('computeVelocity', () => {
 
     expect(computeVelocity(gaining, NOW)).toBe(5.4) // 10/56 * 30.44 = 5.44/month
     expect(computeVelocity(losing, NOW)).toBe(-5.4)
+  })
+})
+
+describe('selectPowerliftingComponents', () => {
+  const full = () => [
+    series('squat', [point(daysAgo(30), 100), point(daysAgo(20), 105)]),
+    series('bench_press', [point(daysAgo(20), 80)]),
+    series('deadlift', [point(daysAgo(30), 120), point(daysAgo(10), 130)]),
+  ]
+
+  it('names the best-so-far point for each lift, with the session it came from', () => {
+    const components = selectPowerliftingComponents(full(), daysAgo(20))
+    expect(components?.map((entry) => [entry.liftId, entry.point.e1rm, entry.point.date])).toEqual([
+      ['squat', 105, daysAgo(20)],
+      ['bench_press', 80, daysAgo(20)],
+      // The deadlift PR on day 10 is after the cutoff, so the day-30 point still stands.
+      ['deadlift', 120, daysAgo(30)],
+    ])
+    expect(components?.map((entry) => entry.liftLabel)).toEqual(['Squat', 'Bench', 'Deadlift'])
+  })
+
+  // Two implementations of one best-so-far rule is exactly how a trace starts lying about the
+  // number printed beside it.
+  it('sums to the total buildPowerliftingTotal reports for the same date', () => {
+    const input = full()
+    const last = buildPowerliftingTotal(input, 'kg').at(-1)
+    const components = selectPowerliftingComponents(input, last?.date ?? null)
+    const summed = components!.reduce((total, entry) => total + entry.point.e1rm, 0)
+    expect(Math.round(summed * 2) / 2).toBe(last?.total)
+  })
+
+  it('refuses a partial total', () => {
+    expect(selectPowerliftingComponents(full().slice(0, 2), daysAgo(10))).toBeNull()
+    // Nothing logged yet on the cutoff date.
+    expect(selectPowerliftingComponents(full(), daysAgo(40))).toBeNull()
+  })
+
+  it('ignores outliers, the way the total does', () => {
+    const withOutlier = [
+      series('squat', [point(daysAgo(30), 100), point(daysAgo(20), 400, { outlier: true })]),
+      series('bench_press', [point(daysAgo(20), 80)]),
+      series('deadlift', [point(daysAgo(30), 120)]),
+    ]
+    expect(selectPowerliftingComponents(withOutlier, daysAgo(10))?.[0].point.e1rm).toBe(100)
   })
 })
 

@@ -2,53 +2,20 @@ import { Badge } from '@mantine/core'
 import { Check, X } from 'lucide-react'
 import { templateDefinitionChecks } from '~/domains/program/lib/template-grid'
 import type { TemplateDefinition } from '~/domains/program'
-import { Caption, Panel, SectionLabel, Text } from '~/components'
-import { stateKeyLabel } from '~/domains/program/lib/load-trace'
+import { Caption, Panel, SectionLabel } from '~/components'
 
 /**
- * The programme state the definition needs, and whether the definition holds together.
+ * Whether the definition holds together.
  *
  * The badge is `validateTemplateDefinition`'s verdict and nothing else; the three lines beneath it
- * explain which rule a failure broke, since a single zod message cannot.
+ * explain which rule a failure broke, since a single zod message cannot. The state the definition
+ * needs lives in `TemplateRequiredStateRow`, under the grid those values feed.
  */
-export function TemplateValidationPanel({
-  definition,
-  stateValues,
-  units,
-}: {
-  definition: TemplateDefinition
-  stateValues: Record<string, number>
-  units: string
-}) {
+export function TemplateValidationPanel({ definition }: { definition: TemplateDefinition }) {
   const { valid, message, checks } = templateDefinitionChecks(definition)
 
   return (
-    <Panel p="md" className="space-y-4" data-testid="template-validation">
-      <div>
-        <SectionLabel className="mb-2">Required state</SectionLabel>
-        {definition.requiredState.length ? (
-          <div className="flex flex-col">
-            {definition.requiredState.map((state) => (
-              <div
-                key={state.key}
-                className="flex items-baseline justify-between gap-3 border-t py-1.5 first:border-t-0 first:pt-0"
-                style={{ borderColor: 'var(--mantine-color-default-border)' }}
-              >
-                <Text component="span" size="xs" fw={700} className="font-mono" tone="dimmed">
-                  {stateKeyLabel(state.key, state.type)}
-                </Text>
-                <Text component="span" size="xs" fw={800} style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {stateValues[state.key] === undefined ? '—' : `${stateValues[state.key]} ${units}`}
-                </Text>
-              </div>
-            ))}
-            <Caption mt="xs">Resolved from your current numbers.</Caption>
-          </div>
-        ) : (
-          <Caption component="p">This programme prescribes no loads, so it needs no state.</Caption>
-        )}
-      </div>
-
+    <Panel p="md" data-testid="template-validation">
       <div>
         <div className="mb-2 flex items-center gap-2">
           <SectionLabel>Validation</SectionLabel>
