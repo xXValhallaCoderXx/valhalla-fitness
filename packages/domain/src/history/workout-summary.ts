@@ -38,7 +38,7 @@ export type SummaryExercise = {
 
 export type WorkoutSummaryModel = {
   completion: { completed: number; planned: number; percent: number }
-  stats: { volumeLabel: string; movementCount: number; topSetCount: number; durationMinutes: number }
+  stats: { volumeLabel: string; movementCount: number; topSetCount: number; durationMinutes: number; durationLabel: string }
   sessionBest: { movementName: string; resultLabel: string; e1rmLabel: string; rir: number | null } | null
   exercises: SummaryExercise[]
   notes: string | null
@@ -81,13 +81,11 @@ export function rirTone(rir: number | null): EffortTone {
   return 'success'
 }
 
-/** "82.5 kg × 10+" — actual values, falling back to targets; bodyweight-aware. */
+/** "82.5 kg × 10" — logged values only; never substitutes a planned prescription. */
 function setResultLabel(set: SetLog, units: Unit): string {
-  const usingActualReps = set.actualReps != null
-  const load = usingActualReps ? externalLoadOrNull(set.actualLoad) : externalLoadOrNull(set.targetLoad ?? set.actualLoad)
+  const load = externalLoadOrNull(set.actualLoad)
   const loadText = load == null ? 'Bodyweight' : formatWeight(load, units)!
-  const reps = set.actualReps ?? set.targetReps ?? set.targetRepMin ?? null
-  const repsText = reps == null ? '—' : `${reps}${set.isAmrap ? '+' : ''}`
+  const repsText = hasNum(set.actualReps) ? String(set.actualReps) : '—'
   return `${loadText} × ${repsText}`
 }
 
@@ -100,8 +98,7 @@ function setScore(set: SetLog): number {
 
 /** Prefer the marked top set, else the highest-e1RM (then most-reps) logged set. */
 function pickBestSet(sets: SetLog[]): SetLog | null {
-  const completed = sets.filter((set) => set.completed)
-  const pool = completed.length ? completed : sets
+  const pool = sets.filter((set) => set.completed)
   if (!pool.length) return null
   const top = pool.find((set) => set.isTopSet || set.isAmrap)
   if (top) return top
@@ -124,6 +121,10 @@ export function buildWorkoutSummary(session: WorkoutSession): WorkoutSummaryMode
   const planned = allSets.length
   const completed = completedSets.length
   const percent = planned ? Math.round((completed / planned) * 100) : 0
+  const elapsed = elapsedMinutes(session)
+  const estimate = hasNum(session.estimatedMinutes) && session.estimatedMinutes > 0 ? session.estimatedMinutes : 0
+  const durationMinutes = elapsed || estimate
+  const durationLabel = elapsed ? `${elapsed} min` : estimate ? `${estimate} min estimated` : 'Time not recorded'
 
   let best: { set: SetLog; movementName: string; value: number } | null = null
   for (const movement of session.movements) {
@@ -137,7 +138,6 @@ export function buildWorkoutSummary(session: WorkoutSession): WorkoutSummaryMode
 
   const exercises: SummaryExercise[] = session.movements.map((movement) => {
     const completedForMovement = movement.sets.filter((set) => set.completed)
-    const displaySets = completedForMovement.length ? completedForMovement : movement.sets
     const bestSet = pickBestSet(movement.sets)
     return {
       id: movement.id,
@@ -148,10 +148,10 @@ export function buildWorkoutSummary(session: WorkoutSession): WorkoutSummaryMode
       targetSummary: movement.targetSummary,
       volumeLabel: formatVolume(completedVolume(movement.sets), units),
       bestSetLabel: bestSet ? setResultLabel(bestSet, units) : '—',
-      hitEveryTarget: hitEveryTarget(completedForMovement),
+      hitEveryTarget: completedForMovement.length === movement.sets.length && hitEveryTarget(completedForMovement),
       defaultOpen: movement.role === 'main' || movement.role === 'variation',
       completedSetCount: completedForMovement.length,
-      sets: displaySets.map((set) => ({
+      sets: completedForMovement.map((set) => ({
         index: set.setIndex,
         resultLabel: setResultLabel(set, units),
         isTop: Boolean(set.isTopSet || set.isAmrap),
@@ -165,10 +165,10 @@ export function buildWorkoutSummary(session: WorkoutSession): WorkoutSummaryMode
     completion: { completed, planned, percent },
     stats: {
       volumeLabel: formatVolume(completedVolume(completedSets), units),
-      movementCount: session.movements.length,
+      movementCount: exercises.filter((exercise) => exercise.completedSetCount > 0).length,
       topSetCount: completedSets.filter((set) => set.isTopSet || set.isAmrap).length,
-      // Ad-hoc sessions carry no estimate (0) — fall back to the actual elapsed time.
-      durationMinutes: session.estimatedMinutes || elapsedMinutes(session),
+      durationMinutes,
+      durationLabel,
     },
     sessionBest: best
       ? {

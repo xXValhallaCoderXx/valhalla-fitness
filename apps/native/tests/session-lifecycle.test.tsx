@@ -20,6 +20,7 @@ vi.mock('../src/features/session/rest-timer/rest-timer-context', () => ({
 import { useSetLogMutation } from '../src/features/session/focus/useSetLogMutation'
 import { useFinishSession } from '../src/features/session/lifecycle/useFinishSession'
 import { sessionQueryOptions } from '../src/features/session/queries'
+import { seedSetDraft, setDraftKey, workoutDraftsKey } from '../src/features/session/focus/workout-drafts'
 
 const user = { id: 'user-1' } as User
 const sessionKey = accountQueryKeys.session(user.id, 'session-1')
@@ -148,6 +149,24 @@ describe('native set saving', () => {
 })
 
 describe('native finish recovery', () => {
+  it('blocks an unsaved correction, permits a reverted draft, and clears drafts on finish', async () => {
+    const session = workout()
+    const { client, wrapper } = harness(session)
+    const movement = session.movements[0]
+    const set = movement.sets[0]
+    const draftsKey = workoutDraftsKey(user.id, session.sessionId)
+    client.setQueryData(draftsKey, { [setDraftKey(movement, 1)]: { actualLoad: 77.5, actualReps: 8 } })
+    const { result } = renderHook(() => useFinishSession(user, session), { wrapper })
+    await act(async () => {
+      await expect(result.current.mutateAsync(reflection)).rejects.toThrow('Save or reset your set edits')
+    })
+    expect(api.finish).not.toHaveBeenCalled()
+    client.setQueryData(draftsKey, { [setDraftKey(movement, 1)]: seedSetDraft(movement, set) })
+    api.finish.mockResolvedValue({ session: { ...session, status: 'completed' }, decisions: [] })
+    await act(async () => { await result.current.mutateAsync(reflection) })
+    expect(api.finish).toHaveBeenCalledTimes(1)
+    expect(client.getQueryData(draftsKey)).toBeUndefined()
+  })
   it.each(['saving', 'syncFailed'] as const)('blocks finish while a cached set is %s', async (syncState) => {
     const session = workout()
     const { client, wrapper } = harness(session)

@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { Pressable, TextInput, View } from 'react-native'
 import { Minus, Plus } from 'lucide-react-native'
 import { Caption } from '@/components'
-import { fontFamily, radii, spacing, useTokens, type Theme } from '@/lib/tokens'
+import { radii, spacing, useTokens, type Theme } from '@/lib/tokens'
+import { fontStyle } from '@/lib/fonts'
 
 export function FocusStepper({
   label,
@@ -54,7 +55,7 @@ export function FocusStepper({
         {unitSuffix ? ` (${unitSuffix})` : ''}
       </Caption>
       <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: 4 }}>
-        <StepButton theme={theme} disabled={disabled} onPress={() => onAdjust(-step)}>
+        <StepButton label={`Decrease ${label.toLowerCase()}`} theme={theme} disabled={disabled} onPress={() => onAdjust(-step)}>
           <Minus size={20} color={theme.text} />
         </StepButton>
         <TextInput
@@ -67,9 +68,8 @@ export function FocusStepper({
           style={{
             color: theme.text,
             flex: 1,
-            fontFamily,
+            ...fontStyle(800),
             fontSize: 32,
-            fontWeight: '900',
             // RN-web TextInput has an intrinsic min-width that shoves the + button off-screen.
             minWidth: 0,
             paddingVertical: 0,
@@ -77,7 +77,7 @@ export function FocusStepper({
             width: 0,
           }}
         />
-        <StepButton theme={theme} disabled={disabled} onPress={() => onAdjust(step)}>
+        <StepButton label={`Increase ${label.toLowerCase()}`} theme={theme} disabled={disabled} onPress={() => onAdjust(step)}>
           <Plus size={20} color={theme.text} />
         </StepButton>
       </View>
@@ -86,11 +86,13 @@ export function FocusStepper({
 }
 
 function StepButton({
+  label,
   theme,
   disabled,
   onPress,
   children,
 }: {
+  label: string
   theme: Theme
   disabled: boolean
   onPress: () => void
@@ -98,6 +100,8 @@ function StepButton({
 }) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => ({

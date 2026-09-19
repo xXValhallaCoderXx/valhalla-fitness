@@ -2,10 +2,12 @@ import { View } from 'react-native'
 import { Trophy } from 'lucide-react-native'
 import type { WorkoutSummaryModel } from '@sheetless/domain/history/workout-summary'
 import { prBannerTitle, prKindLabels } from '@sheetless/domain/session/session-prs'
+import { buildTodayLedgerRows } from '@sheetless/domain/session/today-numbers'
 import type { WorkoutSession } from '@sheetless/domain/session/types/session'
-import { formatWeight } from '@sheetless/domain/shared/set-notation'
+import { formatWeight, repsLeftLabel } from '@sheetless/domain/shared/set-notation'
 import { Badge, Caption, Heading, Panel, SectionLabel, StatCard, Text } from '@/components'
 import { spacing, useTokens } from '@/lib/tokens'
+import { useExperienceMode } from '@/lib/experience-mode'
 
 export function WorkoutSummaryRecap({
   session,
@@ -15,6 +17,8 @@ export function WorkoutSummaryRecap({
   recap: WorkoutSummaryModel
 }) {
   const { theme } = useTokens()
+  const { mode, isFull } = useExperienceMode()
+  const prescriptions = new Map(buildTodayLedgerRows(session, { mode }).map((row) => [row.slotId, row.prescriptionLabel]))
   const notes = session.notes?.trim()
   const reflectionWin = session.reflectionWin?.trim()
   const reflectionImprove = session.reflectionImprove?.trim()
@@ -23,9 +27,9 @@ export function WorkoutSummaryRecap({
   return (
     <>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-        <StatCard label="Movements" value={String(recap.stats.movementCount)} />
+        <StatCard label="Exercises" value={String(recap.stats.movementCount)} />
         <StatCard label="Sets" value={`${recap.completion.completed}/${recap.completion.planned}`} />
-        <StatCard label="Volume" value={recap.stats.volumeLabel} />
+        <StatCard label={isFull ? 'Volume' : 'Weight moved'} value={recap.stats.volumeLabel} />
       </View>
 
       {recap.sessionBest ? (
@@ -40,7 +44,7 @@ export function WorkoutSummaryRecap({
           <SectionLabel tone="action">Session best</SectionLabel>
           <Heading order={3}>{recap.sessionBest.movementName}</Heading>
           <Text size="sm" weight={800}>
-            {recap.sessionBest.resultLabel} · estimated max {recap.sessionBest.e1rmLabel}
+            {recap.sessionBest.resultLabel} · {isFull ? 'e1RM' : 'estimated max'} {recap.sessionBest.e1rmLabel}
           </Text>
         </Panel>
       ) : null}
@@ -82,11 +86,14 @@ export function WorkoutSummaryRecap({
               <Badge tone={exercise.accentTone}>{exercise.tagLabel}</Badge>
               {exercise.hitEveryTarget ? <Badge tone="success">Hit target</Badge> : null}
             </View>
-            <Caption>{exercise.targetSummary} · best {exercise.bestSetLabel}</Caption>
+            <Caption>{exercise.completedSetCount
+              ? `${exercise.completedSetCount} ${exercise.completedSetCount === 1 ? 'set' : 'sets'} logged · best ${exercise.bestSetLabel}`
+              : 'No sets logged'}</Caption>
+            <Caption>Planned: {prescriptions.get(exercise.id) ?? '—'}</Caption>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
               {exercise.sets.map((set) => (
                 <Badge key={set.index} tone={set.isTop ? 'accent' : 'neutral'}>
-                  {set.index}: {set.resultLabel}{set.rir == null ? '' : ` · RIR ${set.rir}`}
+                  {set.index}: {set.resultLabel}{set.rir == null ? '' : ` · ${isFull ? `RIR ${set.rir}` : repsLeftLabel(set.rir)}`}
                 </Badge>
               ))}
             </View>

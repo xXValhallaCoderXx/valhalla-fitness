@@ -1,6 +1,7 @@
 import { View } from 'react-native'
 import type { User } from '@supabase/supabase-js'
-import { TrendingUp } from 'lucide-react-native'
+import { ClipboardCheck } from 'lucide-react-native'
+import { pendingDecisionCopy } from '@sheetless/domain/session/summary-decisions'
 import type { ProgressionDecision } from '@sheetless/domain/program/types'
 import type { Unit } from '@sheetless/domain/shared/types'
 import { Button, Caption, Heading, Panel, Text } from '@/components'
@@ -25,6 +26,7 @@ export function SummaryDecisions({
   const review = useProgressionReview({ user, onResolved })
   const pending = decisions.filter((decision) => decision.status === 'pending')
   const appliedCount = decisions.filter((decision) => decision.status === 'accepted').length
+  const pendingCopy = pendingDecisionCopy(pending)
 
   return (
     <Panel style={{ borderColor: theme.tones.action.border, overflow: 'hidden' }}>
@@ -37,16 +39,17 @@ export function SummaryDecisions({
           padding: spacing.md,
         }}
       >
-        <TrendingUp color={theme.tones.action.text} size={22} />
+        <ClipboardCheck color={theme.tones.action.text} size={22} />
         <View style={{ flex: 1 }}>
           <Heading order={3}>
-            {pending.length ? `${pending.length} load updates ready` : appliedCount ? 'Updates applied' : 'Choices reviewed'}
+            {pending.length ? pendingCopy.heading : appliedCount ? 'Updates applied' : 'Choices reviewed'}
           </Heading>
-          <Caption>{pending.length ? 'Applies to your next workout.' : 'Saved decisions for this workout.'}</Caption>
+          <Caption>{pending.length ? pendingCopy.body : 'Saved decisions for this workout.'}</Caption>
         </View>
       </View>
 
       <View style={{ gap: spacing.sm, padding: spacing.md }}>
+        {pending.length ? <Caption>For future workouts. Nothing changes until you apply a recommendation.</Caption> : null}
         {decisions.map((decision) => (
           <ProgressionDecisionCard
             key={decision.id}

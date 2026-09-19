@@ -49,7 +49,7 @@ export interface Theme {
   textMuted: string
   /** Default hairline border (--mantine-color-default-border). */
   border: string
-  /** Card outer border (--vf-card-border: transparent in light, visible in dark). */
+  /** Visible card border in both themes. */
   cardBorder: string
   /** Filled primary button background (action palette, primaryShade 6/5). */
   primaryFill: string
@@ -76,7 +76,7 @@ export const themes: { light: Theme; dark: Theme } = {
     text: '#152027',
     textMuted: '#60707a',
     border: '#d5e0e3',
-    cardBorder: 'transparent',
+    cardBorder: '#d5e0e3',
     primaryFill: '#197f9a', // action[6]
     primaryFillText: '#ffffff',
     focusOutline: '#197f9a',
@@ -128,7 +128,7 @@ export const themes: { light: Theme; dark: Theme } = {
     border: '#2a3a40',
     cardBorder: '#2a3a40',
     primaryFill: '#2f98b3', // action[5]
-    primaryFillText: '#ffffff',
+    primaryFillText: '#081114',
     focusOutline: '#7fc8dc',
     focusRing: 'rgba(127, 200, 220, 0.23)',
     shadowCard: '0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -8px rgba(0, 0, 0, 0.55)',
@@ -168,7 +168,7 @@ export const themes: { light: Theme; dark: Theme } = {
 }
 
 /** Web theme.radius, rem × 16 → px. */
-export const radii = { xs: 4, sm: 8, md: 11, lg: 16, xl: 20 } as const
+export const radii = { xs: 4, sm: 8, md: 10, lg: 12, xl: 20 } as const
 
 /** Web theme.spacing, rem × 16 → px. */
 export const spacing = { xs: 6, sm: 10, md: 14, lg: 18, xl: 22 } as const
@@ -188,14 +188,8 @@ export const fontSizes = {
   stat: 18,
 } as const
 
-/**
- * Web stack is Inter-first. Native has no Inter bundled in this spike, so the
- * platform system font stands in (visual-fidelity caveat to judge separately).
- */
-export const fontFamily = Platform.select({
-  web: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  default: undefined,
-})
+/** Bundled on native and web by the application font gate. */
+export const fontFamily = 'Figtree-Regular'
 
 /** Resolve a semantic tone to its themed text color (mirrors web toneColor()). */
 export function toneColor(theme: Theme, tone?: Tone): string | undefined {

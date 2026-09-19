@@ -20,9 +20,9 @@ export function Screen({ children, scroll = true, maxWidth = 560, padTop = true,
   const content: StyleProp<ViewStyle> = [
     {
       alignSelf: 'center',
-      gap: spacing.md,
+      gap: spacing.lg,
       maxWidth,
-      padding: spacing.md,
+      padding: 20,
       paddingBottom: spacing.md + insets.bottom,
       paddingTop: spacing.md + (padTop ? insets.top : 0),
       width: '100%',

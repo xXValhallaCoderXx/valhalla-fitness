@@ -12,7 +12,10 @@ import type {
   RecentHistoryEntry,
 } from '@sheetless/domain/history/types'
 import type { SessionFilter } from '@sheetless/domain/history/insights'
-import { SegmentedControl } from '@/components'
+import { Button, Heading, SegmentedControl } from '@/components'
+import { useExperienceMode } from '@/lib/experience-mode'
+import { insightTabLabel } from '@sheetless/domain/history/insight-labels'
+import { InsightsLibrary } from './InsightsLibrary'
 import { spacing } from '@/lib/tokens'
 import { InsightsMovements } from './movements/InsightsMovements'
 import { InsightsOverview } from './overview/InsightsOverview'
@@ -21,11 +24,6 @@ import { InsightsSessions } from './sessions/InsightsSessions'
 import { SessionSummarySheet } from './sessions/SessionSummarySheet'
 
 type InsightTab = HistoryTab
-const tabs: Array<{ value: InsightTab; label: string }> = [
-  { value: 'overview', label: 'Overview' }, { value: 'strength', label: 'Strength' },
-  { value: 'body-load', label: 'Muscle Fatigue' }, { value: 'movements', label: 'Movements' },
-  { value: 'records', label: 'Records' }, { value: 'sessions', label: 'Sessions' },
-]
 
 export function InsightsTabs({
   data,
@@ -44,15 +42,14 @@ export function InsightsTabs({
   const [tab, setTab] = useState<InsightTab>('overview')
   const [sessionFilter, setSessionFilter] = useState<SessionFilter>('all')
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
+  const { mode } = useExperienceMode()
 
   return (
     <View style={{ gap: spacing.md }}>
-      <SegmentedControl
-        options={tabs}
-        value={tab}
-        onChange={setTab}
-        accessibilityLabel="Insights section"
-      />
+      {tab !== 'overview' ? <View style={{ gap: spacing.sm }}>
+        <Button label="Back to overview" variant="subtle" onPress={() => setTab('overview')} />
+        <Heading order={2}>{insightTabLabel(tab, mode)}</Heading>
+      </View> : null}
 
       {tab === 'overview' || tab === 'strength' ? <SegmentedControl
         options={INSIGHT_RANGES.map((value) => ({ value, label: insightRangeLabels[value] }))}
@@ -60,8 +57,11 @@ export function InsightsTabs({
       {tab === 'strength' ? <InsightsStrength insights={data.insights} gating={gating} range={range} user={user} /> : null}
       {tab === 'body-load' ? <InsightsBodyLoad data={data} gating={gating} /> : null}
       {tab === 'overview' ? (
+        <>
+        <InsightsLibrary onOpen={setTab} />
         <InsightsOverview data={data} gating={gating} recent={recent} range={range} user={user}
           programOverview={programOverview} onOpenSession={setSelectedSessionId} onNavigate={setTab} />
+        </>
       ) : null}
       {tab === 'sessions' ? (
         <InsightsSessions

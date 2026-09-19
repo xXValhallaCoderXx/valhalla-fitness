@@ -1,3 +1,5 @@
+import { useExperienceMode } from '@/lib/experience-mode'
+import { bodyLoadLabel } from '@sheetless/domain/history/insight-labels'
 import { useState } from 'react'
 import { View } from 'react-native'
 import type { BodyRegionId, HistoryDashboardWithInsights, InsightGating } from '@sheetless/domain/history/types'
@@ -8,12 +10,14 @@ import { spacing, useTokens, type ToneName } from '@/lib/tokens'
 import { BodyLoadMap } from './BodyLoadMap'
 
 export function InsightsBodyLoad({ data, gating }: { data: HistoryDashboardWithInsights; gating: InsightGating }) {
+  const { mode } = useExperienceMode()
+  const hasRecentWork = data.bodyLoad.regions.some((region) => region.recentSetCount > 0)
   const [view, setView] = useState<'fatigue' | 'sets'>('fatigue')
   const { theme } = useTokens()
   const adequacy = buildRegionAdequacy(data.insights.weeklyRegionSets, data.insights.today)
   const setsGated = adequacy.insufficient || gating.lifecycle === 'empty' || gating.lifecycle === 'cold_start'
   const rows = view === 'fatigue' ? [...data.bodyLoad.regions].sort((a, b) => b.impactPercent - a.impactPercent).map((region) => ({
-    id: region.regionId, label: region.label, value: `${region.impactPercent}%`, tier: bodyLoadTierLabels[region.tier],
+    id: region.regionId, label: region.label, value: `${region.impactPercent}%`, tier: region.recentSetCount === 0 ? 'No recent work' : bodyLoadTierLabels[region.tier],
     tone: (region.tier === 'high' ? 'danger' : region.tier === 'moderate' ? 'warning' : region.tier === 'low' ? 'action' : 'neutral') as ToneName,
     opacity: 0.35 + region.impactPercent / 100 * 0.65,
     detail: `Involved in ${region.recentSetCount} set${region.recentSetCount === 1 ? '' : 's'} · ${region.movementNames.join(', ') || 'No recent work'}`,
@@ -27,15 +31,16 @@ export function InsightsBodyLoad({ data, gating }: { data: HistoryDashboardWithI
     return { fill: theme.tones[row?.tone ?? 'neutral'].text, opacity: row?.opacity ?? 0.35 }
   }
   return <>
-    <SegmentedControl options={[{ value: 'fatigue', label: 'Fatigue' }, { value: 'sets', label: 'Weekly sets' }]}
+    <SegmentedControl options={[{ value: 'fatigue', label: bodyLoadLabel('fatigueToggle', mode) }, { value: 'sets', label: 'Weekly sets' }]}
       value={view} onChange={setView} variant="segments" accessibilityLabel="Muscle map metric" />
     <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
-      <SectionLabel>{view === 'fatigue' ? 'Muscle fatigue · last 7 days' : 'Weekly set adequacy · last 4 weeks'}</SectionLabel>
+      <SectionLabel>{view === 'fatigue' ? `${bodyLoadLabel('fatigueHeading', mode)} · last 7 days` : 'Weekly set adequacy · last 4 weeks'}</SectionLabel>
+      {!hasRecentWork && view === 'fatigue' ? <Text size="sm">No completed sets in the last seven days. A neutral map means no recent data.</Text> : null}
       <Caption>These windows stay fixed when the chart range changes.</Caption>
       {view === 'sets' && setsGated ? <Caption>Your weekly-sets picture appears after about 20 recent logged sets.</Caption> : <>
         <BodyLoadMap label={view === 'fatigue' ? 'Muscle fatigue map' : 'Weekly sets map'} styleFor={styleFor} />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-          {view === 'fatigue' ? <><Badge tone="danger">Worked hard</Badge><Badge tone="warning">Moderate</Badge><Badge tone="action">Light</Badge><Badge tone="neutral">Fresh</Badge></>
+          {view === 'fatigue' ? <><Badge tone="danger">Worked hard</Badge><Badge tone="warning">Moderate</Badge><Badge tone="action">Light</Badge><Badge tone="neutral">No recent work</Badge></>
             : <><Badge tone="neutral">Could use more</Badge><Badge tone="success">On track</Badge><Badge tone="warning">High</Badge></>}
         </View>
       </>}

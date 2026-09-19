@@ -15,10 +15,10 @@ export function InsightRecentLinks({ data, recent, onOpenSession, onNavigate }: 
       {recent.slice(0, 3).map((session) => <Pressable key={session.id} accessibilityRole="button" onPress={() => onOpenSession(session.id)}>
         <Text weight={800}>{session.title}</Text><Caption>{session.scheduledDate} · {session.completedSetCount}/{session.plannedSetCount} sets · Open summary</Caption>
       </Pressable>)}
-      <Button label="Browse latest 20 sessions" variant="subtle" onPress={() => onNavigate('sessions')} />
+      <Button label="Browse workout history" variant="subtle" onPress={() => onNavigate('sessions')} />
     </Panel>
     <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
-      <SectionLabel>Latest records · available workouts</SectionLabel>
+      <SectionLabel>Best recorded sets · available workouts</SectionLabel>
       {data.bestSets.slice(0, 3).map((set) => <Pressable key={`${set.movementId}-${set.id}`} accessibilityRole="button" onPress={() => onOpenSession(set.sessionId)}>
         <Text weight={800}>{set.movementName}</Text><Caption>{set.load === null ? 'Bodyweight' : formatWeight(set.load, set.units)} × {set.reps ?? '—'} · {set.performedAt?.slice(0, 10)}</Caption>
       </Pressable>)}

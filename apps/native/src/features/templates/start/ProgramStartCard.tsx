@@ -1,5 +1,4 @@
 import { View } from 'react-native'
-import type { UserProfile } from '@sheetless/domain/account/types'
 import type { ProgramEquipmentMode, ProgramTemplateSummary } from '@sheetless/domain/program/types'
 import type { TodayPayload } from '@sheetless/domain/session/types'
 import {
@@ -12,11 +11,9 @@ import {
   Text,
 } from '@/components'
 import { spacing, useTokens } from '@/lib/tokens'
-import { ProgramStartValues } from './ProgramStartValues'
 import type { ProgramStartController } from './useProgramStart'
 
 export function ProgramStartCard({
-  profile,
   today,
   template,
   equipmentMode,
@@ -25,7 +22,6 @@ export function ProgramStartCard({
   controller,
   onReloadSetup,
 }: {
-  profile: UserProfile
   today: TodayPayload
   template: ProgramTemplateSummary
   equipmentMode: ProgramEquipmentMode
@@ -62,20 +58,12 @@ export function ProgramStartCard({
             </Badge>
           </View>
           <Text size="sm" weight={800}>
-            {profile.units} · round to {profile.rounding} · {equipmentMode === 'free_weight' ? 'free weights only' : 'all equipment'}
+            {controller.units} · round to {controller.rounding} · {equipmentMode === 'free_weight' ? 'free weights only' : 'all equipment'}
           </Text>
           <Caption>
             Starting values and setup choices are copied into this programme only. Your saved profile estimates do not change.
           </Caption>
         </View>
-
-        <ProgramStartValues
-          profile={profile}
-          stateValues={controller.stateValues}
-          draftValues={controller.draftValues}
-          disabled={disabled || controller.isPending || controller.needsReload}
-          onChange={controller.setDraftValue}
-        />
 
         {today.activeProgram ? (
           <Text size="sm" tone="warning">

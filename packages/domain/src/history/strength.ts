@@ -12,11 +12,8 @@ import type { Movement } from '@sheetless/domain/movement/types'
 import type { Unit } from '@sheetless/domain/shared/types'
 import { isPositiveLoad } from '@sheetless/domain/shared/load'
 import { e1rm, mround, convertWeight } from '@sheetless/domain/shared/math'
-import {
-  compareHistorySessionsNewestFirst,
-  parseDate,
-  type HistorySessionInput,
-} from '@sheetless/domain/history/history'
+import type { HistorySessionInput } from '@sheetless/domain/history/history'
+import { compareHistorySessionsNewestFirst, parseDate } from './history-order'
 import { getMovementName, movementCatalog } from '@sheetless/domain/movement/movements'
 
 export const E1RM_MAX_REPS = 12

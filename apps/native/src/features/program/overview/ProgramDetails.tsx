@@ -1,3 +1,4 @@
+import { useExperienceMode } from '@/lib/experience-mode'
 import { useState } from 'react'
 import { Pressable, View } from 'react-native'
 import type { ProgramOverview } from '@sheetless/domain/program/types'
@@ -18,19 +19,22 @@ export function ProgramDetails({ overview }: { overview: ProgramOverview }) {
 }
 
 function CurrentLoads({ overview }: { overview: ProgramOverview }) {
+  const { isFull } = useExperienceMode()
+  const { theme } = useTokens()
   return (
     <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <SectionLabel>Current loads</SectionLabel>
+        <SectionLabel>{isFull ? 'Programme load references' : 'Your training weights'}</SectionLabel>
         <Badge>{overview.activeProgram?.units ?? 'kg'}</Badge>
       </View>
-      <Caption>Programme load references used to calculate planned weights. Progression deltas exclude explicit resets.</Caption>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+      <Caption>These values set your planned weights. Changes are applied only after your review.</Caption>
+      <View>
         {overview.stateValues.map((state) => {
           const delta = state.value - state.startValue - (state.resetDelta ?? 0)
           return (
-            <Panel key={state.stateKey} surface="inset" style={{ flexGrow: 1, minWidth: 135, padding: spacing.sm }}>
-              <Caption>{state.movementName}</Caption>
+            <View key={state.stateKey} style={{ gap: 3, borderTopWidth: 1, borderTopColor: theme.border, paddingVertical: spacing.sm }}>
+              <Text weight="700">{state.movementName}</Text>
+              {isFull ? <Caption>{state.stateKey}</Caption> : null}
               <Text weight={900}>{formatNumber(state.value)} {state.units}</Text>
               {delta ? (
                 <Text size="xs" tone={delta > 0 ? 'success' : 'danger'} weight={700}>
@@ -38,7 +42,7 @@ function CurrentLoads({ overview }: { overview: ProgramOverview }) {
                 </Text>
               ) : null}
               {state.pendingDecision ? <Caption tone="warning">Pending review</Caption> : null}
-            </Panel>
+            </View>
           )
         })}
       </View>
@@ -66,7 +70,7 @@ function RecentSessions({ overview }: { overview: ProgramOverview }) {
           })
           const complete = session.plannedSetCount > 0 && session.completedSetCount >= session.plannedSetCount
           return (
-            <Pressable key={session.id} onPress={() => setSelectedSessionId(session.id)}>
+            <Pressable key={session.id} accessibilityRole="button" onPress={() => setSelectedSessionId(session.id)}>
               {({ pressed }) => (
                 <View
                   style={{

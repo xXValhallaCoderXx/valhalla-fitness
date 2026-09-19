@@ -7,7 +7,7 @@ import { spacing } from '@/lib/tokens'
 export function WhatChangedCard({ receipt, user, sessionId }: { receipt: ReceiptEntry[]; user: User; sessionId: string }) {
   if (!receipt.length) return null
   return <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
-    <SectionLabel>What changed</SectionLabel>
+    <SectionLabel>Workout receipt</SectionLabel>
     {receipt.map((entry, index) => <Panel key={entry.decision?.id ?? `${entry.movementName}-${index}`} surface="inset" style={{ gap: spacing.xs, padding: spacing.sm }}>
       <Text weight={800}>{entry.movementName}</Text>
       <Caption>{entry.learned}</Caption>

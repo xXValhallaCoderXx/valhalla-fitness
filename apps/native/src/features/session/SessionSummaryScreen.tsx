@@ -86,8 +86,10 @@ function AccountSummary({ user, sessionId }: { user: User; sessionId: string }) 
       <PageHeader
         eyebrow={`${workout.title} · Session summary`}
         title={summaryHeadline(recap.completion.completed, recap.completion.planned)}
-        subtitle={`${recap.completion.completed} of ${recap.completion.planned} sets · ${recap.stats.durationMinutes} min`}
+        subtitle={`${recap.completion.completed} of ${recap.completion.planned} sets · ${recap.stats.durationLabel}`}
       />
+      <WorkoutSummaryRecap session={workout} recap={recap} />
+      <ReturnSessionNotice session={workout} />
       {!receiptAvailable ? (
         <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
           <Text>Progression details are unavailable for this older workout.</Text>
@@ -102,12 +104,10 @@ function AccountSummary({ user, sessionId }: { user: User; sessionId: string }) 
           user={user}
         />
       ) : null}
-      <ReturnSessionNotice session={workout} />
       <WhatChangedCard receipt={receipt} user={user} sessionId={sessionId} />
       {freshFinish && receiptAvailable && postWorkoutFeedbackEligible(workout, summary) ? (
         <PostWorkoutFeedback key={`${user.id}-${sessionId}`} user={user} session={workout} decisions={decisions} />
       ) : null}
-      <WorkoutSummaryRecap session={workout} recap={recap} />
       <AdHocSessionActions user={user} session={workout} />
       <ShareWorkoutButton session={workout} />
       <Button label="Back to Today" fullWidth onPress={() => router.dismissTo('/(tabs)')} />

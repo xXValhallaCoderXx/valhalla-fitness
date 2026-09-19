@@ -18,7 +18,7 @@ export function InsightsScreen() {
       <Screen>
         <PageHeader
           title="Insights"
-          subtitle="Up to 240 recent workouts · latest 20 sessions."
+          subtitle="Your training, in perspective."
           actions={settingsAction}
         />
         <Panel style={{ padding: spacing.md }}><Text tone="dimmed">Loading recent training…</Text></Panel>
@@ -56,7 +56,7 @@ export function InsightsScreen() {
       <PageHeader
         title="Insights"
         eyebrow="Logged work"
-        subtitle="Up to 240 recent workouts · latest 20 sessions."
+        subtitle="Your training, in perspective."
         actions={settingsAction}
       />
       <InsightsTabs
@@ -64,7 +64,7 @@ export function InsightsScreen() {
         data={dashboard.data}
         gating={gating}
         programOverview={overview.data ?? null}
-        recent={dashboard.data.recentSessions.slice(0, 20)}
+        recent={dashboard.data.recentSessions}
         user={user!}
       />
       {overview.isError ? (

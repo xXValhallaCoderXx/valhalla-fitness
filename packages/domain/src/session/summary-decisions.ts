@@ -62,3 +62,22 @@ export function updatesStat(pendingCount: number, appliedCount: number): { value
   if (appliedCount > 0) return { value: `${appliedCount} applied`, tone: 'success' }
   return { value: '0', tone: 'neutral' }
 }
+
+/** Describe the actual pending directions; never infer that targets were met. */
+export function pendingDecisionCopy(decisions: ProgressionDecision[]) {
+  const directions = new Set(decisions.map((decision) => {
+    const delta = decisionUpdate(decision, 'kg').delta
+    return delta == null ? 'qualitative' : delta > 0 ? 'increase' : delta < 0 ? 'reduction' : 'hold'
+  }))
+  const direction = directions.size === 1 ? [...directions][0] : 'mixed'
+  const body = direction === 'increase' ? 'These recommendations increase your planned values.'
+    : direction === 'reduction' ? 'These recommendations reduce your planned values.'
+      : direction === 'hold' ? 'These recommendations keep your current values.'
+        : direction === 'mixed' && !directions.has('qualitative') && decisions.length > 0
+          ? 'Your recommendations include different changes. Review each one below.'
+          : 'Review each recommendation and its reason below.'
+  return {
+    heading: `${decisions.length} recommendation${decisions.length === 1 ? '' : 's'} ready`,
+    body,
+  }
+}

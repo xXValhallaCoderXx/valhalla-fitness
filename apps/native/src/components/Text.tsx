@@ -1,5 +1,6 @@
+import { fontStyle } from '@/lib/fonts'
 import { Text as RNText, type StyleProp, type TextProps as RNTextProps, type TextStyle } from 'react-native'
-import { fontFamily, fontSizes, toneColor, useTokens, type Tone } from '@/lib/tokens'
+import { fontSizes, toneColor, useTokens, type Tone } from '@/lib/tokens'
 
 export interface TextProps {
   children: RNTextProps['children']
@@ -15,6 +16,7 @@ export interface TextProps {
 /** Body text with semantic tones — mirrors the web `Text` atom. */
 export function Text({ children, tone, size = 'md', weight, align, style, numberOfLines, selectable }: TextProps) {
   const { theme } = useTokens()
+  const custom = flattenTextStyle(style)
   return (
     <RNText
       numberOfLines={numberOfLines}
@@ -22,15 +24,21 @@ export function Text({ children, tone, size = 'md', weight, align, style, number
       style={[
         {
           color: toneColor(theme, tone) ?? theme.text,
-          fontFamily,
           fontSize: fontSizes[size],
-          fontWeight: weight ?? '400',
+          ...fontStyle(custom?.fontWeight ?? weight),
+          lineHeight: Math.round(fontSizes[size] * 1.45),
           textAlign: align,
         },
         style,
+        !custom?.fontFamily ? fontStyle(custom?.fontWeight ?? weight) : null,
       ]}
     >
       {children}
     </RNText>
   )
+}
+
+function flattenTextStyle(style: unknown): TextStyle {
+  if (Array.isArray(style)) return Object.assign({}, ...style.map(flattenTextStyle))
+  return style && typeof style === 'object' ? style as TextStyle : {}
 }

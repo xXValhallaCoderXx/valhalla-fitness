@@ -1,9 +1,9 @@
 import { View, type StyleProp, type ViewStyle } from 'react-native'
-import { cardShadow, radii, useTokens } from '@/lib/tokens'
+import { radii, useTokens } from '@/lib/tokens'
 
 export interface PanelProps {
   children: React.ReactNode
-  /** `panel` = elevated card; `inset` = recessed surface (mirrors web Panel). */
+  /** `panel` = flat bordered card; `inset` = recessed surface. */
   surface?: 'panel' | 'inset'
   style?: StyleProp<ViewStyle>
 }
@@ -21,7 +21,6 @@ export function Panel({ children, surface = 'panel', style }: PanelProps) {
           borderRadius: inset ? radii.md : radii.lg,
           borderWidth: 1,
         },
-        inset ? null : cardShadow(theme),
         style,
       ]}
     >

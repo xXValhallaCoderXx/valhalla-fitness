@@ -1,7 +1,6 @@
 /**
- * Native port of web FocusSetCard, made presentational: the draft lives here,
- * the mutation lives with the caller via onLogSet. Remount it (key on setIndex)
- * so the draft re-seeds per set — same contract as the web card.
+ * Local input state is mirrored into session memory by the caller so navigating
+ * away never discards an unfinished edit. Mutations stay with onLogSet.
  */
 import { useState } from 'react'
 import { View } from 'react-native'
@@ -10,11 +9,13 @@ import {
   formatSetTarget,
   previousSetShort,
   roundToStep,
-  seedLoadForSet,
-  seedRepsForSet,
 } from '@sheetless/domain/session/live-session-utils'
 import { Button, Caption, SectionLabel, Text } from '@/components'
-import { cardShadow, radii, spacing, useTokens } from '@/lib/tokens'
+import { radii, spacing, useTokens } from '@/lib/tokens'
+import { useExperienceMode } from '@/lib/experience-mode'
+import { repsLeftLabel } from '@sheetless/domain/shared/set-notation'
+import { buildLoadTrace } from '@sheetless/domain/program/load-trace'
+import { isSetDraftDirty, seedSetDraft, type SetInputDraft } from './workout-drafts'
 import { FocusRirRow } from './FocusRirRow'
 import { FocusStepper } from './FocusStepper'
 
@@ -27,6 +28,9 @@ export function FocusSetCard({
   setNumber,
   setTotal,
   suggestedRir,
+  initialDraft,
+  onDraftChange,
+  onResetDraft,
   isSaving,
   disabled,
   saveFailed,
@@ -39,6 +43,9 @@ export function FocusSetCard({
   setNumber: number
   setTotal: number
   suggestedRir?: number
+  initialDraft?: SetInputDraft
+  onDraftChange?: (draft: SetInputDraft) => void
+  onResetDraft?: () => void
   isSaving: boolean
   disabled?: boolean
   saveFailed: boolean
@@ -46,21 +53,22 @@ export function FocusSetCard({
   onRirSelected: (setIndex: number, value: number) => void
 }) {
   const { theme } = useTokens()
-  const [draft, setDraft] = useState({
-    actualLoad: seedLoadForSet(movement, set),
-    actualReps: seedRepsForSet(movement, set),
-    actualRir: set.actualRir ?? undefined,
-  })
+  const { isFull, showFormulas } = useExperienceMode()
+  const swapped = Boolean(movement.performedMovementId && movement.performedMovementId !== movement.movementId)
+  const trace = showFormulas && !swapped ? buildLoadTrace({ set, movement, session }) : null
+  const [draft, setDraft] = useState<SetInputDraft>(initialDraft ?? seedSetDraft(movement, set))
+  const changeDraft = (change: Partial<SetInputDraft>) => {
+    const next = { ...draft, ...change }
+    setDraft(next)
+    onDraftChange?.(next)
+  }
   const effectiveActualRir =
     draft.actualRir ?? (!set.completed && typeof set.actualRir !== 'number' ? suggestedRir : undefined)
 
   const adjustLoad = (delta: number) =>
-    setDraft((current) => ({
-      ...current,
-      actualLoad: Math.max(0, roundToStep(Number(current.actualLoad) + delta, session.rounding)),
-    }))
+    changeDraft({ actualLoad: Math.max(0, roundToStep(Number(draft.actualLoad) + delta, session.rounding)) })
   const adjustReps = (delta: number) =>
-    setDraft((current) => ({ ...current, actualReps: Math.max(0, Number(current.actualReps) + delta) }))
+    changeDraft({ actualReps: Math.max(0, Number(draft.actualReps) + delta) })
 
   const hasDraftChanges = draft.actualLoad !== (set.actualLoad ?? null)
     || Number(draft.actualReps) !== (set.actualReps ?? null)
@@ -85,35 +93,39 @@ export function FocusSetCard({
         borderRadius: radii.lg,
         borderWidth: 1,
         padding: spacing.md,
-        ...cardShadow(theme),
       }}
     >
       <View
         style={{
-          alignItems: 'center',
-          flexDirection: 'row',
+          alignItems: 'flex-start',
           gap: spacing.xs,
           justifyContent: 'space-between',
         }}
       >
         <SectionLabel>
-          Current · Set {setNumber} of {setTotal}
+          {set.completed ? 'Review' : 'Current'} · Set {setNumber} of {setTotal}
         </SectionLabel>
-        <Caption numberOfLines={1} style={{ flexShrink: 1 }}>
-          Target {formatSetTarget(set, session.units, true, movement)}
-          {previousLine ? ` · ${previousLine}` : ''}
+        <Text size="sm" weight={700}>
+          Target {formatSetTarget(set, session.units, true, movement).replace('BW', 'Bodyweight')}
+          {!isFull ? ' reps' : ''}
+          {set.targetRir != null ? ` · ${isFull ? `RIR ${set.targetRir}` : repsLeftLabel(set.targetRir)}` : ''}
+        </Text>
+        <Caption>
+          {previousLine ? `Last time: ${previousLine.replace('previous ', '')}` : 'No comparable set logged yet'}
         </Caption>
+        {trace?.matchesPlannedLoad ? <Caption tone="action">{trace.expression} → {trace.result}</Caption> : null}
+        {trace && !trace.matchesPlannedLoad ? <Caption>Adjusted target · using your saved prescription.</Caption> : null}
       </View>
 
       <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
         <FocusStepper
           label="Weight"
-          onClear={() => setDraft((current) => ({ ...current, actualLoad: null }))}
+          onClear={() => changeDraft({ actualLoad: null })}
           unitSuffix={session.units}
           value={draft.actualLoad}
           step={session.rounding}
           onAdjust={adjustLoad}
-          onType={(value) => setDraft((current) => ({ ...current, actualLoad: Math.max(0, value) }))}
+          onType={(value) => changeDraft({ actualLoad: Math.max(0, value) })}
           disabled={controlsDisabled}
         />
         <FocusStepper
@@ -121,7 +133,7 @@ export function FocusSetCard({
           value={Number(draft.actualReps)}
           step={1}
           onAdjust={adjustReps}
-          onType={(value) => setDraft((current) => ({ ...current, actualReps: Math.max(0, value) }))}
+          onType={(value) => changeDraft({ actualReps: Math.max(0, value) })}
           disabled={controlsDisabled}
         />
         <FocusRirRow
@@ -129,7 +141,7 @@ export function FocusSetCard({
           value={effectiveActualRir}
           disabled={controlsDisabled}
           onChange={(value) => {
-            setDraft((current) => ({ ...current, actualRir: value }))
+            changeDraft({ actualRir: value })
             onRirSelected(set.setIndex, value)
           }}
         />
@@ -151,6 +163,10 @@ export function FocusSetCard({
           onPress={() => submit(saveFailed ? set.completed : true)}
           testID="focus-log-set"
         />
+        {isSetDraftDirty(movement, set, draft) ? <Button
+          label="Reset changes" variant="subtle" disabled={controlsDisabled}
+          onPress={() => { setDraft(seedSetDraft(movement, set)); onResetDraft?.() }}
+        /> : null}
         {set.completed ? (
           <Button
             label="Mark incomplete"

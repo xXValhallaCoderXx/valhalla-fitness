@@ -1,3 +1,6 @@
+import { useExperienceMode } from '@/lib/experience-mode'
+import { insightCardLabel } from '@sheetless/domain/history/insight-labels'
+import { lockedInsightSteps, resolveInsightGates } from '@sheetless/domain/history/insight-gates'
 import { View } from 'react-native'
 import type { User } from '@supabase/supabase-js'
 import type { HistoryDashboardWithInsights, InsightGating, RecentHistoryEntry } from '@sheetless/domain/history/types'
@@ -20,6 +23,8 @@ export function InsightsOverview({ data, gating, recent, range, user, programOve
   range: InsightRange; user: User; programOverview: ProgramOverview | null
   onOpenSession: (id: string) => void; onNavigate: (tab: HistoryTab) => void
 }) {
+  const { mode, isFull } = useExperienceMode()
+  const lockedSteps = lockedInsightSteps(resolveInsightGates(data.insights))
   const pulse = gating.planState
   const position = programOverview?.position
   return <>
@@ -33,12 +38,12 @@ export function InsightsOverview({ data, gating, recent, range, user, programOve
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         <StatCard label="Available workouts" value={String(data.overview.completedSessions)} />
         <StatCard label="Logged sets" value={String(data.overview.loggedSets)} />
-        <StatCard label="Volume" value={`${formatNumber(data.overview.completedVolume)} ${data.insights.units ?? ''}`} />
+        <StatCard label={insightCardLabel('volume', mode)} value={`${formatNumber(data.overview.completedVolume)} ${data.insights.units ?? ''}`} />
         <StatCard label="Movements" value={String(data.overview.uniqueMovements)} />
       </View>
-      {gating.lifecycle === 'cold_start' ? <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
+      {gating.lifecycle === 'cold_start' && !isFull ? <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
         <Text weight={900}>First session logged</Text>
-        <Caption>Volume: 2 sessions. Strength trends: 4 sessions on a big lift. Consistency: 2 weeks. Muscle balance: about 20 sets.</Caption>
+        {lockedSteps.map((step) => <Caption key={step}>{step}</Caption>)}
       </Panel> : <>
         <StrengthScorePanel insights={data.insights} gating={gating} range={range} user={user} />
         <Button label="See lift trends" variant="subtle" onPress={() => onNavigate('strength')} />

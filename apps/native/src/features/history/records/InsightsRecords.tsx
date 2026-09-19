@@ -11,7 +11,8 @@ export function InsightsRecords({ records }: { records: HistoryBestSet[] }) {
   }
   return (
     <View style={{ gap: spacing.sm }}>
-      <SectionLabel>Records · recent training</SectionLabel>
+      <SectionLabel>Records · available training</SectionLabel>
+      <Caption>Best recorded sets by estimated strength. Flagged strength outliers stay in workout history but are excluded from these records.</Caption>
       {records.map((set) => (
         <Panel key={`${set.movementId}-${set.id}`} style={{ gap: 5, padding: spacing.sm }}>
           <View style={{ flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between' }}>

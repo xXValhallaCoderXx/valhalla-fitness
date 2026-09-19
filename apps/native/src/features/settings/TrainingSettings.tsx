@@ -1,12 +1,15 @@
 import type { User } from '@supabase/supabase-js'
+import { View } from 'react-native'
 import type { ThemePreference } from '@sheetless/domain/account/types'
 import { BodyStrengthSection } from './profile/BodyStrengthSection'
 import { EquipmentSection } from './preferences/EquipmentSection'
 import { PreferencesSection } from './preferences/PreferencesSection'
 import { StrengthEstimatesSection } from './profile/StrengthEstimatesSection'
 import type { useSettingsDraft } from './useSettingsDraft'
+import type { SettingsCategory } from './SettingsMenu'
 
-export function TrainingSettings({ user, draft, effectiveScheme, previewPreference, controlsDisabled, changeTheme }: {
+export function TrainingSettings({ category, user, draft, effectiveScheme, previewPreference, controlsDisabled, changeTheme }: {
+  category: SettingsCategory | null
   user: User
   draft: ReturnType<typeof useSettingsDraft>
   effectiveScheme: 'light' | 'dark'
@@ -15,7 +18,9 @@ export function TrainingSettings({ user, draft, effectiveScheme, previewPreferen
   changeTheme: (theme: ThemePreference) => void
 }) {
   return <>
+    <View style={{ display: category === 'appearance' || category === 'workout' ? 'flex' : 'none' }}>
     <PreferencesSection
+      section={category === 'workout' ? 'workout' : 'appearance'}
       themePreference={draft.values.themePreference}
       effectiveScheme={effectiveScheme}
       isThemePreviewing={previewPreference !== null}
@@ -30,7 +35,9 @@ export function TrainingSettings({ user, draft, effectiveScheme, previewPreferen
       onAutoStartTimerChange={draft.setAutoStartTimer}
       onDefaultRestSecondsChange={draft.setDefaultRestSeconds}
     />
+    </View>
 
+    <View style={{ display: category === 'body' ? 'flex' : 'none' }}>
     <BodyStrengthSection
       user={user}
       units={draft.values.units}
@@ -38,7 +45,9 @@ export function TrainingSettings({ user, draft, effectiveScheme, previewPreferen
       settingsDisabled={controlsDisabled}
       onSexChange={draft.setSex}
     />
+    </View>
 
+    <View style={{ display: category === 'strength' ? 'flex' : 'none' }}>
     <StrengthEstimatesSection
       programStateDefaults={draft.values.programStateDefaults}
       estimateInputs={draft.estimateInputs}
@@ -49,11 +58,14 @@ export function TrainingSettings({ user, draft, effectiveScheme, previewPreferen
       onInputChange={draft.setEstimateInput}
       onValueChange={draft.setEstimateValue}
     />
+    </View>
 
+    <View style={{ display: category === 'equipment' ? 'flex' : 'none' }}>
     <EquipmentSection
       equipmentProfile={draft.values.equipmentProfile}
       disabled={controlsDisabled}
       onToggle={draft.toggleEquipment}
     />
+    </View>
   </>
 }

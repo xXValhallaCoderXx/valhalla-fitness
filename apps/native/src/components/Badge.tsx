@@ -1,5 +1,6 @@
+import { fontStyle } from '@/lib/fonts'
 import { Text as RNText, View } from 'react-native'
-import { fontFamily, radii, useTokens, type ToneName } from '@/lib/tokens'
+import { radii, useTokens, type ToneName } from '@/lib/tokens'
 
 export interface BadgeProps {
   children: React.ReactNode
@@ -32,9 +33,8 @@ export function Badge({ children, tone = 'neutral', variant = 'light', leftSecti
       <RNText
         style={{
           color: filled ? theme.primaryFillText : colors.text,
-          fontFamily,
+          ...fontStyle('700'),
           fontSize: 10,
-          fontWeight: '800',
           letterSpacing: 0.3,
           textTransform: 'uppercase',
         }}

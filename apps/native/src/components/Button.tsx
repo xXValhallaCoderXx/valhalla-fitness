@@ -1,5 +1,6 @@
+import { fontStyle } from '@/lib/fonts'
 import { ActivityIndicator, Pressable, Text as RNText, type StyleProp, type ViewStyle } from 'react-native'
-import { fontFamily, fontSizes, radii, spacing, useTokens, type ToneName } from '@/lib/tokens'
+import { fontSizes, radii, spacing, useTokens, type ToneName } from '@/lib/tokens'
 
 export interface ButtonProps {
   label: string
@@ -73,7 +74,7 @@ export function Button({
           flexDirection: 'row',
           gap: 6,
           justifyContent: 'center',
-          minHeight: 40,
+          minHeight: 48,
           opacity: inactive ? 0.55 : pressed ? 0.85 : 1,
           paddingHorizontal: spacing.lg,
           paddingVertical: 8,
@@ -85,9 +86,10 @@ export function Button({
       <RNText
         style={{
           color: textColor,
-          fontFamily,
+          flexShrink: 1,
+          textAlign: 'center',
+          ...fontStyle('800'),
           fontSize: fontSizes.md,
-          fontWeight: '800',
         }}
       >
         {label}

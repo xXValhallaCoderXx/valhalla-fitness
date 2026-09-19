@@ -81,11 +81,12 @@ describe('buildWorkoutSummary', () => {
     expect(model.stats.movementCount).toBe(3)
     expect(model.stats.topSetCount).toBe(1) // the AMRAP set
     expect(model.stats.durationMinutes).toBe(80)
+    expect(model.stats.durationLabel).toBe('80 min estimated')
     expect(model.stats.volumeLabel).toBe('6,700 kg') // 2500 + 2400 + 1800
 
     expect(model.sessionBest).toMatchObject({
       movementName: 'Bench Press',
-      resultLabel: '100 kg × 10+',
+      resultLabel: '100 kg × 10',
       e1rmLabel: '136.7 kg',
       rir: 1,
     })
@@ -100,10 +101,10 @@ describe('buildWorkoutSummary', () => {
     expect(accessory).toMatchObject({ tagLabel: 'Accessory', accentTone: 'warning', defaultOpen: false })
 
     expect(main.sets).toHaveLength(4)
-    expect(main.sets[3]).toMatchObject({ index: 4, resultLabel: '100 kg × 10+', isTop: true, rir: 1, rirTone: 'danger' })
+    expect(main.sets[3]).toMatchObject({ index: 4, resultLabel: '100 kg × 10', isTop: true, rir: 1, rirTone: 'danger' })
     expect(main.sets[0].rirTone).toBe('action') // RIR 2
     expect(accessory.sets[0].rirTone).toBe('success') // RIR 3
-    expect(main.bestSetLabel).toBe('100 kg × 10+')
+    expect(main.bestSetLabel).toBe('100 kg × 10')
   })
 
   it('marks hitEveryTarget false when a set misses or has no target', () => {
@@ -125,8 +126,33 @@ describe('buildWorkoutSummary', () => {
     expect(model.completion).toEqual({ completed: 0, planned: 2, percent: 0 })
     expect(model.sessionBest).toBeNull()
     expect(model.stats.volumeLabel).toBe('0 kg')
+    expect(model.stats.movementCount).toBe(0)
     expect(model.exercises[0].completedSetCount).toBe(0)
-    expect(model.exercises[0].sets).toHaveLength(2) // falls back to all sets when none completed
+    expect(model.exercises[0].sets).toEqual([])
+    expect(model.exercises[0].bestSetLabel).toBe('—')
+    expect(model.exercises[0].hitEveryTarget).toBe(false)
+  })
+
+  it('counts only exercised movements and does not claim every target was hit after a partial workout', () => {
+    const model = buildWorkoutSummary(session([
+      mv('main', [
+        st(1, { actualLoad: 60, actualReps: 5, targetReps: 5 }),
+        st(2, { completed: false, targetLoad: 80, targetReps: 5, isTopSet: true }),
+      ]),
+      mv('accessory', [st(1, { completed: false, targetReps: 10 })]),
+    ]))
+    expect(model.completion).toEqual({ completed: 1, planned: 3, percent: 33 })
+    expect(model.stats.movementCount).toBe(1)
+    expect(model.exercises[0].sets).toHaveLength(1)
+    expect(model.exercises[0].bestSetLabel).toBe('60 kg × 5')
+    expect(model.exercises[0].hitEveryTarget).toBe(false)
+  })
+
+  it('does not replace absent logged numbers with a planned result', () => {
+    const model = buildWorkoutSummary(session([
+      mv('main', [st(1, { actualLoad: 60, targetLoad: 100, targetReps: 5, isAmrap: true })]),
+    ]))
+    expect(model.exercises[0].sets[0].resultLabel).toBe('60 kg × —')
   })
 
   it('treats zero/null actual load as bodyweight in every derived summary', () => {
@@ -142,10 +168,10 @@ describe('buildWorkoutSummary', () => {
     expect(model.stats.volumeLabel).toBe('0 kg')
     expect(model.sessionBest).toBeNull()
     expect(model.exercises[0].volumeLabel).toBe('0 kg')
-    expect(model.exercises[0].bestSetLabel).toBe('Bodyweight × 12+')
+    expect(model.exercises[0].bestSetLabel).toBe('Bodyweight × 12')
     expect(model.exercises[0].sets.map((set) => set.resultLabel)).toEqual([
       'Bodyweight × 8',
-      'Bodyweight × 12+',
+      'Bodyweight × 12',
     ])
   })
 
@@ -182,6 +208,7 @@ describe('durationMinutes fallback', () => {
       }),
     )
     expect(model.stats.durationMinutes).toBe(42)
+    expect(model.stats.durationLabel).toBe('42 min')
   })
 
   it('stays 0 when timestamps are missing or inverted', () => {
@@ -197,7 +224,7 @@ describe('durationMinutes fallback', () => {
     ).toBe(0)
   })
 
-  it('still prefers the plan estimate when present', () => {
+  it('prefers actual elapsed time over the plan estimate', () => {
     const model = buildWorkoutSummary(
       session([mv('main', [st(1)])], {
         estimatedMinutes: 80,
@@ -205,6 +232,23 @@ describe('durationMinutes fallback', () => {
         completedAt: '2026-07-03T12:30:00Z',
       }),
     )
-    expect(model.stats.durationMinutes).toBe(80)
+    expect(model.stats.durationMinutes).toBe(30)
+    expect(model.stats.durationLabel).toBe('30 min')
+  })
+
+  it.each([
+    { startedAt: undefined, completedAt: undefined },
+    { startedAt: 'invalid', completedAt: '2026-07-03T12:30:00Z' },
+    { startedAt: '2026-07-03T13:00:00Z', completedAt: '2026-07-03T12:30:00Z' },
+  ])('labels the fallback estimate when elapsed time is unavailable: %o', (timestamps) => {
+    const model = buildWorkoutSummary(session([], { estimatedMinutes: 75, ...timestamps }))
+    expect(model.stats.durationMinutes).toBe(75)
+    expect(model.stats.durationLabel).toBe('75 min estimated')
+  })
+
+  it.each([0, -5, Number.NaN, Number.POSITIVE_INFINITY])('does not invent a duration from an invalid estimate %s', (estimatedMinutes) => {
+    const model = buildWorkoutSummary(session([], { estimatedMinutes }))
+    expect(model.stats.durationMinutes).toBe(0)
+    expect(model.stats.durationLabel).toBe('Time not recorded')
   })
 })

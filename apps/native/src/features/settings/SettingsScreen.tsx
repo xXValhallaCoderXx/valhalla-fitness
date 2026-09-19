@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ScrollView, View } from 'react-native'
-import { useNavigation } from 'expo-router'
+import { useLocalSearchParams, useNavigation } from 'expo-router'
 import { usePreventRemove, type NavigationAction } from 'expo-router/react-navigation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 import { deleteOwnAccount } from '@sheetless/data/account/data-rights'
 import { updateSettings } from '@sheetless/data/account/profile'
@@ -11,7 +11,7 @@ import { deleteAccountInputSchema } from '@sheetless/domain/account/data-rights'
 import type { UserProfile } from '@sheetless/domain/account/types'
 import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
-import { Badge, Button, Panel, Screen, Text } from '@/components'
+import { Button, Panel, Screen, Text } from '@/components'
 import { buildUserContext, useMe } from '@/lib/account'
 import { useSession } from '@/lib/session-provider'
 import { getSupabase } from '@/lib/supabase'
@@ -24,6 +24,9 @@ import { DataSyncSection } from './account/DataSyncSection'
 import { SettingsDialogs, type DestructiveIntent } from './SettingsDialogs'
 import { SettingsSaveFooter } from './SettingsSaveFooter'
 import { useSettingsDraft, type SettingsDraftValues } from './useSettingsDraft'
+import { SettingsMenu, type SettingsCategory } from './SettingsMenu'
+import { ExperienceSection } from './preferences/ExperienceSection'
+import { experienceMutationKey } from './preferences/useExperienceSettings'
 
 export function SettingsScreen() {
   const me = useMe()
@@ -56,6 +59,13 @@ export function SettingsScreen() {
 
 function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: User }) {
   const navigation = useNavigation()
+  const { section } = useLocalSearchParams<{ section?: string }>()
+  const [category, setCategory] = useState<SettingsCategory | null>(() => section === 'experience' ? 'experience' : null)
+  const scrollRef = useRef<ScrollView>(null)
+  const openCategory = (next: SettingsCategory | null) => {
+    setCategory(next)
+    scrollRef.current?.scrollTo({ y: 0, animated: false })
+  }
   const insets = useSafeAreaInsets()
   const queryClient = useQueryClient()
   const draft = useSettingsDraft(profile)
@@ -68,6 +78,7 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
   const [exportPending, setExportPending] = useState(false)
+  const experiencePending = useIsMutating({ mutationKey: experienceMutationKey(user.id) }) > 0
 
   useEffect(() => () => setPreviewPreference(null), [setPreviewPreference])
 
@@ -77,8 +88,9 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
     }
   }, [draft.dirty, draft.values.themePreference, profile.themePreference, setPreviewPreference])
 
-  usePreventRemove(draft.dirty && !bypassRemoval, ({ data }) => {
-    setBlockedAction(data.action)
+  usePreventRemove((category !== null || draft.dirty) && !bypassRemoval, ({ data }) => {
+    if (category !== null) openCategory(null)
+    else setBlockedAction(data.action)
   })
 
   useEffect(() => {
@@ -89,8 +101,11 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
   }, [blockedAction, bypassRemoval, navigation])
 
   const save = useMutation({
+    scope: { id: `account:${user.id}:profile-settings` },
     mutationFn: (values: SettingsDraftValues) => updateSettings(buildUserContext(user), values),
     onSuccess: async (nextProfile) => {
+      // Auth can change while saving; do not restore the departed account or reset its replacement's preview.
+      if (queryClient.getQueryData<UserProfile>(accountQueryKeys.profile(user.id))?.id !== user.id) return
       queryClient.setQueryData(accountQueryKeys.profile(user.id), nextProfile)
       draft.reset(nextProfile)
       setPreviewPreference(null)
@@ -107,7 +122,7 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
     setPreviewPreference(null)
     save.reset()
   }
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     setSigningOut(true)
     setSignOutError(null)
     try {
@@ -120,7 +135,7 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
     } finally {
       setSigningOut(false)
     }
-  }
+  }, [queryClient])
   const deletion = useMutation({
     mutationFn: (confirmation: string) =>
       deleteOwnAccount(buildUserContext(user), deleteAccountInputSchema.parse({ confirmation })),
@@ -145,7 +160,7 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
     setReadyIntent(null)
     if (intent === 'signOut') void signOut()
     else setDeleteOpen(true)
-  }, [readyIntent, bypassRemoval])
+  }, [readyIntent, bypassRemoval, signOut])
 
   const confirmDiscardForIntent = () => {
     if (!pendingIntent) return
@@ -164,7 +179,7 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
     equipmentProfile: [...draft.values.equipmentProfile],
     programStateDefaults: { ...draft.values.programStateDefaults },
   })
-  const controlsDisabled = save.isPending || deletion.isPending || signingOut || exportPending
+  const controlsDisabled = save.isPending || experiencePending || deletion.isPending || signingOut || exportPending
   const destructiveDisabled = controlsDisabled || exportPending
 
   return (
@@ -172,36 +187,33 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
       <Screen scroll={false} padTop={false} style={{ flex: 1, padding: 0 }}>
         <View style={{ flex: 1 }}>
           <ScrollView
+            ref={scrollRef}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{
               gap: spacing.lg,
-              padding: spacing.md,
+              padding: 20,
               paddingBottom: spacing.md + insets.bottom,
             }}
           >
-            <Panel surface="inset" style={{ gap: spacing.xs, padding: spacing.sm }}>
-              <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.sm }}>
-                <Text size="sm" weight={800} style={{ flex: 1 }}>Profile & training defaults</Text>
-                <Badge tone="action">Online only</Badge>
-              </View>
-              <Text size="xs" tone="dimmed">
-                Tune appearance, training defaults, equipment, body profile, data, and account controls.
-              </Text>
-              {save.isSuccess && !draft.dirty ? (
-                <Text size="sm" tone="success">Settings saved.</Text>
-              ) : null}
-            </Panel>
-
-            <TrainingSettings user={user} draft={draft} effectiveScheme={effectiveScheme}
+            <View style={{ display: category === null ? 'flex' : 'none' }}>
+              <SettingsMenu user={user} profile={profile} values={draft.values} onSelect={openCategory} />
+            </View>
+            {category !== null ? <Button label="All settings" testID="settings-all-categories" variant="subtle" onPress={() => openCategory(null)} /> : null}
+            {save.isSuccess && !draft.dirty ? <Text size="sm" tone="success">Settings saved.</Text> : null}
+            <TrainingSettings category={category} user={user} draft={draft} effectiveScheme={effectiveScheme}
               previewPreference={previewPreference} controlsDisabled={controlsDisabled} changeTheme={changeTheme} />
-
+            <View style={{ display: category === 'experience' ? 'flex' : 'none' }}>
+              <ExperienceSection user={user} profile={profile} disabled={controlsDisabled} />
+            </View>
+            <View style={{ display: category === 'data' ? 'flex' : 'none', gap: spacing.lg }}>
             <DataSyncSection
               user={user}
               disabled={draft.dirty || controlsDisabled}
               onPendingChange={setExportPending}
             />
-
             <BetaFeedback user={user} />
+            </View>
+            <View style={{ display: category === 'account' ? 'flex' : 'none' }}>
             <AccountSection
               displayName={profile.displayName}
               email={profile.email}
@@ -211,11 +223,12 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
               onSignOut={() => runIntent('signOut')}
               onDelete={() => runIntent('delete')}
             />
+            </View>
           </ScrollView>
 
           <SettingsSaveFooter
             visible={draft.dirty}
-            isSaving={save.isPending}
+            isSaving={save.isPending || experiencePending}
             hasValidationErrors={draft.hasValidationErrors}
             error={save.isError ? getApiErrorMessage(save.error, 'Unable to save settings.') : null}
             onDiscard={discard}

@@ -1,8 +1,9 @@
+import { fontStyle } from '@/lib/fonts'
 import { Tabs } from 'expo-router'
 import { View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CalendarDays, History, Layers3, ListChecks, type LucideIcon } from 'lucide-react-native'
-import { fontFamily, useTokens } from '@/lib/tokens'
+import { useTokens } from '@/lib/tokens'
 
 /**
  * Icon wrapper adding the 2px active pill above the icon — web AppShell's
@@ -51,9 +52,8 @@ export default function TabsLayout() {
           paddingBottom: insets.bottom,
         },
         tabBarLabelStyle: {
-          fontFamily,
-          fontSize: 9,
-          fontWeight: '800',
+          ...fontStyle('700'),
+          fontSize: 11,
         },
       }}
     >

@@ -14,12 +14,14 @@ import { ProgramHeader } from './overview/ProgramHeader'
 import { ProgramPhaseMap } from './overview/ProgramPhaseMap'
 import { ProgramTimeline } from './overview/ProgramTimeline'
 import { ProgramDetails } from './overview/ProgramDetails'
+import { ProgramWeek } from './overview/ProgramWeek'
 import { ProgressionReviewAlert } from './progression/ProgressionReviewAlert'
 import { ProgressionReviewSheet } from './progression/ProgressionReviewSheet'
 
 export function ProgramScreen() {
   const { user } = useSession()
   const [reviewOpen, setReviewOpen] = useState(false)
+  const [cycleOpen, setCycleOpen] = useState(false)
   const overview = useQuery({
     ...programOverviewQueryOptions(user!),
     enabled: Boolean(user),
@@ -85,21 +87,22 @@ export function ProgramScreen() {
 
   return (
     <Screen>
-      <ReturnGuideCard program={program} hasActiveSession={overview.data.hasActiveSession} />
       <ProgramHeader overview={overview.data} phaseMap={phaseMap} action={settingsAction} />
-      <ProgramEquipmentModeCard
-        key={program.id}
-        user={user!}
-        program={program}
-        hasActiveSession={overview.data.hasActiveSession}
-      />
       <ProgressionReviewAlert
         decisions={overview.data.pendingDecisions}
         onReview={() => setReviewOpen(true)}
       />
-      <ProgramPhaseMap phaseMap={phaseMap} />
-      <ProgramTimeline trajectory={trajectory} />
+      <ProgramWeek key={`week:${program.id}`} overview={overview.data} />
       <ProgramDetails overview={overview.data} />
+      <Button label={cycleOpen ? 'Hide full cycle' : 'View full cycle'} variant="default" fullWidth
+        onPress={() => setCycleOpen((open) => !open)} />
+      {cycleOpen ? <>
+        <ProgramPhaseMap phaseMap={phaseMap} />
+        <ProgramTimeline trajectory={trajectory} />
+      </> : null}
+      <ProgramEquipmentModeCard key={`equipment:${program.id}`} user={user!} program={program}
+        hasActiveSession={overview.data.hasActiveSession} />
+      <ReturnGuideCard program={program} hasActiveSession={overview.data.hasActiveSession} />
       <ProgressionReviewSheet
         key={user!.id}
         open={reviewOpen}

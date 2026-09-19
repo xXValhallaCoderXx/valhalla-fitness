@@ -1,10 +1,13 @@
 import { View } from 'react-native'
-import type { UserProfile } from '@sheetless/domain/account/types'
-import { getMovementName } from '@sheetless/domain/movement/movements'
-import type { ProgramStateInput } from '@sheetless/domain/program/types'
-import { formatStateType, loadValueFromInput } from '@sheetless/domain/program/template-start-utils'
-import { Caption, Panel, Text, TextInput } from '@/components'
-import { spacing } from '@/lib/tokens'
+import type { SetupLiftRow } from '@sheetless/domain/program/setup-lift-rows'
+import { setupValueColumnLabel, trainingMaxFormula } from '@sheetless/domain/program/setup-labels'
+import { loadValueFromInput } from '@sheetless/domain/program/template-start-utils'
+import { formatCompactDate } from '@sheetless/domain/shared/dates'
+import { formatWeight } from '@sheetless/domain/shared/set-notation'
+import type { Unit } from '@sheetless/domain/shared/types'
+import { Button, Caption, Text, TextInput } from '@/components'
+import { useExperienceMode } from '@/lib/experience-mode'
+import { spacing, useTokens } from '@/lib/tokens'
 
 function inputError(rawValue: string) {
   if (!rawValue.trim()) return 'Required to start this programme.'
@@ -12,34 +15,38 @@ function inputError(rawValue: string) {
 }
 
 export function ProgramStartValues({
-  profile,
-  stateValues,
+  units,
+  rounding,
+  rows,
   draftValues,
   disabled,
   onChange,
+  onReset,
 }: {
-  profile: UserProfile
-  stateValues: ProgramStateInput[]
+  units: Unit
+  rounding: number
+  rows: SetupLiftRow[]
   draftValues: Record<string, string>
   disabled: boolean
   onChange: (key: string, value: string) => void
+  onReset: (key: string) => void
 }) {
-  if (!stateValues.length) {
+  const { mode, isFull, showFormulas } = useExperienceMode()
+  const { theme } = useTokens()
+  if (!rows.length) {
     return (
-      <Panel surface="inset" style={{ padding: spacing.sm }}>
         <Text size="sm" tone="dimmed">
           This programme has no required starting loads. Choose weights while you train.
         </Text>
-      </Panel>
     )
   }
 
   return (
     <View style={{ gap: spacing.sm }}>
-      {stateValues.map((state) => {
-        const rawValue = draftValues[state.key] ?? ''
+      {rows.map((row) => {
+        const rawValue = draftValues[row.key] ?? ''
         return (
-          <Panel key={state.key} surface="inset" style={{ gap: 5, padding: spacing.sm }}>
+          <View key={row.key} style={{ borderTopWidth: 1, borderTopColor: theme.border, gap: spacing.sm, paddingTop: spacing.md }}>
             <View
               style={{
                 alignItems: 'center',
@@ -50,23 +57,40 @@ export function ProgramStartValues({
             >
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text size="sm" weight={800} numberOfLines={1}>
-                  {getMovementName(state.movementId)}
+                  {row.label}
                 </Text>
-                <Caption>{formatStateType(state.type)}</Caption>
+                <Caption>{setupValueColumnLabel([row.type], mode)}</Caption>
               </View>
-              <Caption style={{ fontWeight: '700' }}>{profile.units}</Caption>
+              <Caption>{units}</Caption>
             </View>
+            {row.bestSet ? (
+              <View style={{ gap: 3 }}>
+                <Text size="sm">{formatWeight(row.bestSet.load, units)} × {row.bestSet.reps} reps</Text>
+                <Caption>Recorded {formatCompactDate(row.bestSet.date)}</Caption>
+              </View>
+            ) : <Caption>{row.source === 'estimate' ? 'From your saved estimate' : 'No estimate yet · enter a starting weight'}</Caption>}
+            {isFull && row.e1rm !== null ? <Caption>e1RM {formatWeight(row.e1rm, units)}</Caption> : null}
             <TextInput
               value={rawValue}
               keyboardType="decimal-pad"
-              placeholder={`Enter ${profile.units}`}
+              accessibilityLabel={`${row.label} ${setupValueColumnLabel([row.type], mode).toLowerCase()} (${units})`}
+              placeholder={`Enter ${units}`}
               textAlign="right"
               error={inputError(rawValue)}
               editable={!disabled}
-              onChangeText={(value) => onChange(state.key, value)}
-              testID={`program-state-${state.key}`}
+              onChangeText={(value) => onChange(row.key, value)}
+              testID={`program-state-${row.key}`}
             />
-          </Panel>
+            {showFormulas && row.e1rm !== null && (row.type === 'training_max' || row.type === 'working_load') ? (
+              <Caption tone="action">{trainingMaxFormula(row.percent, rounding)} → {row.suggested}</Caption>
+            ) : null}
+            {row.suggested !== null && (row.edited || row.value === null) ? (
+              <View style={{ alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+                <Caption>{row.value === null ? 'A suggestion is available' : 'Edited for this programme'}</Caption>
+                <Button label="Use suggestion" variant="subtle" disabled={disabled} onPress={() => onReset(row.key)} />
+              </View>
+            ) : null}
+          </View>
         )
       })}
     </View>

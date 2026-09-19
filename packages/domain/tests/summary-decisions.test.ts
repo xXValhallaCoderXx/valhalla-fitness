@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decisionUpdate, summaryHeadline, updatesStat } from '@sheetless/domain/session/summary-decisions'
+import { decisionUpdate, pendingDecisionCopy, summaryHeadline, updatesStat } from '@sheetless/domain/session/summary-decisions'
 import type { ProgressionDecision } from '@sheetless/domain/program/types'
 
 function decision(over: Partial<ProgressionDecision>): ProgressionDecision {
@@ -49,6 +49,25 @@ describe('summaryHeadline', () => {
   })
   it('is neutral for a partial session', () => {
     expect(summaryHeadline(12, 17)).toBe('Session logged')
+  })
+})
+
+describe('pendingDecisionCopy', () => {
+  it.each([
+    [100, 'These recommendations increase your planned values.'],
+    [97.5, 'These recommendations keep your current values.'],
+    [90, 'These recommendations reduce your planned values.'],
+    [null, 'Review each recommendation and its reason below.'],
+    [Number.NaN, 'Review each recommendation and its reason below.'],
+  ])('describes a recommendation for %s without claiming targets were met', (recommendedValue, body) => {
+    expect(pendingDecisionCopy([decision({ recommendedValue })])).toEqual({ heading: '1 recommendation ready', body })
+  })
+
+  it('does not summarize mixed directions or qualitative recommendations as increases', () => {
+    const mixed = pendingDecisionCopy([decision({}), decision({ recommendedValue: 90 })])
+    expect(mixed).toEqual({ heading: '2 recommendations ready', body: 'Your recommendations include different changes. Review each one below.' })
+    expect(pendingDecisionCopy([decision({}), decision({ recommendedValue: null })]).body)
+      .toBe('Review each recommendation and its reason below.')
   })
 })
 

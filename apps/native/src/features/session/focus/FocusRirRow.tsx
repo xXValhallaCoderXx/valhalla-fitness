@@ -3,6 +3,7 @@ import { View } from 'react-native'
 import { RIR_OPTIONS } from '@sheetless/domain/session/live-session-utils'
 import { Caption, SegmentedControl } from '@/components'
 import { spacing } from '@/lib/tokens'
+import { useExperienceMode } from '@/lib/experience-mode'
 import { FocusStepper } from './FocusStepper'
 
 export function FocusRirRow({
@@ -16,10 +17,11 @@ export function FocusRirRow({
   disabled?: boolean
   targetRir?: number | null
 }) {
+  const { isFull } = useExperienceMode()
   if ((targetRir ?? 0) > 3) {
     return (
       <FocusStepper
-        label="Actual reps in reserve"
+        label={isFull ? 'Actual reps in reserve' : 'Reps left after this set'}
         value={value ?? null}
         step={1}
         disabled={disabled}
@@ -30,14 +32,14 @@ export function FocusRirRow({
   }
   return (
     <View>
-      <Caption>Reps in reserve · could you do more?</Caption>
+      <Caption>{isFull ? 'Reps in reserve (RIR)' : 'How many more reps could you do?'}</Caption>
       <SegmentedControl
         accessibilityRole="radiogroup"
         accessibilityLabel="Actual reps in reserve"
         variant="segments"
         options={RIR_OPTIONS.map((option) => ({
           value: String(option.value),
-          label: option.label,
+          label: isFull ? option.label : option.value === 0 ? 'None' : `${option.label} left`,
           accessibilityLabel: `${option.value === 3 ? '3 or more' : option.value} ${option.value === 1 ? 'rep' : 'reps'} in reserve`,
         }))}
         value={value == null ? null : String(Math.min(value, 3))}

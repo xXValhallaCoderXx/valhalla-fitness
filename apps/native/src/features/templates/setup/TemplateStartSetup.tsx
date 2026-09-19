@@ -21,8 +21,11 @@ import {
 } from './TemplateStartSetupSheets'
 import { useProgramStart } from '../start/useProgramStart'
 import { useTemplateStartCustomizations } from './useTemplateStartCustomizations'
+import { TemplateStartingHistory } from './TemplateStartingHistory'
+import type { StartingHistory } from '../start/useProgramStartingLoads'
+import { ProgramStartingNumbers } from '../start/ProgramStartingNumbers'
 
-export function TemplateStartSetup({
+function LoadedTemplateStartSetup({
   user,
   profile,
   today,
@@ -32,6 +35,7 @@ export function TemplateStartSetup({
   reloadPending,
   reloadError,
   onReloadSetup,
+  startingHistory,
 }: {
   user: User
   profile: UserProfile
@@ -42,6 +46,7 @@ export function TemplateStartSetup({
   reloadPending: boolean
   reloadError: string | null
   onReloadSetup: () => Promise<boolean>
+  startingHistory: StartingHistory
 }) {
   const navigation = useNavigation()
   const [weekIndex, setWeekIndex] = useState(0)
@@ -61,6 +66,7 @@ export function TemplateStartSetup({
     profile,
     today,
     template,
+    startingHistory,
     movementOverrides: customizations.movementOverrides,
     accessoryAdditions: customizations.additions,
     equipmentMode: customizations.equipmentMode,
@@ -121,6 +127,8 @@ export function TemplateStartSetup({
         />
         <TemplateFacts template={template} setup={setup} phases={phases} />
 
+        <ProgramStartingNumbers controller={start} disabled={setupControlsDisabled} />
+
         <TemplateEquipmentModeCard
           mode={customizations.equipmentMode}
           replacementCount={customizations.freeWeightPreview.changes.length}
@@ -166,7 +174,6 @@ export function TemplateStartSetup({
         ) : null}
 
         <ProgramStartCard
-          profile={profile}
           today={today}
           template={template}
           equipmentMode={customizations.equipmentMode}
@@ -224,5 +231,13 @@ export function TemplateStartSetup({
         Reloading uses the newest programme definition and discards every unsaved setup change on this screen.
       </ConfirmDialog>
     </>
+  )
+}
+
+export function TemplateStartSetup(props: Omit<Parameters<typeof LoadedTemplateStartSetup>[0], 'startingHistory'>) {
+  return (
+    <TemplateStartingHistory user={props.user} required={props.template.requiredState.length > 0} title={props.template.name}>
+      {(startingHistory) => <LoadedTemplateStartSetup {...props} startingHistory={startingHistory} />}
+    </TemplateStartingHistory>
   )
 }

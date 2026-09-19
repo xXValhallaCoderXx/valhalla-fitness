@@ -1,8 +1,10 @@
 import { View } from 'react-native'
+import { useState } from 'react'
 import type { ProgramSetupOptions, ProgramTemplateSummary } from '@sheetless/domain/program/types'
 import type { TemplatePhase } from '@sheetless/domain/program/template-start-phases'
-import { Badge, Caption, Heading, Panel, SectionLabel, StatCard, Text } from '@/components'
+import { Badge, Button, Caption, Heading, Panel, SectionLabel, Text } from '@/components'
 import { spacing } from '@/lib/tokens'
+import { useExperienceMode } from '@/lib/experience-mode'
 
 export function TemplateFacts({
   template,
@@ -13,35 +15,25 @@ export function TemplateFacts({
   setup: ProgramSetupOptions
   phases: TemplatePhase[]
 }) {
+  const [expanded, setExpanded] = useState(false)
+  const { isFull } = useExperienceMode()
   return (
     <>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-        <StatCard label="Cycle" value={`${setup.previewWeeks.length} weeks`} />
-        <StatCard label="Schedule" value={`${template.daysPerWeek} days/wk`} />
-        <StatCard label="Level" value={template.complexity} />
-        <StatCard label="Progression" value={template.progressionLabel} />
-      </View>
-      <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
+      <Caption>{setup.previewWeeks.length} weeks · {template.daysPerWeek} days/week · {template.complexity}</Caption>
+      {isFull ? <Caption>{template.progressionLabel}</Caption> : null}
+      <Button label={expanded ? 'Hide programme details' : 'About this programme'} variant="subtle" onPress={() => setExpanded(!expanded)} />
+      {expanded ? <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
         <SectionLabel>{phases.length > 1 ? 'Training phases' : 'Programme structure'}</SectionLabel>
         {phases.map((phase) => (
-          <Panel key={phase.phaseKey} surface="inset" style={{ gap: 4, padding: spacing.sm }}>
+          <View key={phase.phaseKey} style={{ gap: 4, paddingVertical: spacing.sm }}>
             <View style={{ alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
               <Text size="sm" weight={800}>{phase.phaseLabel}</Text>
               <Badge>{phase.weekRange}</Badge>
             </View>
             <Caption>{phase.representativeWeek.summary}</Caption>
-          </Panel>
+          </View>
         ))}
-      </Panel>
-      <Panel surface="inset" style={{ gap: spacing.xs, padding: spacing.sm }}>
-        <SectionLabel>Setup</SectionLabel>
-        <Caption>
-          {template.requiredState.length
-            ? `${template.requiredState.length} starting strength ${template.requiredState.length === 1 ? 'value' : 'values'} required.`
-            : 'No starting strength values required.'}
-        </Caption>
-        <Caption>Enter the required values below to start with the programme defaults.</Caption>
-      </Panel>
+      </Panel> : null}
     </>
   )
 }

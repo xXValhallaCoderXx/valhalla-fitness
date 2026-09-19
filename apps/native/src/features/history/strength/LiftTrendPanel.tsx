@@ -1,3 +1,4 @@
+import { useExperienceMode } from '@/lib/experience-mode'
 import { View } from 'react-native'
 import type { HistoryInsights, InsightGating, LiftE1rmSeries } from '@sheetless/domain/history/types'
 import type { InsightRange } from '@sheetless/domain/history/insight-ranges'
@@ -11,15 +12,16 @@ import { spacing } from '@/lib/tokens'
 export function LiftTrendPanel({ series, insights, gating, range }: {
   series: LiftE1rmSeries; insights: HistoryInsights; gating: InsightGating; range: InsightRange
 }) {
+  const { isFull } = useExperienceMode()
   const view = selectLiftTrend(series, insights, gating, range)
   const format = (value: number) => formatWeight(value, insights.units) ?? '—'
   return (
     <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
       <Text weight={900}>{series.movementName}</Text>
       <Badge tone={view.trend === 'rising' ? 'success' : view.trend === 'declining' ? 'warning' : 'neutral'}>{e1rmTrendLabels[view.trend]}</Badge>
-      <SectionLabel>{gating.staleWelcomeBack ? 'Best recorded e1RM' : 'Current e1RM'}</SectionLabel>
+      <SectionLabel>{isFull ? 'Latest e1RM' : 'Latest estimated strength'}</SectionLabel>
       <Text size="xl" weight={900}>{view.current ? format(view.current.e1rm) : '—'}</Text>
-      {view.current ? <Caption>As of {view.current.date}</Caption> : null}
+      {view.current ? <Caption>Recorded {view.current.date}</Caption> : null}
       {view.best ? <Caption>Best in available workouts: {format(view.best.e1rm)} · {view.best.date}</Caption> : null}
       {view.velocity !== null ? <Text size="sm">Improvement rate: {view.velocity > 0 ? '+' : ''}{format(view.velocity)}/month</Text> : null}
       {view.stall?.lastPrDate ? <Caption>Last PR {view.stall.weeksSincePr === 0 ? 'this week' : `${view.stall.weeksSincePr} weeks ago`} · {view.stall.lastPrDate}</Caption> : null}
@@ -28,6 +30,7 @@ export function LiftTrendPanel({ series, insights, gating, range }: {
         markers={view.points.map((point) => ({ date: point.date, label: formatCompactDate(point.date), value: point.outlier ? point.e1rm : null }))}
         formatValue={format} accessibilityLabel={`${series.movementName} estimated max`}
         emptyMessage="No loaded readings in this range. Log more sessions to build a trend." />
+      {view.points.length === 1 ? <Caption>One recorded session in this range. More sessions will build the trend.</Caption> : null}
       <Caption>{estimatedMaxExplanation}</Caption>
       {view.points.some((point) => point.outlier) ? <Caption>Hollow points look like typos. They are excluded from trends, PRs, improvement rates, and strength scores.</Caption> : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>

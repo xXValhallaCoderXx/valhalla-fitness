@@ -8,9 +8,9 @@ import { Pressable, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Plus, X } from 'lucide-react-native'
 import { formatRest, remaining } from '@sheetless/domain/session/rest-timer'
-import { SectionLabel, Text } from '@/components'
+import { Caption, Text } from '@/components'
 import { playRestCompleteCue } from '@/lib/rest-cue'
-import { cardShadow, spacing, useTokens } from '@/lib/tokens'
+import { radii, spacing, useTokens } from '@/lib/tokens'
 import { useRestTimerControls, useRestTimerState } from './rest-timer-context'
 
 export function RestTimerPill() {
@@ -46,9 +46,9 @@ export function RestTimerPill() {
       style={{
         alignItems: 'center',
         bottom: insets.bottom + spacing.md,
-        left: 0,
+        left: spacing.md,
         position: 'absolute',
-        right: 0,
+        right: spacing.md,
       }}
       testID="rest-timer-pill"
     >
@@ -57,34 +57,36 @@ export function RestTimerPill() {
           alignItems: 'center',
           backgroundColor: theme.surface,
           borderColor: theme.primaryFill,
-          borderRadius: 999,
+          borderRadius: radii.lg,
           borderWidth: 1,
           flexDirection: 'row',
           gap: spacing.sm,
           paddingHorizontal: spacing.xs + 2,
           paddingVertical: spacing.xs + 2,
-          ...cardShadow(theme),
+          maxWidth: 480,
+          width: '100%',
         }}
       >
         <Pressable
           onPress={dismiss}
           accessibilityLabel="Skip rest"
+          accessibilityRole="button"
           testID="rest-timer-skip"
           style={({ pressed }) => ({
             alignItems: 'center',
             backgroundColor: theme.surface2,
             borderRadius: 18,
-            height: 36,
+            height: 44,
             justifyContent: 'center',
             opacity: pressed ? 0.7 : 1,
-            width: 36,
+            width: 44,
           })}
         >
           <X size={16} color={theme.textMuted} />
         </Pressable>
 
-        <View style={{ alignItems: 'center', minWidth: 80 }}>
-          <SectionLabel>Rest{label ? ` · ${label}` : ''}</SectionLabel>
+        <View style={{ alignItems: 'center', flex: 1, minWidth: 0 }}>
+          <Caption numberOfLines={1}>Rest{label ? ` · ${label}` : ''}</Caption>
           <Text size="lg" weight={900}>
             {formatRest(secondsLeft)}
           </Text>
@@ -93,6 +95,7 @@ export function RestTimerPill() {
         <Pressable
           onPress={() => addTime(15)}
           accessibilityLabel="Add 15 seconds"
+          accessibilityRole="button"
           testID="rest-timer-add"
           style={({ pressed }) => ({
             alignItems: 'center',
@@ -100,7 +103,7 @@ export function RestTimerPill() {
             borderRadius: 18,
             flexDirection: 'row',
             gap: 2,
-            height: 36,
+            height: 44,
             justifyContent: 'center',
             opacity: pressed ? 0.8 : 1,
             paddingHorizontal: spacing.sm,

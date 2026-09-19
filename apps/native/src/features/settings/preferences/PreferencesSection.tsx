@@ -10,6 +10,7 @@ const MAX_REST_SECONDS = 600
 const REST_STEP_SECONDS = 30
 
 export function PreferencesSection({
+  section,
   themePreference,
   effectiveScheme,
   isThemePreviewing,
@@ -24,6 +25,7 @@ export function PreferencesSection({
   onAutoStartTimerChange,
   onDefaultRestSecondsChange,
 }: {
+  section: 'appearance' | 'workout'
   themePreference: ThemePreference
   effectiveScheme: 'light' | 'dark'
   isThemePreviewing: boolean
@@ -47,10 +49,11 @@ export function PreferencesSection({
 
   return (
     <SettingsSection
-      title="Preferences"
-      description="Appearance, training units, rounding, and your default rest timer."
+      title={section === 'appearance' ? 'Appearance & units' : 'Workout preferences'}
+      description={section === 'appearance' ? 'Choose your theme and training units.' : 'Rounding and your default rest timer.'}
     >
       <Panel style={{ gap: spacing.lg, padding: spacing.md }}>
+        {section === 'appearance' ? <>
         <View style={{ gap: spacing.xs }}>
           <SectionLabel>Theme</SectionLabel>
           <ChoiceRow
@@ -73,8 +76,7 @@ export function PreferencesSection({
           </Caption>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: spacing.md }}>
-          <View style={{ flex: 1, gap: spacing.xs }}>
+          <View style={{ gap: spacing.xs }}>
             <SectionLabel>Units</SectionLabel>
             <ChoiceRow
               values={[{ value: 'kg', label: 'kg' }, { value: 'lb', label: 'lb' }]}
@@ -84,7 +86,11 @@ export function PreferencesSection({
               accessibilityLabel="Training units"
             />
           </View>
-          <View style={{ flex: 1.6, gap: spacing.xs }}>
+        <Caption>
+          Changing units converts and rounds saved programme estimates. Active programme loads stay unchanged.
+        </Caption>
+        </> : <>
+          <View style={{ gap: spacing.xs }}>
             <SectionLabel>Round to</SectionLabel>
             <ChoiceRow
               values={[
@@ -98,10 +104,6 @@ export function PreferencesSection({
               accessibilityLabel="Round loads to"
             />
           </View>
-        </View>
-        <Caption>
-          Changing units converts and rounds saved programme estimates. Active programme loads stay unchanged.
-        </Caption>
 
         <View
           style={{
@@ -153,6 +155,7 @@ export function PreferencesSection({
             </View>
           </Panel>
         </View>
+        </>}
       </Panel>
     </SettingsSection>
   )

@@ -10,10 +10,12 @@ import { EmptyWorkoutOverview } from './EmptyWorkoutOverview'
 import { FocusTopBar } from '../live/FocusTopBar'
 import { WorkoutCompleteBanner } from '../live/FocusWorkoutActions'
 import { WorkoutOverviewContent } from './WorkoutOverviewContent'
+import { useRestTimerState } from '../rest-timer/rest-timer-context'
 
 export function WorkoutOverviewView({
   user,
   session,
+  draftWarning,
   activeMovement,
   notes,
   disabled,
@@ -28,6 +30,7 @@ export function WorkoutOverviewView({
 }: {
   user: User
   session: WorkoutSession
+  draftWarning: React.ReactNode
   activeMovement: MovementSlot | null
   notes: string
   disabled: boolean
@@ -42,6 +45,7 @@ export function WorkoutOverviewView({
 }) {
   const { theme } = useTokens()
   const insets = useSafeAreaInsets()
+  const rest = useRestTimerState()
   const progress = sessionCompletion(session)
   const completedMovements = session.movements.filter(isMovementComplete).length
   const allComplete = session.movements.length > 0 && completedMovements === session.movements.length
@@ -81,11 +85,12 @@ export function WorkoutOverviewView({
         contentContainerStyle={{
           gap: spacing.md,
           padding: spacing.md,
-          paddingBottom: spacing.md + insets.bottom,
+          paddingBottom: spacing.md + insets.bottom + (rest.active ? 108 : 0),
         }}
         keyboardShouldPersistTaps="handled"
       >
         <ReturnSessionNotice session={session} />
+        {draftWarning}
         <WorkoutCompleteBanner visible={allComplete} disabled={finishDisabled} onFinish={onFinish} />
         {activeMovement ? (
           <WorkoutOverviewContent

@@ -9,7 +9,8 @@ import { themeProviderMock } from './support/theme'
 import { svgMock } from './support/svg'
 
 vi.mock('@/lib/theme-provider', () => themeProviderMock())
-vi.mock('lucide-react-native', () => ({ Check: () => null, Minus: () => null, TrendingUp: () => null, X: () => null }))
+vi.mock('@/lib/experience-mode', () => ({ useExperienceMode: () => ({ mode: 'guided', isFull: false, showFormulas: false }) }))
+vi.mock('lucide-react-native', () => ({ Check: () => null, Minus: () => null, ClipboardCheck: () => null, X: () => null }))
 vi.mock('react-native-svg', () => svgMock())
 vi.mock('expo-router', () => ({ usePathname: () => '/test' }))
 vi.mock('@/components/SheetModal', () => ({ SheetModal: ({ children }: { children: React.ReactNode }) => <div role="dialog">{children}</div> }))

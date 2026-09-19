@@ -32,7 +32,7 @@ export function DataSyncSection({
 
   return (
     <SettingsSection
-      title="Data & Sync"
+      title="Data & help"
       description="Review online saving and keep a portable copy of your Sheetless data."
     >
       <Panel style={{ gap: spacing.md, padding: spacing.md }}>
@@ -40,7 +40,7 @@ export function DataSyncSection({
           <SectionLabel>Workout saving</SectionLabel>
           <Text size="sm" weight={800}>Online only</Text>
           <Caption>
-            Changes save to Supabase while connected. Failed set saves stay flagged so you can retry.
+            Workout changes save while connected. Failed set saves stay flagged so you can retry.
           </Caption>
         </Panel>
 

@@ -7,6 +7,7 @@ import { reviewDecisionView } from '@sheetless/domain/program/progression-review
 import type { Unit } from '@sheetless/domain/shared/types'
 import { Badge, Button, Caption, Panel, Text } from '@/components'
 import { spacing, useTokens } from '@/lib/tokens'
+import { useExperienceMode } from '@/lib/experience-mode'
 import type {
   ProgressionDecisionState,
   ProgressionResolution,
@@ -28,6 +29,7 @@ export function ProgressionDecisionCard({
   onResolve: (action: ProgressionResolution) => void
 }) {
   const { theme } = useTokens()
+  const { isFull } = useExperienceMode()
   const view = reviewDecisionView(decision, units)
   const accepted = state === 'accepted'
 
@@ -54,6 +56,9 @@ export function ProgressionDecisionCard({
             {view.name}
           </Text>
           {view.kindLabel ? <Caption>{view.kindLabel}</Caption> : null}
+          {!state && view.isNumeric ? <Caption>
+            {view.delta === 0 ? 'Hold current value' : view.delta! < 0 ? 'Suggested reduction' : 'Suggested increase'}
+          </Caption> : null}
         </View>
         {state ? (
           <Badge tone={accepted ? 'success' : 'neutral'}>
@@ -64,7 +69,7 @@ export function ProgressionDecisionCard({
 
       {view.isNumeric ? (
         <View style={{ alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
-          <Caption>{view.currentLabel} →</Caption>
+          <Caption>{state === 'kept' ? 'Proposed: ' : ''}{view.currentLabel} →</Caption>
           <Text size="sm" tone="action" weight="800">
             {view.nextLabel}
           </Text>
@@ -81,6 +86,7 @@ export function ProgressionDecisionCard({
       )}
 
       {view.reason ? <Caption>{view.reason}</Caption> : null}
+      {isFull ? <Caption>{decision.ruleId} · {decision.inputSummary}</Caption> : null}
 
       {state ? (
         <View style={{ alignItems: 'center', flexDirection: 'row', gap: 5 }}>

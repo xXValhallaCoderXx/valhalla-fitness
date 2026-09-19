@@ -1,3 +1,4 @@
+import { convertWeight } from '@sheetless/domain/shared/math'
 import type {
   HistoryBestSet,
   HistoryMovementSummary,
@@ -75,7 +76,7 @@ function movementSortValue(row: HistoryMovementSummary, key: MovementSortKey): n
   if (key === 'last') return row.lastPerformedAt ? new Date(row.lastPerformedAt).getTime() : 0
   if (key === 'volume') return row.totalVolume ?? 0
   if (key === 'sets') return row.totalCompletedSets ?? 0
-  return row.bestSet?.e1rm ?? 0
+  return convertWeight(row.bestSet?.e1rm ?? 0, row.bestSet?.units ?? 'kg', 'kg')
 }
 
 export function sortMovementSummaries(

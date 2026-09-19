@@ -8,6 +8,8 @@ import { radii, spacing, useTokens } from '@/lib/tokens'
 
 export function WorkoutOverviewRow({
   movement,
+  prescription,
+  active,
   ordinal,
   disabled,
   canMoveUp,
@@ -19,6 +21,8 @@ export function WorkoutOverviewRow({
   onRemove,
 }: {
   movement: MovementSlot
+  prescription?: string
+  active?: boolean
   ordinal: number
   disabled: boolean
   canMoveUp: boolean
@@ -30,14 +34,16 @@ export function WorkoutOverviewRow({
   onRemove: () => void
 }) {
   const { theme } = useTokens()
-  const complete = isMovementComplete(movement)
+  const failedCount = movement.sets.filter((set) => set.syncState === 'syncFailed').length
+  const saving = movement.sets.some((set) => set.syncState === 'saving')
+  const complete = isMovementComplete(movement) && !failedCount && !saving
   const completedSets = movementCompletedSets(movement)
   const movementName = movement.performedMovementName ?? movement.movementName
 
   return (
-    <Panel style={{ flexDirection: 'row', overflow: 'hidden' }}>
+    <Panel style={{ flexDirection: 'row', overflow: 'hidden', borderColor: active ? theme.tones.action.border : theme.border }}>
       <Pressable
-        accessibilityLabel={`${movementName}, ${completedSets} of ${movement.sets.length} sets logged. Open in Focus.`}
+        accessibilityLabel={`${movementName}, ${completedSets} of ${movement.sets.length} sets logged.${failedCount ? ` ${failedCount} unsaved. Retry in Focus.` : ' Open in Focus.'}`}
         accessibilityRole="button"
         accessibilityState={{ disabled }}
         disabled={disabled}
@@ -73,15 +79,16 @@ export function WorkoutOverviewRow({
           )}
         </View>
         <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
-          <Text size="sm" weight={800} numberOfLines={1}>
+          <Text size="sm" weight={800}>
             {movementName}
           </Text>
-          <Caption numberOfLines={1}>{movement.targetSummary || 'Log as you go'}</Caption>
-          <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
+          <Caption>{prescription || movement.targetSummary || 'Log as you go'}</Caption>
+          <View style={{ alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
             <Badge tone={complete ? 'success' : 'neutral'}>
               {completedSets}/{movement.sets.length} sets
             </Badge>
             {movement.isAdded ? <Badge tone="accent">Added</Badge> : null}
+            {failedCount ? <Badge tone="danger">{failedCount} unsaved · retry</Badge> : saving ? <Badge tone="neutral">Saving…</Badge> : null}
           </View>
         </View>
         <ChevronRight color={theme.textMuted} size={18} />

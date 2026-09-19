@@ -65,7 +65,7 @@ vi.mock('@/features/templates/find-my-plan/FindMyPlanSheet', () => ({ FindMyPlan
 vi.mock('@/features/session/live/FocusWorkoutView', () => ({ FocusWorkoutView: () => <div>Workout ready</div> }))
 vi.mock('@/features/session/rest-timer/RestTimerProvider', () => ({ RestTimerProvider: ({ children }: { children: React.ReactNode }) => children }))
 vi.mock('@sheetless/domain/history/workout-summary', () => ({
-  buildWorkoutSummary: () => ({ completion: { completed: 1, planned: 1 }, stats: { durationMinutes: 10 } }),
+  buildWorkoutSummary: () => ({ completion: { completed: 1, planned: 1 }, stats: { durationMinutes: 10, durationLabel: '10 min' } }),
 }))
 vi.mock('@sheetless/domain/session/session-receipt', () => ({ buildSessionReceipt: () => ({}) }))
 vi.mock('@sheetless/domain/feedback/post-workout', () => ({ postWorkoutFeedbackEligible: () => false }))
@@ -110,7 +110,7 @@ const mount = (node: React.ReactNode) => render(<QueryClientProvider client={cli
 
 describe('native load recovery wiring', () => {
   it.each([
-    { name: 'Today', renderScreen: () => <TodayScreen />, recovered: 'No active program' },
+    { name: 'Today', renderScreen: () => <TodayScreen />, recovered: 'Choose a programme' },
     { name: 'programme setup', renderScreen: () => <TemplateDetailScreen templateId="template-a" />, recovered: 'Programme setup ready' },
   ])('retries a cold profile failure on $name before starting the dependent Today request', async ({ renderScreen, recovered }) => {
     let resolveProfile!: (value: typeof profile) => void

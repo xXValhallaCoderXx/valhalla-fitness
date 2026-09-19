@@ -4,7 +4,7 @@
  * `controls` is memoized on the two pref primitives so ticks and timer starts
  * never re-render the session tree. visibilitychange becomes AppState.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { AppState, View } from 'react-native'
 import type { MovementSlot } from '@sheetless/domain/session/types/session'
@@ -18,6 +18,7 @@ import {
   type RestTimerState,
 } from './rest-timer-context'
 import { RestTimerPill } from './RestTimerPill'
+import { createRestNotificationScheduler } from './rest-notification-scheduler'
 
 const IDLE: RestTimerState = { endsAt: null, active: false, label: null }
 const FALLBACK_PREFS = { autoStartTimer: true, defaultRestSeconds: 120 }
@@ -28,52 +29,38 @@ export function RestTimerProvider({ children }: { children: ReactNode }) {
   const defaultRestSeconds = me?.defaultRestSeconds ?? FALLBACK_PREFS.defaultRestSeconds
 
   const [state, setState] = useState<RestTimerState>(IDLE)
-  // The background notification mirroring the running timer (null = none scheduled).
-  const notificationId = useRef<string | null>(null)
+  const [notifications] = useState(() => createRestNotificationScheduler(scheduleRestEnd, cancelRestEnd))
 
   const controls = useMemo<RestTimerControls>(() => {
-    const reschedule = (endsAt: number, label: string | null) => {
-      const previous = notificationId.current
-      notificationId.current = null
-      void cancelRestEnd(previous)
-      void scheduleRestEnd(endsAt, label).then((id) => {
-        notificationId.current = id
-      })
-    }
-    const cancel = () => {
-      const previous = notificationId.current
-      notificationId.current = null
-      void cancelRestEnd(previous)
-    }
     return {
       startForSlot: (slot: MovementSlot) => {
         const seconds = resolveRestSeconds(slot, { autoStartTimer, defaultRestSeconds })
         if (seconds == null) return
         const endsAt = Date.now() + seconds * 1000
-        reschedule(endsAt, slot.movementName)
+        notifications.replace(endsAt, slot.movementName)
         setState({ endsAt, active: true, label: slot.movementName })
       },
       addTime: (seconds: number) =>
         setState((current) => {
           if (!current.active || current.endsAt == null) return current
           const endsAt = current.endsAt + seconds * 1000
-          reschedule(endsAt, current.label)
+          notifications.replace(endsAt, current.label)
           return { ...current, endsAt }
         }),
       dismiss: () => {
-        cancel()
+        notifications.clear()
         setState(IDLE)
       },
       prime: () => {},
     }
-  }, [autoStartTimer, defaultRestSeconds])
+  }, [autoStartTimer, defaultRestSeconds, notifications])
 
   // Leaving the session screen unmounts the provider — never leave a stray alarm behind.
   useEffect(
     () => () => {
-      void cancelRestEnd(notificationId.current)
+      notifications.clear()
     },
-    [],
+    [notifications],
   )
 
   // A backgrounded app freezes the pill's interval; on return, drop a timer that

@@ -1,8 +1,8 @@
 import { ActionIcon, Badge, Button } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, Check, ChevronRight, Minus, TrendingUp } from 'lucide-react'
+import { ArrowRight, Check, ChevronRight, ClipboardCheck, Minus } from 'lucide-react'
 import { Caption, Heading, Panel, Text } from '~/components'
-import { decisionUpdate, type DecisionUpdate } from '~/domains/session/lib/summary-decisions'
+import { decisionUpdate, pendingDecisionCopy, type DecisionUpdate } from '~/domains/session/lib/summary-decisions'
 import type { ProgressionDecision } from '~/domains/program'
 import type { Unit } from '~/shared/types'
 
@@ -35,6 +35,7 @@ export function SessionSummaryDecisionHero({
   onReviewEach: () => void
 }) {
   const pendingCount = decisions.filter((decision) => !decided.has(decision.id)).length
+  const pendingCopy = pendingDecisionCopy(decisions.filter((decision) => !decided.has(decision.id)))
 
   if (pendingCount === 0) return <DonePanel appliedCount={appliedCount} decisions={decisions} />
 
@@ -49,14 +50,14 @@ export function SessionSummaryDecisionHero({
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
             style={{ backgroundColor: 'var(--mantine-primary-color-filled)' }}
           >
-            <TrendingUp size={20} color="var(--mantine-color-white)" />
+            <ClipboardCheck size={20} color="var(--mantine-color-white)" />
           </span>
           <div className="min-w-0">
             <Heading order={2} size="h4" lh={1.15}>
-              {pendingCount} load update{pendingCount === 1 ? '' : 's'} ready
+              {pendingCopy.heading}
             </Heading>
-            <Text mt={2} size="sm" tone="success">
-              You hit your targets — Sheetless suggests adding weight.
+            <Text mt={2} size="sm" tone="dimmed">
+              {pendingCopy.body}
             </Text>
           </div>
         </div>

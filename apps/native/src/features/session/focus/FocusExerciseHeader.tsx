@@ -7,9 +7,10 @@ import { Pressable, View } from 'react-native'
 import { ChevronLeft, ChevronRight } from 'lucide-react-native'
 import type { MovementSlot } from '@sheetless/domain/session/types/session'
 import type { Unit } from '@sheetless/domain/shared/types'
-import { formatPreviousShort } from '@sheetless/domain/session/live-session-utils'
-import { Badge, Caption, Heading, Text } from '@/components'
+import { formatPreviousHero } from '@sheetless/domain/session/today-numbers'
+import { Badge, Caption, Heading } from '@/components'
 import { spacing, useTokens, type Theme } from '@/lib/tokens'
+import { useExperienceMode } from '@/lib/experience-mode'
 
 export function FocusExerciseHeader({
   movement,
@@ -27,45 +28,41 @@ export function FocusExerciseHeader({
   onNext: () => void
 }) {
   const { theme } = useTokens()
+  const { mode, isFull } = useExperienceMode()
+  const previous = formatPreviousHero(movement.previous, units, mode)
   const swapped = movement.performedMovementId && movement.performedMovementId !== movement.movementId
   return (
     <View>
       <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
         <ChevronButton theme={theme} dir="prev" disabled={!hasPrev} onPress={onPrev} />
         <View style={{ alignItems: 'center', flex: 1, minWidth: 0 }}>
-          <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
-            <Badge tone={movement.role === 'main' ? 'accent' : 'neutral'}>{movement.role}</Badge>
-            <Caption numberOfLines={1} style={{ flexShrink: 1 }}>
-              {movement.targetSummary}
-            </Caption>
-          </View>
-          <Heading order={2} style={{ marginTop: 4, textAlign: 'center' }} numberOfLines={2}>
-            {movement.movementName}
+          <Badge tone="neutral">{movement.role === 'main' ? 'Main lift' : movement.role === 'variation' ? 'Variation' : 'Accessory'}</Badge>
+          <Heading order={2} style={{ marginTop: 4, textAlign: 'center' }}>
+            {movement.performedMovementName ?? movement.movementName}
           </Heading>
+          <Caption style={{ textAlign: 'center' }}>{isFull ? movement.targetSummary : `${movement.sets.length} sets`}</Caption>
         </View>
         <ChevronButton theme={theme} dir="next" disabled={!hasNext} onPress={onNext} />
       </View>
 
       {swapped ? (
         <Caption style={{ color: theme.tones.warning.text, fontWeight: '700', marginTop: 6, textAlign: 'center' }}>
-          Performed as {movement.performedMovementName}
+          Replaces {movement.movementName}
         </Caption>
       ) : null}
 
-      {movement.previous ? (
+      {previous ? (
         <View
           style={{
             alignItems: 'center',
             flexDirection: 'row',
+            flexWrap: 'wrap',
             gap: 4,
             justifyContent: 'center',
             marginTop: 6,
           }}
         >
-          <Caption>Previous comparable</Caption>
-          <Text size="xs" weight={700}>
-            {formatPreviousShort(movement.previous, units)}
-          </Text>
+          <Caption style={{ textAlign: 'center' }}>{previous}</Caption>
         </View>
       ) : null}
     </View>

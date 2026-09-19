@@ -1,5 +1,6 @@
+import { fontStyle } from '@/lib/fonts'
 import { Text as RNText, View } from 'react-native'
-import { fontFamily, fontSizes, toneColor, useTokens, type Tone } from '@/lib/tokens'
+import { fontSizes, toneColor, useTokens, type Tone } from '@/lib/tokens'
 import { Panel } from './Panel'
 import { SectionLabel } from './SectionLabel'
 
@@ -15,16 +16,14 @@ export interface StatCardProps {
 export function StatCard({ label, value, tone, icon }: StatCardProps) {
   const { theme } = useTokens()
   return (
-    <Panel surface="inset" style={{ flex: 1, minWidth: 0, padding: 12 }}>
+    <Panel surface="inset" style={{ flexGrow: 1, flexBasis: 120, minWidth: 120, padding: 12 }}>
       <RNText
-        numberOfLines={1}
         style={{
           color: toneColor(theme, tone) ?? theme.text,
-          fontFamily,
+          ...fontStyle('800'),
           fontSize: fontSizes.stat,
           fontVariant: ['tabular-nums'],
-          fontWeight: '900',
-          textAlign: 'right',
+          textAlign: 'left',
         }}
       >
         {value}

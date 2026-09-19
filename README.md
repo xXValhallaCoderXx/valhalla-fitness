@@ -132,7 +132,7 @@ and standalone acceptance remain separate. Changes are local and awaiting review
 - Wearables, Health integrations, social features, public leaderboards, and coaching marketplace.
 - AI-generated workouts, autonomous substitutions, readiness automation, and injury/pain gating.
 
-#### Mobile and desktop UI/UX revamp preparation
+#### Native UI revamp
 
 The SHE-29 audit defines the next UX work. SHE-31/42 entry and public-catalogue recovery are
 committed in the current baseline. SHE-32 now preserves exact failed-save identities, gives changed
@@ -150,7 +150,9 @@ scrolling, fixed footer, keyboard, larger text, dismissal guards, RIR accessibil
 log/undo/retry controls passed. Fixture saves were in memory; full-app standalone/network recovery,
 spoken TalkBack and iOS acceptance remain separate.
 
-Preserve the confirmed scope when preparing designs:
+The native implementation follows the [19 September delivery plan](https://linear.app/sentiment-hound/document/sheetless-native-ui-revamp-official-delivery-plan-a5a7345e4a84),
+the local v3 visual references, and the confirmed four-tab navigation. Its source baseline is
+`29c3a40`. The following product boundaries remain in force:
 
 - All surfaces offer Focus and Overview; desktop defaults to Overview and mobile defaults to Focus.
 - Guided is the default. Full is available in Settings immediately; eight completed sessions offer
@@ -160,15 +162,53 @@ Preserve the confirmed scope when preparing designs:
   sign-in. Mobile supports desktop-created programmes, repeat and favourites. Custom authoring stays
   on desktop; mobile retains trends, records, history/details and basic filters.
 
-Start with reviewable Today/navigation and live-workout flows, then recap/Plan and Insights/setup.
-Use fresh, active, completed and pending-review states on desktop and phone widths. Carry the
-SHE-32/44 recovery and scrolling checks forward, including keyboard, accessibility and light/dark.
-SHE-33's ended-workout/receipt behavior is implemented locally. Before rebuilding the affected
-surfaces, settle SHE-35/SHE-16's record, unit and ledger correctness. Include SHE-17/26's progression and methodology
-wording, SHE-34's notification cancellation and SHE-39's draft/read recovery in their owning flows.
-SHE-39's recommendation-preview retry is already covered by SHE-42. SHE-18 owns integrated web
-acceptance and SHE-19 documentation reconciliation. SHE-28, hosted migrations, standalone Android
-and Play acceptance remain separate release work. This preparation does not claim the revamp is built.
+The redesigned native surfaces now implement:
+
+- Bundled Figtree faces, flat bordered cards, larger page titles, 20-pixel screen gutters, wrapping
+  controls and metric cards, and shared light/dark tokens. Today, Plan, Insights and Programs remain
+  separate tabs; Settings opens from their common header action.
+- Today with a primary Start/Resume action, an expandable whole-workout preview, ordered programme
+  sessions and the last completed recap. Fresh accounts can open Find My Plan, browse programmes
+  or start an ad-hoc workout. Pending review and failed reads retain explicit recovery actions.
+- Focus and Overview with selectable sets, corrections and undo, separate previous results,
+  Guided effort labels, Full notation and optional short load formulas. Account/session-scoped
+  memory retains unsubmitted edits through navigation; Finish rejects unsaved or unconfirmed sets.
+  This memory is cleared with the session/account and does not survive process termination.
+- Recaps that show completed work before proposed progression, preserve Apply/Keep and resolved
+  receipts, and distinguish increases, holds and reductions. Completed rows use logged values only;
+  duration prefers actual elapsed time and labels any fallback estimate. Plan starts with the next workout and
+  an ordered week; the full cycle remains expandable. Equipment and return reviews stay explicit.
+- Programme setup with editable starting suggestions from recorded strength, then account estimates,
+  then manual entry. Programme-specific units, rounding and training/working-load percentages do
+  not change profile defaults. Changed values survive read refreshes and failed starts.
+- An Insights directory with all existing analytical sections, accurate mixed-unit record labels
+  and sorting, no 40-movement display cap, and access to every loaded history row. Flagged strength
+  outliers are excluded from derived record rankings while original workout logs remain intact.
+- Grouped Settings with immediate confirmed-save Guided/Full preferences, optional formulas, and a
+  dismissible invitation after eight completed workouts. Failed preference saves keep the confirmed
+  mode; failed regular saves and category navigation retain drafts. Account, export, feedback, legal
+  and deletion actions remain accessible.
+
+Rest-notification scheduling also tracks asynchronous cancellation: skip, replacement, timer expiry
+and workout exit cancel the correct notification even when scheduling finishes late. Rest timer
+restoration after app restart remains separate work.
+
+Verification on 19 September 2026 passed `pnpm verify` against the working tree based on `29c3a40`:
+1,487 tests passed with four existing integration skips, no lint errors and 16 existing native
+warnings, web production build, Android/web Metro exports, and all repository checks. Disposable
+browser fixtures rendered the real native screen components at 360/393 pixels in both themes,
+including Today entry states, Focus, recap, Plan, Insights, Programs, setup and Settings. A 130%
+browser text-size proxy and explicit preview/scroll/tool-access checks also passed. Fixture data,
+navigation and device services were adapted; these checks do not exercise the native platform.
+The local evidence is under ignored `.artifacts/native-revamp/`. Docker/local Supabase was unavailable
+for fresh database/backend integration, and no physical device was attached for this pass.
+
+Source implementation and automated/browser evidence do not complete Native 6. Integrated standalone
+Android acceptance still needs a recorded build, backend, device/OS and physical journey results,
+including hardware Back, keyboard, larger text, TalkBack, background/resume, locked-screen rest
+notifications, ordinary save failures and committed saves with lost responses. SHE-28, hosted
+migrations, operator/legal review, Play and iOS acceptance retain their separate gates. Web ledger
+and integrated web review remain SHE-16/18/19/25/26 work.
 
 #### Native migration milestones
 
@@ -183,7 +223,8 @@ down into `packages/domain`, so the enablers come first.
    points, hollow outliers, and accessible value inspection.
 3. **Implemented:** six Insights sections (Overview, Strength, Muscle Fatigue, Movements, Records,
    Sessions), persistent 8W/3M/1Y/All ranges, movement sorting, and session search. Workout analytics
-   use up to 240 recent workouts; browsing/search uses the latest 20 sessions. All means available
+   use up to 240 recent workouts; browsing/search uses up to 60 loaded sessions, shown 20 at a time
+   with **Show older workouts**. Search covers all loaded rows, including rows not yet displayed. All means available
    history for that metric. Fatigue stays at seven days, set adequacy at four weeks, and calibration
    at six weeks. Direct entry loads reactive programme context with retry actions.
 4. **Implemented:** actual-measurement bodyweight trends on both Overview screens. Full independent
@@ -318,10 +359,10 @@ components and hooks live together in folders named for what they do:
 | --- | --- | --- |
 | `auth` | `AuthScreen.tsx` | Email and code sign-in are contained in this screen. |
 | `session` | `TodayScreen.tsx`, `LiveSessionScreen.tsx`, `SessionSummaryScreen.tsx` | `today/` starts and resumes workouts; `live/` coordinates Focus/Overview navigation; `focus/` logs sets; `overview/` lists exercises; `editing/` manages movements, order, titles, and notes; `lifecycle/` finishes/discards; `summary/` presents the recap, decisions, Repeat, and favourites; `movement-picker/`, `plate-calculator/`, and `rest-timer/` own their tools. |
-| `history` | `InsightsScreen.tsx` → `InsightsTabs.tsx` | `overview/`, `strength/`, `muscle-fatigue/`, `movements/`, `records/`, and `sessions/` follow the six tabs; `bodyweight/` owns the measurement trend and profile prompt; `sharing/` owns workout image preview and platform export adapters. |
+| `history` | `InsightsScreen.tsx` → `InsightsTabs.tsx` | `InsightsLibrary.tsx` opens the five detail sections from Overview; `overview/`, `strength/`, `muscle-fatigue/`, `movements/`, `records/`, and `sessions/` own their content; `bodyweight/` owns the measurement trend and profile prompt; `sharing/` owns workout image preview and platform export adapters. |
 | `program` | `ProgramScreen.tsx` | `overview/` presents the active plan; `equipment/` reviews conversions; `progression/` reviews and resolves progression decisions. |
 | `templates` | `TemplatesScreen.tsx`, `TemplateDetailScreen.tsx` | `catalogue/`, `favorites/`, `find-my-plan/`, `setup/`, and `start/` separate browsing, recommendations, customisation, and programme start. |
-| `settings` | `SettingsScreen.tsx` | `profile/` owns bodyweight and strength; `preferences/` owns appearance, units, rest, and equipment; `account/` owns account actions and data export. Draft/save coordination and the shared section wrapper stay at the feature root. |
+| `settings` | `SettingsScreen.tsx` | `SettingsMenu.tsx` opens grouped categories; `profile/` owns bodyweight and strength; `preferences/` owns reading mode, formulas, appearance, units, rest, and equipment; `account/` owns account actions and data export. Draft/save coordination and the shared section wrapper stay at the feature root. |
 | `feedback` | `BetaFeedback.tsx`, `PostWorkoutFeedback.tsx`, `DecisionFeedback.tsx` | Embedded forms share submission and prompt state in this small feature folder. |
 
 The larger workout compositions are `session/live/FocusWorkoutView.tsx` (mode and lifecycle
@@ -1114,8 +1155,10 @@ and device results in Linear. APK delivery completes the build milestone; each t
 until its physical acceptance passes. Broader hosted-preview and Play release gates remain separate.
 
 The 2026-09-12 candidate check found hosted migrations through `202609060006`, including return
-support and the start/finish RPCs. `202609070001_add_experience_mode.sql` is still pending there;
-native core workout flows do not write its mode fields and profile reads provide defaults. Full
+support and the start/finish RPCs. At that check, `202609070001_add_experience_mode.sql` was pending;
+that dated result has not been refreshed by the UI revamp. Native now writes reading-mode/formula
+preferences and invitation dismissal, so hosted acceptance must verify these existing migrations
+before testing those controls. Profile read fallbacks do not establish write compatibility. Full
 candidate schema acceptance requires the protected database release above. The documented
 `production-database` GitHub environment is not yet configured; this prerequisite is tracked in
 SHE-28. No hosted migration was applied during this check.

@@ -1,3 +1,4 @@
+import { fontStyle } from '@/lib/fonts'
 import { useState } from 'react'
 import {
   Platform,
@@ -8,7 +9,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { fontFamily, fontSizes, radii, useTokens } from '@/lib/tokens'
+import { fontSizes, radii, useTokens } from '@/lib/tokens'
 import { Caption } from './Caption'
 
 export interface TextInputProps {
@@ -97,9 +98,9 @@ export function TextInput({
             borderRadius: radii.md,
             borderWidth: 1,
             color: theme.text,
-            fontFamily,
+            ...fontStyle(),
             fontSize: fontSizes.md,
-            minHeight: 40,
+            minHeight: 48,
             paddingHorizontal: 12,
             paddingVertical: 8,
             textAlign,
@@ -110,9 +111,15 @@ export function TextInput({
             ? ({ boxShadow: `0 0 0 2px ${theme.focusRing}`, outlineWidth: 0 } as TextStyle)
             : null,
           inputStyle,
+          fontStyle(resolveWeight(inputStyle)),
         ]}
       />
       {error ? <Caption tone="danger">{error}</Caption> : null}
     </View>
   )
+}
+
+function resolveWeight(style: unknown): TextStyle['fontWeight'] {
+  if (Array.isArray(style)) return style.map(resolveWeight).filter(Boolean).at(-1)
+  return style && typeof style === 'object' ? (style as TextStyle).fontWeight : undefined
 }

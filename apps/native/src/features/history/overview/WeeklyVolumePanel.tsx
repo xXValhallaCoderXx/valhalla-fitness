@@ -1,3 +1,5 @@
+import { useExperienceMode } from '@/lib/experience-mode'
+import { insightCardLabel } from '@sheetless/domain/history/insight-labels'
 import type { HistoryInsights, InsightGating } from '@sheetless/domain/history/types'
 import type { InsightRange } from '@sheetless/domain/history/insight-ranges'
 import { selectInsightWeeks } from '@sheetless/domain/history/insight-selectors'
@@ -7,10 +9,11 @@ import { AreaChart, Badge, Caption, Panel, SectionLabel, Text } from '@/componen
 import { spacing } from '@/lib/tokens'
 
 export function WeeklyVolumePanel({ insights, gating, range }: { insights: HistoryInsights; gating: InsightGating; range: InsightRange }) {
+  const { mode } = useExperienceMode()
   const weeks = selectInsightWeeks(insights.weeklyVolume, insights, range)
   const signal = resolveVolumeTrendSignal(weeks, gating)
   return <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
-    <SectionLabel>Weekly volume</SectionLabel>
+    <SectionLabel>{insightCardLabel('volumeWeekly', mode)}</SectionLabel>
     <Badge tone={signal === 'rising' ? 'success' : signal === 'declining' ? 'warning' : 'neutral'}>{volumeTrendLabels[signal]}</Badge>
     <Text weight={800}>{formatWeight(weeks.reduce((sum, week) => sum + week.volume, 0), insights.units)} in visible weeks</Text>
     <AreaChart inspectable showPoints points={weeks.map((week) => ({ label: week.weekLabel, date: week.weekStart, value: week.volume }))}

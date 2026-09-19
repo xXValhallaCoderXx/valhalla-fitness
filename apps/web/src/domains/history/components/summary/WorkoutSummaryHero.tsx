@@ -99,7 +99,7 @@ function StatStrip({ stats }: { stats: WorkoutSummaryModel['stats'] }) {
     { label: 'Volume', value: stats.volumeLabel },
     { label: 'Movements', value: String(stats.movementCount) },
     { label: 'Top/AMRAP sets', value: String(stats.topSetCount), hint: topSetCountExplanation },
-    { label: 'Duration', value: `${stats.durationMinutes} min` },
+    { label: 'Duration', value: stats.durationLabel },
   ]
   return (
     <div

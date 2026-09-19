@@ -1,5 +1,6 @@
+import { fontStyle } from '@/lib/fonts'
 import { Pressable, ScrollView, Text as RNText, View, type StyleProp, type ViewStyle } from 'react-native'
-import { fontFamily, fontSizes, radii, spacing, useTokens } from '@/lib/tokens'
+import { fontSizes, radii, spacing, useTokens } from '@/lib/tokens'
 import { SectionLabel } from './SectionLabel'
 
 export interface SegmentedControlOption<T extends string> {
@@ -80,12 +81,11 @@ export function SegmentedControl<T extends string>({
         })}
       >
         <RNText
-          numberOfLines={1}
           style={{
             color: selected ? theme.primaryFillText : theme.text,
-            fontFamily,
+            textAlign: 'center',
+            ...fontStyle('700'),
             fontSize: fontSizes.md,
-            fontWeight: '800',
           }}
         >
           {option.label}

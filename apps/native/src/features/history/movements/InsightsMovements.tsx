@@ -53,7 +53,7 @@ export function InsightsMovements({
       {visible.length === 0 ? (
         <EmptyState title="No matching movements">Try another search or category.</EmptyState>
       ) : visible.map((movement) => (
-        <Pressable key={movement.movementId} onPress={() => setSelected(movement)}>
+        <Pressable key={movement.movementId} accessibilityRole="button" onPress={() => setSelected(movement)}>
           {({ pressed }) => (
             <Panel style={{ opacity: pressed ? 0.7 : 1, padding: spacing.sm }}>
               <View style={{ flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between' }}>
@@ -62,7 +62,7 @@ export function InsightsMovements({
                   <Caption>{movement.category.replaceAll('_', ' ')} · {formatCompactDate(movement.lastPerformedAt)}</Caption>
                   {movement.bestSet ? (
                     <Caption>
-                      Best {movement.bestSet.load == null ? 'bodyweight' : formatWeight(movement.bestSet.load, units)} × {movement.bestSet.reps ?? '—'}
+                      Best {movement.bestSet.load == null ? 'bodyweight' : formatWeight(movement.bestSet.load, movement.bestSet.units)} × {movement.bestSet.reps ?? '—'}
                     </Caption>
                   ) : null}
                 </View>

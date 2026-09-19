@@ -8,6 +8,8 @@ import { WorkoutOverviewRow } from './WorkoutOverviewRow'
 import { WorkoutToolsPanel } from '../editing/WorkoutToolsPanel'
 import { useAccessoryOrderMutation } from '../editing/useAccessoryOrderMutation'
 import { useWorkoutManagement } from '../editing/useWorkoutManagement'
+import { buildTodayLedgerRows } from '@sheetless/domain/session/today-numbers'
+import { useExperienceMode } from '@/lib/experience-mode'
 
 function movementSlotId(movement: MovementSlot) {
   return movement.slotId ?? movement.id
@@ -32,6 +34,8 @@ export function WorkoutOverviewContent({
   onSelectMovement: (movementId: string | null) => void
   onEnterFocus: (movementId: string) => void
 }) {
+  const { mode } = useExperienceMode()
+  const prescriptions = new Map(buildTodayLedgerRows(session, { mode }).map((row) => [row.slotId, row.prescriptionLabel]))
   const order = useAccessoryOrderMutation(user, session)
   const management = useWorkoutManagement({
     user,
@@ -62,6 +66,8 @@ export function WorkoutOverviewContent({
             <WorkoutOverviewRow
               key={movement.id}
               movement={movement}
+              prescription={prescriptions.get(movement.id)}
+              active={movement.id === activeMovement.id}
               ordinal={index + 1}
               disabled={disabled || order.isPending}
               canMoveUp={isProgrammeAddition && addedIndex > 0}

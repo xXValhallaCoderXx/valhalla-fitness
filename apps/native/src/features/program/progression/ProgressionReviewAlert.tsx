@@ -1,5 +1,5 @@
 import { View } from 'react-native'
-import { TrendingUp } from 'lucide-react-native'
+import { ClipboardCheck } from 'lucide-react-native'
 import type { ProgressionDecision } from '@sheetless/domain/program/types'
 import { Button, Caption, Panel, SectionLabel, Text } from '@/components'
 import { spacing, useTokens } from '@/lib/tokens'
@@ -21,9 +21,9 @@ export function ProgressionReviewAlert({
       style={{ borderColor: theme.tones.warning.border, gap: spacing.xs, padding: spacing.md }}
     >
       <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
-        <TrendingUp color={theme.tones.warning.text} size={18} />
+        <ClipboardCheck color={theme.tones.warning.text} size={18} />
         <SectionLabel tone="warning">
-          {decisions.length} progression change{decisions.length === 1 ? '' : 's'} ready
+          {decisions.length} recommendation{decisions.length === 1 ? '' : 's'} ready
         </SectionLabel>
       </View>
       <Text size="sm">

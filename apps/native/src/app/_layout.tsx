@@ -7,6 +7,7 @@ import { NavigationBar } from 'expo-navigation-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import * as SystemUI from 'expo-system-ui'
 import { StatusBar } from 'expo-status-bar'
+import { useFonts } from 'expo-font'
 import { Platform } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -14,6 +15,7 @@ import { createQueryClient } from '@/lib/query-client'
 import { SessionProvider, useSession } from '@/lib/session-provider'
 import { SheetlessThemeProvider, useSheetlessTheme } from '@/lib/theme-provider'
 import { useTokens } from '@/lib/tokens'
+import { nativeFonts } from '@/lib/fonts'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -55,7 +57,7 @@ function AuthGate() {
       <Stack.Screen name="auth" options={{ headerShown: false }} />
       <Stack.Screen name="session/[sessionId]/index" options={{ headerShown: false }} />
       <Stack.Screen name="session/[sessionId]/summary" options={{ headerShown: false }} />
-      <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+      <Stack.Screen name="settings" options={{ title: '' }} />
       <Stack.Screen name="template/[templateId]" options={{ title: 'Programme' }} />
     </Stack>
   )
@@ -93,6 +95,10 @@ function ThemedApp() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts(nativeFonts)
+  // AuthGate releases the splash after both fonts and account/theme restoration.
+  // A failed asset must not strand the user on the splash screen.
+  if (!fontsLoaded && !fontError) return null
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>

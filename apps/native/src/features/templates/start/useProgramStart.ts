@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 import { startProgram } from '@sheetless/data/program/start'
@@ -13,11 +13,6 @@ import type {
   ProgramTemplateSummary,
 } from '@sheetless/domain/program/types'
 import { shouldConfirmProgramStart } from '@sheetless/domain/program/program-switch'
-import {
-  hasUsableStateValue,
-  loadValueFromInput,
-  stateValuesForProfileTemplate,
-} from '@sheetless/domain/program/template-start-utils'
 import { normalizeFreeWeightChoices } from '@sheetless/domain/program/equipment-mode'
 import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
 import { browserIanaTimeZone } from '@sheetless/domain/shared/calendar-date'
@@ -25,10 +20,14 @@ import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import type { TodayPayload } from '@sheetless/domain/session/types'
 import { buildUserContext } from '@/lib/account'
 import { useStableMutationRequest } from '@/lib/useStableMutationRequest'
+import type { Unit } from '@sheetless/domain/shared/types'
+import { useProgramStartingLoads, type StartingHistory } from './useProgramStartingLoads'
 
 type StartIntent = {
   templateId: string
   timeZone?: string
+  units: Unit
+  rounding: number
   stateValues: ProgramStateInput[]
   movementOverrides?: ProgramStartMovementOverrideInput[]
   accessoryAdditions?: ProgramStartAccessoryAdditionInput[]
@@ -39,20 +38,12 @@ type StartIntent = {
   replaceActiveProgram: boolean
 }
 
-function initialDraftValues(template: ProgramTemplateSummary, profile: UserProfile) {
-  return Object.fromEntries(
-    stateValuesForProfileTemplate(template, profile).map((state) => [
-      state.key,
-      hasUsableStateValue(state.value) ? String(state.value) : '',
-    ]),
-  )
-}
-
 export function useProgramStart({
   user,
   profile,
   today,
   template,
+  startingHistory,
   movementOverrides,
   accessoryAdditions,
   equipmentMode,
@@ -65,6 +56,7 @@ export function useProgramStart({
   profile: UserProfile
   today: TodayPayload
   template: ProgramTemplateSummary
+  startingHistory: StartingHistory
   movementOverrides: ProgramStartMovementOverrideInput[]
   accessoryAdditions: ProgramStartAccessoryAdditionInput[]
   equipmentMode: ProgramEquipmentMode
@@ -75,24 +67,14 @@ export function useProgramStart({
 }) {
   const queryClient = useQueryClient()
   const request = useStableMutationRequest()
-  const [baselineDraft] = useState(() => initialDraftValues(template, profile))
-  const [draftValues, setDraftValues] = useState<Record<string, string>>(baselineDraft)
+  const loads = useProgramStartingLoads(template, profile, startingHistory)
+  const { stateValues, missingValues } = loads
   const [showSwitchConfirm, setShowSwitchConfirm] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const [needsReload, setNeedsReload] = useState(false)
 
-  const stateValues = useMemo(
-    () =>
-      stateValuesForProfileTemplate(template, profile).map((state) => ({
-        ...state,
-        value: loadValueFromInput(draftValues[state.key] ?? ''),
-      })),
-    [draftValues, profile, template],
-  )
-  const missingValues = stateValues.filter((state) => !hasUsableStateValue(state.value))
   const hasActiveProgram = shouldConfirmProgramStart(today)
   const hasActiveSession = Boolean(today.activeSession)
-  const stateValuesDirty = JSON.stringify(draftValues) !== JSON.stringify(baselineDraft)
 
   const startMutation = useMutation({
     mutationFn: ({ requestId, ...intent }: StartIntent & { requestId: string }) =>
@@ -152,6 +134,8 @@ export function useProgramStart({
     }
     return {
       templateId: template.id,
+      units: loads.units,
+      rounding: loads.rounding,
       timeZone: browserIanaTimeZone() ?? profile.timezone ?? undefined,
       stateValues,
       movementOverrides: movementOverrides.length ? movementOverrides : undefined,
@@ -186,16 +170,11 @@ export function useProgramStart({
   }
 
   return {
-    draftValues,
-    stateValues,
-    missingValues,
-    stateValuesDirty,
+    ...loads,
     showSwitchConfirm,
     startError,
     needsReload,
     isPending: startMutation.isPending,
-    setDraftValue: (key: string, value: string) =>
-      setDraftValues((current) => ({ ...current, [key]: value })),
     requestStart,
     closeSwitchConfirm: () => {
       if (!startMutation.isPending) setShowSwitchConfirm(false)

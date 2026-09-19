@@ -15,6 +15,9 @@ import { getMovementName, movementCatalog } from '@sheetless/domain/movement/mov
 import { e1rm, mround } from '@sheetless/domain/program/progression'
 import { externalLoadOrNull, isPositiveLoad } from '@sheetless/domain/shared/load'
 import { convertWeight } from '@sheetless/domain/shared/math'
+import { buildLiftE1rmSeries } from './strength'
+import { compareHistorySessionsNewestFirst, parseDate } from './history-order'
+export { compareHistorySessionsNewestFirst, parseDate } from './history-order'
 
 export type HistorySetInput = MovementHistorySet & {
   actualRpe?: number | null
@@ -84,17 +87,6 @@ type SubstitutionSummaryCandidate = {
   createdAt: string | null
 }
 
-export function compareHistorySessionsNewestFirst(
-  left: HistorySessionOrderKey,
-  right: HistorySessionOrderKey,
-) {
-  const scheduledDateCompare = right.scheduledDate.localeCompare(left.scheduledDate)
-  if (scheduledDateCompare !== 0) return scheduledDateCompare
-  const completedAtCompare = (right.completedAt ?? '').localeCompare(left.completedAt ?? '')
-  if (completedAtCompare !== 0) return completedAtCompare
-  return right.id.localeCompare(left.id)
-}
-
 export function buildHistoryDashboard({
   sessions,
   substitutions,
@@ -162,9 +154,15 @@ function calculateSessionCompletedVolume(session: HistorySessionInput, displayUn
 export function rankBestSets(sessions: HistorySessionInput[]): HistoryBestSet[] {
   const byMovement = new Map<string, BestSetCandidate>()
   const fallbackUnits = resolveHistoryDisplayUnits(sessions) ?? 'kg'
+  // Match the strength/rep-record policy: flagged lift sessions remain in raw history
+  // but cannot become a derived best. A different movement in the session is unaffected.
+  const outliers = new Map(buildLiftE1rmSeries(sessions).map((series) => [
+    series.movementId, new Set(series.points.filter((point) => point.outlier).map((point) => point.sessionId)),
+  ]))
 
   for (const session of sessions) {
     for (const exercise of session.exercises) {
+      if (outliers.get(exercise.performedMovementId)?.has(session.id)) continue
       for (const set of exercise.sets) {
         const candidate = buildBestSetCandidate(session, exercise, set, fallbackUnits)
         if (!candidate) continue
@@ -250,7 +248,6 @@ export function buildMovementSummaries(
       if (setCountCompare !== 0) return setCountCompare
       return left.summary.movementId.localeCompare(right.summary.movementId)
     })
-    .slice(0, 40)
     .map((candidate) => candidate.summary)
 }
 
@@ -424,7 +421,7 @@ function buildBestSetCandidate(
     sessionId: session.id,
     sessionTitle: session.title,
     performedAt: session.scheduledDate,
-    units: session.units,
+    units: exerciseUnits(session, fallbackUnits),
     score,
     completedAt: session.completedAt ?? null,
   }
@@ -458,11 +455,7 @@ function exerciseUnits(session: HistorySessionInput, fallback: Unit): Unit {
   return session.units ?? fallback
 }
 
-export function parseDate(value?: string | null) {
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
+
 
 export function startOfWeek(date: Date) {
   const copy = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))

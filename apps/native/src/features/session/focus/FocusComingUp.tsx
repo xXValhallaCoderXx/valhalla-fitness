@@ -4,17 +4,24 @@ import { Check, ChevronRight } from 'lucide-react-native'
 import type { MovementSlot } from '@sheetless/domain/session/types/session'
 import { movementCompletedSets } from '@sheetless/domain/session/live-focus-utils'
 import { isMovementComplete } from '@sheetless/domain/session/live-session-utils'
+import { buildTodayLedgerRows } from '@sheetless/domain/session/today-numbers'
+import type { Unit } from '@sheetless/domain/shared/types'
 import { Caption, SectionLabel, Text } from '@/components'
-import { cardShadow, radii, spacing, useTokens, type Theme } from '@/lib/tokens'
+import { radii, spacing, useTokens, type Theme } from '@/lib/tokens'
+import { useExperienceMode } from '@/lib/experience-mode'
 
 export function FocusComingUp({
   movements,
+  units,
   onJumpTo,
 }: {
   movements: MovementSlot[]
+  units: Unit
   onJumpTo: (movementId: string) => void
 }) {
   const { theme } = useTokens()
+  const { mode } = useExperienceMode()
+  const prescriptions = new Map(buildTodayLedgerRows({ movements, units }, { mode }).map((row) => [row.slotId, row.prescriptionLabel]))
   if (!movements.length) return null
   return (
     <View style={{ gap: spacing.xs }}>
@@ -22,6 +29,7 @@ export function FocusComingUp({
       {movements.map((movement) => (
         <Pressable
           key={movement.id}
+          accessibilityRole="button"
           onPress={() => onJumpTo(movement.id)}
           style={({ pressed }) => ({
             alignItems: 'center',
@@ -34,15 +42,14 @@ export function FocusComingUp({
             opacity: pressed ? 0.8 : 1,
             paddingHorizontal: spacing.sm,
             paddingVertical: spacing.sm,
-            ...cardShadow(theme),
           })}
         >
           <NumberBadge theme={theme} number={movement.orderIndex + 1} complete={isMovementComplete(movement)} />
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text size="sm" weight={700} numberOfLines={1}>
+            <Text size="sm" weight={700}>
               {movement.movementName}
             </Text>
-            <Caption numberOfLines={1}>{movement.targetSummary}</Caption>
+            <Caption>{prescriptions.get(movement.id)}</Caption>
           </View>
           <Text size="xs" style={{ color: theme.textMuted, fontWeight: '700' }}>
             {movementCompletedSets(movement)}/{movement.sets.length}

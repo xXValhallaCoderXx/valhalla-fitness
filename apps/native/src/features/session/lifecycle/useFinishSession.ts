@@ -15,6 +15,7 @@ import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { buildUserContext } from '@/lib/account'
 import { useStableMutationRequest } from '@/lib/useStableMutationRequest'
 import type { FinishReflection } from './FinishWorkoutSheet'
+import { pendingWorkoutDrafts, workoutDraftsKey, workoutMemoryKey, type WorkoutDrafts } from '../focus/workout-drafts'
 
 export function useFinishSession(
   user: User,
@@ -26,8 +27,10 @@ export function useFinishSession(
   const queryClient = useQueryClient()
   const request = useStableMutationRequest()
 
-  const goToSummary = () =>
+  const goToSummary = () => {
+    queryClient.removeQueries({ queryKey: workoutMemoryKey(userId, sessionId) })
     router.replace({ pathname: '/session/[sessionId]/summary', params: { sessionId } })
+  }
 
   const mutation = useMutation({
     mutationKey: ['finishSession', sessionId],
@@ -35,6 +38,8 @@ export function useFinishSession(
     mutationFn: (reflection: FinishReflection) => {
       const current = queryClient.getQueryData<WorkoutSession>(accountQueryKeys.session(userId, sessionId)) ?? session
       if (hasUnsettledSessionSets(current)) throw new Error('Save or retry all sets before finishing.')
+      const drafts = queryClient.getQueryData<WorkoutDrafts>(workoutDraftsKey(userId, sessionId))
+      if (pendingWorkoutDrafts(current, drafts).length) throw new Error('Save or reset your set edits before finishing.')
       const notes = notesDraft.trim() || null
       return finishSession(buildUserContext(user), {
         sessionId,
