@@ -37,7 +37,7 @@ export function LockedInsightCard({
         </Badge>
       </div>
 
-      <GhostChart />
+      <GhostChart shape={gate.id === 'strength_trend' ? 'line' : 'bars'} />
 
       <div className="mt-3 flex items-start gap-2">
         <Lock size={13} color="var(--mantine-color-dimmed)" className="mt-0.5 shrink-0" />
@@ -60,13 +60,37 @@ export function LockedInsightCard({
 
 /**
  * A muted stand-in for the chart that will appear here. Deliberately inert and unlabelled — it
- * shows the shape of what's coming without implying any of these numbers are real.
+ * shows the shape of what's coming without implying any of these numbers are real, which is why it
+ * follows the real chart's shape: a bar ghost under a card that will draw a line sets the wrong
+ * expectation.
  */
-function GhostChart() {
-  const bars = [38, 52, 45, 63, 58, 72]
+function GhostChart({ shape }: { shape: 'line' | 'bars' }) {
+  const heights = [38, 52, 45, 63, 58, 72]
+
+  if (shape === 'line') {
+    const points = heights.map((height, index) => `${(index / (heights.length - 1)) * 100},${100 - height}`).join(' ')
+    return (
+      <svg
+        aria-hidden="true"
+        className="mt-3 h-20 w-full opacity-55"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        <polyline
+          points={points}
+          fill="none"
+          stroke="var(--vf-action-text)"
+          strokeWidth="2"
+          strokeDasharray="5 5"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+    )
+  }
+
   return (
     <div aria-hidden="true" className="mt-3 flex h-20 items-end gap-1.5 opacity-40">
-      {bars.map((height, index) => (
+      {heights.map((height, index) => (
         <div
           key={index}
           className="flex-1 rounded-sm"

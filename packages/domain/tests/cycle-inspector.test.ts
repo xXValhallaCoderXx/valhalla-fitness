@@ -162,3 +162,73 @@ describe('buildCycleInspector', () => {
     expect(without.projections[0].projected).toBeNull()
   })
 })
+
+describe('projected training maxes', () => {
+  const state = (over: Record<string, unknown> = {}) =>
+    ({
+      movementId: 'squat',
+      movementName: 'Squat',
+      stateKey: 'squat_training_max',
+      stateType: 'training_max',
+      value: 130,
+      units: 'kg',
+      startValue: 120,
+      ...over,
+    }) as never
+
+  it('projects the standard band and names the rule that writes it', () => {
+    const model = buildCycleInspector({
+      definition: definition(),
+      weekNumber: 3,
+      totalWeeks: 4,
+      stateValues: [state()],
+      decisions: [],
+      rounding: 2.5,
+      topSetReps: 1,
+    })
+
+    const [projection] = model.trainingMaxProjections
+    expect(projection.current).toBe(130)
+    // A lower-body lift takes the +5 standard step.
+    expect(projection.projected).toBe(135)
+    expect(projection.ruleId).toBe('training_max_standard')
+  })
+
+  it('is a training max, not the heaviest top set ahead', () => {
+    const model = buildCycleInspector({
+      definition: definition(),
+      weekNumber: 3,
+      totalWeeks: 4,
+      stateValues: [state()],
+      decisions: [],
+      projectedByMovement: { squat: 123.5 },
+      rounding: 2.5,
+    })
+    // The two sections answer different questions and must not collapse into one number.
+    expect(model.projections[0].projected).toBe(123.5)
+    expect(model.trainingMaxProjections[0].projected).not.toBe(123.5)
+  })
+
+  it('declines to project a working load', () => {
+    const model = buildCycleInspector({
+      definition: definition(),
+      weekNumber: 1,
+      totalWeeks: 4,
+      stateValues: [state({ stateType: 'working_load', stateKey: 'row_working_load' })],
+      decisions: [],
+      rounding: 2.5,
+    })
+    expect(model.trainingMaxProjections[0]).toMatchObject({ projected: null, ruleId: null })
+  })
+
+  it('declines to project without a rounding increment', () => {
+    const model = buildCycleInspector({
+      definition: definition(),
+      weekNumber: 1,
+      totalWeeks: 4,
+      stateValues: [state()],
+      decisions: [],
+    })
+    expect(model.trainingMaxProjections[0].projected).toBeNull()
+  })
+})

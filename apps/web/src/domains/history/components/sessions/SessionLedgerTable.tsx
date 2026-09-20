@@ -96,9 +96,20 @@ function LedgerRow({
       <Td>
         <div className="flex items-center gap-2">
           <Text size="sm" fw={800} truncate>{row.title}</Text>
-          {row.isPr ? <Trophy size={13} color="var(--vf-accent-text)" aria-label="Personal best" /> : null}
+          {/* `role="img"`: an <svg> carrying only aria-label is not reliably exposed as an element.
+              "Favourite workout" and not "Favourite" — the modal has a *button* by that name, and
+              this star is a state flag on the workout lineage, not an action on this session. */}
+          {row.isPr ? (
+            <Trophy size={13} color="var(--vf-accent-text)" role="img" aria-label="Personal best" />
+          ) : null}
           {row.entry.isFavorite ? (
-            <Star size={12} fill="var(--vf-accent-text)" color="var(--vf-accent-text)" aria-label="Favourite" />
+            <Star
+              size={12}
+              fill="var(--vf-accent-text)"
+              color="var(--vf-accent-text)"
+              role="img"
+              aria-label="Favourite workout"
+            />
           ) : null}
           {row.entry.isAdHoc ? <Badge color="accent" variant="light" size="xs">{AD_HOC_BADGE_LABEL}</Badge> : null}
           {row.entry.hardness ? <Badge color={color} variant="light" size="xs">{row.entry.hardness}</Badge> : null}

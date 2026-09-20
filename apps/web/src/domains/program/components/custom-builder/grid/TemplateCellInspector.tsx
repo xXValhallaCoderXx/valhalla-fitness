@@ -1,7 +1,13 @@
 import { Badge } from '@mantine/core'
-import { templateSetRows, type TemplateGridCell, type TemplateGridRow } from '~/domains/program/lib/template-grid'
+import {
+  templateSetRows,
+  type TemplateGridCell,
+  type TemplateGridColumn,
+  type TemplateGridRow,
+} from '~/domains/program/lib/template-grid'
 import { Caption, FormulaChip, Panel, SectionLabel, Text } from '~/components'
 import type { Unit } from '~/shared/types'
+import { TemplateCellSetsTable } from './TemplateCellSetsTable'
 
 /**
  * One cell, all the way down: its sets, the formula behind the selected one, and the DSL fragment
@@ -13,6 +19,7 @@ import type { Unit } from '~/shared/types'
 export function TemplateCellInspector({
   cell,
   row,
+  column,
   rounding,
   units,
   stateValues,
@@ -20,6 +27,8 @@ export function TemplateCellInspector({
 }: {
   cell: TemplateGridCell
   row: TemplateGridRow
+  /** The week this cell sits in — the comp names it in the title, and it carries the phase. */
+  column: TemplateGridColumn | null
   rounding: number
   units: Unit
   stateValues: Record<string, number>
@@ -45,30 +54,18 @@ export function TemplateCellInspector({
       <div>
         <SectionLabel>Cell</SectionLabel>
         <Text mt={2} size="sm" fw={800} className="font-mono">{cell.address}</Text>
+        <Text mt={1} size="sm" fw={800}>
+          {row.movementName}
+          {column ? ` · ${column.label}` : ''}
+        </Text>
         <Caption mt={1}>
-          {row.movementName} · {row.role}
+          {row.role}
           {row.progressionRuleId ? ` · ${row.progressionRuleId}` : ''}
+          {column ? ` · ${column.phaseLabel} · ${column.hardness}` : ''}
         </Caption>
       </div>
 
-      <div>
-        <SectionLabel className="mb-2">Sets</SectionLabel>
-        <div className="flex flex-col">
-          {rows.map((entry) => (
-            <div
-              key={entry.label}
-              className="flex items-baseline justify-between gap-3 border-t py-2 first:border-t-0 first:pt-0"
-              style={{ borderColor: 'var(--mantine-color-default-border)' }}
-            >
-              <Caption className="w-10 shrink-0">{entry.label}</Caption>
-              <Caption className="min-w-0 flex-1">{entry.target}</Caption>
-              <Text component="span" size="xs" fw={800} style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {entry.formula.result === null ? '—' : `${entry.formula.result} ${units}`}
-              </Text>
-            </div>
-          ))}
-        </div>
-      </div>
+      <TemplateCellSetsTable rows={rows} units={units} />
 
       {showFormulas && topFormula ? (
         <div>

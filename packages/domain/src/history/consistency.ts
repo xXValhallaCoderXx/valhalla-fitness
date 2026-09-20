@@ -94,3 +94,30 @@ export function streakBadgeLabel(consistency: ConsistencySummary | null | undefi
   if (weeks < STREAK_BADGE_MIN_WEEKS) return null
   return `${weeks}-week streak 🔥`
 }
+
+export type PlannedConsistency = ConsistencySummary & {
+  /** Sessions a week the active programme asks for; null without one. */
+  plannedPerWeek: number | null
+  /** What was done as a percentage of what was planned; null without a plan. */
+  adherencePercent: number | null
+}
+
+/**
+ * The plan's target joined to what actually happened.
+ *
+ * `plannedPerWeek` is *today's* programme. A plan changed mid-range makes this a comparison against
+ * the current target rather than the one in force at the time — which is the reading a lifter wants
+ * ("am I keeping up with this plan?"), but it is worth saying out loud where it is displayed.
+ */
+export function joinPlannedConsistency(
+  consistency: ConsistencySummary,
+  plannedPerWeek: number | null,
+): PlannedConsistency {
+  const planned = plannedPerWeek !== null && plannedPerWeek > 0 ? plannedPerWeek : null
+  const actual = consistency.avgSessionsPerWeek
+  return {
+    ...consistency,
+    plannedPerWeek: planned,
+    adherencePercent: planned === null || actual === null ? null : Math.round((actual / planned) * 100),
+  }
+}

@@ -1,20 +1,24 @@
-import { Badge, Switch } from '@mantine/core'
 import { useMemo, useState } from 'react'
 import {
   buildTemplateGrid,
+  templateDefinitionChecks,
+  templateGridCellValue,
+  templateGridStateValues,
+  templatePrescriptionFormula,
   templateSetFormula,
-  templateSetRows,
 } from '~/domains/program/lib/template-grid'
 import { builderLabel } from '~/domains/program/lib/builder-labels'
 import { setupOneRepMaxResolver } from '~/domains/program/lib/setup-lift-rows'
-import { mround } from '~/domains/program/lib/progression'
 import type { UserProfile } from '~/domains/account'
 import type { CustomProgramBuilderInput } from '~/domains/program/lib/custom-program-meta'
 import { useExperienceMode } from '~/domains/account/components'
-import { Caption, FormulaChip, Panel, SectionLabel, Text } from '~/components'
+import { Caption, Panel, SectionLabel } from '~/components'
 import { useDraftDefinition } from '../useDraftDefinition'
 import { TemplateCellInspector } from './TemplateCellInspector'
+import { TemplateFormulaBar } from './TemplateFormulaBar'
+import { TemplateGridHeader } from './TemplateGridHeader'
 import { TemplateGridTable } from './TemplateGridTable'
+import { TemplateRequiredStateRow } from './TemplateRequiredStateRow'
 import { TemplateValidationPanel } from './TemplateValidationPanel'
 
 /**
@@ -41,14 +45,11 @@ export function TemplateGridSection({
   // The same anchor resolution setup uses, so the grid's loads are the ones a lifter would get.
   const stateValues = useMemo(() => {
     if (!definition || !profile) return {}
-    const resolve = setupOneRepMaxResolver({ liftSeries: null, defaults: profile.programStateDefaults })
-    const values: Record<string, number> = {}
-    for (const state of definition.requiredState) {
-      const oneRepMax = resolve(state.movementId)
-      if (oneRepMax === null) continue
-      values[state.key] = state.type === 'training_max' ? mround(oneRepMax * 0.9, rounding) : mround(oneRepMax * 0.75, rounding)
-    }
-    return values
+    return templateGridStateValues({
+      definition,
+      resolveOneRepMax: setupOneRepMaxResolver({ liftSeries: null, defaults: profile.programStateDefaults }),
+      rounding,
+    })
   }, [definition, profile, rounding])
 
   const grid = useMemo(() => (definition ? buildTemplateGrid(definition) : null), [definition])
@@ -66,91 +67,63 @@ export function TemplateGridSection({
 
   const selectedCell = selected ? grid.cells[selected] ?? null : null
   const selectedRow = selectedCell ? grid.rows.find((row) => row.key === selectedCell.rowKey) ?? null : null
-  const rowFor = (address: string) => {
-    const cell = grid.cells[address]
-    return cell ? grid.rows.find((row) => row.key === cell.rowKey) ?? null : null
-  }
+  const selectedColumn = selectedCell
+    ? grid.columns.find((column) => column.weekIndex === selectedCell.weekIndex) ?? null
+    : null
+  const cellValue = (address: string) => templateGridCellValue({ grid, address, rounding, units, stateValues })
 
-  const cellValue = (address: string) => {
-    const cell = grid.cells[address]
-    const row = rowFor(address)
-    if (!cell?.prescription || !row) return { primary: '—', secondary: null }
-    const rows = templateSetRows({
-      prescription: cell.prescription,
-      slot: { movementId: row.movementId, anchorMovementId: row.anchorMovementId ?? undefined },
-      rounding,
-      stateValues,
-    })
-    const top = rows.find((entry) => entry.formula.result !== null) ?? rows[0]
-    if (!top) return { primary: '—', secondary: null }
-    if (showFormulas) return { primary: top.formula.expression, secondary: cell.prescription.targetSummary }
-    return {
-      primary: top.formula.result === null ? top.target : `${top.formula.result} ${units}`,
-      secondary: cell.prescription.targetSummary,
-    }
-  }
-
-  const formulaBar = selectedCell && selectedRow
-    ? templateSetFormula({
-        set: selectedCell.prescription?.sets[0] ?? {},
-        slot: { movementId: selectedRow.movementId, anchorMovementId: selectedRow.anchorMovementId ?? undefined },
-        rounding,
-        stateValues,
-      })
+  // The bar states the whole cell where it can: a wave is three percentages of one state, and
+  // printing only the first says a third of the truth. `templateSetFormula` is the fallback for
+  // prescriptions with nothing to collapse.
+  const slot = selectedRow
+    ? { movementId: selectedRow.movementId, anchorMovementId: selectedRow.anchorMovementId ?? undefined }
+    : null
+  const expression = selectedCell?.prescription && slot
+    ? templatePrescriptionFormula({ prescription: selectedCell.prescription, slot, rounding, stateValues })
+      ?? templateSetFormula({ set: selectedCell.prescription.sets[0] ?? {}, slot, rounding, stateValues }).expression
     : null
 
   return (
     <section className="mt-6">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <SectionLabel>{builderLabel('gridHeading', mode)}</SectionLabel>
-          <Badge color="neutral" variant="light" size="xs">{builderLabel('seededFromWizard', mode)}</Badge>
-          <Caption>
-            {definition.durationWeeks} week{definition.durationWeeks === 1 ? '' : 's'} ·{' '}
-            {definition.daysPerWeek} day{definition.daysPerWeek === 1 ? '' : 's'} · read-only
-          </Caption>
-        </div>
-        <Switch
-          size="xs"
-          checked={showFormulas}
-          label="Formulas"
-          onChange={(event) => setShowFormulas(event.currentTarget.checked)}
-        />
-      </div>
+      <TemplateGridHeader
+        name={draft.name}
+        heading={builderLabel('gridHeading', mode)}
+        seededLabel={builderLabel('seededFromWizard', mode)}
+        durationWeeks={definition.durationWeeks}
+        daysPerWeek={definition.daysPerWeek}
+        valid={templateDefinitionChecks(definition).valid}
+        showFormulas={showFormulas}
+        onShowFormulasChange={setShowFormulas}
+      />
 
-      {/* The formula bar names the selected cell, the way a spreadsheet's does. */}
-      <Panel p="xs" className="mb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Text component="span" size="xs" fw={800} className="font-mono" tone="dimmed">fx</Text>
-          <Text component="span" size="xs" fw={800} className="font-mono">
-            {selectedCell?.address ?? 'select a cell'}
-          </Text>
-          {formulaBar ? <FormulaChip tone="muted">{formulaBar.expression}</FormulaChip> : null}
-        </div>
-      </Panel>
+      <TemplateFormulaBar address={selectedCell?.address ?? null} expression={expression} />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
-        <Panel p="xs" className="min-w-0">
-          <TemplateGridTable
-            grid={grid}
-            showFormulas={showFormulas}
-            cellValue={cellValue}
-            selectedAddress={selected}
-            onSelect={setSelected}
-          />
-        </Panel>
+        <div className="min-w-0">
+          <Panel p="xs" className="min-w-0">
+            <TemplateGridTable
+              grid={grid}
+              showFormulas={showFormulas}
+              cellValue={cellValue}
+              selectedAddress={selected}
+              onSelect={setSelected}
+            />
+          </Panel>
+          <TemplateRequiredStateRow definition={definition} stateValues={stateValues} units={units} />
+        </div>
         <div className="flex flex-col gap-4">
           {selectedCell && selectedRow ? (
             <TemplateCellInspector
               cell={selectedCell}
               row={selectedRow}
+              column={selectedColumn}
               rounding={rounding}
               units={units}
               stateValues={stateValues}
               showFormulas={showFormulas}
             />
           ) : null}
-          <TemplateValidationPanel definition={definition} stateValues={stateValues} units={units} />
+          <TemplateValidationPanel definition={definition} />
         </div>
       </div>
     </section>

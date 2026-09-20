@@ -27,7 +27,9 @@ function walk(directory) {
     // Dot-dirs (.git, .expo, .claude, …) are tool state, never product docs —
     // except .github, which carries required agent instructions.
     if (name.startsWith('.') && name !== '.github') return []
-    if (['node_modules', 'dist', 'test-results', 'playwright-report'].includes(name)) return []
+    // Gitignored working directories (.gitignore): design comps and scratch assets live here and
+    // carry their own notes, which are not product documentation.
+    if (['node_modules', 'dist', 'test-results', 'playwright-report', 'references', 'dev-assets'].includes(name)) return []
     const path = join(directory, name)
     return statSync(path).isDirectory() ? walk(path) : [path]
   })

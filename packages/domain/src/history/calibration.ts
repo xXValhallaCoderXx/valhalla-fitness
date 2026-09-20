@@ -27,6 +27,7 @@ export const calibrationSignalLabels: Record<CalibrationSignal, string> = {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const WEEK_MS = 7 * DAY_MS
 
 type PairedSample = {
   time: number
@@ -130,4 +131,45 @@ function classifyRirFatigue(weekly: WeeklyRirSample[]): RirFatigueSignal {
   )
   const drop = trailing[0].meanActualRir - trailing[trailing.length - 1].meanActualRir
   return strictlyFalling && drop >= RIR_TREND_DROP ? 'fatigue_rising' : 'clear'
+}
+
+export type RirComparison = {
+  /** Mean logged RIR this calendar week; null when nothing paired was logged. */
+  current: number | null
+  previous: number | null
+  /** What the plan asked for, derived from the gap. Null when there is no week to derive it from. */
+  target: number | null
+}
+
+/**
+ * This week's effort against last week's.
+ *
+ * Anchored to the calendar like `weekOverWeekTotals`, not to array position — the weekly samples
+ * only exist for weeks with paired sets, so "the previous entry" could be a month ago.
+ *
+ * `target` is `meanActualRir − meanGap`: target RIR varies per set, so the only honest single
+ * number is the one the gap was measured against. Null rather than a guess when neither week has
+ * paired data.
+ */
+export function weeklyRirComparison(weekly: WeeklyRirSample[], now: string): RirComparison | null {
+  const nowDate = parseDate(now)
+  if (!nowDate) return null
+  const currentKey = formatDateKey(startOfWeek(nowDate))
+  const previousKey = formatDateKey(new Date(startOfWeek(nowDate).getTime() - WEEK_MS))
+
+  const find = (key: string) => weekly.find((sample) => sample.weekStart === key) ?? null
+  const current = find(currentKey)
+  const previous = find(previousKey)
+  if (!current && !previous) return null
+
+  const anchor = current ?? previous
+  return {
+    current: current ? round(current.meanActualRir) : null,
+    previous: previous ? round(previous.meanActualRir) : null,
+    target: anchor ? round(anchor.meanActualRir - anchor.meanGap) : null,
+  }
+}
+
+function round(value: number): number {
+  return Math.round(value * 10) / 10
 }

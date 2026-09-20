@@ -15,6 +15,7 @@ import {
 } from '@sheetless/domain/shared/calendar-date'
 import { ensureProfile } from '../account/profile'
 import {
+  getAcceptedDecisions,
   getActiveProgram,
   getPendingDecisions,
   updateProgramCurrentWeekIndex,
@@ -91,11 +92,24 @@ export async function getToday(ctx: UserContext, timeZone?: string | null): Prom
     ),
     timeZone: resolvedTimeZone,
   }
-  const pendingDecisions = await getPendingDecisions(ctx, activeProgram.id)
-  const { data: lastLogged, error: lastLoggedError } = await supabase.from('workout_sessions')
-    .select('scheduled_date').eq('user_id', user.id).eq('status', 'completed')
-    .order('scheduled_date', { ascending: false }).limit(1).maybeSingle()
-  if (lastLoggedError) throw new Error(lastLoggedError.message)
+  const [pendingDecisions, acceptedDecisions, lastLoggedResult] = await Promise.all([
+    getPendingDecisions(ctx, activeProgram.id),
+    getAcceptedDecisions(ctx, activeProgram.id),
+    supabase.from('workout_sessions')
+      .select('id, scheduled_date').eq('user_id', user.id).eq('status', 'completed')
+      .order('scheduled_date', { ascending: false }).order('completed_at', { ascending: false })
+      .limit(1).maybeSingle(),
+  ])
+  if (lastLoggedResult.error) throw new Error(lastLoggedResult.error.message)
+  const lastLogged = lastLoggedResult.data
+
+  // The Today card wants the last workout whenever it happened, while `completedSession` is
+  // scoped to today. When they are the same row, reuse it rather than reading it twice.
+  const lastCompletedSession = !lastLogged?.id
+    ? null
+    : completedSession?.sessionId === lastLogged.id
+      ? completedSession
+      : await getSession(ctx, lastLogged.id)
 
   return {
     activeProgram,
@@ -103,7 +117,9 @@ export async function getToday(ctx: UserContext, timeZone?: string | null): Prom
     plannedSession,
     activeSession,
     completedSession,
+    lastCompletedSession,
     pendingDecisions,
+    acceptedDecisions,
   }
 }
 

@@ -37,7 +37,18 @@ export const historySearchInputStyles = {
   },
 }
 
-export function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+export function FilterChip({
+  label,
+  active,
+  onClick,
+  capitalize = false,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+  /** For machine-shaped values ("medium", "upper_body"); written labels are already cased. */
+  capitalize?: boolean
+}) {
   return (
     <button
       type="button"
@@ -49,7 +60,13 @@ export function FilterChip({ label, active, onClick }: { label: string; active: 
         border: `1px solid ${active ? 'var(--vf-action-border)' : 'var(--mantine-color-default-border)'}`,
       }}
     >
-      <Text component="span" size="xs" fw={700} tt="capitalize" c={active ? 'var(--vf-action-text)' : 'var(--mantine-color-dimmed)'}>
+      <Text
+        component="span"
+        size="xs"
+        fw={700}
+        tt={capitalize ? 'capitalize' : undefined}
+        c={active ? 'var(--vf-action-text)' : 'var(--mantine-color-dimmed)'}
+      >
         {label}
       </Text>
     </button>

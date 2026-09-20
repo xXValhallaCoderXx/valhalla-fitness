@@ -40,7 +40,7 @@ test('start page switches schedule variant and swaps the programme structure', a
 
   // The header + schedule now reflect the 5-day programme.
   await expect(page.getByRole('heading', { name: 'Power + Hypertrophy PPL' })).toBeVisible()
-  await expect(page.getByText('5 days/wk').first()).toBeVisible()
+  await expect(page.getByText(/5 days a week/).first()).toBeVisible()
 })
 
 test("a card's info button explains the methodology", async ({ page }) => {
@@ -59,9 +59,19 @@ test('level + goal filters narrow the catalogue', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Powerbuilding' })).toBeVisible()
 
   // Filtering to Beginner drops the all-Intermediate Powerbuilding family; the beginner family stays.
+  // The level filter is a Mantine Select: the control is a combobox, its items are options. Retry
+  // opening it (hydration), but never re-click once open — a second click closes the dropdown.
+  const level = page.getByRole('combobox', { name: 'Experience level' })
+  const beginner = page.getByRole('option', { name: 'Beginner', exact: true })
   await expect(async () => {
-    await page.getByRole('button', { name: 'Beginner', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Powerbuilding' })).toHaveCount(0, { timeout: 1000 })
+    await level.click()
+    await expect(beginner).toBeVisible({ timeout: 1000 })
   }).toPass({ timeout: 15000 })
+  await beginner.click()
+
+  await expect(page.getByRole('heading', { name: 'Powerbuilding' })).toHaveCount(0, { timeout: 5000 })
   await expect(page.getByRole('heading', { name: 'Beginner Linear Strength' })).toBeVisible()
+
+  // The count beside the filters reflects what is actually shown, not the whole library.
+  await expect(page.getByText(/^\d+ programmes?$/)).toBeVisible()
 })

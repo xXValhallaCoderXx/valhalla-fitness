@@ -121,6 +121,8 @@ export type TemplateSetFormula = {
   result: number | null
   /** The programme state this set reads, when it reads one. */
   stateKey: string | null
+  /** That state as the design writes it — `TM_squat`, `WL_row`. */
+  stateLabel: string | null
 }
 
 /**
@@ -142,16 +144,16 @@ export function templateSetFormula({
 }): TemplateSetFormula {
   const load = set.targetLoad
   if (!load || load.kind === 'user_selected') {
-    return { expression: 'you choose the weight', substituted: null, result: null, stateKey: null }
+    return { expression: 'you choose the weight', substituted: null, result: null, stateKey: null, stateLabel: null }
   }
   if (load.kind === 'fixed') {
-    return { expression: `${load.kg} kg`, substituted: null, result: load.kg, stateKey: null }
+    return { expression: `${load.kg} kg`, substituted: null, result: load.kg, stateKey: null, stateLabel: null }
   }
 
   const movementId = movementIdsForSlot(slot.movementId)[0] ?? ''
   const stateKey = referencedStateKey(load, movementId, slot.anchorMovementId ?? movementId)
   if (!stateKey) {
-    return { expression: 'entered when you train', substituted: null, result: null, stateKey: null }
+    return { expression: 'entered when you train', substituted: null, result: null, stateKey: null, stateLabel: null }
   }
   const name = stateKeyLabel(stateKey, load.stateType)
   const value = stateValues[stateKey] ?? null
@@ -162,19 +164,92 @@ export function templateSetFormula({
       substituted: value === null ? null : `=${traceNumber(value)}`,
       result: value,
       stateKey,
+      stateLabel: name,
     }
   }
 
   const percent = load.default === 'high' && load.percentMax ? load.percentMax : load.percent
   const expression = `=MROUND(${name} × ${traceNumber(percent)}, ${traceNumber(rounding)})`
-  if (value === null) return { expression, substituted: null, result: null, stateKey }
+  if (value === null) return { expression, substituted: null, result: null, stateKey, stateLabel: name }
   const result = mround(value * percent, rounding)
   return {
     expression,
     substituted: `=MROUND(${traceNumber(value)} × ${traceNumber(percent)}, ${traceNumber(rounding)})`,
     result,
     stateKey,
+    stateLabel: name,
   }
+}
+
+/**
+ * One expression for a whole prescription, for the grid's formula bar.
+ *
+ * `templateSetFormula` explains a single set, which is right in the inspector but wrong in a bar
+ * that names a cell: a wave cell is three percentages of one state, and printing only the first
+ * ("=MROUND(TM_squat × 0.75, 2.5)") states a third of the truth. This collapses the ramp into a
+ * vector and appends what the sets actually ask for.
+ *
+ * Returns null when the prescription has no percentage-driven sets to collapse — the caller falls
+ * back to the single-set form.
+ */
+export function templatePrescriptionFormula({
+  prescription,
+  slot,
+  rounding,
+  stateValues = {},
+}: {
+  prescription: TemplatePrescriptionDefinition
+  slot: Pick<TemplateSlotDefinition, 'movementId' | 'anchorMovementId'>
+  rounding: number
+  stateValues?: Record<string, number>
+}): string | null {
+  const working = prescription.sets.filter((set) => !set.isBackoff)
+  if (!working.length) return null
+
+  const percents: string[] = []
+  const reps: string[] = []
+  let stateName: string | null = null
+  for (const set of working) {
+    const load = set.targetLoad
+    if (load?.kind !== 'percent_of_state') return null
+    const name = templateSetFormula({ set, slot, rounding, stateValues }).stateLabel
+    if (!name) return null
+    if (stateName && stateName !== name) return null
+    stateName = name
+    const percent = load.default === 'high' && load.percentMax ? load.percentMax : load.percent
+    percents.push(traceNumber(percent))
+    reps.push(`${repLabel(set) ?? '—'}${set.isAmrap ? '+' : ''}`)
+  }
+  if (!stateName) return null
+
+  const head = percents.length > 1
+    ? `=MROUND(${stateName} × {${percents.join(', ')}}, ${traceNumber(rounding)})`
+    : `=MROUND(${stateName} × ${percents[0]}, ${traceNumber(rounding)})`
+
+  const tail: string[] = [`reps {${reps.join(', ')}}`]
+  const top = working.find((set) => set.isTopSet)
+  if (top?.targetRir !== null && top?.targetRir !== undefined) tail.push(`top set RIR ${top.targetRir}`)
+  const backoff = prescription.sets.filter((set) => set.isBackoff)
+  if (backoff.length) {
+    const load = backoff[0].targetLoad
+    const percent = load?.kind === 'percent_of_state' ? traceNumber(load.percent) : null
+    const label = repLabel(backoff[0])
+    tail.push(
+      percent
+        ? `back-off ${backoff.length} × ${label ?? '—'} @ ${percent}`
+        : `back-off ${backoff.length} × ${label ?? '—'}`,
+    )
+  }
+
+  return `${head} · ${tail.join(' · ')}`
+}
+
+function repLabel(set: TemplateSetDefinition): string | null {
+  if (set.targetReps !== undefined) return String(set.targetReps)
+  if (set.targetRepMin !== undefined && set.targetRepMax !== undefined) {
+    return `${set.targetRepMin}–${set.targetRepMax}`
+  }
+  return set.targetRepMin !== undefined ? String(set.targetRepMin) : null
 }
 
 export type TemplateSetRow = {
@@ -185,6 +260,8 @@ export type TemplateSetRow = {
   formula: TemplateSetFormula
   /** Index of the first set this row covers, for selecting it. */
   setIndex: number
+  /** The set the week is built around — highlighted in the inspector, quoted in the grid. */
+  isTopSet: boolean
 }
 
 /**
@@ -213,7 +290,7 @@ export function templateSetRows({
       previous.label = `${previous.setIndex + 1}–${index + 1}`
       continue
     }
-    rows.push({ label: String(index + 1), target, formula, setIndex: index })
+    rows.push({ label: String(index + 1), target, formula, setIndex: index, isTopSet: Boolean(set.isTopSet) })
   }
   return rows
 }
@@ -243,6 +320,108 @@ export function templateSetTarget(set: TemplateSetDefinition): string {
 
   const head = parts.join(' ') || set.label || 'as prescribed'
   return flags.length ? `${head} · ${flags.join(' · ')}` : head
+}
+
+/**
+ * The programme-state values the grid resolves its loads against.
+ *
+ * A template declares the states it needs; the lifter's anchors say what those states are worth
+ * today. `resolveOneRepMax` is passed in rather than imported so this stays a pure arrangement of
+ * two things the caller already has — typically `setupOneRepMaxResolver`, so the grid's numbers are
+ * the same ones setup would show.
+ */
+export function templateGridStateValues({
+  definition,
+  resolveOneRepMax,
+  rounding,
+  trainingMaxPercent = 0.9,
+  workingLoadPercent = 0.75,
+}: {
+  definition: TemplateDefinition
+  resolveOneRepMax: (movementId: string) => number | null
+  rounding: number
+  trainingMaxPercent?: number
+  workingLoadPercent?: number
+}): Record<string, number> {
+  const values: Record<string, number> = {}
+  for (const state of definition.requiredState) {
+    const oneRepMax = resolveOneRepMax(state.movementId)
+    if (oneRepMax === null) continue
+    const percent = state.type === 'training_max' ? trainingMaxPercent : workingLoadPercent
+    values[state.key] = mround(oneRepMax * percent, rounding)
+  }
+  return values
+}
+
+export type TemplateGridCellValue = {
+  /** "95 % × 1+ · top · RIR 2" — what the template asks for. Null when the week declares nothing. */
+  target: string | null
+  /** "=MROUND(TM_squat × 0.95, 2.5)" — how the load is worked out. */
+  formula: string | null
+  /** "122.5 kg" — what it resolves to, once the lifter has the state it reads. */
+  value: string | null
+}
+
+/**
+ * What one cell says: the target, the formula behind it, and the load it comes to.
+ *
+ * The cell quotes its *top set* — the one the week is built around. A wave's opening warm-up is the
+ * same 65 % in every week and says nothing about which week you are looking at. With no top set
+ * declared it falls back to the first set that resolves, so a prescription whose leading sets are
+ * user-chosen still renders something.
+ */
+export function templateGridCellValue({
+  grid,
+  address,
+  rounding,
+  units,
+  stateValues = {},
+}: {
+  grid: TemplateGrid
+  address: string
+  rounding: number
+  units: string
+  stateValues?: Record<string, number>
+}): TemplateGridCellValue {
+  const empty: TemplateGridCellValue = { target: null, formula: null, value: null }
+  const cell = grid.cells[address]
+  const row = cell ? grid.rows.find((entry) => entry.key === cell.rowKey) ?? null : null
+  if (!cell?.prescription || !row) return empty
+
+  const rows = templateSetRows({
+    prescription: cell.prescription,
+    slot: { movementId: row.movementId, anchorMovementId: row.anchorMovementId ?? undefined },
+    rounding,
+    stateValues,
+  })
+  const headline = rows.find((entry) => entry.isTopSet)
+    ?? rows.find((entry) => entry.formula.result !== null)
+    ?? rows[0]
+  if (!headline) return empty
+
+  return {
+    target: headline.target,
+    formula: headline.formula.expression,
+    value: headline.formula.result === null ? null : `${headline.formula.result} ${units}`,
+  }
+}
+
+/**
+ * The programme state a row reads — `TM_squat`, `WL_row` — or null when it prescribes no loads.
+ *
+ * Scans the row's own cells rather than the slot, because the state type is a property of the
+ * prescription's loads, not of the movement.
+ */
+export function templateRowStateLabel(grid: TemplateGrid, row: TemplateGridRow): string | null {
+  const slot = { movementId: row.movementId, anchorMovementId: row.anchorMovementId ?? undefined }
+  for (const column of grid.columns) {
+    const cell = grid.cells[templateCellAddress(row.sessionId, row.slotId, column.weekIndex)]
+    for (const set of cell?.prescription?.sets ?? []) {
+      const { stateLabel } = templateSetFormula({ set, slot, rounding: 1 })
+      if (stateLabel) return stateLabel
+    }
+  }
+  return null
 }
 
 export type TemplateCheck = {

@@ -54,12 +54,13 @@ export function StartingNumbersStep({
       />
 
       {isFull ? (
-        <Panel p="md">
-          <SectionLabel>How these were worked out</SectionLabel>
-          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+        <>
+          {/* The comp gives each constant its own card rather than a labelled panel — they are
+              inputs to the number above, not a footnote about it. */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {hasTrainingMaxState ? (
-              <div>
-                <Caption>{setupLabel('percentControl', mode)}</Caption>
+              <Panel p="sm">
+                <SectionLabel>{setupLabel('percentControl', mode)}</SectionLabel>
                 <NumberInput
                   mt={4}
                   size="xs"
@@ -73,10 +74,10 @@ export function StartingNumbersStep({
                     if (Number.isFinite(percent)) onTrainingMaxPercentChange(percent)
                   }}
                 />
-              </div>
+              </Panel>
             ) : null}
-            <div>
-              <Caption>{setupLabel('roundingControl', mode)}</Caption>
+            <Panel p="sm">
+              <SectionLabel>{setupLabel('roundingControl', mode)}</SectionLabel>
               <SegmentedControl
                 mt={4}
                 size="xs"
@@ -85,9 +86,9 @@ export function StartingNumbersStep({
                 data={roundingOptions}
                 onChange={(next) => onRoundingChange(Number(next))}
               />
-            </div>
-            <div>
-              <Caption>{setupLabel('unitsControl', mode)}</Caption>
+            </Panel>
+            <Panel p="sm">
+              <SectionLabel>{setupLabel('unitsControl', mode)}</SectionLabel>
               <SegmentedControl
                 mt={4}
                 size="xs"
@@ -99,13 +100,13 @@ export function StartingNumbersStep({
                 ]}
                 onChange={(next) => onUnitsChange(next as Unit)}
               />
-            </div>
+            </Panel>
           </div>
-          <Caption component="p" mt="sm" lh={1.5}>
+          <Caption component="p" lh={1.5}>
             These apply to this programme only — your profile defaults are untouched. Changing units
             converts the numbers above.
           </Caption>
-        </Panel>
+        </>
       ) : null}
     </div>
   )

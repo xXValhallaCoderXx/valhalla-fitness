@@ -6,9 +6,11 @@ import {
   accessoryMovementOptions,
   customBuilderDayTitle,
   mainWorkSummary,
+  weekDaySummary,
   variationSummary,
 } from '~/domains/program/lib/custom-builder-ui'
 import { MAX_ACCESSORIES_PER_DAY, type CustomProgramBuilderInput } from '~/domains/program/lib/custom-program-meta'
+import { useExperienceMode } from '~/domains/account/components'
 import { GuidanceList, issuesForScope } from './CustomBuilderGuidance'
 import { BuilderExerciseRow, BuilderNumberField, BuilderSelect, DeleteRowAction } from './CustomBuilderFields'
 
@@ -29,6 +31,8 @@ export function CustomAccessoriesStep({
   onAddAccessory: (sessionIndex: number) => void
   onRemoveAccessory: (sessionIndex: number, accessoryIndex: number) => void
 }) {
+  // Same split as the day cards on step 2: notation for Full, a short phrase for Guided.
+  const { isFull } = useExperienceMode()
   return (
     <div className="grid gap-3">
       {draft.sessions.map((session, sessionIndex) => {
@@ -40,7 +44,9 @@ export function CustomAccessoriesStep({
               <Text size="sm" fw={800}>{customBuilderDayTitle(sessionIndex, session.mainMovementId)}</Text>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Panel surface="panel" px="xs" py={4}>
-                  <Caption fw={600}>{mainWorkSummary(draft.methodology, session)}</Caption>
+                  <Caption fw={600}>
+                    {isFull ? mainWorkSummary(draft.methodology, session) : weekDaySummary(draft.methodology, session)}
+                  </Caption>
                 </Panel>
                 <Panel surface="panel" px="xs" py={4}>
                   <Caption fw={600}>Variation: {variationSummary(session)}</Caption>

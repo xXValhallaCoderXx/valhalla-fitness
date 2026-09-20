@@ -38,9 +38,17 @@ export const insightCardLabels = {
  * "Muscle fatigue". Everything on that screen now reads from here.
  */
 export const bodyLoadLabels = {
+  /** 09a titles the screen the same in both modes; only the *tab* is Muscles / Muscle fatigue. */
+  screenTitle: label('Muscle workload', 'Muscle workload'),
+  /**
+   * What the map is actually shading. The design says "weighted sets by region", but the shipped
+   * model is a share of a full week's load — naming the figure after a unit it is not would make
+   * every percentage on the screen read as a set count.
+   */
+  subtitleMetric: label('How hard each muscle worked', "Share of a full week's load, by region"),
   fatigueHeading: label('Recent muscle work', 'Muscle fatigue'),
   setsHeading: label('Sets each week', 'Weekly sets'),
-  fatigueToggle: label('Recent work', 'Fatigue'),
+  fatigueToggle: label('Recent work', 'Workload'),
   setsToggle: label('Weekly sets', 'Weekly sets'),
   fatigueRows: label('Most worked first', 'Affected regions · most to least'),
   setsRows: label('Most sets first', 'Sets per week · most to least'),

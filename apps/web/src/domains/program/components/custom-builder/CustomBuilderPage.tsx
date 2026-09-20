@@ -4,14 +4,18 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { EmptyState, Page, PageHeader } from '~/components'
+import { EmptyState, Page, ScreenHeader } from '~/components'
 import { useExperienceMode } from '~/domains/account/components'
 import { useRequiredAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { meQueryOptions } from '~/domains/account/queries'
 import type { AuthUser } from '~/domains/account/server/auth-functions'
 import { builderLabel } from '~/domains/program/lib/builder-labels'
 import { evaluateCustomProgramDraft, hasBlockingIssue } from '~/domains/program/lib/custom-builder-guidance'
-import { customBuilderStepsFor, type CustomBuilderStep } from '~/domains/program/lib/custom-builder-ui'
+import {
+  customBuilderStepSubtitle,
+  customBuilderStepsFor,
+  type CustomBuilderStep,
+} from '~/domains/program/lib/custom-builder-ui'
 import { createCustomProgramTemplateFn } from '~/domains/program/server/program-functions'
 import { getApiErrorMessage } from '~/shared/lib/api-error'
 import { accountQueryKeys } from '~/shared/lib/query-keys'
@@ -85,9 +89,11 @@ function AuthedCustomBuilder() {
 
   return (
     <Page className="max-w-[1400px] md:px-8 lg:px-10">
-      <PageHeader eyebrow="Programmes" title={builderLabel('title', mode)}>
-        Pick a main lift for each day. Sheetless fills in the sets and the rule for adding weight.
-      </PageHeader>
+      <ScreenHeader
+        eyebrow="Programmes › Create programme"
+        title={builderLabel('title', mode)}
+        subtitle={customBuilderStepSubtitle(step, draft.methodology)}
+      />
 
       <BuilderStepNavigation
         steps={steps}
@@ -106,7 +112,10 @@ function AuthedCustomBuilder() {
             profile={meQuery.data ?? null}
           />
 
-          <div className="mt-4 flex items-center justify-between gap-3">
+          <div
+            className="mt-5 flex items-center justify-between gap-3 border-t pt-4"
+            style={{ borderColor: 'var(--mantine-color-default-border)' }}
+          >
             <Button
               variant="default"
               disabled={mutation.isPending || currentStepIndex === 0}

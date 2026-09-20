@@ -1,32 +1,36 @@
-import { Button, TextInput } from '@mantine/core'
-import { Search } from 'lucide-react'
+import { Button } from '@mantine/core'
 import { useMemo, useState } from 'react'
 import {
   buildSessionLedgerRows,
   filterLedgerRows,
+  sessionLedgerTotals,
+  sessionsSubtitle,
   type LedgerFilter,
 } from '~/domains/history/lib/session-ledger'
 import { availableIntensities, hasAdHocSessions } from '~/domains/history/lib/insights'
+import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
+import type { HistoryDashboardWithInsights } from '~/domains/history'
+import type { ProgressionDecision } from '~/domains/program'
+import { Caption, EmptyState, InspectorLayout, Panel } from '~/components'
+import { useExperienceMode } from '~/domains/account/components'
+import { InsightTabHeader } from '../insights/InsightTabHeader'
+import { PendingDecisionsPanel } from '../sessions/PendingDecisionsPanel'
+import { SessionLedgerTable } from '../sessions/SessionLedgerTable'
+import { SessionTotalsPanel } from '../sessions/SessionTotalsPanel'
+import { SessionsToolbar } from '../sessions/SessionsToolbar'
 
 /** Rows rendered before "Show older"; the design shows a paged ledger, not the whole history. */
 const SESSION_PAGE_SIZE = 20
-import { AD_HOC_BADGE_LABEL } from '~/domains/session/lib/ad-hoc'
-import type { HistoryDashboardWithInsights } from '~/domains/history'
-import type { ProgressionDecision } from '~/domains/program'
-import { Caption, EmptyState, Panel } from '~/components'
-import { useExperienceMode } from '~/domains/account/components'
-import { FilterChip, historySearchInputStyles } from '../insight-format'
-import { SessionLedgerRail } from '../sessions/SessionLedgerRail'
-import { SessionLedgerTable } from '../sessions/SessionLedgerTable'
 
 /**
  * The ledger: every session, what it did, and what is waiting on a decision because of it.
  *
- * Rows are built for the whole history and filtered afterwards, so the totals in the rail keep
- * describing everything in range rather than the current filter.
+ * Rows are built for everything in range and filtered afterwards, so the totals keep describing the
+ * range rather than the current filter.
  */
 export function SessionsTab({
   data,
+  range,
   activeProgramTitle,
   pendingDecisions,
   onOpenSession,
@@ -37,6 +41,7 @@ export function SessionsTab({
   onSearchChange,
 }: {
   data: HistoryDashboardWithInsights
+  range: InsightRange
   activeProgramTitle?: string | null
   pendingDecisions: ProgressionDecision[]
   onOpenSession: (sessionId: string) => void
@@ -44,23 +49,33 @@ export function SessionsTab({
   filter: LedgerFilter
   onFilterChange: (filter: LedgerFilter) => void
   search: string
-  onSearchChange: (value: string) => void
+  onSearchChange: (search: string) => void
 }) {
-  const sessions = data.recentSessions
-  const rows = useMemo(
-    () => buildSessionLedgerRows({ sessions, liftSeries: data.insights.liftSeries }),
-    [sessions, data.insights.liftSeries],
+  const { mode, isFull } = useExperienceMode()
+  const { insights } = data
+
+  const sessions = useMemo(
+    () =>
+      filterToRange(data.recentSessions, range, {
+        firstDataDate: insights.firstSessionDate,
+        now: insights.today,
+        getDate: (session) => session.scheduledDate,
+      }),
+    [data.recentSessions, insights.firstSessionDate, insights.today, range],
   )
-  const { isFull } = useExperienceMode()
+  const rows = useMemo(
+    () => buildSessionLedgerRows({ sessions, liftSeries: insights.liftSeries }),
+    [sessions, insights.liftSeries],
+  )
+
   // The dashboard ships up to RECENT_HISTORY_LIMIT rows; rendering all of them at once puts three
   // times the DOM on a phone for a ledger nobody scrolls to the bottom of. The design pages it.
   const [shown, setShown] = useState(SESSION_PAGE_SIZE)
   const matching = filterLedgerRows(rows, filter, search, activeProgramTitle)
   const visible = matching.slice(0, shown)
-  const intensities = availableIntensities(sessions)
   const total = data.overview.completedSessions
 
-  if (!sessions.length) {
+  if (!data.recentSessions.length) {
     return (
       <EmptyState title="No completed sessions yet">
         {activeProgramTitle
@@ -70,62 +85,73 @@ export function SessionsTab({
     )
   }
 
+  const decisions = (
+    <PendingDecisionsPanel
+      pendingDecisions={pendingDecisions}
+      units={data.overview.units ?? null}
+      onReviewDecisions={onReviewDecisions}
+    />
+  )
+
   return (
-    <div className="space-y-3">
-      <TextInput
-        leftSection={<Search size={16} />}
-        placeholder="Search sessions"
-        value={search}
-        onChange={(event) => onSearchChange(event.target.value)}
-        styles={historySearchInputStyles}
-      />
-      <div className="flex flex-wrap gap-2">
-        <FilterChip label="All" active={filter === 'all'} onClick={() => onFilterChange('all')} />
-        {activeProgramTitle ? (
-          <FilterChip
-            label="This programme"
-            active={filter === 'programme'}
-            onClick={() => onFilterChange('programme')}
+    <div>
+      <InsightTabHeader
+        title="Sessions"
+        subtitle={sessionsSubtitle(sessionLedgerTotals(rows), mode, data.overview.units ?? null)}
+        actions={
+          <SessionsToolbar
+            search={search}
+            onSearchChange={onSearchChange}
+            filter={filter}
+            onFilterChange={onFilterChange}
+            activeProgramTitle={activeProgramTitle}
+            intensities={availableIntensities(sessions)}
+            hasAdHoc={hasAdHocSessions(sessions)}
           />
-        ) : null}
-        <FilterChip label="PRs only" active={filter === 'pr'} onClick={() => onFilterChange('pr')} />
-        {intensities.map((level) => (
-          <FilterChip key={level} label={level} active={filter === level} onClick={() => onFilterChange(level)} />
-        ))}
-        {hasAdHocSessions(sessions) ? (
-          <FilterChip label={AD_HOC_BADGE_LABEL} active={filter === 'adhoc'} onClick={() => onFilterChange('adhoc')} />
-        ) : null}
-      </div>
+        }
+      />
 
-      {/* The totals rail is Full-only, and it splits at `xl` rather than `lg`: eight columns beside
-          a 20rem rail clip the table at 1280, and a ledger you cannot read is worse than one whose
-          totals sit underneath it. */}
-      <div className={isFull ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}>
-        <Panel px="md" py="sm" className="min-w-0">
-          <SessionLedgerTable rows={visible} units={data.overview.units ?? null} onOpen={onOpenSession} />
-        </Panel>
-        <SessionLedgerRail
-          rows={rows}
-          visibleRows={visible}
-          now={data.insights.today}
-          units={data.overview.units ?? null}
-          pendingDecisions={pendingDecisions}
-          onReviewDecisions={onReviewDecisions}
-        />
-      </div>
+      <InspectorLayout
+        label="Totals"
+        inspector={
+          <div className="flex flex-col gap-4">
+            <SessionTotalsPanel
+              rows={rows}
+              visibleRows={visible}
+              now={insights.today}
+              calibration={insights.calibration}
+              units={data.overview.units ?? null}
+            />
+            {decisions}
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Panel px="md" py="sm" className="min-w-0">
+            <SessionLedgerTable rows={visible} units={data.overview.units ?? null} onOpen={onOpenSession} />
 
-      {/* Say what is not on screen rather than implying this is everything. */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Caption component="p">
-          {`${visible.length} of ${matching.length} shown`}
-          {matching.length === total ? '' : ` · ${total} completed in total`}
-        </Caption>
-        {visible.length < matching.length ? (
-          <Button size="xs" variant="default" onClick={() => setShown((count) => count + SESSION_PAGE_SIZE)}>
-            Show older
-          </Button>
-        ) : null}
-      </div>
+            {/* Say what is not on screen rather than implying this is everything. */}
+            <div
+              className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3"
+              style={{ borderColor: 'var(--mantine-color-default-border)' }}
+            >
+              <Caption component="p">
+                {`${visible.length} of ${matching.length} in range`}
+                {matching.length === total ? '' : ` · ${total} completed in total`}
+              </Caption>
+              {visible.length < matching.length ? (
+                <Button size="xs" variant="default" onClick={() => setShown((count) => count + SESSION_PAGE_SIZE)}>
+                  Show older
+                </Button>
+              ) : null}
+            </div>
+          </Panel>
+
+          {/* The receipt rides in Full's rail beside the totals, per the design. Guided has no
+              rail, and "no silent changes" is not a Full feature — so it falls back to the column. */}
+          {isFull ? null : decisions}
+        </div>
+      </InspectorLayout>
     </div>
   )
 }

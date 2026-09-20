@@ -1,6 +1,7 @@
 import type { ProgramStateType, ProgressionDecision } from '@sheetless/domain/program/types'
 import type { Unit } from '@sheetless/domain/shared/types'
 import { formatWeight } from '@sheetless/domain/shared/set-notation'
+import { progressionRationale } from '@sheetless/domain/program/progression-reason'
 
 /**
  * Display model for the Progression Review v2 modal — turns a decision into a "Now → Next block (+delta)"
@@ -46,14 +47,11 @@ export function reviewDecisionView(decision: ProgressionDecision, units: Unit | 
     movementName,
     previousValue,
     recommendedValue,
-    recommendation,
-    rationale,
-    inputSummary,
     stateType,
   } = decision
-  // Finish-time decisions carry rationale, while persisted rows from the
-  // current schema retain the input summary and recommendation.
-  const reason = rationale?.trim() || inputSummary.trim() || recommendation.trim()
+  // Finish-time decisions carry a rationale; persisted rows do not, so the sentence is re-derived
+  // from the rule rather than falling through to the machine-readable input summary.
+  const reason = progressionRationale(decision)
   const kindLabel = progressionKindLabel(stateType)
   const isNumeric =
     typeof previousValue === 'number' &&

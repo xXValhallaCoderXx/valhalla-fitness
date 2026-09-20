@@ -5,6 +5,7 @@ import {
   filterLedgerRows,
   sessionLedgerCsv,
   sessionLedgerTotals,
+  sessionsSubtitle,
   weekOverWeekTotals,
 } from '../src/history/session-ledger'
 import type { LiftE1rmSeries, RecentHistoryEntry } from '../src/history/types'
@@ -115,6 +116,30 @@ describe('sessionLedgerTotals', () => {
   it('says nothing about average time when no session recorded one', () => {
     const rows = buildSessionLedgerRows({ sessions: [entry({ id: 'a' })], liftSeries: null })
     expect(sessionLedgerTotals(rows).averageMinutes).toBeNull()
+  })
+})
+
+describe('sessionsSubtitle', () => {
+  const totals = {
+    sessions: 12, completedSets: 257, plannedSets: 260, tonnage: 84_656, averageMinutes: 58, prCount: 3,
+  }
+
+  it('says what the ledger is showing', () => {
+    expect(sessionsSubtitle(totals, 'full', 'kg')).toBe('12 in range · 257 sets · 84.7 t · 3 PRs')
+  })
+
+  it('spells the tonnage out in Guided', () => {
+    expect(sessionsSubtitle(totals, 'guided', 'kg')).toContain('84,656 kg moved')
+  })
+
+  // Clauses for numbers the lifter does not have are dropped, not zeroed.
+  it('drops the clauses that would read as zero', () => {
+    expect(sessionsSubtitle({ ...totals, prCount: 0, tonnage: 0 }, 'full', 'kg')).toBe('12 in range · 257 sets')
+  })
+
+  it('singularises one PR', () => {
+    expect(sessionsSubtitle({ ...totals, prCount: 1 }, 'full', 'kg')).toContain('1 PR')
+    expect(sessionsSubtitle({ ...totals, prCount: 1 }, 'full', 'kg')).not.toContain('1 PRs')
   })
 })
 

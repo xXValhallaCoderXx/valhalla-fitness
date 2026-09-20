@@ -24,6 +24,9 @@ export type ProgramSessionStamp = {
   /** Global session index at the time the session was planned (snapshot weekIndex). */
   weekIndex: number
   completedAt: string
+  /** The workout this stamp came from, so a past week can open its own sessions. */
+  id?: string
+  title?: string
 }
 
 export type ProgramStateOverview = {

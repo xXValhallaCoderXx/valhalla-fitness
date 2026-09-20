@@ -2,17 +2,20 @@ import { LineChart } from '@mantine/charts'
 import { Badge } from '@mantine/core'
 import { formatCompactDate } from '~/shared/lib/dates'
 import type {
-  E1rmPoint,
   E1rmTrendSignal,
   HistoryInsights,
   InsightGating,
   LiftE1rmSeries,
-  RepMaxBest,
 } from '~/domains/history'
 import { filterToRange, type InsightRange } from '~/domains/history/lib/insight-ranges'
 import { classifyE1rmTrend, computeVelocity, detectStall, e1rmTrendLabels, estimatedMaxExplanation } from '~/domains/history/lib/strength'
-import { Caption, Heading, InfoHint, Panel, SectionLabel, StatValue, Text } from '~/components'
+import { Caption, Heading, InfoHint, Panel } from '~/components'
+import { useExperienceMode } from '~/domains/account/components'
 import { formatLoad, formatNumber } from '../insight-format'
+import { buildLiftStats } from '~/domains/history/lib/lift-stats'
+import { InsightStatCell } from '../insights/InsightStatCell'
+import { InsightStatStrip } from '../insights/InsightStatStrip'
+import { LiftRepRecordsTable } from '../strength/LiftRepRecordsTable'
 
 const TREND_BADGE_COLOR: Record<E1rmTrendSignal, string> = {
   rising: 'success',
@@ -24,13 +27,6 @@ const TREND_BADGE_COLOR: Record<E1rmTrendSignal, string> = {
 
 const OUTLIER_FOOTNOTE = "Hollow points look like typos (way above your recent best) — they're shown but not counted."
 
-function bestOf(points: E1rmPoint[]): E1rmPoint | null {
-  let best: E1rmPoint | null = null
-  for (const point of points) {
-    if (!best || point.e1rm > best.e1rm) best = point
-  }
-  return best
-}
 
 function formatChartValue(value: number) {
   return Number.isFinite(value) ? formatNumber(value) : '—'
@@ -41,12 +37,16 @@ export function LiftTrendCard({
   insights,
   gating,
   range,
+  trainingMax = null,
 }: {
   series: LiftE1rmSeries
   insights: HistoryInsights
   gating: InsightGating
   range: InsightRange
+  /** The programme's training max for this lift, when it programmes one off it. */
+  trainingMax?: { value: number; updatedAt?: string | null; changedBy?: number | null } | null
 }) {
+  const { mode } = useExperienceMode()
   const units = insights.units
   const slicedPoints = filterToRange(series.points, range, {
     firstDataDate: insights.firstSessionDate,
@@ -56,11 +56,6 @@ export function LiftTrendCard({
   const trend = classifyE1rmTrend(slicedPoints, insights.today)
   const velocity = computeVelocity(slicedPoints, insights.today)
 
-  const slicedClean = slicedPoints.filter((point) => !point.outlier)
-  const allClean = series.points.filter((point) => !point.outlier)
-  const latestPoint = slicedClean[slicedClean.length - 1] ?? allClean[allClean.length - 1] ?? null
-  const allTimeBest = bestOf(allClean)
-  const headlinePoint = gating.staleWelcomeBack ? (bestOf(slicedClean) ?? allTimeBest) : latestPoint
 
   // Stall reads the FULL series (PRs are absolute, not range-relative); welcome-back framing replaces it.
   const stallLine = (() => {
@@ -88,11 +83,6 @@ export function LiftTrendCard({
     ...(hasOutliers ? [{ name: 'flagged', label: 'Looks like a typo', color: 'var(--mantine-color-dimmed)' }] : []),
   ]
 
-  const repMaxItems = [
-    { label: '1RM', best: series.repMaxBests.oneRm },
-    { label: '3RM', best: series.repMaxBests.threeRm },
-    { label: '5RM', best: series.repMaxBests.fiveRm },
-  ].filter((item): item is { label: string; best: RepMaxBest } => item.best !== null)
 
   return (
     <Panel p="md">
@@ -103,33 +93,31 @@ export function LiftTrendCard({
         </Badge>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-        <div>
-          <span className="inline-flex items-center gap-1">
-            <SectionLabel>{gating.staleWelcomeBack ? 'Best e1RM' : 'Current e1RM'}</SectionLabel>
-            <InfoHint label="About this metric">{estimatedMaxExplanation}</InfoHint>
-          </span>
-          <StatValue size="xl" mt={2}>
-            {headlinePoint ? formatLoad(headlinePoint.e1rm, units) : '—'}
-          </StatValue>
-          {gating.staleWelcomeBack && headlinePoint ? (
-            <Caption mt={2}>as of {formatCompactDate(headlinePoint.date)} — log a session for a fresh read</Caption>
-          ) : null}
-          {allTimeBest ? <Caption mt={2}>All-time best {formatLoad(allTimeBest.e1rm, units)}</Caption> : null}
-        </div>
-        <div className="flex flex-col items-end gap-1 text-right">
-          {velocity != null ? (
-            <Text size="xs" fw={700} tone={velocity > 0 ? 'success' : velocity < 0 ? 'warning' : 'dimmed'}>
-              {velocity > 0 ? '+' : ''}
-              {formatLoad(velocity, units)}/mo
-            </Text>
-          ) : null}
-          {stallLine ? (
-            <Text size="xs" fw={700} tone={stallLine.tone}>
-              {stallLine.text}
-            </Text>
-          ) : null}
-        </div>
+      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <InfoHint label="About this metric">{estimatedMaxExplanation}</InfoHint>
+        {velocity != null ? (
+          <Caption fw={700} tone={velocity > 0 ? 'success' : velocity < 0 ? 'warning' : 'dimmed'}>
+            {velocity > 0 ? '+' : ''}
+            {formatLoad(velocity, units)}/mo
+          </Caption>
+        ) : null}
+        {stallLine ? <Caption fw={700} tone={stallLine.tone}>{stallLine.text}</Caption> : null}
+      </div>
+
+      {/* 08a's four figures: where the lift is, what it lifted, what it is programmed off, and how
+          far it moved. A cell with nothing behind it is dropped by `buildLiftStats`, not dashed. */}
+      <div className="mt-3">
+        <InsightStatStrip
+          cells={buildLiftStats({
+            points: slicedPoints,
+            trainingMax,
+            units,
+            mode,
+            staleWelcomeBack: gating.staleWelcomeBack,
+          }).map((stat) => (
+            <InsightStatCell key={stat.key} label={stat.label} value={stat.value} subline={stat.detail ?? ''} />
+          ))}
+        />
       </div>
 
       {slicedPoints.length < 2 ? (
@@ -163,19 +151,8 @@ export function LiftTrendCard({
         </div>
       )}
 
-      {repMaxItems.length ? (
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          {repMaxItems.map((item) => (
-            <Panel key={item.label} surface="inset" p="xs">
-              <SectionLabel>{item.label} best</SectionLabel>
-              <Text mt={2} size="sm" fw={800}>
-                {formatLoad(item.best.load, units)}
-              </Text>
-              <Caption mt={1}>{formatCompactDate(item.best.date)}</Caption>
-            </Panel>
-          ))}
-        </div>
-      ) : null}
+      <LiftRepRecordsTable bests={series.repMaxBests} units={units} />
+
     </Panel>
   )
 }

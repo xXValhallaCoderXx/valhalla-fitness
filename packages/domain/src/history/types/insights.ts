@@ -1,5 +1,6 @@
 import type { BodyweightEntry, Sex } from '@sheetless/domain/account/types'
 import type { Unit } from '@sheetless/domain/shared/types'
+import type { WeeklyMovementTotal } from '@sheetless/domain/history/movement-weeks'
 import type {
   BodyRegionId,
   HistoryDashboard,
@@ -171,6 +172,8 @@ export type HistoryInsights = {
   /** Full-range weekly buckets (unlike dashboard.weeklyVolume's last-8 cap). */
   weeklyVolume: HistoryWeeklyVolume[]
   weeklyRegionSets: WeeklyRegionSets[]
+  /** Per-movement work by week, so the movement table can be scoped to the selected range. */
+  weeklyMovements: WeeklyMovementTotal[]
   weeklySessions: WeeklyCount[]
   consistency: ConsistencySummary
   calibration: CalibrationSummary

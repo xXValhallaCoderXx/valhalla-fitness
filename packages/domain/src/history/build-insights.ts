@@ -8,6 +8,7 @@ import { decorateTotalPoints, nearestBodyweight, resolveStrengthScore } from '@s
 import { buildConsistency, buildWeeklySessionCounts } from '@sheetless/domain/history/consistency'
 import { buildCalibration } from '@sheetless/domain/history/calibration'
 import { buildWeeklyRegionSets } from '@sheetless/domain/history/muscle-volume'
+import { buildWeeklyMovementTotals } from '@sheetless/domain/history/movement-weeks'
 import { buildMilestones } from '@sheetless/domain/history/milestones'
 import { movementCatalog } from '@sheetless/domain/movement/movements'
 import { calendarDateInTimeZone, resolveIanaTimeZone } from '@sheetless/domain/shared/calendar-date'
@@ -71,6 +72,7 @@ export function buildHistoryInsights({
     totalSeries,
     weeklyVolume: buildWeeklyVolumeBuckets(sessions, undefined, { maxWeeks: null }),
     weeklyRegionSets: buildWeeklyRegionSets(sessions, { catalog }),
+    weeklyMovements: buildWeeklyMovementTotals(sessions, { units, catalog }),
     weeklySessions,
     consistency: buildConsistency(weeklySessions),
     calibration: buildCalibration(sessions, accountToday),

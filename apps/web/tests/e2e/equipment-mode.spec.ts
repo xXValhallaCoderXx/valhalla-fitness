@@ -56,7 +56,24 @@ async function discardActiveWorkout(page: Page) {
   await expect(dialog).toBeHidden({ timeout: 20_000 })
 }
 
+/**
+ * Programme settings is a disclosure panel behind the header button — the controls below live
+ * inside it, so every /program interaction has to open it first. Idempotent: the panel stays open
+ * once toggled, and clicking again would close it.
+ */
+async function openProgrammeSettings(page: Page) {
+  const panel = page.getByTestId('programme-settings')
+  if (await panel.isVisible().catch(() => false)) return
+  const toggle = page.getByRole('button', { name: 'Programme settings' })
+  await expect(async () => {
+    if (await panel.isVisible().catch(() => false)) return
+    await toggle.click()
+    await expect(panel).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 15_000 })
+}
+
 async function openEquipmentModePreview(page: Page) {
+  await openProgrammeSettings(page)
   const changeMode = page.getByRole('button', {
     name: 'Change equipment mode',
   })
@@ -217,6 +234,7 @@ test('programme conversion is frozen into a live free-weight workout', async ({
       page.getByText('Free weights only', { exact: true }).first(),
     ).toBeVisible()
     await page.goto('/program')
+    await openProgrammeSettings(page)
     const blockedControl = page.getByRole('button', {
       name: 'Change equipment mode',
     })

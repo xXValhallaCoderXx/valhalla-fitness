@@ -41,6 +41,8 @@ describe('reviewDecisionView', () => {
   it('falls back to the recommendation for a qualitative (no-numbers) decision', () => {
     const view = reviewDecisionView(
       decision({
+        // An unrecognised rule has no sentence to re-derive, so the fallback chain still applies.
+        ruleId: 'accessory_history_only',
         previousValue: null,
         recommendedValue: null,
         rationale: null,
@@ -57,12 +59,32 @@ describe('reviewDecisionView', () => {
     expect(view.reason).toBe('Add load next time')
   })
 
-  it('uses the persisted input summary when a later review has no rationale', () => {
+  it('re-derives the sentence when a persisted review has lost its rationale', () => {
+    // The receipts schema stores input_summary but not rationale, so a row read back would
+    // otherwise show the machine summary to the user.
     const view = reviewDecisionView(
       decision({
         rationale: null,
-        inputSummary: 'Completed every prescribed rep with two reps in reserve.',
+        inputSummary: 'Bench Press cycle top sets evaluated as standard.',
         recommendation: 'Add load next time',
+      }),
+      'kg',
+    )
+
+    expect(view.reason).toBe('You beat the target with good effort, so Sheetless progresses the lift.')
+  })
+
+  it('still prefers a decision that carries its own rationale', () => {
+    const view = reviewDecisionView(decision({ rationale: 'You hit every target rep.' }), 'kg')
+    expect(view.reason).toBe('You hit every target rep.')
+  })
+
+  it('uses the persisted input summary when the rule is unknown', () => {
+    const view = reviewDecisionView(
+      decision({
+        ruleId: 'some_future_rule',
+        rationale: null,
+        inputSummary: 'Completed every prescribed rep with two reps in reserve.',
       }),
       'kg',
     )

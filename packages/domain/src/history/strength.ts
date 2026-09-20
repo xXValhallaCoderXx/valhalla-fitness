@@ -283,6 +283,55 @@ export function buildPowerliftingTotal(
   return totals
 }
 
+export type PowerliftingComponent = {
+  liftId: (typeof POWERLIFTING_TOTAL_LIFTS)[number]
+  liftLabel: string
+  /** The non-outlier session point that is the best so far on or before `asOf`. */
+  point: E1rmPoint
+}
+
+/** How the three lifts are named in a trace. Not `shortLiftLabel` — that says "Dead". */
+const POWERLIFTING_LIFT_LABELS: Record<(typeof POWERLIFTING_TOTAL_LIFTS)[number], string> = {
+  squat: 'Squat',
+  bench_press: 'Bench',
+  deadlift: 'Deadlift',
+}
+
+/**
+ * The three lifts behind a powerlifting total, each with the session that produced it.
+ *
+ * A sibling of `buildPowerliftingTotal` rather than a widening of it: that function's return shape
+ * is asserted with `toEqual`, which fails on an extra key. Both apply the same best-so-far rule, so
+ * `mround(Σ point.e1rm, 0.5)` equals that function's `total` at the same date — there is a test that
+ * says so, because two implementations of one rule is exactly how a trace starts lying.
+ *
+ * Null when any lift has no usable point on or before `asOf`: a partial total is not a total.
+ */
+export function selectPowerliftingComponents(
+  series: LiftE1rmSeries[],
+  asOf: string | null,
+): PowerliftingComponent[] | null {
+  const cutoff = asOf === null ? null : parseDate(asOf)?.getTime() ?? null
+  if (asOf !== null && cutoff === null) return null
+
+  const components: PowerliftingComponent[] = []
+  for (const liftId of POWERLIFTING_TOTAL_LIFTS) {
+    const points = series.find((entry) => entry.movementId === liftId)?.points ?? []
+    let best: { point: E1rmPoint; time: number } | null = null
+    for (const point of points) {
+      if (point.outlier) continue
+      const time = parseDate(point.date)?.getTime()
+      if (time == null) continue
+      if (cutoff !== null && time > cutoff) continue
+      // Ties keep the earlier point, matching the ascending scan in `buildPowerliftingTotal`.
+      if (!best || point.e1rm > best.point.e1rm) best = { point, time }
+    }
+    if (!best) return null
+    components.push({ liftId, liftLabel: POWERLIFTING_LIFT_LABELS[liftId], point: best.point })
+  }
+  return components
+}
+
 function buildRepMaxBests(entries: LiftSessionEntry[]): RepMaxBests {
   return {
     oneRm: bestAtReps(entries, 1),
