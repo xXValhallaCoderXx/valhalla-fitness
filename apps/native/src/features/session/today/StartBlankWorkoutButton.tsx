@@ -11,7 +11,8 @@ export function StartBlankWorkoutButton({
   variant = 'default',
   fullWidth = true,
   disabled = false,
-}: Pick<ButtonProps, 'variant' | 'fullWidth' | 'disabled'>) {
+  onStarted,
+}: Pick<ButtonProps, 'variant' | 'fullWidth' | 'disabled'> & { onStarted?: () => void }) {
   const { user } = useSession()
   const start = useStartAdHocWorkout(user!)
   const activeStarts = useIsMutating({ mutationKey: ['startSession', user?.id] })
@@ -28,6 +29,7 @@ export function StartBlankWorkoutButton({
         onPress={() =>
           start.mutate({}, {
             onSuccess: (session) => {
+              onStarted?.()
               router.push({
                 pathname: '/session/[sessionId]',
                 params: { sessionId: session.sessionId },

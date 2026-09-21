@@ -13,13 +13,18 @@ import { getSession, getToday } from '@sheetless/data/session/reads'
 import type { TodayPayload } from '@sheetless/domain/session/types/read-models'
 import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
+import { clearWorkoutDrafts } from '../editing/workout-drafts'
+import { useRestTimerControls } from '../rest-timer/rest-timer-context'
 import { buildUserContext } from '@/lib/account'
 
 export function useDiscardWorkout(user: User, sessionId: string, onDiscarded?: () => void) {
   const userId = user.id
   const queryClient = useQueryClient()
+  const rest = useRestTimerControls()
 
   const finishDiscard = async () => {
+    rest.exit()
+    clearWorkoutDrafts(queryClient, userId, sessionId)
     await Promise.allSettled([
       queryClient.cancelQueries({ queryKey: accountQueryKeys.session(userId, sessionId) }),
       queryClient.cancelQueries({ queryKey: accountQueryKeys.summary(userId, sessionId) }),

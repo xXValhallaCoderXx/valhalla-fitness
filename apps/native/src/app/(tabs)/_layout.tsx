@@ -1,8 +1,8 @@
 import { Tabs } from 'expo-router'
 import { View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { CalendarDays, History, Layers3, ListChecks, type LucideIcon } from 'lucide-react-native'
-import { fontFamily, useTokens } from '@/lib/tokens'
+import { CalendarDays, History, UserRound, ListChecks, type LucideIcon } from 'lucide-react-native'
+import { fontForWeight, useTokens } from '@/lib/tokens'
 
 /**
  * Icon wrapper adding the 2px active pill above the icon — web AppShell's
@@ -30,7 +30,7 @@ const TABS: Array<{ name: string; title: string; Icon: LucideIcon }> = [
   { name: 'index', title: 'Today', Icon: CalendarDays },
   { name: 'program', title: 'Plan', Icon: ListChecks },
   { name: 'history', title: 'Insights', Icon: History },
-  { name: 'templates', title: 'Programs', Icon: Layers3 },
+  { name: 'you', title: 'You', Icon: UserRound },
 ]
 
 export default function TabsLayout() {
@@ -38,6 +38,7 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets()
   return (
     <Tabs
+      initialRouteName="index"
       screenOptions={{
         // Screens render their own PageHeader — a native header would double the title.
         headerShown: false,
@@ -51,8 +52,8 @@ export default function TabsLayout() {
           paddingBottom: insets.bottom,
         },
         tabBarLabelStyle: {
-          fontFamily,
-          fontSize: 9,
+          fontFamily: fontForWeight(800),
+          fontSize: 11,
           fontWeight: '800',
         },
       }}
@@ -69,6 +70,7 @@ export default function TabsLayout() {
           }}
         />
       ))}
+      <Tabs.Screen name="templates" options={{ href: null }} />
     </Tabs>
   )
 }

@@ -5,6 +5,8 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router'
 import { Redirect, Stack, useSegments } from 'expo-router'
 import { NavigationBar } from 'expo-navigation-bar'
 import * as SplashScreen from 'expo-splash-screen'
+import { useFonts } from 'expo-font'
+import { nativeFonts } from '@/lib/fonts'
 import * as SystemUI from 'expo-system-ui'
 import { StatusBar } from 'expo-status-bar'
 import { Platform } from 'react-native'
@@ -20,16 +22,17 @@ SplashScreen.preventAutoHideAsync()
 const queryClient = createQueryClient()
 
 function AuthGate() {
+  const [fontsLoaded, fontError] = useFonts(nativeFonts)
   const { status, user } = useSession()
   const { isThemeReady } = useSheetlessTheme()
   const segments = useSegments()
   const lastUserId = useRef<string | null>(null)
 
   useEffect(() => {
-    if (status !== 'restoring' && (status === 'signedOut' || isThemeReady)) {
+    if ((fontsLoaded || fontError) && status !== 'restoring' && (status === 'signedOut' || isThemeReady)) {
       SplashScreen.hideAsync()
     }
-  }, [isThemeReady, status])
+  }, [fontError, fontsLoaded, isThemeReady, status])
 
   // Account-scoped cache hygiene: never let one account's data serve another
   // (mirrors web's transitionAccountCache).
@@ -43,7 +46,7 @@ function AuthGate() {
 
   // Hold the splash — rendering nothing avoids a flash of the wrong screen
   // on warm starts while the stored session restores.
-  if (status === 'restoring' || (status === 'signedIn' && !isThemeReady)) return null
+  if ((!fontsLoaded && !fontError) || status === 'restoring' || (status === 'signedIn' && !isThemeReady)) return null
 
   const inAuthGroup = segments[0] === 'auth'
   if (status === 'signedOut' && !inAuthGroup) return <Redirect href="/auth" />

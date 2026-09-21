@@ -9,6 +9,7 @@ const api = vi.hoisted(() => ({
   program: vi.fn(), activeProgram: vi.fn(), session: vi.fn(), summary: vi.fn(), openBrowser: vi.fn(), navigate: vi.fn(),
 }))
 vi.mock('@/lib/theme-provider', () => themeProviderMock())
+vi.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }) }))
 vi.mock('@/lib/session-provider', () => ({ useSession: () => ({ user: { id: 'account-a', email: 'member@example.test' } }) }))
 vi.mock('@/lib/supabase', () => ({ getSupabase: () => ({}) }))
 vi.mock('@/lib/use-timezone-sync', () => ({ useTimezoneSync: () => {} }))
@@ -18,7 +19,7 @@ vi.mock('expo-router', () => ({
 }))
 vi.mock('expo-keep-awake', () => ({ useKeepAwake: () => {} }))
 vi.mock('expo-web-browser', () => ({ openBrowserAsync: api.openBrowser }))
-vi.mock('lucide-react-native', () => ({ Mail: () => null }))
+vi.mock('lucide-react-native', () => ({ Mail: () => null, Plus: () => null, Info: () => null }))
 vi.mock('@sheetless/data/account/profile', () => ({ getMe: api.profile }))
 vi.mock('@sheetless/data/session/reads', () => ({ getToday: api.today, getSession: api.session }))
 vi.mock('@sheetless/data/session/summary', () => ({ getSessionSummary: api.summary }))
@@ -76,6 +77,12 @@ vi.mock('@/features/session/summary/SummaryDecisions', () => ({ SummaryDecisions
 vi.mock('@/features/session/summary/WorkoutSummaryRecap', () => ({ WorkoutSummaryRecap: () => <div>Recap ready</div> }))
 vi.mock('@/features/session/summary/AdHocSessionActions', () => ({ AdHocSessionActions: () => null }))
 vi.mock('@/features/history/sharing/ShareWorkoutButton', () => ({ ShareWorkoutButton: () => null }))
+vi.mock('@/features/history/sharing/WorkoutSharePreview', () => ({ WorkoutSharePreview: () => null }))
+vi.mock('@/features/session/summary/RecapOverview', () => ({ RecapCompletion: () => null, RecapBestSet: () => null }))
+vi.mock('@/features/session/summary/RecapLayout', () => ({
+  RecapLayout: ({ children, footer }: { children: React.ReactNode; footer: React.ReactNode }) => <div>{children}{footer}</div>,
+  RecapActions: () => null,
+}))
 
 vi.stubGlobal('__DEV__', true)
 const { TodayScreen } = await import('../src/features/session/TodayScreen')

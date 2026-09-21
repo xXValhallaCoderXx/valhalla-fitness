@@ -31,6 +31,7 @@ export function useWorkoutManagement({
   session,
   movement,
   selectedSet,
+  initialPlateLoad,
   notes,
   disabled,
   onNotesChange,
@@ -41,6 +42,7 @@ export function useWorkoutManagement({
   session: WorkoutSession
   movement: MovementSlot
   selectedSet?: SetLog
+  initialPlateLoad?: number | null
   notes: string
   disabled: boolean
   onNotesChange: (notes: string) => void
@@ -227,7 +229,7 @@ export function useWorkoutManagement({
         open: platesOpen,
         units: session.units,
         movementName: movement.performedMovementName ?? movement.movementName,
-        initialTarget: selectedSet ? (seedLoadForSet(movement, selectedSet) ?? 0) : 0,
+        initialTarget: initialPlateLoad === undefined ? (selectedSet ? (seedLoadForSet(movement, selectedSet) ?? 0) : 0) : initialPlateLoad ?? 0,
         onClose: () => setPlatesOpen(false),
       },
       history: {

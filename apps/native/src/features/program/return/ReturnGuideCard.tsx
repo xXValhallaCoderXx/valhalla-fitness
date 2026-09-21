@@ -15,11 +15,14 @@ export function ReturnGuideCard({
   hasActiveSession = false,
   today = false,
   lastWorkoutLogged,
+  compact = false,
 }: {
   program: ProgramInstance
   hasActiveSession?: boolean
   today?: boolean
   lastWorkoutLogged?: string | null
+  /** Today places the existing guide beside View recap. Plan retains the full card. */
+  compact?: boolean
 }) {
   const { user } = useSession()
   const [open, setOpen] = useState(false)
@@ -36,7 +39,9 @@ export function ReturnGuideCard({
   if (today && !active && !prompt) return null
   return (
     <>
-      <Panel style={{ padding: spacing.md, gap: spacing.sm }}>
+      {compact ? <Button label={active ? 'Review return guide' : 'Ease back in'}
+        variant="light" tone="warning" style={{ flex: 1, minWidth: 125 }}
+        disabled={hasActiveSession} onPress={() => setOpen(true)} /> : <Panel style={{ padding: spacing.md, gap: spacing.sm }}>
         <Text weight={700}>
           {active && program.returnPeriod
             ? returnProgressLabel(program.returnPeriod)
@@ -69,7 +74,7 @@ export function ReturnGuideCard({
             Configure the guide between workouts. Resume your saved workout normally.
           </Caption>
         ) : null}
-      </Panel>
+      </Panel>}
       {open ? (
         <SheetModal
           open

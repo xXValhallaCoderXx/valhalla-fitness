@@ -1,73 +1,41 @@
-/**
- * Native port of web FocusExerciseHeader: prev/next chevrons around the movement
- * title, role pill, target summary, and the previous-comparable line. Movement
- * actions live in FocusMovementTools directly below this header.
- */
+/** Exercise navigation stays separate from set editing and tools. */
 import { Pressable, View } from 'react-native'
 import { ChevronLeft, ChevronRight } from 'lucide-react-native'
 import type { MovementSlot } from '@sheetless/domain/session/types/session'
-import type { Unit } from '@sheetless/domain/shared/types'
-import { formatPreviousShort } from '@sheetless/domain/session/live-session-utils'
-import { Badge, Caption, Heading, Text } from '@/components'
+import { Caption, Heading, SectionLabel } from '@/components'
 import { spacing, useTokens, type Theme } from '@/lib/tokens'
 
 export function FocusExerciseHeader({
   movement,
-  units,
+  ordinal,
+  total,
   hasPrev,
   hasNext,
   onPrev,
   onNext,
 }: {
   movement: MovementSlot
-  units: Unit
+  ordinal: number
+  total: number
   hasPrev: boolean
   hasNext: boolean
   onPrev: () => void
   onNext: () => void
 }) {
   const { theme } = useTokens()
-  const swapped = movement.performedMovementId && movement.performedMovementId !== movement.movementId
   return (
     <View>
       <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
         <ChevronButton theme={theme} dir="prev" disabled={!hasPrev} onPress={onPrev} />
         <View style={{ alignItems: 'center', flex: 1, minWidth: 0 }}>
-          <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
-            <Badge tone={movement.role === 'main' ? 'accent' : 'neutral'}>{movement.role}</Badge>
-            <Caption numberOfLines={1} style={{ flexShrink: 1 }}>
-              {movement.targetSummary}
-            </Caption>
-          </View>
+          <SectionLabel tone="accent">{movement.role === 'main' ? 'Main lift' : movement.role}</SectionLabel>
           <Heading order={2} style={{ marginTop: 4, textAlign: 'center' }} numberOfLines={2}>
-            {movement.movementName}
+            {movement.performedMovementName ?? movement.movementName}
           </Heading>
+          <Caption>{ordinal} of {total} exercises</Caption>
         </View>
         <ChevronButton theme={theme} dir="next" disabled={!hasNext} onPress={onNext} />
       </View>
-
-      {swapped ? (
-        <Caption style={{ color: theme.tones.warning.text, fontWeight: '700', marginTop: 6, textAlign: 'center' }}>
-          Performed as {movement.performedMovementName}
-        </Caption>
-      ) : null}
-
-      {movement.previous ? (
-        <View
-          style={{
-            alignItems: 'center',
-            flexDirection: 'row',
-            gap: 4,
-            justifyContent: 'center',
-            marginTop: 6,
-          }}
-        >
-          <Caption>Previous comparable</Caption>
-          <Text size="xs" weight={700}>
-            {formatPreviousShort(movement.previous, units)}
-          </Text>
-        </View>
-      ) : null}
     </View>
   )
 }
@@ -88,6 +56,7 @@ function ChevronButton({
     <Pressable
       disabled={disabled}
       onPress={onPress}
+      accessibilityRole="button"
       accessibilityLabel={dir === 'prev' ? 'Previous exercise' : 'Next exercise'}
       testID={dir === 'prev' ? 'focus-prev-exercise' : 'focus-next-exercise'}
       style={({ pressed }) => ({

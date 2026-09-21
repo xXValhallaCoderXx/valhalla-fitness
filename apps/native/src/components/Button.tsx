@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, Text as RNText, type StyleProp, type ViewStyle } from 'react-native'
-import { fontFamily, fontSizes, radii, spacing, useTokens, type ToneName } from '@/lib/tokens'
+import { fontForWeight, fontSizes, radii, spacing, useTokens, type ToneName } from '@/lib/tokens'
 
 export interface ButtonProps {
   label: string
@@ -18,6 +18,7 @@ export interface ButtonProps {
   style?: StyleProp<ViewStyle>
   testID?: string
   accessibilityLabel?: string
+  size?: 'sm' | 'md' | 'lg'
 }
 
 /** Pressable button — mirrors web Mantine `Button` variants used in the app. */
@@ -34,6 +35,7 @@ export function Button({
   style,
   testID,
   accessibilityLabel,
+  size = 'md',
 }: ButtonProps) {
   const { theme } = useTokens()
   const colors = theme.tones[tone]
@@ -73,9 +75,9 @@ export function Button({
           flexDirection: 'row',
           gap: 6,
           justifyContent: 'center',
-          minHeight: 40,
+          minHeight: size === 'sm' ? 44 : size === 'lg' ? 54 : 48,
           opacity: inactive ? 0.55 : pressed ? 0.85 : 1,
-          paddingHorizontal: spacing.lg,
+          paddingHorizontal: size === 'sm' ? spacing.sm : spacing.lg,
           paddingVertical: 8,
         },
         style,
@@ -85,8 +87,10 @@ export function Button({
       <RNText
         style={{
           color: textColor,
-          fontFamily,
-          fontSize: fontSizes.md,
+          flexShrink: 1,
+          textAlign: 'center',
+          fontFamily: fontForWeight(800),
+          fontSize: size === 'sm' ? fontSizes.xs : size === 'lg' ? fontSizes.lg : fontSizes.md,
           fontWeight: '800',
         }}
       >

@@ -61,7 +61,7 @@ export function ProgramScreen() {
             />
           }
         >
-          Browse Programs to choose a structured training plan.
+          Browse the library to choose a structured training plan.
         </EmptyState>
       </Screen>
     )
@@ -87,6 +87,7 @@ export function ProgramScreen() {
     <Screen>
       <ReturnGuideCard program={program} hasActiveSession={overview.data.hasActiveSession} />
       <ProgramHeader overview={overview.data} phaseMap={phaseMap} action={settingsAction} />
+      <Button label="Browse programmes" variant="default" onPress={() => router.navigate('/(tabs)/templates')} />
       <ProgramEquipmentModeCard
         key={program.id}
         user={user!}

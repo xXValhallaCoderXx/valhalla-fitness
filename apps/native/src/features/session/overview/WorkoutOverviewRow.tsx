@@ -1,162 +1,26 @@
 import { Pressable, View } from 'react-native'
-import { ArrowDown, ArrowUp, Check, ChevronRight, Trash2 } from 'lucide-react-native'
+import { ChevronRight } from 'lucide-react-native'
 import type { MovementSlot } from '@sheetless/domain/session/types/session'
-import { movementCompletedSets } from '@sheetless/domain/session/live-focus-utils'
-import { isMovementComplete } from '@sheetless/domain/session/live-session-utils'
-import { Badge, Caption, Panel, Text } from '@/components'
-import { radii, spacing, useTokens } from '@/lib/tokens'
+import { Caption, Text } from '@/components'
+import { spacing, useTokens } from '@/lib/tokens'
 
-export function WorkoutOverviewRow({
-  movement,
-  ordinal,
-  disabled,
-  canMoveUp,
-  canMoveDown,
-  canRemove,
-  onOpen,
-  onMoveUp,
-  onMoveDown,
-  onRemove,
-}: {
-  movement: MovementSlot
-  ordinal: number
-  disabled: boolean
-  canMoveUp: boolean
-  canMoveDown: boolean
-  canRemove: boolean
-  onOpen: () => void
-  onMoveUp: () => void
-  onMoveDown: () => void
-  onRemove: () => void
+export function WorkoutOverviewRow({ movement, ordinal, active, last, onOpen }: {
+  movement: MovementSlot; ordinal: number; active: boolean; last: boolean; onOpen: () => void
 }) {
   const { theme } = useTokens()
-  const complete = isMovementComplete(movement)
-  const completedSets = movementCompletedSets(movement)
-  const movementName = movement.performedMovementName ?? movement.movementName
-
-  return (
-    <Panel style={{ flexDirection: 'row', overflow: 'hidden' }}>
-      <Pressable
-        accessibilityLabel={`${movementName}, ${completedSets} of ${movement.sets.length} sets logged. Open in Focus.`}
-        accessibilityRole="button"
-        accessibilityState={{ disabled }}
-        disabled={disabled}
-        onPress={onOpen}
-        testID={`overview-movement-${movement.id}`}
-        style={({ pressed }) => ({
-          alignItems: 'center',
-          flex: 1,
-          flexDirection: 'row',
-          gap: spacing.sm,
-          minHeight: 70,
-          opacity: disabled ? 0.55 : pressed ? 0.75 : 1,
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.sm,
-        })}
-      >
-        <View
-          style={{
-            alignItems: 'center',
-            backgroundColor: complete ? theme.tones.success.text : theme.surface2,
-            borderRadius: radii.md,
-            height: 30,
-            justifyContent: 'center',
-            width: 30,
-          }}
-        >
-          {complete ? (
-            <Check color="#ffffff" size={15} />
-          ) : (
-            <Text size="sm" weight={800} tone="dimmed">
-              {ordinal}
-            </Text>
-          )}
-        </View>
-        <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
-          <Text size="sm" weight={800} numberOfLines={1}>
-            {movementName}
-          </Text>
-          <Caption numberOfLines={1}>{movement.targetSummary || 'Log as you go'}</Caption>
-          <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
-            <Badge tone={complete ? 'success' : 'neutral'}>
-              {completedSets}/{movement.sets.length} sets
-            </Badge>
-            {movement.isAdded ? <Badge tone="accent">Added</Badge> : null}
-          </View>
-        </View>
-        <ChevronRight color={theme.textMuted} size={18} />
-      </Pressable>
-
-      {canMoveUp || canMoveDown || canRemove ? (
-        <View
-          style={{
-            borderLeftColor: theme.border,
-            borderLeftWidth: 1,
-            justifyContent: 'center',
-            paddingHorizontal: 2,
-          }}
-        >
-          {canMoveUp || canMoveDown ? (
-            <View style={{ flexDirection: 'row' }}>
-              <IconAction
-                label={`Move ${movementName} up`}
-                disabled={disabled || !canMoveUp}
-                onPress={onMoveUp}
-              >
-                <ArrowUp color={theme.tones.action.text} size={17} />
-              </IconAction>
-              <IconAction
-                label={`Move ${movementName} down`}
-                disabled={disabled || !canMoveDown}
-                onPress={onMoveDown}
-              >
-                <ArrowDown color={theme.tones.action.text} size={17} />
-              </IconAction>
-            </View>
-          ) : null}
-          {canRemove ? (
-            <IconAction
-              label={`Remove ${movementName}`}
-              disabled={disabled}
-              onPress={onRemove}
-            >
-              <Trash2 color={theme.tones.danger.text} size={16} />
-            </IconAction>
-          ) : null}
-        </View>
-      ) : null}
-    </Panel>
-  )
-}
-
-function IconAction({
-  label,
-  disabled,
-  onPress,
-  children,
-}: {
-  label: string
-  disabled: boolean
-  onPress: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <Pressable
-      accessibilityLabel={label}
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      hitSlop={2}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 44,
-        minWidth: 44,
-        opacity: disabled ? 0.25 : pressed ? 0.55 : 1,
-      })}
-    >
-      {children}
-    </Pressable>
-  )
+  const completed = movement.sets.filter(set => set.completed && set.syncState !== 'saving' && set.syncState !== 'syncFailed').length
+  const name = movement.performedMovementName ?? movement.movementName
+  return <Pressable accessibilityRole="button" accessibilityLabel={`${name}, ${completed} of ${movement.sets.length} sets logged. Select exercise.`}
+    accessibilityState={{ selected: active }} onPress={onOpen} testID={`overview-movement-${movement.id}`}
+    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+      paddingVertical: spacing.sm, minHeight: 54, borderBottomWidth: last ? 0 : 1,
+      borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 })}>
+    {active ? <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: theme.primaryFill }} />
+      : <Text size="xs" weight={800} tone="dimmed" style={{ width: 20, textAlign: 'center' }}>{completed === movement.sets.length ? '✓' : ordinal}</Text>}
+    <Text size="sm" weight={800} tone={active ? 'action' : undefined} style={{ flex: 1 }}>{name}</Text>
+    <Caption tone={active ? 'action' : 'dimmed'} style={{ maxWidth: '28%' }}>
+      {active ? 'doing now' : completed ? `${completed}/${movement.sets.length} logged` : `${movement.sets.length} sets`}
+    </Caption>
+    {!active ? <ChevronRight size={14} color={theme.textMuted} /> : null}
+  </Pressable>
 }

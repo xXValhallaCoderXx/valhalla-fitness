@@ -1,5 +1,5 @@
 import { Text as RNText, type StyleProp, type TextProps as RNTextProps, type TextStyle } from 'react-native'
-import { fontFamily, fontSizes, toneColor, useTokens, type Tone } from '@/lib/tokens'
+import { fontForWeight, fontSizes, toneColor, useTokens, type Tone } from '@/lib/tokens'
 
 export interface TextProps {
   children: RNTextProps['children']
@@ -22,7 +22,7 @@ export function Text({ children, tone, size = 'md', weight, align, style, number
       style={[
         {
           color: toneColor(theme, tone) ?? theme.text,
-          fontFamily,
+          fontFamily: fontForWeight(weight ?? 400),
           fontSize: fontSizes[size],
           fontWeight: weight ?? '400',
           textAlign: align,

@@ -1,3 +1,4 @@
+import { clearWorkoutDrafts } from './workout-drafts'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 import {
@@ -119,6 +120,7 @@ export function useRemoveSessionAccessoryMutation({
       }).catch(() => undefined)
     },
     onSuccess: async (nextSession, scope) => {
+      clearWorkoutDrafts(queryClient, user.id, session.sessionId, movement.id)
       request.clearRequest()
       updateSessionManagementCaches(queryClient, user.id, nextSession)
       if (scope === 'phase_slot') {

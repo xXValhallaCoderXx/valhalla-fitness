@@ -168,10 +168,10 @@ export const themes: { light: Theme; dark: Theme } = {
 }
 
 /** Web theme.radius, rem × 16 → px. */
-export const radii = { xs: 4, sm: 8, md: 11, lg: 16, xl: 20 } as const
+export const radii = { xs: 4, sm: 8, md: 11, lg: 16, xl: 22 } as const
 
 /** Web theme.spacing, rem × 16 → px. */
-export const spacing = { xs: 6, sm: 10, md: 14, lg: 18, xl: 22 } as const
+export const spacing = { xs: 6, sm: 12, md: 14, lg: 16, xl: 22 } as const
 
 /**
  * Web theme.fontSizes, rem × 16 → px, plus the two off-scale sizes the web app
@@ -180,7 +180,7 @@ export const spacing = { xs: 6, sm: 10, md: 14, lg: 18, xl: 22 } as const
  */
 export const fontSizes = {
   caption: 10,
-  xs: 11,
+  xs: 12,
   sm: 13,
   md: 14,
   lg: 16,
@@ -188,14 +188,13 @@ export const fontSizes = {
   stat: 18,
 } as const
 
-/**
- * Web stack is Inter-first. Native has no Inter bundled in this spike, so the
- * platform system font stands in (visual-fidelity caveat to judge separately).
- */
-export const fontFamily = Platform.select({
-  web: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  default: undefined,
-})
+/** Local static faces work consistently on Android and native web. */
+export const fontFamily = 'Figtree-Regular'
+export function fontForWeight(weight: string | number = 400) {
+  const numeric = weight === 'bold' ? 700 : Number(weight)
+  return numeric >= 800 ? 'Figtree-ExtraBold' : numeric >= 700 ? 'Figtree-Bold'
+    : numeric >= 500 ? 'Figtree-SemiBold' : fontFamily
+}
 
 /** Resolve a semantic tone to its themed text color (mirrors web toneColor()). */
 export function toneColor(theme: Theme, tone?: Tone): string | undefined {
@@ -226,13 +225,12 @@ export function useTokens(): Tokens {
 }
 
 /**
- * Elevated-card shadow, per platform: real box-shadow on web, elevation on
- * Android (0 in dark, where the visible cardBorder carries the depth — mirrors
- * the web's dark --vf-card-border approach), shadow props on iOS.
+ * Box shadows avoid Android elevation showing through translucent tone panels.
+ * Dark Android surfaces use the visible card border; iOS keeps native shadow props.
  */
 export function cardShadow(theme: Theme): ViewStyle {
   if (Platform.OS === 'web') return { boxShadow: theme.shadowCard } as ViewStyle
-  if (Platform.OS === 'android') return { elevation: theme.scheme === 'light' ? 3 : 0 }
+  if (Platform.OS === 'android') return theme.scheme === 'light' ? { boxShadow: theme.shadowCard } : {}
   return {
     shadowColor: '#081114',
     shadowOpacity: theme.scheme === 'light' ? 0.1 : 0.45,

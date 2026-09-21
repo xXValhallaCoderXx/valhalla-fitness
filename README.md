@@ -69,7 +69,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Exercise catalogue | **Shipped; media deferred** | The catalogue stores 151 movements (140 active and 11 resolvable deprecated aliases) with resistance mode, required equipment, pattern, primary/secondary muscles, aliases, load convention, and replacement lineage. Instructions, external IDs, and media are not yet included. |
 | Feedback | **Shipped** | Web and native global, fresh post-workout, and decision feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
-| Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, Programs, profile/settings, template/history drill-ins, logging, finish/recap, persistent progression review, SecureStore auth, haptics, keep-awake, and rest notifications. Native supports blank/ad-hoc starts, Repeat and favourites, workout rename, Focus/Overview navigation, programme-added accessory ordering, movement swaps, session- and phase-scoped live accessories, resumed ad-hoc exercise management, notes, movement history, and plate calculation. Programs exposes all 14 built-in variants through six families, catalogue search/filters, Find My Plan, equipment-aware setup-time substitutions/accessories, free-weight review, active-program start/replacement, and reversible active-plan equipment conversion. Native Settings includes appearance, units, rest preferences, bodyweight, strength estimates, equipment profile, JSON sharing, legal/account actions, and deletion. Custom-programme creation and walkthrough replay remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
+| Android native | **Implemented; standalone verification pending** | Expo Router screens cover Today, Plan, Insights, You, programme browsing, profile/settings, template/history drill-ins, logging, finish/recap, persistent progression review, SecureStore auth, haptics, keep-awake, and rest notifications. Native supports blank/ad-hoc starts, Repeat and favourites, workout rename, Focus/Overview navigation, programme-added accessory ordering, movement swaps, session- and phase-scoped live accessories, resumed ad-hoc exercise management, notes, movement history, and plate calculation. Programs exposes all 14 built-in variants through six families, catalogue search/filters, Find My Plan, equipment-aware setup-time substitutions/accessories, free-weight review, active-program start/replacement, and reversible active-plan equipment conversion. Native Settings includes appearance, units, rest preferences, bodyweight, strength estimates, equipment profile, JSON sharing, legal/account actions, and deletion. Custom-programme creation and walkthrough replay remain deferred. Development, preview, and production EAS profiles are configured; the physical development/hosted-preview passes remain release gates. |
 | Guided return after a break | **Implemented; device/release acceptance pending** | Web and native Plan offer a return guide with explicit load resets, adjusted sets/effort, capped progression, and persistent review. Today can prompt after 14 days without a logged workout. Return settings belong to the programme instance and do not restart it. |
 | Workout saving | **Online-only for beta** | Set changes update optimistically in memory, save directly to Supabase, and show saving or failed states. Web and native retain unconfirmed set values through other saves, session refetches, and exercise-management responses until the server returns the matching mutation receipt. Finish checks the current session cache and blocks while sets are saving or need retry. There is no durable local queue or offline navigation. PWA installation and updates do not imply offline workout support. |
 | Privacy, deletion, and export | **Shipped; deployment/review pending** | Public Privacy, Terms, and account-deletion routes, paginated machine-readable account export, native JSON sharing, and confirmed self-service account deletion are available. Production must deploy the public deletion page, apply the deletion RPC migration, verify the privacy inbox, and complete operator/legal review. |
@@ -168,7 +168,184 @@ surfaces, settle SHE-35/SHE-16's record, unit and ledger correctness. Include SH
 wording, SHE-34's notification cancellation and SHE-39's draft/read recovery in their owning flows.
 SHE-39's recommendation-preview retry is already covered by SHE-42. SHE-18 owns integrated web
 acceptance and SHE-19 documentation reconciliation. SHE-28, hosted migrations, standalone Android
-and Play acceptance remain separate release work. This preparation does not claim the revamp is built.
+and Play acceptance remain separate release work. The first native implementation is described below;
+the remaining visual integration screens still require their own implementation and acceptance.
+
+#### Updated native design references and integration backlog
+
+On 22 September 2026, the supplied `new-website/` exports were inventoried against source
+`29c3a40` on `feature/mobile-native-ui`. They contain 81 embedded artboards across eight files.
+The requested `mobile-audit.html` is not present; [design-system.html](new-website/design-system.html)
+is titled “Sheetless — mobile UI audit” and contains the audit, mode matrix, consolidation,
+recap and foundation boards. [reference-index.json](new-website/reference-index.json) records the
+original filenames, SHA-256 hashes, board IDs and titles. IDs identify embedded boards, not URL
+fragments. These exports remain design references; their static phone frames do not establish
+responsive, keyboard, larger-text, dark-theme or native-runtime acceptance.
+
+The existing [native delivery plan](https://linear.app/sentiment-hound/document/sheetless-native-ui-revamp-official-delivery-plan-a5a7345e4a84)
+and SHE-29 umbrella use this split. SHE-45 is In Progress. The first pass covered **Today plus the
+new navigation shell**. The user then requested the separate **Session summary / recap pass
+(SHE-49)** described below. Other screens follow their supplied designs in separate passes.
+Existing correctness issues retain ownership.
+
+| Order | Reference | Visual integration | Existing behavior owners |
+| --- | --- | --- | --- |
+| 1 | Audit, foundations, parts and navigation | [SHE-45](https://linear.app/sentiment-hound/issue/SHE-45) design decisions → [SHE-46](https://linear.app/sentiment-hound/issue/SHE-46) tokens, controls and shell | SHE-38 modes; SHE-40 platform split |
+| 2 | [Today](new-website/today.html) | [SHE-47](https://linear.app/sentiment-hound/issue/SHE-47) entry hierarchy and state coverage | SHE-37 first-run choice; SHE-41 preview |
+| 3 | [During workout](new-website/during-workout.html) | [SHE-48](https://linear.app/sentiment-hound/issue/SHE-48) views, editing, tools, rest and finish | SHE-40 views; SHE-34 notification cancellation; preserve SHE-32 |
+| 4 | Audit recap and workout Saved boards | [SHE-49](https://linear.app/sentiment-hound/issue/SHE-49) shared recap presentation | SHE-17 wording; preserve SHE-33 receipts |
+| 5 | [Current Plan](new-website/current-plan.html) | [SHE-50](https://linear.app/sentiment-hound/issue/SHE-50) plan, equipment and return | Relevant SHE-26 methodology; existing equipment/return contracts |
+| 6 | [Plans](new-website/plans.html) and [plan creator](new-website/plan-creator.html) | [SHE-51](https://linear.app/sentiment-hound/issue/SHE-51) library; [SHE-36](https://linear.app/sentiment-hound/issue/SHE-36) setup integration | SHE-36 suggestions/overrides; SHE-37 entry; preserve SHE-42 recovery |
+| 7 | [Insights](new-website/insights.html) | [SHE-52](https://linear.app/sentiment-hound/issue/SHE-52) hub, drill-ins and history | SHE-35 correctness; SHE-41 older-history access |
+| 8 | [Profile](new-website/profile.html) | [SHE-53](https://linear.app/sentiment-hound/issue/SHE-53) You and grouped settings | SHE-38 preference behavior; existing account/draft contracts |
+
+The navigation shell is **Today / Plan / Insights / You**. Plan provides programme browsing,
+existing programme/settings deep links remain valid, and You opens the existing settings screen.
+The full Plan, library/setup, Insights and You designs remain separate work. Figtree is bundled
+locally, using existing theme tokens and shared primitives for Today’s typography and surfaces.
+
+Today prioritizes Resume, progression review, then the planned start. It includes a compact
+expandable preview, last-workout recap link and explicit loading/read-failure retry. No-plan users
+can browse programmes or start an ad-hoc workout. The existing return guide remains available,
+with a conditional Today shortcut. Counts and targets come from existing queries rather than
+reference samples. Both stored reading modes retain numbers and actions; detailed mode adds
+provenance and either mode can open arithmetic on demand. The last-workout card shows saved
+completed sets and actual elapsed time, and opens the existing recap.
+
+The supplied screenshot was confirmed against all three boards in `today.html`: Simple, Advanced,
+and the Advanced effort sheet. The first implementation omitted several reference elements; the
+Today correction adds the date/plus header, programme week/session position, muscle chips, five-row
+Simple and four-row Advanced previews, load provenance, saved-workout volume/best set, relative
+date, segmented effort and the “How hard it was” sheet. “Ease back in” opens the existing return
+guide when eligible. The planned-workout and last-workout cards show only the top three muscle
+groups, ranked by the number of exercises involving each group; the last workout counts only
+exercises with completed sets. Muscle chips are display-only, as in the reference; Advanced set
+counts use the same fractional estimates as Insights. Missing effort stays unavailable; comparisons use completed sets with both
+actual and target reps left. The overall rating is a reflection, not a progression input. Workout
+options preserve active-session Resume and the existing ad-hoc start operation.
+
+The separately authorized SHE-48 pass now implements Workout and Finish, as described below.
+The earlier broader prototype remains historical evidence, not acceptance of the current work.
+Settings redesign and Simple/Advanced preference presentation remain separate ticket scope. The current recap implementation was reviewed against the rendered Simple,
+Advanced, Nothing logged and Saved boards before reusing any recap-specific prototype work.
+SHE-17 remains linked to SHE-49 for native wording acceptance without requiring web implementation.
+No public API, migration, durable drafts, offline queue or persisted mode value is added here.
+
+The earlier Today-only checkout passed 1,437 tests (153 native; four existing skips), typecheck,
+lint (17 existing warnings), architecture/documentation checks and Metro Android/web export.
+Twenty browser fixture scenarios cover Today’s loading, failed-read/retry, no-plan, active,
+completed and pending-review states in both themes, plus expansion and arithmetic in both stored
+reading modes, workout options, effort details and recap navigation. Android inspection includes
+both reading modes, scrolling, Back, the effort/options sheets, dark theme and 1.5× system text;
+the original text size and local account preferences were restored. A duplicate React key found
+on the phone was corrected. This evidence is separate from the superseded broader prototype and
+does not replace user acceptance against the reference.
+Android inspection uses current Metro JavaScript in the existing Sheetless development
+client with isolated local Supabase data; Expo Go cannot load the notification module. Automated
+checks, physical native checks and standalone/hosted release acceptance remain distinct. Spoken
+TalkBack, external sharing destinations, a new standalone binary and iOS remain separate gates.
+
+The separate SHE-49 pass replaces the Session summary overview with the reference’s completion,
+best-set, progression, expandable movement and effort hierarchy. Full-screen and history-sheet
+recaps share saved facts, return context, reflection, eligible Repeat/Favourite/feedback actions
+and the existing authoritative receipt query. Share and Done remain outside scrolling content.
+Both shells wait for a fresh read before showing actions and offer Retry on failure. Sharing
+returns to the same recap; only a fresh Finish can invite post-workout feedback. Favourite/title
+writes refresh receipt data, including when the write response is lost.
+
+Recap copy distinguishes proposed, applied, kept and superseded decisions, with truthful
+increase/hold/reduction, working-load/training-max scope and units. Unlinked historical receipts
+remain explicitly unavailable. Completed results never substitute targets for missing recorded
+values, bodyweight sets count as work, and elapsed time comes from saved timestamps. Unlogged
+sets are excluded from completed work and volume; historical empty workouts remain saved records
+without invented deletion or plan rewind. Android Back dismisses an open sheet keyboard first.
+
+This recap checkout passed 1,457 repository tests (172 native; four existing skips), typecheck,
+lint (17 existing warnings), architecture/documentation checks and Metro Android/web export.
+Eighteen rendered browser scenarios cover both shells, modes and themes, movement/effort
+expansion, sharing return, empty/partial/unavailable receipts, mixed Apply/Keep and failed-read Retry.
+Android inspection
+on the same SM-S938B development client covers both recap shells, saved partial/bodyweight facts,
+sharing return, effort details, scrolling, keyboard/Back and 1.5× text in dark theme, with the
+original text size and preferences restored. Receipt fault/retry, mixed-decision and metadata
+refresh coverage is automated; it is distinct from this physical layout/navigation inspection.
+Current reference renders and recap evidence are under `.artifacts/she49/`. User design acceptance
+and the standalone/hosted gates remain open.
+
+The SHE-48 workout pass follows the rendered Focus, Overview, Adjust, tools, Resting, Finish,
+blank and discard boards in `during-workout.html`. Nonempty workouts open in Focus; blank workouts
+open in Overview. Both views use the same active logging card, selections and save/correction/retry
+path. Overview selects an exercise without switching views. Both reading modes use an identical
+logger. Tools retain existing movement eligibility and phase scope; destructive confirmations
+explain when logs and future phase edits are removed. The Workout header shows actual elapsed time
+and confirmed set count. Finish is available in that header and through the Focus menu.
+
+Set drafts keep raw weight/reps text and optional RIR in the account-scoped React Query cache,
+keyed by workout, exercise log, performed movement and set. They survive view/exercise changes,
+refetches and Today round trips in the same app run. A confirmation clears only its submitted
+version; newer edits remain. Confirmed removal/replacement, Finish/discard, authoritative terminal
+entry and account changes clear the relevant scope. Drafts are not persisted across app restart,
+and saving remains online-only. RIR lives in Adjust and starts blank for every new set; clearing
+recorded effort sends null. Log confirms visible editable values, including explicit 0 for bodyweight.
+
+Finish blocks pending and failed set writes. With no confirmed completed sets, native entry and
+submission offer Keep logging or confirmed Discard attempt and never call completion. Planned
+discard leaves the planned workout next. Otherwise Finish shows completed work, optional effort
+and an Add a reflection expansion. It explains omitted edits/unlogged sets and preserves the form
+on failure. Server/web behavior and historical empty workouts remain unchanged. Successful Finish
+opens the existing recap directly, without an intermediate Saved screen.
+
+Rest starts once after a confirmed incomplete-to-complete transition, including a committed save
+whose response was lost. Correction and Undo do not restart rest. Undo preserves values, selects
+the set and stops only its own timer. The rest dock occupies layout space and retains +15 and Skip.
+SHE-34 adds scheduling generations, a check after permission waits and cancellation of late IDs
+on Skip, extension, expiry or workout exit. Leaving the logger cancels pending rest starts too.
+Android background notifications retain the existing sound; the native foreground cue remains
+haptics/vibration, without an audible foreground cue. Restart persistence remains SHE-21 and exact
+previous-set fill remains SHE-20. No new public API, migration or offline queue is introduced.
+
+The SHE-48/SHE-34 checkout passed `pnpm verify`: 1,484 tests (195 native; four existing
+skips), typecheck, lint (17 existing warnings, no new touched-file warnings), web build, Metro
+Android/web export, PWA/bundle checks, architecture/docs and static database contracts. Twenty-six
+360-pixel browser captures cover Focus, Overview, Adjust, tools, Rest and Finish in both modes and
+themes, plus blank/discard states. Behavior tests cover raw draft isolation/versioning, in-flight
+navigation, exact and corrected retries, confirmation after a lost response, source-specific Undo,
+empty Finish, retained reflection and deferred notification races through the actual provider.
+
+Physical SM-S938B checks use the existing `fitness.sheetless.dev` development client (0.1.0,
+version code 3) with current Metro code and local Supabase fixtures. They cover cross-view/exercise
+and Today-round-trip drafts, logging in both views, rejected and committed/lost-response saves,
+Undo, bodyweight work, empty planned discard, blank creation/addition staying in Overview, retained
+Finish effort/reflection after both failure types, direct recap entry, keyboard/Back, scrolling and
+1.3× system text in dark theme. Android's scheduled notification changed after +15, disappeared
+after Skip, and delivered on the rest-timer channel while backgrounded. Denying notification
+permission retained normal logging and the local timer without scheduling an alarm. The original
+font scale, Guided/system preferences, rest setting, permission and local API routing were restored.
+Full-size captures and a review gallery are under `.artifacts/she48/`. Spoken TalkBack, audible
+output on this silenced phone, iOS, standalone/hosted release and user design acceptance remain
+separate. Both tickets remain In Review rather than accepted as Done.
+
+A subsequent comparison with the supplied Workout board image corrected SHE-48's visual
+composition: the compact workout title/header, one panel for the remaining exercises including
+the active row, the menu/Focus/close header, set-card scale and spacing, inset Adjust controls,
+sheet handles, exercise-tool rows, the saved-set receipt and rest actions. Blank entry follows
+the reference heading and primary action; optional reflection and native safety behavior retain
+the agreed contract. Controls keep a minimum 44-pixel touch target, with wrapping and scrolling
+for larger text; Adjust labels expand and move above their controls at the largest text sizes.
+The corrected pass has 195 passing native tests, typecheck, repository lint with the same 17
+existing warnings, architecture and Metro Android/web export. Thirty 393 × 852 browser captures
+cover both modes/themes, with identical Workout/Focus captures across modes. Physical Android
+checks cover the corrected Workout, Focus and Adjust layouts, keyboard/Back, scrolling and dark
+theme at 1.3× text. Reference pairs and full-resolution phone captures are in
+`.artifacts/she48/reference-correction/review.html`. These are implementation checks; user design
+acceptance remains open.
+
+Native integration stays in the existing feature folders and shared primitives. `packages/tokens`
+currently shares semantic tone names; coordinate raw theme values with native `lib/tokens.ts` and
+the web Mantine theme. Preserve domain/data boundaries and existing mutation/cache controllers.
+Each slice needs focused behavioral and rendered checks, applicable repository/Metro gates and
+physical Android evidence. Web acceptance remains SHE-18 and delivered documentation reconciliation
+SHE-19. Hosted schema, standalone release, Play and iOS evidence remain separate.
 
 #### Native migration milestones
 
@@ -226,9 +403,9 @@ practice. The Android app remains internal-track gated until both standalone APK
 
 ### Navigation and routes
 
-The primary mobile navigation is **Today**, **Plan**, **Insights**, and **Programs**. Web settings and
-account actions live in the user menu; native Settings opens from the consistent header action on
-all four tabs rather than occupying a fifth primary tab.
+Native navigation is **Today**, **Plan**, **Insights**, and **You**, with programme browsing in
+Plan and an entry to the existing settings screen in You. Existing settings header shortcuts remain. Web mobile retains
+Today / Plan / Insights / Programs; web settings and account actions live in the user menu.
 
 | Route | Purpose |
 | --- | --- |
@@ -321,7 +498,7 @@ components and hooks live together in folders named for what they do:
 | `history` | `InsightsScreen.tsx` → `InsightsTabs.tsx` | `overview/`, `strength/`, `muscle-fatigue/`, `movements/`, `records/`, and `sessions/` follow the six tabs; `bodyweight/` owns the measurement trend and profile prompt; `sharing/` owns workout image preview and platform export adapters. |
 | `program` | `ProgramScreen.tsx` | `overview/` presents the active plan; `equipment/` reviews conversions; `progression/` reviews and resolves progression decisions. |
 | `templates` | `TemplatesScreen.tsx`, `TemplateDetailScreen.tsx` | `catalogue/`, `favorites/`, `find-my-plan/`, `setup/`, and `start/` separate browsing, recommendations, customisation, and programme start. |
-| `settings` | `SettingsScreen.tsx` | `profile/` owns bodyweight and strength; `preferences/` owns appearance, units, rest, and equipment; `account/` owns account actions and data export. Draft/save coordination and the shared section wrapper stay at the feature root. |
+| `settings` | `YouScreen.tsx`, `SettingsScreen.tsx` | `profile/` owns bodyweight and strength; `preferences/` owns appearance, units, rest, and equipment; `account/` owns account actions and data export. Draft/save coordination and the shared section wrapper stay at the feature root. |
 | `feedback` | `BetaFeedback.tsx`, `PostWorkoutFeedback.tsx`, `DecisionFeedback.tsx` | Embedded forms share submission and prompt state in this small feature folder. |
 
 The larger workout compositions are `session/live/FocusWorkoutView.tsx` (mode and lifecycle
@@ -339,7 +516,8 @@ available from `@/components`. Platform variants stay together, such as
 
 Share workout is available after finishing and on later visits to full summaries or history
 dialogs/sheets. History switches its existing dialog into preview mode; Back to summary restores
-the recap and its Repeat/Favourite actions. Progression decisions remain on the full summary.
+the recap and its Repeat/Favourite actions. Native full-screen and history-sheet recaps both show
+saved progression receipts; web keeps progression decisions on the full summary.
 The preview starts in the app's resolved appearance. Light/Dark changes only the image, and export
 controls wait for PNG preparation. The final preview displays that PNG. Cancellation keeps the
 preview open; failed preparation or export has retry controls and preserves the selected appearance.

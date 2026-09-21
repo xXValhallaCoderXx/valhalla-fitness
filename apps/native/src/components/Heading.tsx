@@ -1,7 +1,7 @@
 import { Text as RNText, type StyleProp, type TextStyle } from 'react-native'
-import { fontFamily, toneColor, useTokens, type Tone } from '@/lib/tokens'
+import { fontForWeight, toneColor, useTokens, type Tone } from '@/lib/tokens'
 
-const ORDER_SIZES: Record<1 | 2 | 3, number> = { 1: 24, 2: 20, 3: 17 }
+const ORDER_SIZES: Record<1 | 2 | 3, number> = { 1: 25, 2: 20, 3: 16.5 }
 
 export interface HeadingProps {
   children: React.ReactNode
@@ -22,7 +22,7 @@ export function Heading({ children, order = 2, tone, style, numberOfLines }: Hea
       style={[
         {
           color: toneColor(theme, tone) ?? theme.text,
-          fontFamily,
+          fontFamily: fontForWeight(800),
           fontSize: ORDER_SIZES[order],
           fontWeight: '800',
           letterSpacing: -0.2,

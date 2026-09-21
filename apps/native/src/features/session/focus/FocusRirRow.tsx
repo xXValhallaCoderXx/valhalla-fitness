@@ -1,7 +1,7 @@
 /** Native port of web FocusRirRow: large 0/1/2/3+ reps-in-reserve picker. */
 import { View } from 'react-native'
 import { RIR_OPTIONS } from '@sheetless/domain/session/live-session-utils'
-import { Caption, SegmentedControl } from '@/components'
+import { Button, SectionLabel, SegmentedControl } from '@/components'
 import { spacing } from '@/lib/tokens'
 import { FocusStepper } from './FocusStepper'
 
@@ -10,11 +10,13 @@ export function FocusRirRow({
   onChange,
   disabled = false,
   targetRir,
+  onClear,
 }: {
   value?: number
   onChange: (value: number) => void
   disabled?: boolean
   targetRir?: number | null
+  onClear?: () => void
 }) {
   if ((targetRir ?? 0) > 3) {
     return (
@@ -30,11 +32,16 @@ export function FocusRirRow({
   }
   return (
     <View>
-      <Caption>Reps in reserve · could you do more?</Caption>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs }}>
+        <SectionLabel>Reps you had left</SectionLabel>
+        {value != null && onClear ? <Button label="Clear effort" size="sm" variant="subtle" disabled={disabled} onPress={onClear} /> : null}
+      </View>
       <SegmentedControl
         accessibilityRole="radiogroup"
         accessibilityLabel="Actual reps in reserve"
         variant="segments"
+        appearance="inset"
+        size="sm"
         options={RIR_OPTIONS.map((option) => ({
           value: String(option.value),
           label: option.label,

@@ -1,166 +1,64 @@
-/**
- * Native port of web FocusSetCard, made presentational: the draft lives here,
- * the mutation lives with the caller via onLogSet. Remount it (key on setIndex)
- * so the draft re-seeds per set — same contract as the web card.
- */
-import { useState } from 'react'
-import { View } from 'react-native'
-import type { MovementSlot, SetLog, WorkoutSession } from '@sheetless/domain/session/types/session'
-import {
-  formatSetTarget,
-  previousSetShort,
-  roundToStep,
-  seedLoadForSet,
-  seedRepsForSet,
-} from '@sheetless/domain/session/live-session-utils'
-import { Button, Caption, SectionLabel, Text } from '@/components'
-import { cardShadow, radii, spacing, useTokens } from '@/lib/tokens'
-import { FocusRirRow } from './FocusRirRow'
-import { FocusStepper } from './FocusStepper'
+import { Pressable, View } from 'react-native'
+import { Scan } from 'lucide-react-native'
+import type { MovementSlot, WorkoutSession } from '@sheetless/domain/session/types/session'
+import { formatSetTarget, previousSetShort } from '@sheetless/domain/session/live-session-utils'
+import { Button, Caption, Heading, Panel, SectionLabel, Text } from '@/components'
+import { spacing, useTokens } from '@/lib/tokens'
+import type { WorkoutLogger } from '../editing/useWorkoutLogger'
+import { FocusSetProgressBar } from './FocusSetProgressBar'
 
-export type SetDraft = { actualLoad: number | null; actualReps: number; actualRir?: number; completed: boolean }
-
-export function FocusSetCard({
-  session,
-  movement,
-  set,
-  setNumber,
-  setTotal,
-  suggestedRir,
-  isSaving,
-  disabled,
-  saveFailed,
-  onLogSet,
-  onRirSelected,
-}: {
-  session: WorkoutSession
-  movement: MovementSlot
-  set: SetLog
-  setNumber: number
-  setTotal: number
-  suggestedRir?: number
-  isSaving: boolean
-  disabled?: boolean
-  saveFailed: boolean
-  onLogSet: (draft: SetDraft) => void
-  onRirSelected: (setIndex: number, value: number) => void
+/** Both views render the same controlled card; only its composition changes. */
+export function FocusSetCard({ session, movement, logger, overview, onFocus, onAdjust, onTools }: {
+  session: WorkoutSession; movement: MovementSlot; logger: WorkoutLogger; overview: boolean
+  onFocus: () => void; onAdjust: () => void; onTools: () => void
 }) {
   const { theme } = useTokens()
-  const [draft, setDraft] = useState({
-    actualLoad: seedLoadForSet(movement, set),
-    actualReps: seedRepsForSet(movement, set),
-    actualRir: set.actualRir ?? undefined,
-  })
-  const effectiveActualRir =
-    draft.actualRir ?? (!set.completed && typeof set.actualRir !== 'number' ? suggestedRir : undefined)
-
-  const adjustLoad = (delta: number) =>
-    setDraft((current) => ({
-      ...current,
-      actualLoad: Math.max(0, roundToStep(Number(current.actualLoad) + delta, session.rounding)),
-    }))
-  const adjustReps = (delta: number) =>
-    setDraft((current) => ({ ...current, actualReps: Math.max(0, Number(current.actualReps) + delta) }))
-
-  const hasDraftChanges = draft.actualLoad !== (set.actualLoad ?? null)
-    || Number(draft.actualReps) !== (set.actualReps ?? null)
-    || (effectiveActualRir ?? null) !== (set.actualRir ?? null)
-  const ctaLabel = saveFailed
-    ? hasDraftChanges ? 'Save changes' : 'Retry save'
-    : set.completed ? 'Update set' : 'Log set'
-  const previousLine = previousSetShort(movement.previous, set.setIndex)
-  const controlsDisabled = isSaving || disabled
-  const submit = (completed: boolean) => onLogSet({
-    actualLoad: draft.actualLoad,
-    actualReps: Number(draft.actualReps),
-    actualRir: effectiveActualRir,
-    completed,
-  })
-
-  return (
-    <View
-      style={{
-        backgroundColor: theme.surface,
-        borderColor: theme.tones.action.border,
-        borderRadius: radii.lg,
-        borderWidth: 1,
-        padding: spacing.md,
-        ...cardShadow(theme),
-      }}
-    >
-      <View
-        style={{
-          alignItems: 'center',
-          flexDirection: 'row',
-          gap: spacing.xs,
-          justifyContent: 'space-between',
-        }}
-      >
-        <SectionLabel>
-          Current · Set {setNumber} of {setTotal}
-        </SectionLabel>
-        <Caption numberOfLines={1} style={{ flexShrink: 1 }}>
-          Target {formatSetTarget(set, session.units, true, movement)}
-          {previousLine ? ` · ${previousLine}` : ''}
-        </Caption>
+  const { set, input } = logger
+  if (!set) return null
+  const number = movement.sets.indexOf(set) + 1
+  const previous = previousSetShort(movement.previous, set.setIndex)
+  const numbers = (
+    <Pressable accessibilityRole="button" accessibilityLabel="Adjust this set" onPress={onAdjust}
+      style={{ alignItems: overview ? 'flex-start' : 'center', gap: overview ? 4 : 8, paddingVertical: overview ? 0 : spacing.xs }}>
+      {overview ? <Text weight={800} style={{ fontSize: 30, lineHeight: 34 }}>{input.load || '—'} {session.units} × {input.reps || '—'}</Text>
+        : <><Text weight={800} style={{ fontSize: 56, lineHeight: 60 }}>{input.load || '—'}<Text size="lg" tone="dimmed"> {session.units}</Text></Text>
+          <Text weight={800} style={{ fontSize: 24, lineHeight: 30 }}>× {input.reps || '—'} reps</Text></>}
+      <View style={{ gap: 4, alignItems: overview ? 'flex-start' : 'center' }}>
+        <Text size="sm" style={{ textAlign: overview ? 'left' : 'center' }}>
+          {set.targetRir != null ? `Leave about ${set.targetRir} reps in the tank.` : `Target ${formatSetTarget(set, session.units, true, movement)}`}
+        </Text>
+        {previous ? <Caption>{previous.replace('previous', 'Last time')}</Caption> : null}
       </View>
-
-      <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
-        <FocusStepper
-          label="Weight"
-          onClear={() => setDraft((current) => ({ ...current, actualLoad: null }))}
-          unitSuffix={session.units}
-          value={draft.actualLoad}
-          step={session.rounding}
-          onAdjust={adjustLoad}
-          onType={(value) => setDraft((current) => ({ ...current, actualLoad: Math.max(0, value) }))}
-          disabled={controlsDisabled}
-        />
-        <FocusStepper
-          label="Reps"
-          value={Number(draft.actualReps)}
-          step={1}
-          onAdjust={adjustReps}
-          onType={(value) => setDraft((current) => ({ ...current, actualReps: Math.max(0, value) }))}
-          disabled={controlsDisabled}
-        />
-        <FocusRirRow
-          targetRir={set.targetRir}
-          value={effectiveActualRir}
-          disabled={controlsDisabled}
-          onChange={(value) => {
-            setDraft((current) => ({ ...current, actualRir: value }))
-            onRirSelected(set.setIndex, value)
-          }}
-        />
-
-        {draft.actualLoad === null ? <Caption>Enter a load, or 0 for bodyweight.</Caption> : null}
-        {saveFailed ? (
-          <Text size="xs" tone="danger">
-            {hasDraftChanges
-              ? 'Last save failed. Save changes to keep these updated values.'
-              : 'Last save failed. Retry to save this set.'}
-          </Text>
-        ) : null}
-
-        <Button
-          label={ctaLabel}
-          fullWidth
-          loading={isSaving}
-          disabled={controlsDisabled || (draft.actualLoad === null && (!saveFailed || set.completed))}
-          onPress={() => submit(saveFailed ? set.completed : true)}
-          testID="focus-log-set"
-        />
-        {set.completed ? (
-          <Button
-            label="Mark incomplete"
-            variant="default"
-            fullWidth
-            disabled={controlsDisabled}
-            onPress={() => submit(false)}
-          />
-        ) : null}
+    </Pressable>
+  )
+  const controls = (
+    <View style={{ gap: spacing.sm }}>
+      <FocusSetProgressBar movement={movement} selectedSetIndex={set.setIndex} onSelectSet={logger.selectSet} />
+      {logger.failed ? <Text size="sm" tone="danger">Last save failed. Your values are kept; retry to save this set.</Text> : null}
+      {!logger.valid ? <Caption>Enter a weight (0 for bodyweight) and whole-number reps in Adjust.</Caption> : null}
+      <Button label={logger.label === 'Log set' ? 'Log this set' : logger.label} size="lg" fullWidth loading={logger.saving} disabled={logger.disabled || !logger.valid}
+        onPress={() => logger.submit(logger.failed ? set.completed : true)} testID="focus-log-set" />
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <Button label="Adjust this set" size="sm" variant="default" style={{ flex: 1 }} onPress={onAdjust} />
+        <Button label="Tools" size="sm" variant="default" style={{ flex: 1 }} onPress={onTools} />
       </View>
+    </View>
+  )
+  return overview ? (
+    <Panel style={{ padding: spacing.md, gap: spacing.xs, borderRadius: 20 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs }}>
+        <View style={{ flex: 1 }}><SectionLabel tone="accent">{movement.role === 'main' ? 'Main lift' : movement.role} · Set {number} of {movement.sets.length}</SectionLabel></View>
+        <Button label="Focus" size="sm" variant="default" onPress={onFocus} leftSection={<Scan size={14} color={theme.tones.action.text} />} />
+      </View>
+      <Heading order={2}>{movement.performedMovementName ?? movement.movementName}</Heading>
+      {numbers}<View style={{ marginTop: spacing.xs }}>{controls}</View>
+    </Panel>
+  ) : (
+    <View style={{ gap: spacing.sm }}>
+      <Panel style={{ padding: spacing.lg, paddingVertical: 20, alignItems: 'center', borderRadius: 20 }}>
+        <SectionLabel>Set {number} of {movement.sets.length}</SectionLabel>{numbers}
+      </Panel>
+      {controls}
     </View>
   )
 }

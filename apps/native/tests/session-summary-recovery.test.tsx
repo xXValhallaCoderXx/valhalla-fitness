@@ -5,14 +5,13 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProgressionDecision } from '@sheetless/domain/program/types'
 import type { SessionSummary } from '@sheetless/domain/session/types'
-import type { ReceiptEntry } from '@sheetless/domain/session/session-receipt'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { themeProviderMock } from './support/theme'
 
 const api = vi.hoisted(() => ({ read: vi.fn(), navigate: vi.fn(), focused: true }))
 vi.mock('@/lib/theme-provider', () => themeProviderMock())
 vi.mock('@/lib/session-provider', () => ({ useSession: () => ({ user: { id: 'account-a' } }) }))
-vi.mock('@/lib/account', () => ({ buildUserContext: (user: User) => ({ user }) }))
+vi.mock('@/lib/account', () => ({ buildUserContext: (user: User) => ({ user }), useMe: () => ({ data: { experienceMode: 'guided' } }) }))
 vi.mock('expo-router', () => ({
   router: { replace: api.navigate, push: api.navigate, dismissTo: api.navigate },
   useIsFocused: () => api.focused,
@@ -22,7 +21,9 @@ vi.mock('@/components', async () => {
   const { Button } = await import('../src/components/Button')
   const Block = ({ children }: { children?: ReactNode }) => <div>{children}</div>
   return {
-    Button, Screen: Block, Panel: Block, Text: Block,
+    Button, Screen: Block, Panel: Block, Text: Block, Caption: Block, Heading: Block, SectionLabel: Block,
+    SheetModal: ({ title, children, footer, onClose }: { title: string; children: ReactNode; footer: ReactNode; onClose: () => void }) =>
+      <div role="dialog" aria-label={title}><button onClick={onClose}>Close sheet</button>{children}{footer}</div>,
     PageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
     EmptyState: ({ title, children }: { title: string; children: ReactNode }) => <div><h2>{title}</h2>{children}</div>,
   }
@@ -32,9 +33,12 @@ vi.mock('@/features/feedback/PostWorkoutFeedback', () => ({ PostWorkoutFeedback:
 vi.mock('@/features/session/live/ReturnSessionNotice', () => ({ ReturnSessionNotice: () => null }))
 vi.mock('@/features/session/summary/WorkoutSummaryRecap', () => ({ WorkoutSummaryRecap: () => <div>Saved workout recap</div> }))
 vi.mock('@/features/session/summary/AdHocSessionActions', () => ({ AdHocSessionActions: () => null }))
-vi.mock('@/features/history/sharing/ShareWorkoutButton', () => ({ ShareWorkoutButton: () => null }))
-vi.mock('@/features/session/summary/WhatChangedCard', () => ({
-  WhatChangedCard: ({ receipt }: { receipt: ReceiptEntry[] }) => <div>{receipt.map((entry) => <p key={entry.decision?.id}>{entry.change}</p>)}</div>,
+vi.mock('@/features/history/sharing/WorkoutSharePreview', () => ({ WorkoutSharePreview: ({ onBack }: { onBack: () => void }) => <button onClick={onBack}>Back to summary</button> }))
+vi.mock('@/features/session/summary/RecapLayout', () => ({
+  RecapLayout: ({ children, footer }: { children: ReactNode; footer: ReactNode }) => <div>{children}{footer}</div>,
+  RecapActions: ({ onShare, onDone }: { onShare?: () => void; onDone: () => void }) => <>
+    {onShare ? <button onClick={onShare}>Share workout</button> : null}<button onClick={onDone}>Done</button>
+  </>,
 }))
 vi.mock('@/features/session/summary/SummaryDecisions', () => ({
   SummaryDecisions: ({ decisions, onResolved }: {
@@ -42,6 +46,7 @@ vi.mock('@/features/session/summary/SummaryDecisions', () => ({
     onResolved: (id: string, action: 'accepted' | 'dismissed') => void
   }) => <div>{decisions.map((decision) => <div key={decision.id}>
     <p>Decision {decision.status}</p>
+    <p>{recapDecisionView(decision, 'kg').change}</p>
     {decision.status === 'pending' ? <>
       <button onClick={() => onResolved(decision.id, 'accepted')}>Apply recommendation</button>
       <button onClick={() => onResolved(decision.id, 'dismissed')}>Keep current value</button>
@@ -50,6 +55,8 @@ vi.mock('@/features/session/summary/SummaryDecisions', () => ({
 }))
 
 import { SessionSummaryScreen } from '../src/features/session/SessionSummaryScreen'
+import { SessionSummarySheet } from '../src/features/history/sessions/SessionSummarySheet'
+import { recapDecisionView } from '../src/features/session/summary/recap-progression'
 
 function summary(status: ProgressionDecision['status'] = 'pending'): SessionSummary {
   return {
@@ -84,7 +91,7 @@ const node = () => <QueryClientProvider client={client}><SessionSummaryScreen se
 
 describe('native persisted workout recap', () => {
   it.each([
-    { status: 'accepted', receipt: 'Applied: 80 kg → 82.5 kg' },
+    { status: 'accepted', receipt: '80 kg → 82.5 kg' },
     { status: 'dismissed', receipt: 'Kept at 80 kg' },
     { status: 'superseded', receipt: 'Later programme changes replaced this recommendation.' },
   ] as const)('uses authoritative $status decisions on revisit instead of cached pending actions', async ({ status, receipt }) => {
@@ -120,7 +127,7 @@ describe('native persisted workout recap', () => {
     expect(client.getQueryData(finishKey)).toBeUndefined()
     fireEvent.click(screen.getByRole('button', { name: 'Apply recommendation' }))
     await screen.findByText('Decision accepted')
-    expect(screen.getByText('Applied: 80 kg → 82.5 kg')).toBeTruthy()
+    expect(screen.getByText('80 kg → 82.5 kg')).toBeTruthy()
     expect(client.getQueryData<SessionSummary>(receiptKey)?.decisions[0].status).toBe('accepted')
     first.unmount()
     render(node())
@@ -150,5 +157,35 @@ describe('native persisted workout recap', () => {
     expect(screen.queryByRole('button', { name: 'Apply recommendation' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Review current choices in Your Plan' }))
     await waitFor(() => expect(api.navigate).toHaveBeenCalledWith('/(tabs)/program'))
+  })
+
+  it('fresh-reads history receipts, preserves the finish marker and returns from sharing to one recap', async () => {
+    client.setQueryData(receiptKey, summary())
+    client.setQueryData(finishKey, summary())
+    api.read.mockResolvedValue(summary('accepted'))
+    render(<QueryClientProvider client={client}><SessionSummarySheet sessionId="session-a" user={{ id: 'account-a' } as User} onClose={vi.fn()} /></QueryClientProvider>)
+    expect(screen.getByText('Loading your recap…')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Apply recommendation' })).toBeNull()
+    await screen.findByText('Decision accepted')
+    expect(screen.queryByText('Fresh finish feedback')).toBeNull()
+    expect(client.getQueryData(finishKey)).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Share workout' }))
+    expect(screen.queryByText('Saved workout recap')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Back to summary' }))
+    expect(screen.getAllByText('Saved workout recap')).toHaveLength(1)
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(screen.queryByText('Fresh finish feedback')).toBeNull()
+  })
+
+  it('hides cached history actions on read failure and retries unavailable legacy receipts honestly', async () => {
+    client.setQueryData(receiptKey, summary())
+    api.read.mockRejectedValueOnce(new Error('Receipt unavailable')).mockResolvedValueOnce({ ...summary(), decisions: [], decisionReceiptAvailable: false })
+    render(<QueryClientProvider client={client}><SessionSummarySheet sessionId="session-a" user={{ id: 'account-a' } as User} onClose={vi.fn()} /></QueryClientProvider>)
+    await screen.findByText('Receipt unavailable')
+    expect(screen.queryByRole('button', { name: 'Apply recommendation' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Share workout' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry summary' }))
+    await screen.findByText('Progression details are unavailable for this older workout.')
+    expect(screen.queryByRole('button', { name: 'Apply recommendation' })).toBeNull()
   })
 })

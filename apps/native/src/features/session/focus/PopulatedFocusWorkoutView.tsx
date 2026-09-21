@@ -1,213 +1,82 @@
-import { ReturnSessionNotice } from '../live/ReturnSessionNotice'
+import { useRef, useState } from 'react'
 import { ScrollView, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { User } from '@supabase/supabase-js'
 import type { WorkoutSession } from '@sheetless/domain/session/types/session'
-import { sessionCompletion } from '@sheetless/domain/session/session-cache'
-import {
-  advanceAfterLog,
-  exerciseNeighbors,
-  upcomingMovements,
-} from '@sheetless/domain/session/live-focus-utils'
+import { exerciseNeighbors } from '@sheetless/domain/session/live-focus-utils'
 import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
-import { Text } from '@/components'
-import { spacing, useTokens } from '@/lib/tokens'
-import { FocusComingUp } from './FocusComingUp'
+import { Button, Caption, Panel, SectionLabel, Text } from '@/components'
+import { spacing } from '@/lib/tokens'
 import { FocusExerciseHeader } from './FocusExerciseHeader'
-import { FocusMovementTools } from './FocusMovementTools'
-import { FocusSetCard, type SetDraft } from './FocusSetCard'
-import { FocusSetProgressBar } from './FocusSetProgressBar'
-import { FocusTopBar } from '../live/FocusTopBar'
-import { AddSetAction, WorkoutCompleteBanner } from '../live/FocusWorkoutActions'
+import { FocusSetCard } from './FocusSetCard'
 import { useAddExerciseSet } from './useAddExerciseSet'
-import { useSetLogMutation } from './useSetLogMutation'
-import { useFocusSetState } from './useFocusSetState'
+import { LoggedSetReceipt } from './LoggedSetReceipt'
+import { ReturnSessionNotice } from '../live/ReturnSessionNotice'
+import { AdjustSetSheet } from '../editing/AdjustSetSheet'
+import { ExerciseToolsSheet } from '../editing/ExerciseToolsSheet'
+import { useWorkoutLogger } from '../editing/useWorkoutLogger'
 import { WorkoutManagementSheets } from '../editing/WorkoutManagementSheets'
-import { WorkoutToolsPanel } from '../editing/WorkoutToolsPanel'
 import { useWorkoutManagement } from '../editing/useWorkoutManagement'
+import { useAccessoryOrderMutation } from '../editing/useAccessoryOrderMutation'
+import { WorkoutOverviewRow } from '../overview/WorkoutOverviewRow'
 
-export function PopulatedFocusWorkoutView({
-  user,
-  session,
-  activeMovementId,
-  notes,
-  sessionBusy,
-  finishBlocked,
-  onNotesChange,
-  onSelectMovement,
-  onShowOverview,
-  onRename,
-  onFinish,
-  onDiscard,
-}: {
-  user: User
-  session: WorkoutSession
-  activeMovementId: string
-  notes: string
-  sessionBusy: boolean
-  finishBlocked: boolean
-  onNotesChange: (notes: string) => void
-  onSelectMovement: (movementId: string | null) => void
-  onShowOverview: () => void
-  onRename: () => void
-  onFinish: () => void
-  onDiscard: () => void
+export function PopulatedFocusWorkoutView({ user, session, activeMovementId, notes, sessionBusy,
+  overview, onNotesChange, onSelectMovement, onShowFocus }: {
+  user: User; session: WorkoutSession; activeMovementId: string; notes: string; sessionBusy: boolean; overview: boolean
+  onNotesChange: (notes: string) => void; onSelectMovement: (movementId: string | null) => void; onShowFocus: () => void
 }) {
-  const { theme } = useTokens()
-  const insets = useSafeAreaInsets()
-  const activeMovement = (
-    session.movements.find((movement) => movement.id === activeMovementId) ?? session.movements[0]
-  )!
-  const { selectedSetIndex, selectSet, carryRirToNextSet, suggestedRir } =
-    useFocusSetState(session.sessionId, activeMovement)
+  const movement = (session.movements.find(item => item.id === activeMovementId) ?? session.movements[0])!
+  const scroll = useRef<ScrollView>(null)
+  const selectMovement = (id: string | null) => { onSelectMovement(id); scroll.current?.scrollTo({ y: 0, animated: true }) }
+  const logger = useWorkoutLogger(user, session, movement, selectMovement, sessionBusy)
+  const [adjustOpen, setAdjustOpen] = useState(false)
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const addSet = useAddExerciseSet(user, session, movement)
+  const order = useAccessoryOrderMutation(user, session)
+  const addedIndex = order.orderedSlotIds.indexOf(movement.slotId ?? movement.id)
+  const typedLoad = logger.input.load.trim() ? Number(logger.input.load.replace(',', '.')) : NaN
+  const management = useWorkoutManagement({ user, session, movement, selectedSet: logger.set, initialPlateLoad: Number.isFinite(typedLoad) ? typedLoad : null, notes,
+    disabled: sessionBusy, onNotesChange, onSelectMovement: logger.selectMovement })
+  const { hasPrev, hasNext, prevId, nextId } = exerciseNeighbors(session, movement.id)
 
-  const selectedSet = activeMovement.sets.find((set) => set.setIndex === selectedSetIndex)
-    ?? activeMovement.sets[0]
-  const setLog = useSetLogMutation(user, session, activeMovement, selectedSet?.setIndex ?? 1)
-  const addSet = useAddExerciseSet(user, session, activeMovement)
-  const setTotal = activeMovement.sets.length
-  const setNumber = selectedSet
-    ? activeMovement.sets.findIndex((set) => set.setIndex === selectedSet.setIndex) + 1
-    : 1
-  const { hasPrev, hasNext, prevId, nextId } = exerciseNeighbors(session, activeMovement.id)
-  const coming = upcomingMovements(session, activeMovement.id, 2)
-  const management = useWorkoutManagement({
-    user,
-    session,
-    movement: activeMovement,
-    selectedSet,
-    notes,
-    disabled: sessionBusy,
-    onNotesChange,
-    onSelectMovement,
-  })
-
-  const handleLogged = (nextSession: WorkoutSession, loggedSetIndex: number) => {
-    const result = advanceAfterLog(nextSession, activeMovement.id, loggedSetIndex)
-    if (result.kind === 'sessionComplete') return
-    if (result.movementId !== activeMovement.id) onSelectMovement(result.movementId)
-    else selectSet(result.setIndex)
-  }
-  const saveFailed = selectedSet?.syncState === 'syncFailed'
-  const isSaving = setLog.isPending || selectedSet?.syncState === 'saving'
-  const logSet = (draft: SetDraft) => {
-    if (!selectedSet || isSaving || sessionBusy) return
-    selectSet(selectedSet.setIndex)
-    setLog.mutate(
-      {
-        movementSlotId: activeMovement.id,
-        setIndex: selectedSet.setIndex,
-        actualLoad: draft.actualLoad,
-        actualReps: draft.actualReps,
-        actualRir: draft.actualRir,
-        completed: draft.completed,
-        clientMutationId: crypto.randomUUID(),
-      },
-      { onSuccess: (nextSession) => {
-        if (draft.completed && !selectedSet.completed) handleLogged(nextSession, selectedSet.setIndex)
-      } },
-    )
-  }
-  const allComplete = session.movements.every((movement) =>
-    movement.sets.every((set) => set.completed),
-  )
-  const addSetError = addSet.isError
-    ? getApiErrorMessage(addSet.error, 'Unable to add another set.')
-    : null
-
-  return (
-    <View style={{ backgroundColor: theme.background, flex: 1, paddingTop: insets.top }}>
-      <FocusTopBar
-        onBack={onShowOverview}
-        backDisabled={sessionBusy}
-        backLabel="Overview"
-        centerPrimary={activeMovement.performedMovementName ?? activeMovement.movementName}
-        centerSecondary={`${session.title} · Set ${setNumber} of ${setTotal}`}
-        equipmentMode={session.equipmentMode}
-        finishLabel="Finish"
-        finishDisabled={finishBlocked}
-        onFinish={onFinish}
-        renameDisabled={sessionBusy}
-        onRename={session.isAdHoc && session.status === 'in_progress' ? onRename : undefined}
-        discardDisabled={sessionBusy}
-        onDiscard={onDiscard}
-      />
-      <View style={{ backgroundColor: theme.surface2, height: 4 }}>
-        <View
-          style={{
-            backgroundColor: theme.primaryFill,
-            height: 4,
-            width: `${sessionCompletion(session).percent}%`,
-          }}
-        />
-      </View>
-
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          gap: spacing.md,
-          padding: spacing.md,
-          paddingBottom: spacing.md + insets.bottom,
-        }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <ReturnSessionNotice session={session} />
-        <WorkoutCompleteBanner visible={allComplete} disabled={finishBlocked} onFinish={onFinish} />
-        <FocusExerciseHeader
-          movement={activeMovement}
-          units={session.units}
-          hasPrev={hasPrev}
-          hasNext={hasNext}
-          onPrev={() => prevId && onSelectMovement(prevId)}
-          onNext={() => nextId && onSelectMovement(nextId)}
-        />
-        <FocusMovementTools {...management.movementTools} />
-        <FocusSetProgressBar
-          movement={activeMovement}
-          selectedSetIndex={selectedSetIndex}
-          onSelectSet={selectSet}
-        />
-
-        {selectedSet ? (
-          <FocusSetCard
-            key={`${session.sessionId}-${activeMovement.id}-${activeMovement.performedMovementId ?? activeMovement.movementId}-${selectedSet.setIndex}`}
-            session={session}
-            movement={activeMovement}
-            set={selectedSet}
-            setNumber={setNumber}
-            setTotal={setTotal}
-            suggestedRir={suggestedRir}
-            isSaving={Boolean(isSaving)}
-            disabled={sessionBusy}
-            saveFailed={saveFailed}
-            onLogSet={logSet}
-            onRirSelected={carryRirToNextSet}
-          />
-        ) : null}
-        {setLog.isError && !saveFailed ? (
-          <Text size="sm" tone="danger">
-            {getApiErrorMessage(setLog.error, 'Unable to save this set. Retry when your connection is stable.')}
-          </Text>
-        ) : null}
-        <AddSetAction
-          visible={activeMovement.role === 'accessory' || Boolean(session.isAdHoc)}
-          disabled={sessionBusy}
-          isPending={addSet.isPending}
-          error={addSetError}
-          onAdd={() => addSet.mutate(undefined, {
-            onSuccess: (nextSession) => {
-              const nextMovement = nextSession.movements.find(
-                (movement) => movement.id === activeMovement.id,
-              )
-              const newSetIndex = nextMovement?.sets.at(-1)?.setIndex
-              if (newSetIndex) selectSet(newSetIndex)
-            },
-          })}
-        />
-        <FocusComingUp movements={coming} onJumpTo={onSelectMovement} />
-        <WorkoutToolsPanel {...management.workoutTools} />
-      </ScrollView>
-      <WorkoutManagementSheets controller={management} />
-    </View>
-  )
+  return <>
+    <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, gap: spacing.sm, padding: spacing.lg, paddingBottom: spacing.xl }} keyboardShouldPersistTaps="handled">
+      <ReturnSessionNotice session={session} />
+      {!overview ? <FocusExerciseHeader movement={movement} ordinal={order.displayMovements.findIndex(item => item.id === movement.id) + 1} total={session.movements.length} hasPrev={hasPrev} hasNext={hasNext}
+        onPrev={() => prevId && logger.selectMovement(prevId)} onNext={() => nextId && logger.selectMovement(nextId)} /> : null}
+      <FocusSetCard session={session} movement={movement} logger={logger} overview={overview}
+        onFocus={onShowFocus} onAdjust={() => setAdjustOpen(true)} onTools={() => setToolsOpen(true)} />
+      {logger.error && !logger.failed ? <Text tone="danger" size="sm">{getApiErrorMessage(logger.error, 'Unable to save this set.')}</Text> : null}
+      <LoggedSetReceipt user={user} session={session} disabled={sessionBusy} onSelect={(movementId, index) => {
+        // The selection hook accepts a scope so Undo can select a different exercise's set.
+        logger.selectMovementSet(movementId, index)
+      }} />
+      {overview ? <>
+        <Panel style={{ paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: 4, borderRadius: 20,
+          boxShadow: 'none', elevation: 0 }}>
+          <SectionLabel>The rest of this session</SectionLabel>
+          {order.displayMovements.map((item, index) => <WorkoutOverviewRow key={item.id}
+            movement={item} ordinal={index + 1} active={item.id === movement.id} last={index === order.displayMovements.length - 1}
+            onOpen={() => logger.selectMovement(item.id)} />)}
+        </Panel>
+        <Button label={session.isAdHoc ? 'Add exercise' : 'Add accessory'} variant="default" fullWidth
+          style={{ borderStyle: 'dashed', backgroundColor: 'transparent' }} disabled={sessionBusy} onPress={management.workoutTools.onAddMovement} />
+      </> : <View style={{ marginTop: 'auto', paddingTop: spacing.lg }}>
+        <Caption style={{ textAlign: 'center' }}>Focus hides the rest of the session. Your sets log exactly the same.</Caption>
+      </View>}
+      {order.errorMessage ? <Text tone="danger">{order.errorMessage}</Text> : null}
+    </ScrollView>
+    <AdjustSetSheet open={adjustOpen} onClose={() => setAdjustOpen(false)} session={session} movement={movement} logger={logger} />
+    <ExerciseToolsSheet open={toolsOpen} onClose={() => setToolsOpen(false)} name={movement.performedMovementName ?? movement.movementName}
+      tools={management.movementTools} canAddSet={movement.role === 'accessory' || Boolean(session.isAdHoc)}
+      addError={addSet.isError ? getApiErrorMessage(addSet.error, 'Unable to add a set.') : null}
+      onAddSet={() => addSet.mutate(undefined, { onSuccess: next => {
+        const index = next.movements.find(item => item.id === movement.id)?.sets.at(-1)?.setIndex
+        if (index) logger.selectSet(index)
+        setToolsOpen(false)
+      } })}
+      canMoveUp={Boolean(!session.isAdHoc && movement.isAdded && addedIndex > 0)}
+      canMoveDown={Boolean(!session.isAdHoc && movement.isAdded && addedIndex >= 0 && addedIndex < order.orderedSlotIds.length - 1)}
+      onMove={direction => order.move(movement, direction)} />
+    <WorkoutManagementSheets controller={management} />
+  </>
 }

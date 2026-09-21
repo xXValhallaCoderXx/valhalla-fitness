@@ -1,21 +1,10 @@
-/**
- * Native port of web FinishSessionModal — the one moment we ask how the
- * workout felt. Everything is optional: the primary button always finishes
- * immediately, rating or no rating. RN Modal styled as a bottom sheet.
- */
 import { useState } from 'react'
-import { Modal, Pressable, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Pressable, View } from 'react-native'
 import {
-  REFLECTION_MAX_LENGTH,
-  SESSION_RPE_MAX,
-  SESSION_RPE_MIN,
-  reflectionImprovePrompt,
-  reflectionWinPrompt,
-  sessionRpeEndLabels,
-  sessionRpeQuestion,
+  REFLECTION_MAX_LENGTH, SESSION_RPE_MAX, SESSION_RPE_MIN, reflectionImprovePrompt,
+  reflectionWinPrompt, sessionRpeEndLabels, sessionRpeQuestion,
 } from '@sheetless/domain/session/session-reflection'
-import { Button, Caption, Heading, SectionLabel, Text, TextInput } from '@/components'
+import { Button, Caption, SectionLabel, SheetModal, Text, TextInput } from '@/components'
 import { radii, spacing, useTokens } from '@/lib/tokens'
 
 export type FinishReflection = {
@@ -29,152 +18,88 @@ const EFFORT_OPTIONS = Array.from(
   (_, index) => SESSION_RPE_MIN + index,
 )
 
-export function FinishWorkoutSheet({
-  open,
-  incompleteSetCount,
-  isPending,
-  error,
-  onCancel,
-  onFinish,
-}: {
-  open: boolean
-  incompleteSetCount: number
-  isPending: boolean
-  error?: string | null
-  onCancel: () => void
-  onFinish: (reflection: FinishReflection) => void
+export function FinishWorkoutSheet({ open, completedSetCount, incompleteSetCount, editedSetCount = 0, elapsed,
+  isPending, blocked = false, error, onCancel, onFinish }: {
+  open: boolean; completedSetCount: number; incompleteSetCount: number; editedSetCount?: number; elapsed?: string
+  isPending: boolean; blocked?: boolean; error?: string | null; onCancel: () => void; onFinish: (reflection: FinishReflection) => void
 }) {
   const { theme } = useTokens()
-  const insets = useSafeAreaInsets()
   const [effort, setEffort] = useState<number | null>(null)
   const [win, setWin] = useState('')
   const [improve, setImprove] = useState('')
-
-  return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={() => !isPending && onCancel()}>
-      <Pressable
-        accessible={false}
-        onPress={isPending ? undefined : onCancel}
-        style={{ backgroundColor: 'rgba(6, 12, 14, 0.55)', flex: 1, justifyContent: 'flex-end' }}
-      >
-        {/* Inner pressable swallows taps so only the backdrop dismisses. */}
-        <Pressable accessible={false} onPress={() => {}} style={{ cursor: 'auto' }}>
-          <View
-            accessibilityViewIsModal
-            onAccessibilityEscape={() => {
-              if (!isPending) onCancel()
-            }}
-            testID="finish-session-sheet"
-            style={{
-              backgroundColor: theme.surface,
-              borderTopLeftRadius: radii.xl,
-              borderTopRightRadius: radii.xl,
-              gap: spacing.md,
-              padding: spacing.lg,
-              paddingBottom: spacing.lg + insets.bottom,
-            }}
-          >
-            <Heading order={2}>Nice work — how did it go?</Heading>
-
-            {incompleteSetCount > 0 ? (
-              <View
-                style={{
-                  backgroundColor: theme.tones.warning.soft,
-                  borderColor: theme.tones.warning.border,
-                  borderRadius: radii.md,
-                  borderWidth: 1,
-                  padding: spacing.sm,
-                }}
-              >
-                <Text size="sm" style={{ color: theme.tones.warning.text }}>
-                  You have {incompleteSetCount} set{incompleteSetCount === 1 ? '' : 's'} left to log. Finishing
-                  now is fine — Sheetless only uses the sets you've logged and won't make aggressive changes.
-                </Text>
-              </View>
-            ) : null}
-
-            <View>
-              <SectionLabel>{sessionRpeQuestion}</SectionLabel>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                {EFFORT_OPTIONS.map((option) => {
-                  const selected = effort === option
-                  return (
-                    <Pressable
-                      key={option}
-                      accessibilityLabel={`Effort ${option} of ${SESSION_RPE_MAX}`}
-                      accessibilityRole="button"
-                      accessibilityState={{ disabled: isPending, selected }}
-                      disabled={isPending}
-                      onPress={() => setEffort(selected ? null : option)}
-                      style={({ pressed }) => ({
-                        alignItems: 'center',
-                        backgroundColor: selected ? theme.primaryFill : theme.surface,
-                        borderColor: selected ? theme.primaryFill : theme.border,
-                        borderRadius: radii.sm,
-                        borderWidth: 1,
-                        flexBasis: '17.5%',
-                        flexGrow: 1,
-                        minHeight: 44,
-                        opacity: pressed ? 0.8 : 1,
-                        paddingVertical: spacing.xs + 2,
-                      })}
-                    >
-                      <Text size="sm" style={{ color: selected ? theme.primaryFillText : theme.text, fontWeight: '700' }}>
-                        {option}
-                      </Text>
-                    </Pressable>
-                  )
-                })}
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-                <Caption>{sessionRpeEndLabels.low}</Caption>
-                <Caption>{sessionRpeEndLabels.high}</Caption>
-              </View>
-            </View>
-
-            <View style={{ gap: 4 }}>
-              <SectionLabel>{reflectionWinPrompt}</SectionLabel>
-              <TextInput value={win} onChangeText={setWin} maxLength={REFLECTION_MAX_LENGTH} placeholder="Optional" />
-            </View>
-            <View style={{ gap: 4 }}>
-              <SectionLabel>{reflectionImprovePrompt}</SectionLabel>
-              <TextInput
-                value={improve}
-                onChangeText={setImprove}
-                maxLength={REFLECTION_MAX_LENGTH}
-                placeholder="Optional"
-              />
-            </View>
-
-            {error ? (
-              <Text size="sm" tone="danger">
-                {error}
+  const [reflectionOpen, setReflectionOpen] = useState(false)
+  return <SheetModal open={open} showHandle title="Finish workout?" subtitle={`${completedSetCount} set${completedSetCount === 1 ? '' : 's'} logged${elapsed ? ` · ${elapsed}` : ''}`}
+    onClose={onCancel} closeDisabled={isPending} testID="finish-session-sheet" footer={
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        <Button label="Keep logging" variant="default" style={{ flex: 1, minWidth: 120 }} disabled={isPending} onPress={onCancel} />
+        <Button label="Finish workout" style={{ flex: 1, minWidth: 120 }} loading={isPending} disabled={blocked || completedSetCount === 0}
+          onPress={() => { if (!blocked && completedSetCount > 0) onFinish({ sessionRpe: effort, reflectionWin: win.trim() || null, reflectionImprove: improve.trim() || null }) }} testID="finish-confirm" />
+      </View>
+    }>
+    {incompleteSetCount > 0 || editedSetCount > 0 ? <View style={{ padding: spacing.sm, gap: spacing.xs, borderRadius: radii.md, backgroundColor: theme.tones.warning.soft }}>
+      {incompleteSetCount > 0 ? <Text size="sm">{incompleteSetCount} set{incompleteSetCount === 1 ? '' : 's'} unlogged. Only completed sets will be saved in your recap. Missing work can affect progression recommendations.</Text> : null}
+      {editedSetCount > 0 ? <Text size="sm" tone="warning">Edits to {editedSetCount} set{editedSetCount === 1 ? '' : 's'} have not been logged. Finishing omits those edits; it does not log them automatically.</Text> : null}
+    </View> : null}
+    {blocked && !isPending ? <Text size="sm" tone="danger">Save or retry all sets before finishing.</Text> : null}
+    <View>
+      <SectionLabel>{sessionRpeQuestion}</SectionLabel>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+        {EFFORT_OPTIONS.map((option) => {
+          const selected = effort === option
+          return (
+            <Pressable
+              key={option}
+              accessibilityLabel={`Effort ${option} of ${SESSION_RPE_MAX}`}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isPending, selected }}
+              disabled={isPending}
+              onPress={() => setEffort(selected ? null : option)}
+              style={({ pressed }) => ({
+                alignItems: 'center',
+                backgroundColor: selected ? theme.primaryFill : theme.surface,
+                borderColor: selected ? theme.primaryFill : theme.border,
+                borderRadius: radii.sm,
+                borderWidth: 1,
+                minWidth: 44,
+                flexBasis: '17.5%',
+                flexGrow: 1,
+                minHeight: 44,
+                opacity: pressed ? 0.8 : 1,
+                paddingVertical: spacing.xs + 2,
+              })}
+            >
+              <Text size="sm" style={{ color: selected ? theme.primaryFillText : theme.text, fontWeight: '700' }}>
+                {option}
               </Text>
-            ) : null}
+            </Pressable>
+          )
+        })}
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+        <Caption>{sessionRpeEndLabels.low}</Caption>
+        <Caption>{sessionRpeEndLabels.high}</Caption>
+      </View>
+    </View>
 
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <View style={{ flex: 1 }}>
-                <Button label="Keep going" variant="default" fullWidth disabled={isPending} onPress={onCancel} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Button
-                  label="Finish workout"
-                  fullWidth
-                  loading={isPending}
-                  onPress={() =>
-                    onFinish({
-                      sessionRpe: effort,
-                      reflectionWin: win.trim() || null,
-                      reflectionImprove: improve.trim() || null,
-                    })
-                  }
-                  testID="finish-confirm"
-                />
-              </View>
-            </View>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  )
+    <Button label={reflectionOpen ? 'Hide reflection' : 'Add a reflection'} variant="subtle" onPress={() => setReflectionOpen(!reflectionOpen)} />
+    {reflectionOpen ? <View style={{ gap: spacing.md }}>
+      <View style={{ gap: 4 }}>
+        <SectionLabel>{reflectionWinPrompt}</SectionLabel>
+        <TextInput accessibilityLabel={reflectionWinPrompt} editable={!isPending} value={win} onChangeText={setWin} maxLength={REFLECTION_MAX_LENGTH} placeholder="Optional" />
+      </View>
+      <View style={{ gap: 4 }}>
+        <SectionLabel>{reflectionImprovePrompt}</SectionLabel>
+        <TextInput
+          accessibilityLabel={reflectionImprovePrompt}
+          editable={!isPending}
+          value={improve}
+          onChangeText={setImprove}
+          maxLength={REFLECTION_MAX_LENGTH}
+          placeholder="Optional"
+        />
+      </View>
+
+    </View> : null}
+    {error ? <Text size="sm" tone="danger">{error}</Text> : null}
+  </SheetModal>
 }

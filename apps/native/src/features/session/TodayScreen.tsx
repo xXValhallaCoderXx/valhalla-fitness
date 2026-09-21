@@ -5,21 +5,16 @@ import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/
 import { router } from 'expo-router'
 import { startSession } from '@sheetless/data/session/lifecycle'
 import { getToday } from '@sheetless/data/session/reads'
-import { streakBadgeLabel } from '@sheetless/domain/history/consistency'
+import { createAccountClock } from '@sheetless/domain/shared/dates'
 import { browserIanaTimeZone } from '@sheetless/domain/shared/calendar-date'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { queryStaleTimes } from '@sheetless/domain/shared/query-stale-times'
 import {
-  Badge,
   Button,
   EmptyState,
-  PageHeader,
   Panel,
-  Screen,
-  SettingsHeaderAction,
   Text,
 } from '@/components'
-import { todayHistorySupportQueryOptions } from '@/features/history/queries'
 import { ProgressionReviewAlert } from '@/features/program/progression/ProgressionReviewAlert'
 import { ProgressionReviewSheet } from '@/features/program/progression/ProgressionReviewSheet'
 import {
@@ -34,6 +29,9 @@ import { useStableMutationRequest } from '@/lib/useStableMutationRequest'
 import { StartBlankWorkoutButton } from './today/StartBlankWorkoutButton'
 import { TodayActiveSessionCard } from './today/TodayActiveSessionCard'
 import { TodayPlannedSessionCard } from './today/TodayPlannedSessionCard'
+import { LastWorkoutCard } from './today/LastWorkoutCard'
+import { TodayHeader } from './today/TodayHeader'
+import { TodayLayout as Screen } from './today/TodayLayout'
 
 export function TodayScreen() {
   const { user } = useSession()
@@ -49,10 +47,6 @@ export function TodayScreen() {
     queryFn: () => getToday(buildUserContext(user!), me.data?.timezone ?? undefined),
     enabled: Boolean(user) && me.isSuccess,
     staleTime: queryStaleTimes.today,
-  })
-  const historySupport = useQuery({
-    ...todayHistorySupportQueryOptions(user!),
-    enabled: Boolean(user && (today.data?.activeSession || today.data?.plannedSession)),
   })
 
   const startMutation = useMutation({
@@ -82,19 +76,13 @@ export function TodayScreen() {
 
   const openSession = (sessionId: string) =>
     router.push({ pathname: '/session/[sessionId]', params: { sessionId } })
-  const streakLabel = streakBadgeLabel(historySupport.data?.consistency)
-  const settingsAction = (
-    <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
-      {streakLabel ? <Badge tone="warning">{streakLabel}</Badge> : null}
-      <SettingsHeaderAction testID="today-settings" />
-    </View>
-  )
+  const date = createAccountClock({ timeZone: me.data?.timezone }).today
 
   const failedQuery = me.isError ? me : today.isError ? today : null
   if (failedQuery) {
     return (
       <Screen>
-        <PageHeader title="Today" actions={settingsAction} />
+        <TodayHeader date={date} />
         <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
           <Text tone="danger" size="sm">
             {failedQuery.error instanceof Error ? failedQuery.error.message : 'The screen could not load.'}
@@ -108,7 +96,7 @@ export function TodayScreen() {
   if (me.isPending || today.isPending) {
     return (
       <Screen>
-        <PageHeader title="Today" actions={settingsAction} />
+        <TodayHeader date={date} />
         <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
           <Text tone="dimmed">Loading your training day…</Text>
         </Panel>
@@ -121,6 +109,10 @@ export function TodayScreen() {
   const planned = data?.plannedSession ?? null
   const program = data?.activeProgram ?? null
   const pending = data?.pendingDecisions ?? []
+  const mode = me.data?.experienceMode ?? 'guided'
+  const last = data?.lastCompletedSession ?? data?.completedSession
+  const lastWorkout = <LastWorkoutCard key={last?.sessionId} session={last} mode={mode} today={date}
+    program={program} lastWorkoutLogged={data?.lastWorkoutLogged} hasActiveSession={Boolean(active)} />
   const openReview = () => {
     startMutation.reset()
     setReviewOpen(true)
@@ -131,19 +123,16 @@ export function TodayScreen() {
   if (active) {
     return (
       <Screen>
-        <PageHeader
-          title="Today"
-          actions={settingsAction}
-          eyebrow={program ? `${program.title} · ${active.weekLabel ?? ''}` : 'Ad-hoc workout'}
-          subtitle="A workout is currently in progress."
-        />
-        <ProgressionReviewAlert decisions={pending} onReview={openReview} />
+        <TodayHeader key={`header:${user!.id}`} date={date} program={program} session={active} mode={mode} ready activeSessionId={active.sessionId}
+          subtitle={active.kind === 'ad_hoc' || active.isAdHoc ? 'Ad-hoc workout' : undefined} />
         <TodayActiveSessionCard
           session={active}
           onResume={() => openSession(active.sessionId)}
         />
+        {lastWorkout}
+        <ProgressionReviewAlert decisions={pending} onReview={openReview} />
         <ProgressionReviewSheet
-        key={user!.id}
+          key={user!.id}
           open={reviewOpen}
           decisions={pending}
           units={program?.units ?? active.units}
@@ -158,13 +147,12 @@ export function TodayScreen() {
   if (!program || !planned) {
     return (
       <Screen>
-        <PageHeader
-          title="Today"
-          actions={settingsAction}
-          subtitle={`Signed in as ${me.data?.email ?? user?.email ?? ''}.`}
+        <TodayHeader
+          key={`header:${user!.id}`} date={date} ready
+          subtitle={program ? 'Your programme is complete. Choose what comes next.' : 'Choose a plan, or make today your own.'}
         />
         <EmptyState
-          title="No active program"
+          title={program ? 'Plan completed' : 'No active program'}
           action={
             <View style={{ alignSelf: 'stretch', gap: spacing.sm }}>
               <Button
@@ -177,25 +165,22 @@ export function TodayScreen() {
             </View>
           }
         >
-          Choose a plan in Programs to generate your daily sessions, or start a one-off workout now.
+          Choose a programme from Plan, or start a one-off workout now.
         </EmptyState>
+        {lastWorkout}
       </Screen>
     )
   }
 
   return (
     <Screen>
-      <PageHeader
-        title="Today"
-        actions={settingsAction}
-        eyebrow={`${program.title} · ${planned.weekLabel ?? ''}`}
-        subtitle={data?.completedSession ? 'Today’s planned session is already completed.' : undefined}
-      />
+      <TodayHeader key={`header:${user!.id}`} date={date} program={program} session={planned} mode={mode} ready />
 
-      <ProgressionReviewAlert decisions={pending} onReview={openReview} />
-      <ReturnGuideCard program={program} today lastWorkoutLogged={data?.lastWorkoutLogged} />
       <TodayPlannedSessionCard
         session={planned}
+        program={program}
+        mode={me.data?.experienceMode}
+        onReview={openReview}
         units={me.data?.units ?? program.units}
         completedToday={Boolean(data?.completedSession)}
         pendingDecisionCount={pending.length}
@@ -210,7 +195,8 @@ export function TodayScreen() {
         }
         onStart={() => startMutation.mutate()}
       />
-      <StartBlankWorkoutButton />
+      {lastWorkout}
+      {!last ? <ReturnGuideCard program={program} today lastWorkoutLogged={data?.lastWorkoutLogged} /> : null}
 
       <ProgressionReviewSheet
         key={user!.id}
