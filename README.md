@@ -205,8 +205,53 @@ workouts, snapshots, working weights and records, blocks an active workout belon
 or pending progression, and offers Resume/Review. An unrelated blank workout is preserved. Ending
 cancels an open return guide, records `status = completed` with `end_reason = manual` and `ended_at`,
 and increments the programme version once. Today says the plan ended without claiming every
-scheduled workout was completed. Recurring cycles still repeat; no automatic ending, block-boundary
-prompt, archived-plan reset or Run again action is included.
+scheduled workout was completed. Weekly routines and the beginner A/B rotation still repeat.
+Archived-plan reset and Run again remain separate.
+
+**Completed structured cycles (SHE-58)** now wait for an explicit next-plan choice in native
+recap, Today and Plan, with functional web equivalents. Training Max Wave, Training Max Wave +
+Pump, Volume-Intensity Strength, Old School Wave Powerbuilding and Classic Volume Strength use
+this policy; unknown/custom templates retain automatic repetition. The policy is explicit rather
+than inferred from duration. Finishing the final scheduled workout atomically records the boundary,
+including partial workouts, without claiming every prescribed set was completed. Existing histories
+are not backfilled into pending choices.
+
+Repeat reviews existing Apply/Keep recommendations, confirms the saved references and unlocks the
+same plan's next cycle without starting a workout or increasing its cursor again. Equipment, return
+progress and overrides are retained. Choose another plan leaves the current plan intact until setup
+confirms replacement. Decide later leaves the choice pending across navigation, reloads and devices.
+The completed cycle remains visible in Plan, and no next planned workout is available until the
+choice is resolved. End this plan uses the existing guarded confirmation; ending clears the waiting
+cycle for blank training. Existing active workouts remain resumable. Ordinary mid-cycle blank
+training is unaffected. Historical recap actions always check the current account and plan first.
+
+Migrations `202609280001_program_cycle_boundaries.sql` and
+`202609280002_cycle_entry_recovery.sql` add owner-readable cycle outcomes and exact-repeat receipts,
+the account/version-bound `repeat_program_cycle_v1` operation, and current/legacy start and
+replacement guards. Clients cannot write these tables directly; account export includes both and
+account deletion cascades through them. Deploy schema with compatible native/web clients: old
+clients receive an explicit update/recovery message when a cycle is waiting. Hosted deployment and
+standalone acceptance remain separate from local implementation and device checks.
+
+28 September local validation for SHE-58: 2,015 workspace cases passed across the aggregate and
+complete native rerun (1,117 domain, 219 data, 21 sharing, 135 web, 523 native; four existing
+integration skips), plus 447 pgTAP assertions. Eight desktop/mobile browser cases covered concurrent
+choices, exact lost-response retry, retained boundaries and End-to-blank entry; both End-review
+cases passed again after correcting their return destination. TypeScript, lint, production web build,
+Android/web Metro exports, PWA/bundle, architecture, documentation and static database checks passed.
+The standard verification wrapper encountered an unrelated five-second native Finder timeout; the
+complete native rerun used `--maxWorkers=1 --testTimeout=15000`. Thirteen existing lint warnings remain.
+
+Changed-screen Android checks used SM-S938B/Android 16, development client 0.1.0 (3), local Supabase
+and Metro 8091, preserving physical 1440×3120, density 560 and font scale 0.8. Simple/light and
+Advanced/dark covered Today, the final Plan week, both recap presentations, Decide later/Back/reopen,
+replacement browsing/setup cancellation, mixed Apply/Keep, explicit Repeat, guarded End and blank
+entry afterwards. Repeat left one receipt and no active workout. Original account training data and
+profile preferences were verified unchanged. Evidence is in `.artifacts/she58-cycle-choice/` and
+SHE-58 attachments. An Expo development-launcher relaunch crash during external deep-link probing
+was recorded separately and recovered on reopening; this is not standalone deep-link acceptance.
+Hosted rollout, standalone, TalkBack, alternate physical sizes and the broader return/equipment
+acceptance matrix remain open. No hosted migration or new APK was produced.
 
 The new migration `202609270001_manual_program_end.sql` must be applied before releasing this client.
 Its `end_program_v1` RPC uses the existing account advisory lock, owner/version/status guards and
@@ -627,6 +672,15 @@ Evidence is retained locally under `.artifacts/native-insights-20260928/` with d
 browser-fixture and physical development-client results. SHE-6/SHE-7 still own hosted, accessibility
 and standalone acceptance; this implementation does not close those gates.
 
+A follow-up SM-S938B / Android 16 pass checked every Insights destination in Light/Advanced,
+Dark/Simple early and empty states, 45 movements, 78 loaded workouts, chart/source inspection,
+page-four return position, combined filters, unit changes and sign-out/sign-in account isolation.
+The user's existing display/font settings were preserved, and temporary local data and preferences
+were restored. Singular workout-count wording was corrected and retested. The report and captures
+are in `.artifacts/native-insights-20260928/android-recheck-1943/`. Cold custom-scheme entry reached
+the development launcher, so standalone cold-start links remain unverified. Share preview and
+return passed; recipient-app delivery still belongs to SHE-7.
+
 ### Native You and settings
 
 The 28 September SHE-53/SHE-38 pass implements audit screens 12.1–12.7: a grouped You hub,
@@ -769,7 +823,7 @@ components and hooks live together in folders named for what they do:
 | `onboarding` | `FirstRunScreen.tsx` | Entry gating and two-choice profile completion remain separate from live-workout onboarding. |
 | `session` | `TodayScreen.tsx`, `LiveSessionScreen.tsx`, `SessionSummaryScreen.tsx` | `today/` starts and resumes workouts; `live/` coordinates Focus/Overview navigation; `focus/` logs sets; `overview/` lists exercises; `editing/` manages movements, order, titles, and notes; `lifecycle/` finishes/discards; `summary/` presents the recap, decisions, Repeat, and favourites; `movement-picker/`, `plate-calculator/`, and `rest-timer/` own their tools. |
 | `history` | `InsightsScreen.tsx`, `StrengthScreen.tsx`, `LiftsScreen.tsx`, `BestSetsScreen.tsx`, `MusclesScreen.tsx`, `PastWorkoutsScreen.tsx` | `navigation/` owns the account-scoped nested stack, common data state and browsing state; `overview/`, `strength/`, `muscle-fatigue/`, `movements/`, `records/`, and `sessions/` compose destinations; `bodyweight/` owns the independent measurement trend and editor links; `sharing/` owns workout image preview and platform export adapters. |
-| `program` | `ProgramScreen.tsx`, `ProgramWeeksScreen.tsx`, `ProgramEquipmentScreen.tsx` | `overview/` presents cycle-aware Plan and details; `settings/` groups scoped actions; `equipment/` reviews conversions; `return/` owns the staged guide; `progression/` reviews and resolves decisions. |
+| `program` | `ProgramScreen.tsx`, `ProgramWeeksScreen.tsx`, `ProgramEquipmentScreen.tsx` | `overview/` presents cycle-aware Plan and details; `cycle/` reviews completed-block choices; `settings/` groups scoped actions; `equipment/` reviews conversions; `return/` owns the staged guide; `progression/` reviews and resolves decisions. |
 | `templates` | `TemplatesScreen.tsx`, `TemplateDetailScreen.tsx`, `TemplateSetupScreen.tsx`, `FindMyPlanScreen.tsx` | `catalogue/`, `details/`, `favorites/`, `find-my-plan/`, `setup/`, and `start/` separate browsing, read-only details, recommendations, customisation, and programme start. |
 | `settings` | `YouScreen.tsx`, `BodyweightScreen.tsx`, `SexScreen.tsx`, `EquipmentScreen.tsx`, `StartingNumbersScreen.tsx`, `WorkoutSettingsScreen.tsx`, `DataAccountScreen.tsx`; `SettingsScreen.tsx` preserves legacy links | `profile/` owns bodyweight, optional sex and estimates; `preferences/` owns appearance, units, rest, equipment and the Today mode invitation; `account/` owns account actions and export. Account-scoped drafts, saves and navigation guards stay at the feature root. |
 | `feedback` | `BetaFeedback.tsx`, `PostWorkoutFeedback.tsx`, `DecisionFeedback.tsx` | Embedded forms share submission and prompt state in this small feature folder. |

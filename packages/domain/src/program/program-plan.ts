@@ -5,6 +5,7 @@ import type { SessionHardness, Unit } from '../shared/types'
 import { isReturnActive } from './return-settings'
 import { expandSessionFromTemplateDefinition } from './template-engine'
 import type { ProgramInstance, ProgramSessionStamp } from './types'
+import { cycleDisplayIndex } from './cycle-boundary'
 
 export type ProgramPlanTarget = {
   movementId: string
@@ -77,10 +78,10 @@ export function buildProgramPlan({
   const { daysPerWeek, durationWeeks: totalWeeks } = definition
   const cycleLength = daysPerWeek * totalWeeks
   if (cycleLength <= 0) throw new Error('Programme schedule unavailable')
-  const cycleStart = Math.floor(program.currentWeekIndex / cycleLength) * cycleLength
+  const cycleStart = Math.floor(cycleDisplayIndex(program) / cycleLength) * cycleLength
   const cyclePosition = program.currentWeekIndex - cycleStart
-  const currentWeekIndex = Math.floor(cyclePosition / daysPerWeek)
-  const currentSessionInWeek = cyclePosition % daysPerWeek
+  const currentWeekIndex = Math.min(totalWeeks - 1, Math.floor(cyclePosition / daysPerWeek))
+  const currentSessionInWeek = program.cycleBoundary ? daysPerWeek - 1 : cyclePosition % daysPerWeek
   // Overview history is newest first. Do not combine two workouts at the same position.
   const savedByIndex = new Map<number, ProgramSessionStamp>()
   for (const stamp of sessionStamps) {

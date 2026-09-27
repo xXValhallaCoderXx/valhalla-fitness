@@ -12,7 +12,7 @@ export type { ProgramTimelineModel, TimelineSession, TimelineWeek }
 // `definition` is required: falling back to the built-in catalogue here would drag the full
 // template DSL data into the client bundle, and it throws for custom template ids anyway.
 export function buildProgramTimeline(
-  program: Pick<ProgramInstance, 'templateId' | 'currentWeekIndex'>,
+  program: Pick<ProgramInstance, 'templateId' | 'currentWeekIndex' | 'cycleBoundary'>,
   definition: TemplateDefinition,
 ) {
   return buildProgramTimelineFromDefinition(program, definition)

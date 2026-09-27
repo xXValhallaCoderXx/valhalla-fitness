@@ -17,14 +17,15 @@ export function InsightsSessions({ sessions, today, units, onOpen }: {
   const change = (patch: Partial<SessionBrowserState>) => update({ sessions: { ...state.sessions, page: 0, ...patch } })
   const page = selectSessionPage(sessions, state.sessions, state.range, today)
   const dates = recentWorkoutDates(sessions, today)
+  const recentCount = dates.reduce((sum, date) => sum + date.count, 0)
   return <>
     <Panel style={{ padding: spacing.md, gap: spacing.sm }}>
       <SectionLabel>Last two weeks</SectionLabel>
-      <Caption>{dates.reduce((sum, date) => sum + date.count, 0)} loaded workouts · Tap a date to filter; tap it again to clear.</Caption>
+      <Caption>{recentCount} loaded {recentCount === 1 ? 'workout' : 'workouts'} · Tap a date to filter; tap it again to clear.</Caption>
       <View style={{ gap: spacing.xs }}>
         {[dates.slice(0, 7), dates.slice(7)].map((week, index) => <View key={index} style={{ flexDirection: 'row', gap: 2 }}>
           {week.map(day => <Pressable key={day.date} accessibilityRole="button"
-            accessibilityLabel={`${day.date}, ${day.count} workouts`} accessibilityState={{ selected: state.sessions.date === day.date }}
+            accessibilityLabel={`${day.date}, ${day.count} ${day.count === 1 ? 'workout' : 'workouts'}`} accessibilityState={{ selected: state.sessions.date === day.date }}
             onPress={() => change({ date: state.sessions.date === day.date ? null : day.date })}
             style={{ flex: 1, minHeight: 60, alignItems: 'center', justifyContent: 'center', gap: 3,
               borderRadius: 8, backgroundColor: state.sessions.date === day.date ? theme.tones.action.soft : theme.surfaceInset }}>
@@ -44,7 +45,7 @@ export function InsightsSessions({ sessions, today, units, onOpen }: {
       ...availableIntensities(sessions).map(value => ({ value, label: value })),
       ...(hasAdHocSessions(sessions) ? [{ value: 'adhoc' as const, label: 'Ad-hoc' }] : [])]}
       value={state.sessions.intensity} onChange={intensity => change({ intensity })} accessibilityLabel="Session intensity filter" />
-    <Caption>{page.total} matching workouts · {sessions.length} loaded. Search and filters apply before pages of 20.</Caption>
+    <Caption>{page.total} matching {page.total === 1 ? 'workout' : 'workouts'} · {sessions.length} loaded. Search and filters apply before pages of 20.</Caption>
     {page.rows.length === 0 ? <EmptyState title="No matching workouts">Try a wider range or clear a filter.</EmptyState> : null}
     {page.rows.map(session => {
       const completion = workoutCompletion(session)

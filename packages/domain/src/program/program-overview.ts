@@ -12,6 +12,7 @@ import type { TodayPayload } from '@sheetless/domain/session/types'
 import { getMovementName } from '@sheetless/domain/movement/movements'
 import { buildProgramTimeline } from '@sheetless/domain/program/program-timeline'
 import { expandPlannedSession } from '@sheetless/domain/program/templates'
+import { cycleDisplayIndex } from './cycle-boundary'
 
 export function buildProgramOverview({
   today,
@@ -26,7 +27,8 @@ export function buildProgramOverview({
   acceptedDecisions: ProgressionDecision[]
   sessionStamps?: ProgramSessionStamp[]
 }): ProgramOverview {
-  const program = today.activeProgram
+  const actualProgram = today.activeProgram
+  const program = actualProgram ? { ...actualProgram, currentWeekIndex: cycleDisplayIndex(actualProgram) } : null
   if (!program || !program.templateDefinition) {
     return {
       activeProgram: program,
@@ -67,7 +69,8 @@ export function buildProgramOverview({
   const nextSessionStatus = planActiveSession ? 'in_progress' : completedPlannedSession ? 'completed' : 'planned'
 
   return {
-    activeProgram: program,
+    activeProgram: actualProgram,
+    cycleBoundary: actualProgram?.cycleBoundary ?? null,
     hasActiveSession: Boolean(today.activeSession),
     position: {
       phaseKey: week?.phaseKey ?? 'current',
@@ -81,9 +84,9 @@ export function buildProgramOverview({
       totalWeeks: definition.durationWeeks,
       sessionNumber: currentSessionInWeek + 1,
       daysPerWeek: definition.daysPerWeek,
-      progressPercent: Math.round(((program.currentWeekIndex + 1) / (definition.durationWeeks * definition.daysPerWeek)) * 100),
+      progressPercent: Math.round(((programmeWeekIndex * definition.daysPerWeek + currentSessionInWeek + 1) / (definition.durationWeeks * definition.daysPerWeek)) * 100),
     },
-    nextSession: {
+    nextSession: program.cycleBoundary ? null : {
       title: plannedSession.title,
       scheduledDate: plannedSession.scheduledDate,
       mainMovementName: mainMovement?.movementName ?? 'No main movement',

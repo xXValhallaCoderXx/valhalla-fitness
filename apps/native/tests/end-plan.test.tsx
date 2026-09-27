@@ -23,17 +23,26 @@ import { EndPlanSheet } from '../src/features/program/settings/EndPlanSheet'
 const user = { id: 'end-user' } as User
 const state: ProgramEndState = { id: '00000000-0000-4000-8000-000000000001', title: 'Current plan',
   status: 'active', stateVersion: 4, activeSessionId: null, hasPendingDecisions: false }
-function setup(cached?: ProgramEndState) {
+function setup(cached?: ProgramEndState, onEnded?: () => void) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   if (cached) client.setQueryData([...accountQueryKeys.program(user.id), 'end', state.id], cached)
   const wrapper = ({ children }: PropsWithChildren) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
   const close = vi.fn(), review = vi.fn()
-  const view = render(<EndPlanSheet user={user} programId={state.id} onClose={close} onReview={review} />, { wrapper })
+  const view = render(<EndPlanSheet user={user} programId={state.id} onClose={close} onReview={review} onEnded={onEnded} />, { wrapper })
   return { client, close, review, view }
 }
 beforeEach(() => { vi.resetAllMocks(); api.read.mockResolvedValue(state); api.end.mockResolvedValue({ programId: state.id }) })
 
 describe('End plan confirmation', () => {
+  it('leaves an originating recap after a saved End instead of reopening its choices', async () => {
+    const ended = vi.fn()
+    const { close } = setup(undefined, ended)
+    fireEvent.click(await screen.findByRole('button', { name: 'End plan' }))
+    await waitFor(() => expect(ended).toHaveBeenCalledOnce())
+    expect(close).not.toHaveBeenCalled()
+    expect(api.navigate).toHaveBeenCalledWith('/(tabs)')
+  })
+
   it('requires a fresh read before enabling confirmation even with a usable cached version', async () => {
     let resolve!: (value: ProgramEndState) => void
     api.read.mockReturnValueOnce(new Promise<ProgramEndState>(done => { resolve = done }))

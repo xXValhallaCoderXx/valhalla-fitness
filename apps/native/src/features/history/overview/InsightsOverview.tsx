@@ -53,7 +53,7 @@ export function InsightsOverview({ data, gating, user, advanced, range, onOpenSe
     {advanced ? <Milestones insights={insights} /> : null}
     <InsightLink title="Your lifts" detail={`${data.overview.uniqueMovements} movements in loaded history`} onPress={() => router.push('/history/lifts')} />
     <InsightLink title="Muscles" detail="Balance, sets by week and recent fatigue" onPress={() => router.push('/history/muscles')} />
-    <InsightLink title="Past workouts" detail={`${data.recentSessions.length} loaded workouts, with their saved recaps`} onPress={() => router.push('/history/workouts')} />
+    <InsightLink title="Past workouts" detail={`${data.recentSessions.length} loaded ${data.recentSessions.length === 1 ? 'workout' : 'workouts'}, with saved recaps`} onPress={() => router.push('/history/workouts')} />
     <BodyweightTrendCard insights={insights} range={range} />
   </>
 }

@@ -14,6 +14,7 @@ import { RecapBestSet, RecapCompletion } from './RecapOverview'
 import { SummaryDecisions } from './SummaryDecisions'
 import { WorkoutSummaryRecap } from './WorkoutSummaryRecap'
 import { AdHocSessionActions } from './AdHocSessionActions'
+import { CycleBoundaryCard } from '@/features/program/cycle/CycleBoundaryCard'
 
 /** Both recap shells render the same saved facts, receipts and eligible actions. */
 export function SessionRecapContent({ summary, user, mode = 'guided', freshFinish = false, onLeave }: {
@@ -35,6 +36,7 @@ export function SessionRecapContent({ summary, user, mode = 'guided', freshFinis
   }
   return <>
     <RecapCompletion recap={recap} units={workout.units} advanced={advanced} />
+    {summary.cycleBoundary ? <CycleBoundaryCard key={`${user.id}:${summary.cycleBoundary.id}`} boundary={summary.cycleBoundary} user={user} onLeave={onLeave} /> : null}
     <ReturnSessionNotice session={workout} />
     <RecapBestSet recap={recap} session={workout} advanced={advanced} />
     {!available ? <Panel surface="inset" style={{ padding: spacing.md, gap: spacing.sm }}>

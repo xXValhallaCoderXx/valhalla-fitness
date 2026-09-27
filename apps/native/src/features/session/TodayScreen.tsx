@@ -27,6 +27,7 @@ import { LastWorkoutCard } from './today/LastWorkoutCard'
 import { TodayHeader } from './today/TodayHeader'
 import { TodayLayout as Screen } from './today/TodayLayout'
 import { AdvancedInvitation } from '@/features/settings/preferences/AdvancedInvitation'
+import { CycleBoundaryCard } from '@/features/program/cycle/CycleBoundaryCard'
 
 export function TodayScreen() {
   const { user } = useSession()
@@ -129,6 +130,12 @@ export function TodayScreen() {
       </Screen>
     )
   }
+
+  if (program?.cycleBoundary) return <Screen>
+    <TodayHeader key={`header:${user!.id}`} date={date} program={program} ready streakWeeks={streakWeeks} subtitle="Your cycle is complete." />
+    <CycleBoundaryCard key={`${user!.id}:${program.cycleBoundary.id}`} user={user!} boundary={program.cycleBoundary} />
+    {weekSummary}{recentHistoryError}{lastWorkout}
+  </Screen>
 
   if (!program || !planned) {
     return (

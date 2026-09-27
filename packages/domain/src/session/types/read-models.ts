@@ -8,8 +8,10 @@ import type {
   WorkoutSession,
 } from '@sheetless/domain/session/types/session'
 import type { EndedProgramSummary } from '@sheetless/domain/program/ending'
+import type { ProgramCycleBoundary } from '@sheetless/domain/program/cycle-boundary'
 
 export type TodayPayload = {
+  cycleBoundary?: ProgramCycleBoundary | null
   /** Ancillary history failed; entry remains available and absence is not treated as a fresh account. */
   historyReadError?: string | null
   lastEndedProgram?: EndedProgramSummary | null
@@ -27,6 +29,7 @@ export type TodayPayload = {
 }
 
 export type SessionSummary = {
+  cycleBoundary?: ProgramCycleBoundary | null
   session: WorkoutSession
   completedSets: number
   totalSets: number

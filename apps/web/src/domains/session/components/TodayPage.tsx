@@ -19,6 +19,7 @@ import { TodayActiveSession } from './today/TodayActiveSession'
 import { TodayHeader } from './today/TodayHeader'
 import { TodayPageSkeleton } from './today/TodayPageSkeleton'
 import { TodayPlannedSession } from './today/TodayPlannedSession'
+import { CycleBoundaryCard } from '~/domains/program/components/cycle/CycleBoundaryCard'
 
 export function TodayPage({ user }: { user: AuthUser | null }) {
   const router = useRouter()
@@ -126,6 +127,11 @@ function AuthedToday() {
       />
     )
   }
+
+  if (data.cycleBoundary) return <Page>
+    <TodayHeader scheduledDate={clock.today} subtitle="Your cycle is complete." />
+    <CycleBoundaryCard key={`${userId}:${data.cycleBoundary.id}`} boundary={data.cycleBoundary} />
+  </Page>
 
   if (!data.activeProgram || !data.plannedSession) {
     return (

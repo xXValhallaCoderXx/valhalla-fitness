@@ -27,6 +27,7 @@ import { EndPlanSheet } from './settings/EndPlanSheet'
 import { ReturnGuideSheet } from './return/ReturnGuideSheet'
 import { ProgressionReviewAlert } from './progression/ProgressionReviewAlert'
 import { ProgressionReviewSheet } from './progression/ProgressionReviewSheet'
+import { CycleBoundaryCard } from './cycle/CycleBoundaryCard'
 
 export function ProgramScreen() {
   const { user } = useSession()
@@ -74,6 +75,7 @@ function ActivePlan({ overview, user, mode, date }: {
       <Text size="sm" tone="dimmed">Week {plan.currentWeekIndex + 1} of {plan.totalWeeks} · {plan.weeks[plan.currentWeekIndex].phaseLabel}{advanced ? ` · ${plan.completedSessions}/${plan.totalSessions} sessions (${Math.round(100 * plan.completedSessions / plan.totalSessions)}%)` : ''}</Text>
     </View>
     <PlanProgress plan={plan} advanced={advanced} onTargets={() => setTargets(true)} />
+    {program.cycleBoundary ? <CycleBoundaryCard key={program.cycleBoundary.id} user={user} boundary={program.cycleBoundary} /> : null}
     <SegmentedControl accessibilityLabel="Programme week" value={String(week.index)}
       options={plan.weeks.map(item => ({ value: String(item.index), label: `Week ${item.number}` }))}
       variant={plan.totalWeeks <= 4 ? 'segments' : 'pills'} appearance="inset" size="sm" onChange={value => setSelectedWeek(Number(value))} />

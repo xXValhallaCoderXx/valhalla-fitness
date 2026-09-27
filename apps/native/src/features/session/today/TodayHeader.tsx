@@ -57,7 +57,10 @@ export function TodayHeader({ date, program, session, mode, subtitle, ready = fa
       {activeSessionId ? <Button label="Resume workout" fullWidth onPress={() => {
         setOpen(false)
         router.push({ pathname: '/session/[sessionId]', params: { sessionId: activeSessionId } })
-      }} /> : <StartBlankWorkoutButton onStarted={() => setOpen(false)} />}
+      }} /> : program?.cycleBoundary ? <>
+        <Text>End your completed plan before starting a blank workout. Use the cycle choices on Today.</Text>
+        <Button label="Back to cycle choices" onPress={() => setOpen(false)} />
+      </> : <StartBlankWorkoutButton onStarted={() => setOpen(false)} />}
       <Button label="Browse programmes" variant="default" fullWidth onPress={() => {
         setOpen(false)
         router.navigate('/templates')

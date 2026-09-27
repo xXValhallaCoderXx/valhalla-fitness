@@ -1,4 +1,5 @@
 import { ReturnSessionNotice } from './ReturnSessionNotice'
+import { CycleBoundaryCard } from '~/domains/program/components/cycle/CycleBoundaryCard'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, Card } from '@mantine/core'
 import { Link } from '@tanstack/react-router'
@@ -109,6 +110,7 @@ function LoadedSummaryRoute({ summary, freshFinish }: { summary: SessionSummary;
   return (
     <Page className="pb-40 lg:pb-8">
       <ReturnSessionNotice session={session} />
+      {summary.cycleBoundary ? <CycleBoundaryCard key={`${userId}:${summary.cycleBoundary.id}`} boundary={summary.cycleBoundary} /> : null}
       <SessionSummaryHeader
         session={session}
         headline={headline}

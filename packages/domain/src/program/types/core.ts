@@ -1,4 +1,5 @@
 import type { SetTarget } from '@sheetless/domain/session/types'
+import type { CycleEndPolicy, ProgramCycleBoundary } from '../cycle-boundary'
 import type { ProgramLoadOverride, ProgramReturnPeriod } from './return'
 import type { MovementRole, Unit } from '@sheetless/domain/shared/types'
 import type {
@@ -33,6 +34,8 @@ export type ProgramInstance = {
   rounding: number
   currentWeekIndex: number
   stateVersion: number
+  cycleEndPolicy?: CycleEndPolicy
+  cycleBoundary?: ProgramCycleBoundary | null
   returnPeriod?: ProgramReturnPeriod | null
   loadOverrides?: ProgramLoadOverride[]
   /** Most recent explicit reset; history remains separate from current references. */

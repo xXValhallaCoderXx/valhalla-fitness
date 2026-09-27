@@ -50,6 +50,8 @@ export async function exportAccountData(ctx: UserContext) {
     programLoadOverrides,
     programLoadAdjustments,
     programEndReceipts,
+    programCycleBoundaries,
+    programCycleRepeatReceipts,
     programStartReceipts,
     workoutSessions,
     exerciseLogs,
@@ -96,6 +98,12 @@ export async function exportAccountData(ctx: UserContext) {
     ),
     readAllRows<TableRow<'program_end_receipts'>>((from, to) =>
       supabase.from('program_end_receipts').select('*').eq('user_id', user.id).order('id').range(from, to),
+    ),
+    readAllRows<TableRow<'program_cycle_boundaries'>>((from, to) =>
+      supabase.from('program_cycle_boundaries').select('*').eq('user_id', user.id).order('id').range(from, to),
+    ),
+    readAllRows<TableRow<'program_cycle_repeat_receipts'>>((from, to) =>
+      supabase.from('program_cycle_repeat_receipts').select('*').eq('user_id', user.id).order('request_id').range(from, to),
     ),
     readAllRows<TableRow<'program_start_receipts'>>((from, to) =>
       supabase.from('program_start_receipts').select('*').eq('user_id', user.id).order('id').range(from, to),
@@ -159,6 +167,8 @@ export async function exportAccountData(ctx: UserContext) {
       program_load_overrides: programLoadOverrides,
       program_load_adjustments: programLoadAdjustments,
       program_end_receipts: programEndReceipts,
+      program_cycle_boundaries: programCycleBoundaries,
+      program_cycle_repeat_receipts: programCycleRepeatReceipts,
       program_start_receipts: programStartReceipts,
       workout_sessions: workoutSessions,
       exercise_logs: exerciseLogs,

@@ -98,6 +98,15 @@ export async function getToday(ctx: UserContext, timeZone?: string | null): Prom
 
   const completedSessionRow = completedSessionRows?.[0]
   const completedSession = completedSessionRow ? await getSession(ctx, completedSessionRow.id) : null
+  // A saved boundary must not be mistaken for no plan or repaired into a new cycle.
+  if (activeProgram.cycleBoundary) {
+    const [pendingDecisions, acceptedDecisions, lastCompletedSession] = await Promise.all([
+      getPendingDecisions(ctx, activeProgram.id), getAcceptedDecisions(ctx, activeProgram.id), readLastCompleted(),
+    ])
+    return { activeProgram, plannedSession: null, activeSession, completedSession,
+      cycleBoundary: activeProgram.cycleBoundary, pendingDecisions, acceptedDecisions,
+      lastCompletedSession, lastWorkoutLogged: lastLogged?.scheduled_date ?? null, historyReadError }
+  }
   if (!activeSession) {
     const nextProgram = programForNextUncompletedSession(
       activeProgram,

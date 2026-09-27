@@ -57,6 +57,7 @@ export function SessionRecapModal({
         ) : (
           <>
             <Caption>
+              {summary?.cycleBoundary ? `Cycle ${summary.cycleBoundary.cycleNumber} complete · ` : ''}
               {formatWeekdayShortDate(session.scheduledDate)}
               {minutes ? ` · ${minutes} min` : ''}
             </Caption>

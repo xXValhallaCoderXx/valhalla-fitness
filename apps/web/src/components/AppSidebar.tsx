@@ -5,6 +5,7 @@ import { Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { experienceModeLabels } from '@sheetless/domain/account/experience-mode'
 import { programmeWeekIndex } from '@sheetless/domain/program/program-phase-map'
+import { cycleDisplayIndex } from '@sheetless/domain/program/cycle-boundary'
 import { BrandLockup, Caption, Panel, SectionLabel, Text } from '~/components'
 import { useAccountId } from '~/domains/account/components/AccountIdentityProvider'
 import { useExperienceMode } from '~/domains/account/components'
@@ -94,9 +95,9 @@ function ActiveProgrammeCard() {
   if (!program) return null
 
   const definition = program.templateDefinition
-  const weekIndex = definition ? programmeWeekIndex(program.currentWeekIndex, definition) : null
+  const weekIndex = definition ? programmeWeekIndex(cycleDisplayIndex(program), definition) : null
   const weekLabel =
-    definition && weekIndex !== null ? `Week ${weekIndex + 1} of ${definition.durationWeeks}` : null
+    program.cycleBoundary ? 'Cycle complete' : definition && weekIndex !== null ? `Week ${weekIndex + 1} of ${definition.durationWeeks}` : null
 
   return (
     <Panel surface="inset" p="sm" className="mb-3.5">

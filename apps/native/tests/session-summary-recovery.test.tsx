@@ -10,6 +10,7 @@ import { themeProviderMock } from './support/theme'
 
 const api = vi.hoisted(() => ({ read: vi.fn(), navigate: vi.fn(), focused: true }))
 vi.mock('@/lib/theme-provider', () => themeProviderMock())
+vi.mock('@/features/program/cycle/CycleChoiceSheet', () => ({ CycleChoiceSheet: () => <div>Current cycle choices</div> }))
 vi.mock('@/lib/session-provider', () => ({ useSession: () => ({ user: { id: 'account-a' } }) }))
 vi.mock('@/lib/account', () => ({ buildUserContext: (user: User) => ({ user }), useMe: () => ({ data: { experienceMode: 'guided' } }) }))
 vi.mock('expo-router', () => ({
@@ -90,6 +91,20 @@ afterEach(() => client.clear())
 const node = () => <QueryClientProvider client={client}><SessionSummaryScreen sessionId="session-a" /></QueryClientProvider>
 
 describe('native persisted workout recap', () => {
+  it.each(['page', 'sheet'] as const)('keeps a completed cycle receipt read-only in the %s recap', async shell => {
+    api.read.mockResolvedValue({ ...summary('accepted'), cycleBoundary: {
+      id: 'boundary-a', programId: 'program-a', sessionId: 'session-a', templateVersionId: 'version-a',
+      cycleNumber: 1, nextSessionIndex: 16, completedAt: '2026-09-28T02:00:00Z',
+      status: 'repeated', resolvedAt: '2026-09-28T02:05:00Z',
+    } })
+    render(shell === 'page' ? node() : <QueryClientProvider client={client}>
+      <SessionSummarySheet sessionId="session-a" user={{ id: 'account-a' } as User} onClose={vi.fn()} />
+    </QueryClientProvider>)
+    await screen.findByText('You chose to continue with another cycle.')
+    expect(screen.queryByRole('button', { name: 'Choose what comes next' })).toBeNull()
+    expect(screen.queryByText('Current cycle choices')).toBeNull()
+  })
+
   it.each([
     { status: 'accepted', receipt: '80 kg → 82.5 kg' },
     { status: 'dismissed', receipt: 'Kept at 80 kg' },

@@ -9,14 +9,14 @@ import { buildUserContext } from '@/lib/account'
 import { useStableMutationRequest } from '@/lib/useStableMutationRequest'
 
 type EndPlanSheetProps = {
-  user: User; programId: string; onClose: () => void; onReview: () => void
+  user: User; programId: string; onClose: () => void; onReview: () => void; onEnded?: () => void
 }
 
 export function EndPlanSheet(props: EndPlanSheetProps) {
   return <EndPlanConfirmation key={`${props.user.id}:${props.programId}`} {...props} />
 }
 
-function EndPlanConfirmation({ user, programId, onClose, onReview }: EndPlanSheetProps) {
+function EndPlanConfirmation({ user, programId, onClose, onReview, onEnded }: EndPlanSheetProps) {
   const mounted = useRef(true)
   useLayoutEffect(() => {
     mounted.current = true
@@ -38,7 +38,8 @@ function EndPlanConfirmation({ user, programId, onClose, onReview }: EndPlanShee
       // Invalidation can unmount this sheet when Plan learns it has ended.
       // Navigate in this confirmed lifetime, without a late callback after refresh.
       void refresh().catch(() => undefined)
-      onClose()
+      if (onEnded) onEnded()
+      else onClose()
       router.navigate('/(tabs)')
     },
   })

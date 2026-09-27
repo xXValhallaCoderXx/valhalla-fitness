@@ -1,6 +1,7 @@
 import type { z } from 'zod'
 import type { MovementSlot, WorkoutSession } from '@sheetless/domain/session/types'
 import type { Unit } from '@sheetless/domain/shared/types'
+import { cycleChoiceRequiredMessage } from '@sheetless/domain/program/cycle-boundary'
 import {
   buildAdHocSnapshot,
   normalizeAdHocTitle,
@@ -28,11 +29,12 @@ export async function startSession(
   if (input.expectedProgramId && today.activeProgram?.id !== input.expectedProgramId) {
     throw new Error('The active plan changed. Return to Today before starting a workout.')
   }
-  if (!today.activeProgram || !today.plannedSession) throw new Error('No planned session')
   if (today.activeSession) {
     await assertExpectedSessionProgram(ctx, today.activeSession.sessionId, input.expectedProgramId)
     return today.activeSession
   }
+  if (today.cycleBoundary) throw new Error(cycleChoiceRequiredMessage)
+  if (!today.activeProgram || !today.plannedSession) throw new Error('No planned session')
   if (today.pendingDecisions.length > 0) {
     throw new Error('Resolve your pending progression changes before starting the next session.')
   }

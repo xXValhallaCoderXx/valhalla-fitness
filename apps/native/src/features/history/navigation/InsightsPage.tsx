@@ -52,7 +52,7 @@ function AccountInsightsPage({ title, page, range = true, children, user }: Insi
       <EmptyState title="Insights could not load">{dashboard.error instanceof Error ? dashboard.error.message : 'Try again.'}</EmptyState>
       <Button label="Retry Insights" onPress={() => void dashboard.refetch()} />
     </> : dashboard.data && gating && user ? <>
-      <Caption>{dashboard.data.overview.completedSessions} loaded workouts{dashboard.data.insights.firstSessionDate ? ` · ${dashboard.data.insights.firstSessionDate} to ${dashboard.data.overview.latestTrainingDate}` : ''}. Up to 240 recent workouts.</Caption>
+      <Caption>{dashboard.data.overview.completedSessions} loaded {dashboard.data.overview.completedSessions === 1 ? 'workout' : 'workouts'}{dashboard.data.insights.firstSessionDate ? ` · ${dashboard.data.insights.firstSessionDate} to ${dashboard.data.overview.latestTrainingDate}` : ''}. Up to 240 recent workouts.</Caption>
       {range ? <>
         <SegmentedControl options={INSIGHT_RANGES.map(value => ({ value, label: value === 'all' ? 'Loaded history' : insightRangeLabels[value] }))}
           value={state.range} onChange={next => update({ range: next, sessions: { ...state.sessions, page: 0 } })}

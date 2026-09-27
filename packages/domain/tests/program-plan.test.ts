@@ -4,6 +4,8 @@ import { buildProgramSessionStamps } from '@sheetless/domain/program/program-ses
 import { fixedLoadKey } from '@sheetless/domain/program/return-loads'
 import type { ProgramInstance, ProgramSessionStamp, TemplateDefinition } from '@sheetless/domain/program/types'
 import type { HistorySessionInput } from '@sheetless/domain/history/history'
+import { buildTodayWeek } from '@sheetless/domain/session/today-week'
+import { cycleEndPolicy, type ProgramCycleBoundary } from '@sheetless/domain/program/cycle-boundary'
 
 const definition: TemplateDefinition = {
   schemaVersion: '2026.06.dsl', id: 'test-plan', name: 'Test plan', durationWeeks: 2, daysPerWeek: 2,
@@ -58,6 +60,35 @@ const build = (instance: ProgramInstance, stamps: ProgramSessionStamp[] = []) =>
 })
 
 describe('Plan programme model', () => {
+  it('keeps a completed cycle on its own saved rows until Repeat, including later cycles', () => {
+    const boundary: ProgramCycleBoundary = { id: 'boundary', programId: 'program-1', sessionId: 'saved-7', templateVersionId: 'version-1',
+      cycleNumber: 2, nextSessionIndex: 8, completedAt: '2026-09-28T00:00:00Z', resolvedAt: null, status: 'pending' }
+    const instance = program({ currentWeekIndex: 8, cycleBoundary: boundary })
+    const model = build(instance, [saved(4, 65), saved(5, 70), saved(6, 75), saved(7, 80)])
+    expect(model).toMatchObject({ cycleStart: 4, currentWeekIndex: 1, completedSessions: 4, totalSessions: 4 })
+    expect(model.weeks.flatMap(week => week.sessions).map(session => session.saved?.id)).toEqual(['saved-4','saved-5','saved-6','saved-7'])
+    expect(model.weeks.flatMap(week => week.sessions).every(session => session.preview === null)).toBe(true)
+    expect(buildTodayWeek(instance, definition)).toMatchObject({ firstGlobalIndex: 6, sessionsDone: 2 })
+    expect(buildTodayWeek(instance, definition)?.sessions.every(session => session.status === 'done')).toBe(true)
+    expect(build({ ...instance, cycleBoundary: null })).toMatchObject({ cycleStart: 8, currentWeekIndex: 0, completedSessions: 0 })
+  })
+
+  it('does not manufacture saved completion facts when a boundary has sparse history', () => {
+    const instance = program({ currentWeekIndex: 4, cycleBoundary: {
+      id: 'boundary', programId: 'program-1', sessionId: 'last', templateVersionId: 'version-1', cycleNumber: 1,
+      nextSessionIndex: 4, completedAt: '2026-09-28T00:00:00Z', resolvedAt: null, status: 'pending',
+    } })
+    const model = build(instance, [saved(3, 80, { completedSetCount: 1 })])
+    expect(model.weeks[0].sessions.every(session => session.status === 'unavailable')).toBe(true)
+    expect(model.weeks[1].completedSetCount).toBeNull()
+    expect(model.weeks[1].sessions[1].completedSetCount).toBe(1)
+  })
+
+  it('stops explicit structured templates and keeps weekly, A/B and unknown routines running', () => {
+    expect(cycleEndPolicy('healthy-531-fsl')).toBe('review_at_end')
+    expect(cycleEndPolicy('training_max_wave_pump_5day')).toBe('review_at_end')
+    for (const id of ['beginner_upper_lower_lp','generic_alternating_5x5_lp','custom-18-week']) expect(cycleEndPolicy(id)).toBe('auto_repeat')
+  })
   it('addresses repeat-cycle sessions by global position and preserves saved targets', () => {
     const plan = build(program({ currentWeekIndex: 6 }), [saved(0, 200), saved(4, 60), saved(5, 65)])
     expect(plan).toMatchObject({ cycleStart: 4, currentWeekIndex: 1, completedSessions: 2, totalSessions: 4 })

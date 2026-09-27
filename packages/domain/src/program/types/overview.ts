@@ -6,6 +6,7 @@ import type {
 } from '@sheetless/domain/program/types/core'
 import type { ProgramStateType } from '@sheetless/domain/program/types/template'
 import type { ProgramEquipmentMode } from '@sheetless/domain/program/types/equipment-mode'
+import type { ProgramCycleBoundary } from '../cycle-boundary'
 
 export type ProgramRecentSessionSummary = {
   id: string
@@ -71,6 +72,7 @@ export type ProgramAccessoryPlan = {
 }
 
 export type ProgramOverview = {
+  cycleBoundary?: ProgramCycleBoundary | null
   activeProgram: ProgramInstance | null
   /** Any live workout blocks programme-level equipment changes until it ends. */
   hasActiveSession: boolean

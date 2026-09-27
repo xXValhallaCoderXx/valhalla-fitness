@@ -777,6 +777,102 @@ export type Database = {
         Update: { id?: string; user_id?: string; program_instance_id?: string; request_id?: string; intent?: Json; receipt?: Json; created_at?: string }
         Relationships: [{ foreignKeyName: "program_start_receipts_program_instance_id_user_id_fkey"; columns: ["program_instance_id", "user_id"]; isOneToOne: false; referencedRelation: "program_instances"; referencedColumns: ["id", "user_id"] }]
       }
+      program_cycle_boundaries: {
+        Row: {
+          completed_at: string
+          cycle_number: number
+          id: string
+          next_session_index: number
+          program_instance_id: string
+          resolved_at: string | null
+          session_id: string
+          status: string
+          template_version_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at: string
+          cycle_number: number
+          id?: string
+          next_session_index: number
+          program_instance_id: string
+          resolved_at?: string | null
+          session_id: string
+          status?: string
+          template_version_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          cycle_number?: number
+          id?: string
+          next_session_index?: number
+          program_instance_id?: string
+          resolved_at?: string | null
+          session_id?: string
+          status?: string
+          template_version_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_cycle_boundaries_program_instance_id_user_id_fkey"
+            columns: ["program_instance_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_instances"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "program_cycle_boundaries_session_id_user_id_fkey"
+            columns: ["session_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "program_cycle_boundaries_template_version_id_fkey"
+            columns: ["template_version_id"]
+            isOneToOne: false
+            referencedRelation: "program_template_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_cycle_repeat_receipts: {
+        Row: {
+          boundary_id: string
+          intent: Json
+          receipt: Json
+          request_id: string
+          reviewed_weights: Json
+          user_id: string
+        }
+        Insert: {
+          boundary_id: string
+          intent: Json
+          receipt: Json
+          request_id: string
+          reviewed_weights: Json
+          user_id: string
+        }
+        Update: {
+          boundary_id?: string
+          intent?: Json
+          receipt?: Json
+          request_id?: string
+          reviewed_weights?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_cycle_repeat_receipts_boundary_id_user_id_fkey"
+            columns: ["boundary_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "program_cycle_boundaries"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       program_end_receipts: {
         Row: { id: string; user_id: string; program_instance_id: string; request_id: string; intent: Json; resulting_version: number; ended_at: string }
         Insert: { id?: string; user_id: string; program_instance_id: string; request_id: string; intent: Json; resulting_version: number; ended_at: string }
@@ -788,6 +884,7 @@ export type Database = {
           client_mutation_id: string | null
           created_at: string
           current_block_id: string | null
+          cycle_end_policy: string
           current_week_index: number
           customization_status: string
           customization_summary: Json
@@ -812,6 +909,7 @@ export type Database = {
           client_mutation_id?: string | null
           created_at?: string
           current_block_id?: string | null
+          cycle_end_policy?: string
           current_week_index?: number
           customization_status?: string
           customization_summary?: Json
@@ -836,6 +934,7 @@ export type Database = {
           client_mutation_id?: string | null
           created_at?: string
           current_block_id?: string | null
+          cycle_end_policy?: string
           current_week_index?: number
           customization_status?: string
           customization_summary?: Json
@@ -1688,6 +1787,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      repeat_program_cycle_v1: {
+        Args: {
+          p_boundary_id: string
+          p_expected_user_id: string
+          p_expected_version: number
+          p_program_id: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
       end_program_v1: {
         Args: { p_program_id: string; p_expected_version: number; p_request_id: string }
         Returns: Json

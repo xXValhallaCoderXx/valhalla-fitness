@@ -18,6 +18,7 @@ import {
 import type { Tables } from '@sheetless/domain/shared/types/database'
 import type { UserContext } from '../shared/context'
 import { getPinnedTemplateDefinition } from './template-data'
+import { getPendingCycleBoundary } from './cycle-reads'
 
 function mapProgramMovementOverride(
   row: Tables<'program_movement_overrides'>,
@@ -188,6 +189,8 @@ export async function getActiveProgram(ctx: UserContext): Promise<ProgramInstanc
     rounding: Number(instance.rounding),
     currentWeekIndex: instance.current_week_index,
     stateVersion: instance.state_version,
+    cycleEndPolicy: instance.cycle_end_policy === 'review_at_end' ? 'review_at_end' : 'auto_repeat',
+    cycleBoundary: instance.cycle_end_policy === 'review_at_end' ? await getPendingCycleBoundary(ctx, instance.id) : null,
     returnPeriod: period ? {
       id: period.id, policyVersion: 1, status: period.status as NonNullable<ProgramInstance['returnPeriod']>['status'],
       settings: period.settings as unknown as NonNullable<ProgramInstance['returnPeriod']>['settings'],

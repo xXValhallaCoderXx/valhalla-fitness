@@ -1,3 +1,4 @@
+import { cycleDisplayIndex } from './cycle-boundary'
 import { applyReturnPrescription } from './return-prescription'
 import { fixedLoadKey, referencedStateKey } from './return-loads'
 import { resolveTemplateTargetLoad } from './template-load'
@@ -215,14 +216,14 @@ export function programForNextUncompletedSessionFromDefinition(
 }
 
 export function buildProgramTimelineFromDefinition(
-  program: Pick<ProgramInstance, 'currentWeekIndex'>,
+  program: Pick<ProgramInstance, 'currentWeekIndex' | 'cycleBoundary'>,
   definition: TemplateDefinition,
 ): ProgramTimelineModel {
   const currentWeekIndex = Math.min(
-    positiveModulo(Math.floor(program.currentWeekIndex / definition.daysPerWeek), definition.durationWeeks),
+    positiveModulo(Math.floor(cycleDisplayIndex(program) / definition.daysPerWeek), definition.durationWeeks),
     definition.durationWeeks - 1,
   )
-  const currentSessionInWeek = positiveModulo(program.currentWeekIndex, definition.daysPerWeek)
+  const currentSessionInWeek = positiveModulo(cycleDisplayIndex(program), definition.daysPerWeek)
 
   return {
     totalWeeks: definition.durationWeeks,
