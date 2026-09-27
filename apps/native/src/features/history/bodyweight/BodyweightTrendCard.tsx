@@ -27,8 +27,8 @@ export function BodyweightTrendCard({ insights, range }: { insights: HistoryInsi
           {trend.count === 1 ? <Caption>One measurement in range. Log another to see a change.</Caption> : null}
         </>
       ) : <Caption>No bodyweight recorded yet. Log your first measurement in Settings.</Caption>}
-      <Caption>Actual measurements, spaced by calendar date. All includes your full bodyweight history.</Caption>
-      <Button label="Log bodyweight" variant="default" onPress={() => router.push('/settings')} />
+      <Caption>Actual measurements, spaced by calendar date. With Loaded history selected, bodyweight uses its full independent history.</Caption>
+      <Button label="Log bodyweight" variant="default" onPress={() => router.push('/you/bodyweight')} />
     </Panel>
   )
 }

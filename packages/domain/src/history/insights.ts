@@ -5,6 +5,8 @@ import type {
   RecentHistoryEntry,
 } from '@sheetless/domain/history/types'
 
+import { convertWeight } from '../shared/math'
+
 /**
  * Pure presentation helpers for the Insights (`/history`) page — grouping,
  * sorting, filtering, and chart geometry. Kept out of the component so they can
@@ -75,7 +77,7 @@ function movementSortValue(row: HistoryMovementSummary, key: MovementSortKey): n
   if (key === 'last') return row.lastPerformedAt ? new Date(row.lastPerformedAt).getTime() : 0
   if (key === 'volume') return row.totalVolume ?? 0
   if (key === 'sets') return row.totalCompletedSets ?? 0
-  return row.bestSet?.e1rm ?? 0
+  return row.bestSet?.e1rm != null ? convertWeight(row.bestSet.e1rm, row.bestSet.units ?? 'kg', 'kg') : 0
 }
 
 export function sortMovementSummaries(

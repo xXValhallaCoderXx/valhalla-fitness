@@ -26,6 +26,7 @@ import { TodayPlannedSessionCard } from './today/TodayPlannedSessionCard'
 import { LastWorkoutCard } from './today/LastWorkoutCard'
 import { TodayHeader } from './today/TodayHeader'
 import { TodayLayout as Screen } from './today/TodayLayout'
+import { AdvancedInvitation } from '@/features/settings/preferences/AdvancedInvitation'
 
 export function TodayScreen() {
   const { user } = useSession()
@@ -111,6 +112,7 @@ export function TodayScreen() {
           session={active}
           onResume={() => openSession(active.sessionId)}
         />
+        <AdvancedInvitation key={`advanced:${user!.id}`} user={user!} />
         {weekSummary}
         {recentHistoryError}
         {lastWorkout}
@@ -134,6 +136,7 @@ export function TodayScreen() {
         <TodayHeader key={`header:${user!.id}`} date={date} ready streakWeeks={streakWeeks}
           subtitle={data?.lastEndedProgram ? 'Choose what comes next.' : last || data?.historyReadError ? 'Make today your own.' : me.data?.displayName ? `Welcome to Sheetless, ${me.data.displayName}.` : 'Welcome to Sheetless.'} />
         <TodayNoPlan ended={data?.lastEndedProgram} hasHistory={Boolean(last) || Boolean(data?.historyReadError)} timeZone={me.data?.timezone} />
+        <AdvancedInvitation key={`advanced:${user!.id}`} user={user!} />
         {last ? weekSummary : null}
         {recentHistoryError}
         {lastWorkout}
@@ -165,6 +168,7 @@ export function TodayScreen() {
         }
         onStart={() => startMutation.mutate()}
       />
+      <AdvancedInvitation key={`advanced:${user!.id}`} user={user!} />
       {recentHistoryError}
       {lastWorkout}
       {!last ? <ReturnGuideCard program={program} today lastWorkoutLogged={data?.lastWorkoutLogged} /> : null}

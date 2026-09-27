@@ -63,8 +63,8 @@ function EquipmentEditor({ program, user, hasActiveSession }: {
     <CurrentEquipmentSwaps program={program} />
     <Panel surface="inset" style={{ padding: spacing.md, gap: spacing.xs }}>
       <Text size="sm" tone="dimmed">Changing this affects every future week of this plan. Anything you swapped by hand stays as you set it.</Text>
-      <Button variant="subtle" size="sm" label="Equipment I own, in Settings ›"
-        disabled={pending} style={{ paddingHorizontal: 0 }} onPress={() => router.push('/settings')} />
+      <Button variant="subtle" size="sm" label="Equipment I own, in You ›"
+        disabled={pending} style={{ paddingHorizontal: 0 }} onPress={() => router.push('/you/equipment')} />
     </Panel>
     {hasActiveSession ? <Text size="sm" tone="warning">Finish or discard the current workout before changing this.</Text> : null}
     {equipment.previewError ? <Text size="sm" tone="danger">{equipment.previewError}</Text> : null}

@@ -3,6 +3,7 @@ import { View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CalendarDays, History, UserRound, ListChecks, type LucideIcon } from 'lucide-react-native'
 import { fontForWeight, useTokens } from '@/lib/tokens'
+import { settingsNavigationGuard } from '@/features/settings/settings-navigation'
 
 /**
  * Icon wrapper adding the 2px active pill above the icon — web AppShell's
@@ -39,9 +40,19 @@ export default function TabsLayout() {
   return (
     <Tabs
       initialRouteName="index"
+      screenListeners={({ navigation, route }) => ({
+        tabPress: event => {
+          const state = navigation.getState()
+          // Reselecting a tab leaves its default scroll/pop behavior intact. A nested
+          // dirty editor guards the resulting stack removal through usePreventRemove.
+          if (state.routes[state.index]?.key === route.key) return
+          if (settingsNavigationGuard.request(() => navigation.navigate(route.name))) event.preventDefault()
+        },
+      })}
       screenOptions={{
         // Screens render their own PageHeader — a native header would double the title.
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: theme.tones.action.text,
         tabBarInactiveTintColor: theme.textMuted,
         tabBarStyle: {

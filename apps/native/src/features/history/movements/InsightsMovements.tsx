@@ -7,6 +7,7 @@ import type { Unit } from '@sheetless/domain/shared/types'
 import { formatCompactDate } from '@sheetless/domain/shared/dates'
 import { formatNumber, formatWeight } from '@sheetless/domain/shared/set-notation'
 import { Caption, EmptyState, Panel, SectionLabel, SegmentedControl, Text, TextInput } from '@/components'
+import { useInsightsState } from '../navigation/InsightsState'
 import { MovementHistorySheet } from './MovementHistorySheet'
 import { spacing } from '@/lib/tokens'
 
@@ -22,10 +23,12 @@ export function InsightsMovements({
   units?: Unit | null
   user: User
 }) {
-  const [query, setQuery] = useState('')
-  const [sort, setSort] = useState<MovementSortKey>('volume')
-  const [direction, setDirection] = useState<SortDir>('desc')
-  const [category, setCategory] = useState<string | null>(null)
+  const { state, update } = useInsightsState()
+  const { query, sort, direction, category } = state.movements
+  const setQuery = (query: string) => update({ movements: { ...state.movements, query } })
+  const setSort = (sort: MovementSortKey) => update({ movements: { ...state.movements, sort } })
+  const setDirection = (direction: SortDir) => update({ movements: { ...state.movements, direction } })
+  const setCategory = (category: string | null) => update({ movements: { ...state.movements, category } })
   const [selected, setSelected] = useState<HistoryMovementSummary | null>(null)
   const categories = useMemo(
     () => Array.from(new Set(movements.map((movement) => movement.category))).sort(),
@@ -35,7 +38,7 @@ export function InsightsMovements({
 
   return (
     <View style={{ gap: spacing.sm }}>
-      <SectionLabel>Movements · recent training</SectionLabel>
+      <SectionLabel>Every movement · loaded history</SectionLabel>
       <TextInput value={query} onChangeText={setQuery} placeholder="Search movements" />
       <SegmentedControl
         options={[
@@ -47,13 +50,14 @@ export function InsightsMovements({
         accessibilityLabel="Movement category filter"
       />
       <SegmentedControl options={[{ value: 'last', label: 'Last performed' }, { value: 'volume', label: 'Volume' },
-        { value: 'e1rm', label: 'Best e1RM' }, { value: 'sets', label: 'Sets' }]} value={sort} onChange={setSort} accessibilityLabel="Sort movements" />
-      <SegmentedControl options={[{ value: 'desc', label: 'Highest first' }, { value: 'asc', label: 'Lowest first' }]}
+        { value: 'e1rm', label: 'Estimated max (loaded)' }, { value: 'sets', label: 'Sets' }]} value={sort} onChange={setSort} accessibilityLabel="Sort movements" />
+      <SegmentedControl options={[{ value: 'desc', label: sort === 'last' ? 'Newest first' : 'Highest first' }, { value: 'asc', label: sort === 'last' ? 'Oldest first' : 'Lowest first' }]}
         value={direction} onChange={setDirection} variant="segments" accessibilityLabel="Sort direction" />
+      <Caption>{visible.length} of {movements.length} movements. Best sets rank by estimated strength for loaded sets and reps for bodyweight. Unusual estimates are excluded.</Caption>
       {visible.length === 0 ? (
         <EmptyState title="No matching movements">Try another search or category.</EmptyState>
       ) : visible.map((movement) => (
-        <Pressable key={movement.movementId} onPress={() => setSelected(movement)}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Open ${movement.movementName}`} key={movement.movementId} onPress={() => setSelected(movement)}>
           {({ pressed }) => (
             <Panel style={{ opacity: pressed ? 0.7 : 1, padding: spacing.sm }}>
               <View style={{ flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between' }}>
@@ -62,7 +66,7 @@ export function InsightsMovements({
                   <Caption>{movement.category.replaceAll('_', ' ')} · {formatCompactDate(movement.lastPerformedAt)}</Caption>
                   {movement.bestSet ? (
                     <Caption>
-                      Best {movement.bestSet.load == null ? 'bodyweight' : formatWeight(movement.bestSet.load, units)} × {movement.bestSet.reps ?? '—'}
+                      Best {movement.bestSet.load == null ? 'bodyweight' : formatWeight(movement.bestSet.load, movement.bestSet.units)} × {movement.bestSet.reps ?? '—'} · {movement.bestSet.performedAt}{movement.bestSet.isBaseline ? ' · Baseline' : ''}
                     </Caption>
                   ) : null}
                 </View>

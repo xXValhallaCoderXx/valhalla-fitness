@@ -164,6 +164,7 @@ describe('native finish recovery', () => {
   it('retries a lost response with the same intent and reaches the persisted recap', async () => {
     const session = completedWorkout()
     const { client, wrapper } = harness(session)
+    client.setQueryData(accountQueryKeys.experienceSignals(user.id), { completedSessions: 7 })
     const summary: SessionSummary = { session: { ...session, status: 'completed' }, completedSets: 1, totalSets: 2, topSets: [], accessoryOutcomes: [], decisions: [] }
     api.finish.mockRejectedValueOnce(new Error('Connection lost')).mockResolvedValueOnce(summary)
     const { result } = renderHook(() => useFinishSession(user, session, '  Kept notes  '), { wrapper })
@@ -175,6 +176,18 @@ describe('native finish recovery', () => {
     expect(api.finish.mock.calls[1][1]).toMatchObject({ ...reflection, notes: 'Kept notes', requestId: expect.any(String) })
     expect(client.getQueryData(accountQueryKeys.summary(user.id, session.sessionId))).toEqual(summary)
     expect(client.getQueryData(sessionKey)).toEqual(summary.session)
+    expect(client.getQueryState(accountQueryKeys.experienceSignals(user.id))?.isInvalidated).toBe(true)
+    expect(api.replace).toHaveBeenCalledWith({ pathname: '/session/[sessionId]/summary', params: { sessionId: session.sessionId } })
+  })
+
+  it('refreshes the Advanced invitation count when retry discovers the workout already finished', async () => {
+    const session = completedWorkout()
+    const { client, wrapper } = harness(session)
+    client.setQueryData(accountQueryKeys.experienceSignals(user.id), { completedSessions: 7 })
+    api.finish.mockRejectedValue(new Error('Workout already finished'))
+    const { result } = renderHook(() => useFinishSession(user, session), { wrapper })
+    await act(async () => { await expect(result.current.mutateAsync(reflection)).rejects.toThrow('already finished') })
+    expect(client.getQueryState(accountQueryKeys.experienceSignals(user.id))?.isInvalidated).toBe(true)
     expect(api.replace).toHaveBeenCalledWith({ pathname: '/session/[sessionId]/summary', params: { sessionId: session.sessionId } })
   })
 

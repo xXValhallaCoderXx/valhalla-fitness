@@ -87,6 +87,18 @@ describe('useSettingsDraft', () => {
     expect(result.current.dirty).toBe(false)
   })
 
+  it('keeps a You unit round-trip clean so subsequent profile refreshes are adopted', () => {
+    const saved = profile({ programStateDefaults: { squat_one_rep_max: 123 } })
+    const { result, rerender } = renderHook(({ value }) => useSettingsDraft(value, { convertEstimatesOnUnitChange: false }),
+      { initialProps: { value: saved } })
+    act(() => result.current.setUnits('lb'))
+    act(() => result.current.setUnits('kg'))
+    expect(result.current.dirty).toBe(false)
+    expect(result.current.values.programStateDefaults.squat_one_rep_max).toBe(123)
+    rerender({ value: { ...saved, themePreference: 'dark' } })
+    expect(result.current.values.themePreference).toBe('dark')
+  })
+
   it('flags a non-positive estimate and blocks saving', () => {
     const saved = profile()
     const { result } = renderHook(() => useSettingsDraft(saved))

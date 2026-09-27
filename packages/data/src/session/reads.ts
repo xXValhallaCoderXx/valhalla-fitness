@@ -23,6 +23,7 @@ import {
 import { getPreviousComparablesBySlotId } from './previous-comparables'
 import { getLastEndedProgram } from '../program/ending'
 import type { UserContext } from '../shared/context'
+import { getHistoricalFallbackUnits } from '../history/history-units'
 
 export async function getToday(ctx: UserContext, timeZone?: string | null): Promise<TodayPayload> {
   const { supabase, user } = ctx
@@ -179,6 +180,7 @@ export async function getSession(ctx: UserContext, sessionId: string): Promise<W
   if (setError) throw new Error(setError.message)
 
   const snapshot = sessionRow.prescription_snapshot as PlannedSession
+  const units = snapshot.units ?? await getHistoricalFallbackUnits(supabase, user.id)
   const isAdHoc = sessionRow.program_instance_id === null || snapshot.kind === 'ad_hoc'
   // Favourite state belongs to the workout lineage, not this row alone: a repeat of a
   // favourited workout (or the root of a favourited repeat) reads as favourited too.
@@ -198,6 +200,7 @@ export async function getSession(ctx: UserContext, sessionId: string): Promise<W
   }
   return {
     ...snapshot,
+    units,
     sessionId: sessionRow.id,
     stateVersion: Number(sessionRow.state_version),
     status: sessionRow.status as WorkoutSession['status'],

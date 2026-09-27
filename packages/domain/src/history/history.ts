@@ -15,6 +15,8 @@ import { getMovementName, movementCatalog } from '@sheetless/domain/movement/mov
 import { e1rm, mround } from '@sheetless/domain/program/progression'
 import { externalLoadOrNull, isPositiveLoad } from '@sheetless/domain/shared/load'
 import { convertWeight } from '@sheetless/domain/shared/math'
+import { withHistoricalUnits, historicalFallbackUnits } from './history-units'
+import { assessHistorySets, assessmentKey } from './set-assessment'
 
 export type HistorySetInput = MovementHistorySet & {
   actualRpe?: number | null
@@ -100,21 +102,27 @@ export function buildHistoryDashboard({
   substitutions,
   now = new Date(),
   catalog = movementCatalog,
+  displayUnits: requestedUnits,
+  recentSessionLimit = RECENT_HISTORY_LIMIT,
+  bestSetLimit = 12,
 }: {
   sessions: HistorySessionInput[]
   substitutions: HistorySubstitutionInput[]
   now?: Date
   catalog?: Record<string, Movement>
+  displayUnits?: Unit
+  recentSessionLimit?: number | null
+  bestSetLimit?: number | null
 }): HistoryDashboard {
-  const orderedSessions = sortHistorySessionsNewestFirst(sessions)
+  const orderedSessions = sortHistorySessionsNewestFirst(withHistoricalUnits(sessions))
   const allSets = orderedSessions.flatMap((session) => session.exercises.flatMap((exercise) => exercise.sets))
   const completedSets = allSets.filter((set) => set.completed)
-  const displayUnits = orderedSessions.find((session) => session.units)?.units ?? null
+  const displayUnits = requestedUnits ?? historicalFallbackUnits(sessions)
   const completedVolume = displayUnits
     ? orderedSessions.reduce((total, session) => total + calculateSessionCompletedVolume(session, displayUnits), 0)
     : calculateCompletedVolume(completedSets)
   const movementSummaries = buildMovementSummaries(orderedSessions, catalog, displayUnits)
-  const recentSessions = buildRecentHistoryEntries(orderedSessions, displayUnits ?? 'kg')
+  const recentSessions = buildRecentHistoryEntries(orderedSessions, displayUnits, { limit: recentSessionLimit })
 
   return {
     overview: {
@@ -126,7 +134,7 @@ export function buildHistoryDashboard({
       units: displayUnits,
     },
     bodyLoad: calculateBodyLoad(toBodyLoadWork(orderedSessions, catalog), { now, catalog }),
-    bestSets: rankBestSets(orderedSessions).slice(0, 12),
+    bestSets: bestSetLimit === null ? rankBestSets(orderedSessions) : rankBestSets(orderedSessions).slice(0, bestSetLimit),
     movementSummaries,
     weeklyVolume: buildWeeklyVolumeBuckets(orderedSessions, displayUnits),
     substitutions: buildSubstitutionSummaries(substitutions, orderedSessions),
@@ -163,11 +171,19 @@ export function rankBestSets(sessions: HistorySessionInput[]): HistoryBestSet[] 
   const byMovement = new Map<string, BestSetCandidate>()
   const fallbackUnits = resolveHistoryDisplayUnits(sessions) ?? 'kg'
 
-  for (const session of sessions) {
+  const assessments = assessHistorySets(sessions)
+  const firstUsable = new Map<string, string>()
+  const ordered = sortHistorySessionsNewestFirst(sessions).reverse()
+  for (const session of ordered) {
     for (const exercise of session.exercises) {
       for (const set of exercise.sets) {
+        const assessment = assessments.get(assessmentKey(session.id, exercise.id, set.id))
+        if (assessment?.unusual) continue
         const candidate = buildBestSetCandidate(session, exercise, set, fallbackUnits)
         if (!candidate) continue
+        if (!firstUsable.has(candidate.movementId)) firstUsable.set(candidate.movementId, session.id)
+        candidate.isBaseline = firstUsable.get(candidate.movementId) === session.id
+        candidate.assessment = assessment
         const existing = byMovement.get(candidate.movementId)
         if (!existing || compareBestSetCandidates(candidate, existing) < 0) {
           byMovement.set(candidate.movementId, candidate)
@@ -184,6 +200,9 @@ export function rankBestSets(sessions: HistorySessionInput[]): HistoryBestSet[] 
 function toHistoryBestSet(candidate: BestSetCandidate): HistoryBestSet {
   return {
     id: candidate.id,
+    exerciseId: candidate.exerciseId,
+    assessment: candidate.assessment,
+    isBaseline: candidate.isBaseline,
     movementId: candidate.movementId,
     movementName: candidate.movementName,
     role: candidate.role,
@@ -205,7 +224,7 @@ export function buildMovementSummaries(
   catalog: Record<string, Movement> = movementCatalog,
   displayUnits: Unit | null = resolveHistoryDisplayUnits(sessions),
 ): HistoryMovementSummary[] {
-  const orderedSessions = sortHistorySessionsNewestFirst(sessions)
+  const orderedSessions = sortHistorySessionsNewestFirst(withHistoricalUnits(sessions))
   const bestSetsByMovement = new Map(rankBestSets(sessions).map((set) => [set.movementId, set]))
   const summaries = new Map<string, MovementSummaryCandidate>()
 
@@ -250,7 +269,6 @@ export function buildMovementSummaries(
       if (setCountCompare !== 0) return setCountCompare
       return left.summary.movementId.localeCompare(right.summary.movementId)
     })
-    .slice(0, 40)
     .map((candidate) => candidate.summary)
 }
 
@@ -262,7 +280,7 @@ export function buildWeeklyVolumeBuckets(
   const { maxWeeks = 8 } = options
   const buckets = new Map<string, HistoryWeeklyVolume>()
 
-  for (const session of sessions) {
+  for (const session of withHistoricalUnits(sessions)) {
     const date = parseDate(session.scheduledDate)
     if (!date) continue
     const weekStart = startOfWeek(date)
@@ -343,8 +361,11 @@ export const RECENT_HISTORY_LIMIT = 60
 export function buildRecentHistoryEntries(
   sessions: HistorySessionInput[],
   displayUnits: Unit = 'kg',
+  options: { limit?: number | null } = {},
 ): RecentHistoryEntry[] {
-  return sortHistorySessionsNewestFirst(sessions).slice(0, RECENT_HISTORY_LIMIT).map((session): RecentHistoryEntry => {
+  const ordered = sortHistorySessionsNewestFirst(withHistoricalUnits(sessions))
+  const limit = options.limit === undefined ? RECENT_HISTORY_LIMIT : options.limit
+  return (limit === null ? ordered : ordered.slice(0, limit)).map((session): RecentHistoryEntry => {
     const completedSetCount = session.exercises.flatMap((exercise) => exercise.sets).filter((set) => set.completed).length
     return {
       id: session.id,
@@ -360,6 +381,7 @@ export function buildRecentHistoryEntries(
       movementCount: session.movementCount,
       completedSetCount,
       plannedSetCount: session.plannedSetCount,
+      recordedSetCount: session.exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0),
       tonnage: Math.round(calculateSessionCompletedVolume(session, displayUnits)),
       durationMinutes: sessionDurationMinutes(session),
       isAdHoc: session.isAdHoc,
@@ -412,6 +434,7 @@ function buildBestSetCandidate(
 
   return {
     id: set.id,
+    exerciseId: exercise.id,
     movementId: exercise.performedMovementId,
     movementName: exercise.performedMovementName,
     role: exercise.role,
@@ -424,7 +447,7 @@ function buildBestSetCandidate(
     sessionId: session.id,
     sessionTitle: session.title,
     performedAt: session.scheduledDate,
-    units: session.units,
+    units: exerciseUnits(session, fallbackUnits),
     score,
     completedAt: session.completedAt ?? null,
   }

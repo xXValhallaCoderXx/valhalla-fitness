@@ -1,16 +1,18 @@
 import { View } from 'react-native'
 import type { HistoryInsights, InsightGating } from '@sheetless/domain/history/types'
 import { calibrationSignalLabels } from '@sheetless/domain/history/calibration'
-import { dataLifecycleLabels } from '@sheetless/domain/history/insight-state'
+import { buildConsistency } from '@sheetless/domain/history/consistency'
+import { selectInsightWeeks } from '@sheetless/domain/history/insight-selectors'
+import type { InsightRange } from '@sheetless/domain/history/insight-ranges'
 import { Badge, Caption, Panel, SectionLabel, StatCard, Text } from '@/components'
 import { spacing } from '@/lib/tokens'
 
-export function TrainingHealth({ insights, gating }: { insights: HistoryInsights; gating: InsightGating }) {
-  const { consistency, calibration } = insights
-  return <>
+export function ConsistencyPanel({ insights, range }: { insights: HistoryInsights; range: InsightRange }) {
+  const consistency = buildConsistency(selectInsightWeeks(insights.weeklySessions, insights, range))
+  return (
     <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
-      <SectionLabel>Consistency · available workouts</SectionLabel>
-      <Badge tone="neutral">{dataLifecycleLabels[gating.lifecycle]}</Badge>
+      <SectionLabel>Consistency · calendar weeks in range</SectionLabel>
+
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         <StatCard label="Sessions / week" value={String(consistency.avgSessionsPerWeek ?? '—')} />
         <StatCard label="Current streak" value={`${consistency.currentStreakWeeks} wk`} />
@@ -19,6 +21,12 @@ export function TrainingHealth({ insights, gating }: { insights: HistoryInsights
       {consistency.totalWeeks >= 2 ? <Caption>Weeks trained: {consistency.weeksTrained} of {consistency.totalWeeks} ({consistency.percentWeeksTrained ?? 0}%)</Caption>
         : <Caption>Your consistency picture builds over your first few weeks.</Caption>}
     </Panel>
+  )
+}
+
+export function TrainingHealth({ insights }: { insights: HistoryInsights; gating: InsightGating }) {
+  const { calibration } = insights
+  return <>
     <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
       <SectionLabel>Effort calibration · last 6 weeks</SectionLabel>
       <Badge tone={calibration.signal === 'leaning_hard' ? 'warning' : 'neutral'}>{calibrationSignalLabels[calibration.signal]}</Badge>

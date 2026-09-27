@@ -1,4 +1,5 @@
-import { View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Check } from 'lucide-react-native'
 import {
   countSelectedEquipmentProfileOptions,
   EQUIPMENT_PROFILE_OPTIONS,
@@ -6,9 +7,8 @@ import {
 } from '@sheetless/domain/account/equipment-profile'
 import type { RequiredEquipment } from '@sheetless/domain/movement/types'
 import { formatEquipmentLabel } from '@sheetless/domain/account/settings-form'
-import { Badge, Button, Caption, Panel, SectionLabel } from '@/components'
-import { spacing } from '@/lib/tokens'
-import { SettingsSection } from '../SettingsSection'
+import { Caption, Panel, SectionLabel, Text } from '@/components'
+import { radii, spacing, useTokens } from '@/lib/tokens'
 
 export function EquipmentSection({
   equipmentProfile,
@@ -19,53 +19,45 @@ export function EquipmentSection({
   disabled: boolean
   onToggle: (item: RequiredEquipment) => void
 }) {
+  const { theme } = useTokens()
   const normalizedProfile = normalizeEquipmentProfile(equipmentProfile)
   const selectedCount = countSelectedEquipmentProfileOptions(normalizedProfile)
   const additionalCount = normalizedProfile.length - selectedCount
 
   return (
-    <SettingsSection
-      title="Equipment Profile"
-      description="Choose the equipment available to you for equipment-aware movement choices."
-    >
-      <Panel style={{ gap: spacing.md, padding: spacing.md }}>
-        <View
-          style={{
-            alignItems: 'center',
-            flexDirection: 'row',
-            gap: spacing.sm,
-            justifyContent: 'space-between',
-          }}
-        >
-          <SectionLabel>Available equipment</SectionLabel>
-          <Badge tone="action">
-            {selectedCount} of {EQUIPMENT_PROFILE_OPTIONS.length}
-          </Badge>
-        </View>
-        <Caption>
-          An empty profile allows all equipment. Changes apply when you save.
-          {additionalCount
-            ? ` ${additionalCount} additional saved ${additionalCount === 1 ? 'item is' : 'items are'} preserved.`
-            : ''}
-        </Caption>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+    <View style={{ gap: spacing.md }}>
+      <Caption>Choose the equipment you can use. This helps filter supported movement choices and substitutes.</Caption>
+      <Panel style={{ paddingHorizontal: spacing.md }}>
           {EQUIPMENT_PROFILE_OPTIONS.map((item) => {
             const selected = normalizedProfile.includes(item)
             return (
-              <Button
+              <Pressable
                 key={item}
-                label={formatEquipmentLabel(item)}
-                selected={selected}
-                variant={selected ? 'filled' : 'default'}
+                accessibilityRole="checkbox"
+                accessibilityLabel={formatEquipmentLabel(item)}
+                accessibilityState={{ checked: selected, disabled }}
                 disabled={disabled}
-                style={{ flexBasis: '47%', flexGrow: 1, paddingHorizontal: spacing.xs }}
+                style={({ pressed }) => ({ alignItems: 'center', flexDirection: 'row', gap: spacing.sm,
+                  minHeight: 48, paddingVertical: spacing.sm, opacity: disabled ? 0.5 : pressed ? 0.7 : 1 })}
                 onPress={() => onToggle(item)}
                 testID={`settings-equipment-${item}`}
-              />
+              >
+                <View accessible={false} style={{ alignItems: 'center', justifyContent: 'center', width: 22,
+                  height: 22, borderRadius: radii.xs, borderWidth: 1,
+                  borderColor: selected ? theme.primaryFill : theme.border,
+                  backgroundColor: selected ? theme.primaryFill : theme.surface }}>
+                  {selected ? <Check size={16} color={theme.primaryFillText} /> : null}
+                </View>
+                <Text size="sm" weight={700} style={{ flex: 1 }}>{formatEquipmentLabel(item)}</Text>
+              </Pressable>
             )
           })}
-        </View>
       </Panel>
-    </SettingsSection>
+      <Panel surface="inset" style={{ gap: spacing.xs, padding: spacing.md }}>
+        <SectionLabel>{normalizedProfile.length ? `${selectedCount} of ${EQUIPMENT_PROFILE_OPTIONS.length} selected` : 'All equipment available'}</SectionLabel>
+        <Caption>Leave your equipment profile empty to allow all equipment. Changes apply when you save.</Caption>
+        {additionalCount ? <Caption>{additionalCount} additional saved {additionalCount === 1 ? 'item is' : 'items are'} preserved.</Caption> : null}
+      </Panel>
+    </View>
   )
 }

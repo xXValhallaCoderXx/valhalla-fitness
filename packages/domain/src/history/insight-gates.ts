@@ -1,4 +1,4 @@
-import { BALANCE_MIN_SETS } from '@sheetless/domain/history/muscle-volume'
+import { BALANCE_MIN_SETS, calendarRegionWeeks } from '@sheetless/domain/history/muscle-volume'
 import { CALIBRATION_MIN_PAIRED_SETS } from '@sheetless/domain/history/calibration'
 import {
   POWERLIFTING_TOTAL_LIFTS,
@@ -57,6 +57,7 @@ export const TREND_MIN_CHART_POINTS = 2
 export const CONSISTENCY_MIN_WEEKS = 2
 
 export type InsightGateInput = {
+  today?: string
   liftSeries: LiftE1rmSeries[]
   weeklyVolume: HistoryWeeklyVolume[]
   weeklyRegionSets: WeeklyRegionSets[]
@@ -71,7 +72,9 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000
 function leadingLift(liftSeries: LiftE1rmSeries[]): LiftE1rmSeries | null {
   let leader: LiftE1rmSeries | null = null
   for (const series of liftSeries) {
-    if (!leader || series.points.length > leader.points.length) leader = series
+    const usable = { ...series, points: series.points.filter(point => !point.outlier && Number.isFinite(point.e1rm) && Number.isFinite(Date.parse(point.date))) }
+    const qualifies = (lift: LiftE1rmSeries) => lift.points.length >= TREND_MIN_POINTS && spanDays(lift) >= TREND_MIN_SPAN_DAYS
+    if (!leader || (qualifies(usable) && !qualifies(leader)) || (qualifies(usable) === qualifies(leader) && usable.points.length > leader.points.length)) leader = usable
   }
   return leader
 }
@@ -93,7 +96,8 @@ const liftGateLabels: Record<(typeof POWERLIFTING_TOTAL_LIFTS)[number], string> 
 export function resolveInsightGates(input: InsightGateInput): Record<InsightGateId, InsightGate> {
   const lead = leadingLift(input.liftSeries)
   const leadPoints = lead?.points.length ?? 0
-  const totalRegionSets = input.weeklyRegionSets.reduce((sum, week) => sum + week.totalSets, 0)
+  const regionWeeks = input.today ? calendarRegionWeeks(input.weeklyRegionSets, input.today) : input.weeklyRegionSets
+  const totalRegionSets = regionWeeks.reduce((sum, week) => sum + week.totalSets, 0)
   // Only the three lifts the score is actually made of. Counting every tracked lift meant an
   // account training squat, press and row read "3 of 3" while the score stayed locked.
   const totalLifts = POWERLIFTING_TOTAL_LIFTS.filter((liftId) =>
@@ -110,21 +114,21 @@ export function resolveInsightGates(input: InsightGateInput): Record<InsightGate
         required: POWERLIFTING_TOTAL_LIFTS.length,
         subject: missingLift ? liftGateLabels[missingLift] : undefined,
       },
-      requirement: 'Opens once squat, bench and deadlift each have a logged set, plus a bodyweight.',
-      requirementTechnical: 'Needs squat + bench + deadlift e1RM and a bodyweight entry (sex for DOTS).',
+      requirement: 'A total needs a usable loaded set for squat, bench and deadlift. Bodyweight adds a size comparison; sex enables DOTS.',
+      requirementTechnical: 'Needs squat + bench + deadlift e1RM (1–12 reps). Bodyweight is required for xBW; bodyweight and sex for DOTS.',
     },
     strength_trend: {
       id: 'strength_trend',
       unlocked: leadPoints >= TREND_MIN_POINTS && spanDays(lead) >= TREND_MIN_SPAN_DAYS,
       progress: { current: leadPoints, required: TREND_MIN_POINTS, subject: lead?.movementName.toLowerCase() },
-      requirement: `Appears after ${TREND_MIN_POINTS} sessions of a lift, spread over about three weeks.`,
+      requirement: `Appears after ${TREND_MIN_POINTS} usable observations of one lift spanning at least ${TREND_MIN_SPAN_DAYS} days.`,
       requirementTechnical: `≥ ${TREND_MIN_POINTS} e1RM points spanning ≥ ${TREND_MIN_SPAN_DAYS} days.`,
     },
     volume_trend: {
       id: 'volume_trend',
       unlocked: input.weeklyVolume.length >= TREND_MIN_CHART_POINTS,
       progress: { current: input.weeklyVolume.length, required: TREND_MIN_CHART_POINTS },
-      requirement: 'Appears once you have two training weeks to compare.',
+      requirement: 'Appears once you have two calendar weeks with training to compare.',
       requirementTechnical: `≥ ${TREND_MIN_CHART_POINTS} weekly volume buckets in range.`,
     },
     consistency: {
@@ -138,8 +142,8 @@ export function resolveInsightGates(input: InsightGateInput): Record<InsightGate
       id: 'muscle_balance',
       unlocked: totalRegionSets >= BALANCE_MIN_SETS,
       progress: { current: Math.round(totalRegionSets), required: BALANCE_MIN_SETS },
-      requirement: `Appears after about ${BALANCE_MIN_SETS} logged sets.`,
-      requirementTechnical: `≥ ${BALANCE_MIN_SETS} attributed sets in range.`,
+      requirement: `Appears after about ${BALANCE_MIN_SETS} logged sets in the last four calendar weeks.`,
+      requirementTechnical: `≥ ${BALANCE_MIN_SETS} attributed sets in the last four calendar weeks.`,
     },
     effort: {
       id: 'effort',

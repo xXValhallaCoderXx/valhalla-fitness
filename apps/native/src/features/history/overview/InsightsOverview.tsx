@@ -1,58 +1,59 @@
 import { View } from 'react-native'
-import type { User } from '@supabase/supabase-js'
-import type { HistoryDashboardWithInsights, InsightGating, RecentHistoryEntry } from '@sheetless/domain/history/types'
-import type { InsightRange } from '@sheetless/domain/history/insight-ranges'
-import type { HistoryTab } from '@sheetless/domain/history/history-tabs'
-import type { ProgramOverview } from '@sheetless/domain/program/types'
-import { dataLifecycleLabels } from '@sheetless/domain/history/insight-state'
-import { formatNumber } from '@sheetless/domain/shared/set-notation'
-import { Badge, Button, Caption, EmptyState, Panel, SectionLabel, StatCard, Text } from '@/components'
+import { useRouter } from 'expo-router'
+import { filterToRange, type InsightRange } from '@sheetless/domain/history/insight-ranges'
+import { lockedInsightSteps, resolveInsightGates } from '@sheetless/domain/history/insight-gates'
+import { formatWeight } from '@sheetless/domain/shared/set-notation'
+import { Caption, EmptyState, Panel, SectionLabel, StatCard, Text } from '@/components'
 import { spacing } from '@/lib/tokens'
-import { InsightSignals } from './InsightSignals'
-import { BodyweightTrendCard } from '../bodyweight/BodyweightTrendCard'
+import type { InsightsContentProps } from '../navigation/InsightsPage'
 import { StrengthScorePanel } from '../strength/StrengthScorePanel'
-import { WeeklyVolumePanel } from './WeeklyVolumePanel'
-import { TrainingHealth } from './TrainingHealth'
+import { BodyweightTrendCard } from '../bodyweight/BodyweightTrendCard'
+import { InsightLink } from './InsightLink'
 import { InsightRecentLinks } from './InsightRecentLinks'
+import { LiftComparisons } from './LiftComparisons'
+import { WeeklyVolumePanel } from './WeeklyVolumePanel'
+import { ConsistencyPanel } from './TrainingHealth'
+import { Milestones } from './InsightSignals'
 
-export function InsightsOverview({ data, gating, recent, range, user, programOverview, onOpenSession, onNavigate }: {
-  data: HistoryDashboardWithInsights; gating: InsightGating; recent: RecentHistoryEntry[]
-  range: InsightRange; user: User; programOverview: ProgramOverview | null
-  onOpenSession: (id: string) => void; onNavigate: (tab: HistoryTab) => void
-}) {
-  const pulse = gating.planState
-  const position = programOverview?.position
+export function InsightsOverview({ data, gating, user, advanced, range, onOpenSession }: InsightsContentProps & { range: InsightRange }) {
+  const router = useRouter()
+  const insights = data.insights
+  const sessions = filterToRange(data.recentSessions, range, { firstDataDate: insights.firstSessionDate,
+    now: insights.today, getDate: session => session.scheduledDate })
+  const gates = resolveInsightGates(insights)
+  const locked = lockedInsightSteps(gates)
   return <>
-    <BodyweightTrendCard insights={data.insights} range={range} />
-    {gating.lifecycle === 'empty' ? <EmptyState title="No workouts yet">Finish a workout to start your training insights.</EmptyState> : <>
-      <Panel surface="inset" style={{ gap: spacing.sm, padding: spacing.md }}>
-        <Badge tone="neutral">{dataLifecycleLabels[gating.lifecycle]}</Badge>
-        <Caption>Training analytics use up to 240 recent workouts. All shows all available data for each metric.</Caption>
-        {gating.staleWelcomeBack ? <Text size="sm">Welcome back. These numbers describe your earlier training; log new sessions for a fresh read.</Text> : null}
-      </Panel>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-        <StatCard label="Available workouts" value={String(data.overview.completedSessions)} />
-        <StatCard label="Logged sets" value={String(data.overview.loggedSets)} />
-        <StatCard label="Volume" value={`${formatNumber(data.overview.completedVolume)} ${data.insights.units ?? ''}`} />
-        <StatCard label="Movements" value={String(data.overview.uniqueMovements)} />
-      </View>
-      {gating.lifecycle === 'cold_start' ? <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
-        <Text weight={900}>First session logged</Text>
-        <Caption>Volume: 2 sessions. Strength trends: 4 sessions on a big lift. Consistency: 2 weeks. Muscle balance: about 20 sets.</Caption>
-      </Panel> : <>
-        <StrengthScorePanel insights={data.insights} gating={gating} range={range} user={user} />
-        <Button label="See lift trends" variant="subtle" onPress={() => onNavigate('strength')} />
-        <WeeklyVolumePanel insights={data.insights} gating={gating} range={range} />
-        <TrainingHealth insights={data.insights} gating={gating} />
-        <InsightSignals insights={data.insights} gating={gating} range={range} />
-      </>}
-      {programOverview?.activeProgram ? <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
-        <SectionLabel>Programme context</SectionLabel><Text weight={800}>{programOverview.activeProgram.title}</Text>
-        <Caption>{pulse === 'active_deload' ? 'Deload week: lighter on purpose.' : pulse === 'active_week1' ? 'Week 1: building your baseline.'
-          : pulse === 'completed' ? 'Block complete. Review what changed before your next plan.' : pulse === 'paused' ? 'Programme paused.'
-          : position ? `Week ${position.weekNumber} of ${position.totalWeeks} · session ${position.sessionNumber} · ${position.progressPercent}% through the block.` : 'Active programme'}</Caption>
+    {gating.lifecycle === 'empty' ? <EmptyState title="Your training story starts here">
+      Completed workouts will appear here. Each metric builds from the sets and dates you record.
+    </EmptyState> : null}
+    {gating.staleWelcomeBack ? <Panel style={{ padding: spacing.md, gap: spacing.sm }}>
+      <Text weight={800}>Your history is still here</Text>
+      <Caption>Last workout logged: {data.overview.latestTrainingDate}. These are recorded results. There are no new strength readings during your break.</Caption>
+    </Panel> : null}
+    <StrengthScorePanel insights={insights} gating={gating} range={range} user={user} compact advanced={advanced} />
+    <InsightLink title="See your strength" detail="Recorded estimates, source lifts and how the score works" onPress={() => router.push('/history/strength')} />
+    {locked.length && (gating.lifecycle === 'cold_start' || gating.lifecycle === 'warming' || gating.lifecycle === 'empty') ?
+      <Panel style={{ padding: spacing.md, gap: spacing.sm }}>
+        <SectionLabel>Building your picture</SectionLabel>
+        <Caption>First observations are baselines. A later result must beat an earlier usable result to earn a record.</Caption>
+        {locked.map(step => <Caption key={step}>{step}</Caption>)}
       </Panel> : null}
-      <InsightRecentLinks data={data} recent={recent} onOpenSession={onOpenSession} onNavigate={onNavigate} />
-    </>}
+    <InsightRecentLinks data={data} onOpenSession={onOpenSession} />
+    <LiftComparisons insights={insights} range={range} advanced={advanced} />
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+      <StatCard label="Workouts in range" value={String(sessions.length)} />
+      <StatCard label="Sets logged" value={String(sessions.reduce((sum, row) => sum + row.completedSetCount, 0))} />
+    </View>
+    <Panel style={{ padding: spacing.md, gap: spacing.xs }}>
+      <SectionLabel>Weight moved</SectionLabel>
+      <Text size="lg" weight={800}>{formatWeight(sessions.reduce((sum, row) => sum + row.tonnage, 0), insights.units) ?? '—'}</Text>
+    </Panel>
+    {advanced ? <WeeklyVolumePanel insights={insights} gating={gating} range={range} /> : null}
+    <ConsistencyPanel insights={insights} range={range} />
+    {advanced ? <Milestones insights={insights} /> : null}
+    <InsightLink title="Your lifts" detail={`${data.overview.uniqueMovements} movements in loaded history`} onPress={() => router.push('/history/lifts')} />
+    <InsightLink title="Muscles" detail="Balance, sets by week and recent fatigue" onPress={() => router.push('/history/muscles')} />
+    <InsightLink title="Past workouts" detail={`${data.recentSessions.length} loaded workouts, with their saved recaps`} onPress={() => router.push('/history/workouts')} />
+    <BodyweightTrendCard insights={insights} range={range} />
   </>
 }

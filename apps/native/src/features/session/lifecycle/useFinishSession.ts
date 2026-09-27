@@ -61,6 +61,7 @@ export function useFinishSession(
           queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) }),
           queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(userId) }),
           queryClient.invalidateQueries({ queryKey: accountQueryKeys.program(userId) }),
+          queryClient.invalidateQueries({ queryKey: accountQueryKeys.experienceSignals(userId) }),
         ])
       } catch {
         void queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) })
@@ -69,7 +70,11 @@ export function useFinishSession(
     },
     onError: (error) => {
       const message = getApiErrorMessage(error, 'Unable to finish this session')
-      if (message.includes('already finished')) { terminal(); goToSummary() }
+      if (message.includes('already finished')) {
+        terminal()
+        void queryClient.invalidateQueries({ queryKey: accountQueryKeys.experienceSignals(userId) }).catch(() => undefined)
+        goToSummary()
+      }
     },
   })
 

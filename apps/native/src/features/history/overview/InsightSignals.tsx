@@ -39,7 +39,7 @@ export function InsightSignals({
   )
 }
 
-function Milestones({ insights }: { insights: HistoryInsights }) {
+export function Milestones({ insights }: { insights: HistoryInsights }) {
   const earned = insights.milestones.earned.slice(-MAX_MILESTONES)
   const next = insights.milestones.nextUp
   if (!earned.length && !next) return null
@@ -68,7 +68,7 @@ function Milestones({ insights }: { insights: HistoryInsights }) {
   )
 }
 
-function PrWatch({ insights, gating }: { insights: HistoryInsights; gating: InsightGating }) {
+export function PrWatch({ insights, gating }: { insights: HistoryInsights; gating: InsightGating }) {
   if (gating.staleWelcomeBack) return null
   const statuses = insights.liftSeries
     .map((series) => ({
@@ -81,7 +81,7 @@ function PrWatch({ insights, gating }: { insights: HistoryInsights; gating: Insi
 
   return (
     <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
-      <SectionLabel>PR watch · recent training</SectionLabel>
+      <SectionLabel>Estimated-max progress · loaded history</SectionLabel>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
         {statuses.map((item) => (
           <Badge key={item.id} tone={stallTones[item.status.signal]}>
@@ -89,7 +89,7 @@ function PrWatch({ insights, gating }: { insights: HistoryInsights; gating: Insi
           </Badge>
         ))}
       </View>
-      <Caption>Weeks since each big lift set a new estimated-max best.</Caption>
+      <Caption>Progress since each tracked lift recorded its best usable estimate.</Caption>
     </Panel>
   )
 }

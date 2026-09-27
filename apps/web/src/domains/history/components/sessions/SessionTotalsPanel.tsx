@@ -1,3 +1,4 @@
+import { formatHistoryVolume } from '@sheetless/domain/history/insight-format'
 import { Badge, Button } from '@mantine/core'
 import { Download } from 'lucide-react'
 import type { SessionLedgerRow } from '~/domains/history/lib/session-ledger'
@@ -47,7 +48,7 @@ export function SessionTotalsPanel({
           />
           <InsightStatCell
             label="Tonnage"
-            value={`${(totals.tonnage / 1000).toFixed(1)} t`}
+            value={formatHistoryVolume(totals.tonnage, units === 'lb' ? 'lb' : 'kg')}
             subline={units ? `weight moved · ${units}` : 'weight moved'}
           />
           <InsightStatCell
@@ -78,8 +79,8 @@ export function SessionTotalsPanel({
             />
             <Comparison
               label="Tonnage"
-              current={`${(comparison.current.tonnage / 1000).toFixed(1)} t`}
-              previous={`vs ${(comparison.previous.tonnage / 1000).toFixed(1)} t`}
+              current={formatHistoryVolume(comparison.current.tonnage, units === 'lb' ? 'lb' : 'kg')}
+              previous={`vs ${formatHistoryVolume(comparison.previous.tonnage, units === 'lb' ? 'lb' : 'kg')}`}
             />
             {/* Plan sessions only — `buildCalibration` never reads ad-hoc work. */}
             {rir && rir.current !== null && rir.previous !== null ? (

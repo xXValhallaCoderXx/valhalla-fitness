@@ -7,6 +7,17 @@ const fixedPaths: Record<string, string> = {
   '/(tabs)': DEFAULT_ENTRY_DESTINATION,
   '/history': '/(tabs)/history',
   '/you': '/(tabs)/you',
+  '/you/bodyweight': '/(tabs)/you/bodyweight',
+  '/(tabs)/you/bodyweight': '/(tabs)/you/bodyweight',
+  '/you/equipment': '/(tabs)/you/equipment',
+  '/(tabs)/you/equipment': '/(tabs)/you/equipment',
+  '/you/starting-numbers': '/(tabs)/you/starting-numbers',
+  '/(tabs)/you/starting-numbers': '/(tabs)/you/starting-numbers',
+  '/you/workouts': '/(tabs)/you/workouts',
+  '/(tabs)/you/workouts': '/(tabs)/you/workouts',
+  '/you/account': '/(tabs)/you/account',
+  '/(tabs)/you/account': '/(tabs)/you/account',
+
   '/program': '/(tabs)/program',
   '/program/weeks': '/(tabs)/program/weeks',
   '/program/equipment': '/(tabs)/program/equipment',
@@ -29,6 +40,7 @@ function canonicalPath(pathname: string) {
 
 function appendAllowedParams(pathname: string, value: (key: string) => string | undefined) {
   const params = new URLSearchParams()
+  if (pathname === '/(tabs)/you' && value('focus') === 'detail-level') params.set('focus', 'detail-level')
   if (pathname === '/settings' && value('section') === 'starting-numbers') {
     params.set('section', 'starting-numbers')
   }

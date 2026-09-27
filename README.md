@@ -182,7 +182,7 @@ The older inventory below describes earlier passes, rather than replacing this l
 This iteration covers SHE-47 Today, SHE-48 Workout and SHE-49 Recap, with the bounded SHE-45/46
 foundation decisions, SHE-27 failed-save regression and SHE-34 timer checks. Native Settings now
 labels existing `guided`/`full` values **Simple/Advanced** within the existing Save/Discard form;
-`show_formulas` is unchanged. The full You redesign and web visual revamp remain separate work.
+`show_formulas` is unchanged. The later You redesign is documented below; the web visual revamp remains separate work.
 
 - Today uses real Monday–Sunday account-calendar activity, plan weekly target, current-week volume
   against the previous full week, and an exact weekly streak from paginated completed dates. The
@@ -261,8 +261,8 @@ Existing correctness issues retain ownership.
 | 8 | [Profile](new-website/profile.html) | [SHE-53](https://linear.app/sentiment-hound/issue/SHE-53) You and grouped settings | SHE-38 preference behavior; existing account/draft contracts |
 
 The navigation shell is **Today / Plan / Insights / You**. Plan provides programme browsing,
-existing programme/settings deep links remain valid, and You opens the existing settings screen.
-The Plan, library and setup passes are described below; Insights and You designs remain separate work. Figtree is bundled
+existing programme/settings deep links remain valid, and You groups profile, training and app settings.
+The Plan, library, setup, You and Insights passes are described below. Figtree is bundled
 locally, using existing theme tokens and shared primitives for Today’s typography and surfaces.
 
 Today prioritizes Resume, progression review, then the planned start. It includes a compact
@@ -513,11 +513,12 @@ down into `packages/domain`, so the enablers come first.
 2. **Implemented:** segmented controls and SVG charts with pure geometry in
    `apps/native/src/components/charts/chart-geometry.ts`, optional calendar coordinates, isolated
    points, hollow outliers, and accessible value inspection.
-3. **Implemented:** six Insights sections (Overview, Strength, Muscle Fatigue, Movements, Records,
-   Sessions), persistent 8W/3M/1Y/All ranges, movement sorting, and session search. Workout analytics
-   use up to 240 recent workouts; browsing/search uses the latest 20 sessions. All means available
-   history for that metric. Fatigue stays at seven days, set adequacy at four weeks, and calibration
-   at six weeks. Direct entry loads reactive programme context with retry actions.
+3. **Implemented:** an Insights hub and nested Strength, Your lifts, Best sets, Muscles and Past
+   workouts pages. Account-scoped 8W/3M/1Y/Loaded history ranges, filters, searches, sorts and scroll
+   positions survive return navigation; a different account resets them. The default is 8W in
+   both reading modes. Analytics and workout browsing use up to 240 recent workouts, with local
+   pages of 20 after search, date, intensity and Finished/Cut short filtering. Loaded history is
+   bounded, not account-lifetime history. Direct entry loads reactive programme context with retry.
 4. **Implemented:** actual-measurement bodyweight trends on both Overview screens. Full independent
    bodyweight history uses account units and calendar dates, excludes future readings, retains the
    latest dated measurement outside a selected range, and reports neutral signed range change.
@@ -533,9 +534,9 @@ down into `packages/domain`, so the enablers come first.
 7. Validate native first-run onboarding in the standalone acceptance matrix. The optional live walkthrough/replay stays deferred.
 8. Finish Google auth and remaining Android release polish.
 
-Insights physical Android acceptance remains pending: painted SVGs, tap inspection, scrolling,
-light/dark narrow screens, Settings bodyweight refresh, and session/movement drill-ins. Native web
-exports and automated state tests do not establish these device results. Also verify feedback
+The 28 September Insights implementation and development-phone evidence are described below.
+Hosted, standalone and accessibility acceptance remain separate gates. Native web exports and
+automated state tests do not establish these device results. Also verify feedback
 sheet keyboards, fresh-finish eligibility versus revisits, draft retention on failed sends, and
 feedback access after progression resolution on the phone.
 
@@ -559,7 +560,7 @@ practice. The Android app remains internal-track gated until both standalone APK
 ### Navigation and routes
 
 Native navigation is **Today**, **Plan**, **Insights**, and **You**, with programme browsing in
-Plan and an entry to the existing settings screen in You. Existing settings header shortcuts remain. Web mobile retains
+Plan and grouped profile/settings destinations in You. Existing settings header shortcuts remain. Web mobile retains
 Today / Plan / Insights / Programs; web settings and account actions live in the user menu.
 
 | Route | Purpose |
@@ -578,9 +579,107 @@ Today / Plan / Insights / Programs; web settings and account actions live in the
 | `/privacy`, `/terms` | Public privacy notice and terms for the beta. |
 
 The table uses canonical web paths. Expo Router exposes the corresponding native detail routes as
-`/session/[sessionId]`, `/session/[sessionId]/summary`, `/template/[templateId]`, and `/settings`.
+`/session/[sessionId]`, `/session/[sessionId]/summary`, `/template/[templateId]`, and the `/you` stack.
+Native `/settings` forwards to You; `/settings?section=starting-numbers` opens the dedicated editor.
 Web Settings additionally exposes walkthrough replay. That control remains absent from native until
 the corresponding onboarding experience is implemented there.
+
+### Native Insights and workout history
+
+The 28 September SHE-52/SHE-35/SHE-41 pass follows the audit's hub and detail hierarchy. The
+`/history` entry and bottom navigation remain; historical workouts open the existing authoritative
+recap sheet with its receipt and share actions, preserving the originating page. Bodyweight and
+optional sex prompts open the guarded You editors. Simple keeps concise explanations; Advanced
+adds supported detail and methodology. Native Compare, forecasts and new strength bands are absent.
+
+- The hub combines dated strength, recent best sets, first/latest lift comparisons, range totals,
+  consistency, destination links and bodyweight. Empty, early and returning states describe actual
+  recorded dates and readiness. Strength retains DOTS → bodyweight multiple → total → insufficient
+  data, with dated source lifts, chart inspection, methodology and six-week effort calibration.
+- Your lifts and Best sets cover every movement in the loaded window, with search and truthful sort
+  labels. Best sets keep estimated-strength ranking for loaded sets and reps for bodyweight work;
+  first observations are baselines. The shared movement sheet shows its latest 12 completed entries,
+  original sets, supported estimates, unusual-value explanations and source-workout links.
+- Aggregates use account units; literal sets keep historical units. Missing units use the newest
+  explicit historical unit in the loaded window, then kg. Changing profile units changes presentation,
+  never the interpretation of those logs. Comparisons normalize units before ranking. Pound volume
+  is labelled lb, never tonnes. A workout retains an earned PR when another lift becomes its headline.
+- After three accepted workout observations, estimates above 1.5 times the median of the previous
+  five are flagged. Each set uses a threshold fixed for its workout, so valid lower sets survive.
+  Estimated records and strength share the assessment and source-set identity; raw logs remain.
+  All-flagged strength observations stay inspectable as hollow chart points and do not count towards
+  estimates or readiness. Readiness counts usable observations and their actual date span.
+- Muscles provides Balance, This week, By week and the existing seven-day Fatigue view. Balance and
+  per-muscle adequacy use four calendar weeks with untrained weeks counted as zero; fractional
+  attribution is unchanged. The current week is incomplete, and grouped bars have no per-muscle
+  threshold labels. By week can select the workout range and a calendar week.
+- Past workouts exposes every fetched summary, up to 240. Search and filters precede local pages of
+  20, and the two-week date strip toggles a date filter. Finished/Cut short use completed versus saved
+  set counts, matching recap behavior. Empty or unknown-count legacy workouts remain visible under
+  All with neutral wording. There is no remote history pagination or database migration.
+
+Regression coverage includes mixed and missing units, account-unit changes, more than 40 movements,
+rows beyond 20 and 60, the loaded-window search boundary, unusual and valid sets in one workout,
+high-rep/bodyweight records, sparse charts, clean-point readiness, score fallbacks, multi-lift PRs,
+partial/ad-hoc/legacy workouts, date toggles, direct entry, account reset and recap recovery. Shared
+calculation changes include web regression coverage; web visual redesign is outside this pass.
+Evidence is retained locally under `.artifacts/native-insights-20260928/` with distinct automated,
+browser-fixture and physical development-client results. SHE-6/SHE-7 still own hosted, accessibility
+and standalone acceptance; this implementation does not close those gates.
+
+### Native You and settings
+
+The 28 September SHE-53/SHE-38 pass implements audit screens 12.1–12.7: a grouped You hub,
+Bodyweight, the optional Sex sheet, Equipment you own, Starting numbers, Workout settings, and
+Data and account. Detail pages remain inside the You tab. Existing Settings links and signed-in
+continuations remain supported; Plan equipment and Insights bodyweight link to their exact editors.
+
+- You retains inline Simple/Advanced, kg/lb and System/Light/Dark choices. Each editable page has
+  explicit Save/Discard, retained failed input and Retry. Appearance previews until saved. Back,
+  tab switches and other destinations guard dirty input; saving blocks departure. Reading mode
+  still uses `guided`/`full`; no native formula toggle or change to training calculations is added.
+- Section-scoped profile writes submit changed fields, read the latest profile and compare
+  `updated_at` before updating. Up to three compare-and-swap retries preserve unrelated writes.
+  Units and converted starting estimates save atomically; repeated saves cannot double-convert.
+  Estimate edits carry their input units and merge only edited keys. Active plans and historical
+  workouts retain their own units and values. No schema migration is required.
+- Bodyweight Log/Replace today and confirmed Delete are explicit immediate actions, separate from
+  profile Save. The history query fetches every page; the screen reveals entries in groups of 20.
+  Charts use actual dates and do not require three readings. Sex remains optional, following the
+  existing DOTS → bodyweight multiple → total → insufficient-data fallback.
+- Equipment uses the canonical supported options; an empty profile allows all equipment and
+  unknown saved identifiers survive edits. Starting numbers retains the five estimate fields,
+  known-set calculator, per-field and draft-only bulk clearing, and future-plan rounding.
+- Workout settings includes only automatic rest and default duration, preserving custom saved
+  values. SHE-57 reminders, Focus appearance overrides, keep-awake and sound controls remain deferred.
+- Data and account retains JSON export, feedback, legal links, sign-out and typed deletion
+  confirmation. Saved workouts are online; failed/pending edits can be lost if the app is closed.
+- Today offers Simple users a dismissible Advanced invitation after eight completed workouts.
+  Open You and Not now persist the answer; Open You focuses the detail-level choice without
+  switching mode. Read failures hide the optional invitation and write failures retain Retry.
+  Completing a workout refreshes eligibility. Mode stays available before the first workout.
+
+Local verification on 28 September passed `pnpm verify`: 1,962 tests (four existing integration
+skips), workspace types/lint, web production build, Android/web Metro export, PWA/bundle,
+architecture, documentation and static database checks. Native contributes 503 passing cases;
+13 preexisting lint warnings remain, with none in changed Settings code. `pnpm db:test` passed
+384 local database assertions. The final focused Settings regression also passed 38 cases.
+Evidence is in `.artifacts/native-you-20260928/`.
+
+The isolated host visual matrix passed 48 scenarios across both themes, 393/320px and simulated
+1.3× text, including Sex/calculator sheets and dirty footers, plus two invitation captures.
+A subsequent SM-S938B Android development-client pass against local disposable data checked all
+seven Settings destinations, saves/discards, failed-save retry, Back/tab guards, bodyweight
+log/replace/delete and chart painting, calculator, native export cancellation, feedback, legal
+browser return and deletion-confirmation cancellation. The eight-workout invitation opened You
+without changing mode; explicit Simple/Advanced saves persisted. Device testing found and fixed
+an unnecessary same-tab discard prompt and a lower estimate field hidden by the keyboard/footer.
+The focused input now scrolls within the actual available viewport. Final focused tests passed
+87 cases; lint, native TypeScript and Android/web Metro export passed after the fixes.
+Evidence and remaining checks are in `.artifacts/native-you-20260928/android/README.md`.
+TalkBack, account switching, remaining invitation recovery cases, a second small phone, hosted
+account export/deletion and standalone preview retain their separate acceptance gates. No real
+account deletion or web visual redesign is included in this pass.
 
 ### Onboarding
 
@@ -588,7 +687,7 @@ the corresponding onboarding experience is implemented there.
 - Native requires the two choices whenever `profiles.onboarding_completed` is false, including test accounts with workout history. Existing units/mode are prefilled. Continue saves units, mode and completion together; errors preserve the choices for an explicit retry. Saved starting estimates convert only when units change, using current rounding; existing programme units stay unchanged. Retried completion does not overwrite later Settings changes.
 - The code screen supports paste/autofill, one verification request at a time, a 60-second resend cooldown and manual retry. Android opens an installed email app through `expo-intent-launcher`; failure leaves code entry usable with manual instructions. Profile loading/error is visible after the splash with a retry action.
 - Internal continuation survives auth and first-run through validated routes and supported query parameters. External, recursive auth and unsafe destinations fall back to Today; account-specific setup drafts are not carried across authentication.
-- Units and Simple/Advanced remain editable in Settings with its existing Save/Discard behavior. No-plan Today’s Add starting numbers action opens the measured starting-numbers section without completing or starting a plan.
+- Units and Simple/Advanced remain editable in You with explicit Save/Discard. No-plan Today’s Add starting numbers action opens the dedicated editor without completing or starting a plan.
 - Web Today onboarding remains controlled by `profiles.onboarding_completed` and completed-session history. Its visual redesign is separate.
 - Live-session onboarding is separate and controlled by `profiles.live_onboarding_dismissed`.
 - The live walkthrough is optional. It starts from the live-session onboarding card or via
@@ -669,10 +768,10 @@ components and hooks live together in folders named for what they do:
 | `auth` | `AuthScreen.tsx` | Welcome, account identity, code entry, async auth state and platform email launching are composed at this small feature root. |
 | `onboarding` | `FirstRunScreen.tsx` | Entry gating and two-choice profile completion remain separate from live-workout onboarding. |
 | `session` | `TodayScreen.tsx`, `LiveSessionScreen.tsx`, `SessionSummaryScreen.tsx` | `today/` starts and resumes workouts; `live/` coordinates Focus/Overview navigation; `focus/` logs sets; `overview/` lists exercises; `editing/` manages movements, order, titles, and notes; `lifecycle/` finishes/discards; `summary/` presents the recap, decisions, Repeat, and favourites; `movement-picker/`, `plate-calculator/`, and `rest-timer/` own their tools. |
-| `history` | `InsightsScreen.tsx` → `InsightsTabs.tsx` | `overview/`, `strength/`, `muscle-fatigue/`, `movements/`, `records/`, and `sessions/` follow the six tabs; `bodyweight/` owns the measurement trend and profile prompt; `sharing/` owns workout image preview and platform export adapters. |
+| `history` | `InsightsScreen.tsx`, `StrengthScreen.tsx`, `LiftsScreen.tsx`, `BestSetsScreen.tsx`, `MusclesScreen.tsx`, `PastWorkoutsScreen.tsx` | `navigation/` owns the account-scoped nested stack, common data state and browsing state; `overview/`, `strength/`, `muscle-fatigue/`, `movements/`, `records/`, and `sessions/` compose destinations; `bodyweight/` owns the independent measurement trend and editor links; `sharing/` owns workout image preview and platform export adapters. |
 | `program` | `ProgramScreen.tsx`, `ProgramWeeksScreen.tsx`, `ProgramEquipmentScreen.tsx` | `overview/` presents cycle-aware Plan and details; `settings/` groups scoped actions; `equipment/` reviews conversions; `return/` owns the staged guide; `progression/` reviews and resolves decisions. |
 | `templates` | `TemplatesScreen.tsx`, `TemplateDetailScreen.tsx`, `TemplateSetupScreen.tsx`, `FindMyPlanScreen.tsx` | `catalogue/`, `details/`, `favorites/`, `find-my-plan/`, `setup/`, and `start/` separate browsing, read-only details, recommendations, customisation, and programme start. |
-| `settings` | `YouScreen.tsx`, `SettingsScreen.tsx` | `profile/` owns bodyweight and strength; `preferences/` owns appearance, units, rest, and equipment; `account/` owns account actions and data export. Draft/save coordination and the shared section wrapper stay at the feature root. |
+| `settings` | `YouScreen.tsx`, `BodyweightScreen.tsx`, `SexScreen.tsx`, `EquipmentScreen.tsx`, `StartingNumbersScreen.tsx`, `WorkoutSettingsScreen.tsx`, `DataAccountScreen.tsx`; `SettingsScreen.tsx` preserves legacy links | `profile/` owns bodyweight, optional sex and estimates; `preferences/` owns appearance, units, rest, equipment and the Today mode invitation; `account/` owns account actions and export. Account-scoped drafts, saves and navigation guards stay at the feature root. |
 | `feedback` | `BetaFeedback.tsx`, `PostWorkoutFeedback.tsx`, `DecisionFeedback.tsx` | Embedded forms share submission and prompt state in this small feature folder. |
 
 The larger workout compositions are `session/live/FocusWorkoutView.tsx` (mode and lifecycle

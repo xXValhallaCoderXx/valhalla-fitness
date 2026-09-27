@@ -41,7 +41,7 @@ export function recentHistoryQueryOptions(user: User) {
 export function historyDashboardQueryOptions(user: User) {
   return queryOptions({
     queryKey: accountQueryKeys.historyDashboard(user.id),
-    queryFn: () => getHistoryDashboard(buildUserContext(user), { limit: 240 }),
+    queryFn: () => getHistoryDashboard(buildUserContext(user), { limit: 240, recentSessionLimit: null, bestSetLimit: null }),
     staleTime: queryStaleTimes.history,
     gcTime: 30 * 60_000,
   })

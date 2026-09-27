@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { normalizeIanaTimeZone } from '@sheetless/domain/shared/calendar-date'
+import { EQUIPMENT_PROFILE_OPTIONS } from './equipment-profile'
+import { oneRepMaxKeys } from './settings-form'
 
 const email = z.string().trim().toLowerCase().max(254).email()
 const password = z.string().min(1).max(1_024)
@@ -84,6 +86,46 @@ export const updateSettingsInputSchema = z
     showFormulas: z.boolean().optional(),
   })
   .strict()
+
+/** Native editors submit only their changed fields, never another page's snapshot. */
+export const updateSettingsSectionInputSchema = z.discriminatedUnion('section', [
+  z.object({
+    section: z.literal('you'),
+    units: unit.optional(),
+    themePreference: themePreference.optional(),
+    experienceMode: experienceMode.optional(),
+  }).strict().refine(
+    value => value.units !== undefined || value.themePreference !== undefined || value.experienceMode !== undefined,
+    'Choose a preference to update.',
+  ),
+  z.object({ section: z.literal('sex'), sex: sex.nullable() }).strict(),
+  z.object({
+    section: z.literal('equipment'),
+    equipmentProfile: z.array(z.enum(EQUIPMENT_PROFILE_OPTIONS))
+      .max(EQUIPMENT_PROFILE_OPTIONS.length)
+      .refine(values => new Set(values).size === values.length, 'Equipment choices cannot contain duplicates.'),
+  }).strict(),
+  z.object({
+    section: z.literal('starting-numbers'),
+    inputUnits: unit,
+    programStateDefaults: z.record(z.string(), programStateDefault)
+      .refine(values => Object.keys(values).every(key => oneRepMaxKeys.includes(key)), 'Choose a supported starting number.'),
+    rounding: z.number().finite().positive().max(1_000).optional(),
+  }).strict().refine(
+    value => Object.keys(value.programStateDefaults).length > 0 || value.rounding !== undefined,
+    'Change a starting number or rounding preference.',
+  ),
+  z.object({
+    section: z.literal('workouts'),
+    autoStartTimer: z.boolean().optional(),
+    defaultRestSeconds: z.number().int().min(30).max(600).optional(),
+  }).strict().refine(
+    value => value.autoStartTimer !== undefined || value.defaultRestSeconds !== undefined,
+    'Choose a workout preference to update.',
+  ),
+])
+
+export type SettingsSectionInput = z.infer<typeof updateSettingsSectionInputSchema>
 
 export const completeFirstRunInputSchema = z
   .object({

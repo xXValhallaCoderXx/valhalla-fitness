@@ -32,6 +32,8 @@ import { formatNumber } from '@sheetless/domain/shared/set-notation'
 import { favoriteLineageKeys, sessionLineageKey } from '@sheetless/domain/session/ad-hoc'
 import { getToday } from '../session/reads'
 import { getMovementHistoryEntries } from './movement-history'
+import { assessHistorySets, assessmentKey } from '@sheetless/domain/history/set-assessment'
+import { historicalFallbackUnits } from '@sheetless/domain/history/history-units'
 import {
   calendarDateInTimeZone,
   calendarDateToUtcDate,
@@ -322,7 +324,7 @@ async function getProfileHistoryContext(
 
 export async function getHistoryDashboard(
   ctx: UserContext,
-  options: { limit?: number } = {},
+  options: { limit?: number; recentSessionLimit?: number | null; bestSetLimit?: number | null } = {},
 ): Promise<HistoryDashboardWithInsights> {
     const { supabase, user } = ctx
     const generatedAt = new Date()
@@ -335,6 +337,9 @@ export async function getHistoryDashboard(
     const dashboard = buildHistoryDashboard({
       ...history,
       now: calendarDateToUtcDate(today) ?? generatedAt,
+      displayUnits: profile.units,
+      recentSessionLimit: options.recentSessionLimit,
+      bestSetLimit: options.bestSetLimit,
     })
     const insights = buildHistoryInsights({
       sessions: history.sessions,
@@ -422,5 +427,19 @@ export async function getMovementHistory(
   data: z.infer<typeof movementHistoryInputSchema>,
 ): Promise<MovementHistoryEntry[]> {
     const { supabase, user } = ctx
-    return getMovementHistoryEntries(supabase, user.id, data.movementId)
+    const [entries, history] = await Promise.all([
+      getMovementHistoryEntries(supabase, user.id, data.movementId),
+      getHistoryInputs(supabase, user.id, { limit: 240, includeFavorites: false, includeSubstitutions: false }),
+    ])
+    const assessments = assessHistorySets(history.sessions)
+    const fallback = historicalFallbackUnits(history.sessions)
+    return entries.map(entry => ({
+      ...entry,
+      units: entry.units ?? fallback,
+      unitsInferred: !entry.units,
+      sets: entry.sets.map(set => ({
+        ...set,
+        assessment: assessments.get(assessmentKey(entry.sessionId, entry.id, set.id)) ?? null,
+      })),
+    }))
 }

@@ -77,14 +77,14 @@ export function buildSessionLedgerRows({
 function bestBySession(liftSeries: LiftE1rmSeries[] | null) {
   const bySession = new Map<string, { e1rm: number; movementName: string; isPr: boolean }>()
   for (const lift of liftSeries ?? []) {
-    let running = 0
+    let running: number | null = null
     for (const point of lift.points) {
       if (point.outlier) continue
-      const isPr = point.e1rm > running
-      if (isPr) running = point.e1rm
+      const isPr = running !== null && point.e1rm > running
+      running = Math.max(running ?? 0, point.e1rm)
       const existing = bySession.get(point.sessionId)
       if (!existing || point.e1rm > existing.e1rm) {
-        bySession.set(point.sessionId, { e1rm: point.e1rm, movementName: lift.movementName, isPr })
+        bySession.set(point.sessionId, { e1rm: point.e1rm, movementName: lift.movementName, isPr: isPr || Boolean(existing?.isPr) })
       } else if (isPr) {
         // A PR on a second lift still makes the session a PR session, even if it was not the top set.
         bySession.set(point.sessionId, { ...existing, isPr: true })
@@ -132,7 +132,7 @@ export function sessionsSubtitle(
   const parts = [`${totals.sessions} in range`, `${totals.completedSets} sets`]
   if (totals.tonnage > 0) {
     parts.push(
-      mode === 'full'
+      mode === 'full' && units !== 'lb'
         ? `${Math.round((totals.tonnage / 1000) * 10) / 10} t`
         : `${Math.round(totals.tonnage).toLocaleString()} ${units ?? 'kg'} moved`,
     )

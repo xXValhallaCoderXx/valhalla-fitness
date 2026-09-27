@@ -7,6 +7,8 @@ describe('native entry destination', () => {
   it.each([
     ['/', '/(tabs)'], ['/program', '/(tabs)/program'], ['/history', '/(tabs)/history'],
     ['/you', '/(tabs)/you'], ['/program/weeks', '/(tabs)/program/weeks'],
+    ...['bodyweight', 'equipment', 'starting-numbers', 'workouts', 'account'].map(section =>
+      [`/you/${section}`, `/(tabs)/you/${section}`]),
     ['/program/equipment', '/(tabs)/program/equipment'], ['/templates', '/templates'],
     ['/templates/find', '/templates/find'], ['/template/basic-3-day', '/template/basic-3-day'],
     ['/template/custom_123/setup', '/template/custom_123/setup'],
@@ -42,6 +44,13 @@ describe('native entry destination', () => {
     expect(safeEntryDestination(`${path}?source=finder&finderDays=9`)).toBe(`${path}?source=finder`)
     expect(safeEntryDestination(`${path}?source=finder&finderDays=2&finderDays=5`)).toBe(`${path}?source=finder`)
     expect(safeEntryDestination(`/session/${sessionId}?draftId=private&next=/settings`)).toBe(`/session/${sessionId}`)
+  })
+
+  it('preserves the Advanced invitation target without accepting other focus input', () => {
+    expect(safeEntryDestination('/you?focus=detail-level&userId=other')).toBe('/(tabs)/you?focus=detail-level')
+    expect(safeEntryDestination('/you?focus=detail-level&focus=account')).toBe('/(tabs)/you')
+    expect(getEntryDestination('/you', { focus: 'detail-level' })).toBe('/(tabs)/you?focus=detail-level')
+    expect(safeEntryDestination('/you/account?focus=detail-level')).toBe('/(tabs)/you/account')
   })
 
   it('carries a sanitized continuation through both entry routes without nesting it', () => {

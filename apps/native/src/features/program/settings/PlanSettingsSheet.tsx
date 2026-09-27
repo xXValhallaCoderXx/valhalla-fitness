@@ -25,7 +25,7 @@ export function PlanSettingsSheet({ open, onClose, overview, onEquipment, onRetu
   const lastCompletedAt = overview.recentSessions[0]?.completedAt
   const daysSinceLast = lastCompletedAt ? Math.floor((now - Date.parse(lastCompletedAt)) / 86_400_000) : 0
   return <SheetModal open={open} onClose={onClose} title="Plan settings" showHandle
-    subtitle={`${program.title} only — your app preferences live in Settings.`}
+    subtitle={`${program.title} only — your app preferences live in You.`}
     testID="plan-settings-sheet">
     <View>
       <SettingsRow title="This plan’s equipment"

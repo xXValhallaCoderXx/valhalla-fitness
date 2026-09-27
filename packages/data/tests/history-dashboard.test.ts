@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getHistoryDashboard } from '@sheetless/data/history/history'
+import { getHistoryDashboard, getMovementHistory } from '@sheetless/data/history/history'
 import { makeStubCtx, type TestRow } from './support/supabase-stub'
 
 function completedSessions(count: number): TestRow[] {
@@ -80,7 +80,7 @@ describe('getHistoryDashboard bounds', () => {
       profiles: [{ id: 'user-1', sex: null, timezone: 'Asia/Singapore', units: 'lb' }],
     })
     const result = await getHistoryDashboard(ctx, { limit: 240 })
-    expect(result.insights.units).toBeNull()
+    expect(result.insights.units).toBe('lb')
     expect(result.insights.bodyweight.units).toBe('lb')
     expect(result.insights.bodyweight.entries).toHaveLength(1200)
     expect(stub.rangeCalls.filter((call) => call.table === 'bodyweight_entries')).toHaveLength(3)
@@ -108,5 +108,39 @@ describe('getHistoryDashboard bounds', () => {
       { table: 'workout_sessions', from: 0, to: 499 },
       { table: 'workout_sessions', from: 500, to: 999 },
     ])
+  })
+})
+
+
+describe('native full loaded history read option', () => {
+  it('attaches the same set assessment and source identity to records, strength and movement history', async () => {
+    const tables = dashboardTables(4)
+    tables.workout_sessions.forEach((row, index) => {
+      row.scheduled_date = `2026-08-${20 + index}`
+      row.prescription_snapshot = { units: index === 3 ? null : 'lb', movements: [] }
+    })
+    const { ctx } = makeStubCtx({ ...tables,
+      profiles: [{ id: 'user-1', units: 'kg', timezone: 'UTC' }],
+      exercise_logs: tables.workout_sessions.map((row, index) => ({ id: `e${index}`, session_id: row.id,
+        user_id: 'user-1', performed_movement_id: 'squat', planned_movement_id: 'squat', role: 'main', order_index: 0 })),
+      set_logs: [0, 1, 2, 3].flatMap(index => [{ id: `clean${index}`, exercise_log_id: `e${index}`, user_id: 'user-1', set_index: 1,
+        actual_load: 200 + index, actual_reps: 5, actual_rir: null, completed: true },
+        ...(index === 3 ? [{ id: 'unusual', exercise_log_id: 'e3', user_id: 'user-1', set_index: 2,
+          actual_load: 800, actual_reps: 5, actual_rir: null, completed: true }] : [])]),
+    })
+    const dashboard = await getHistoryDashboard(ctx, { bestSetLimit: null })
+    const entries = await getMovementHistory(ctx, { movementId: 'squat' })
+    expect(entries[0]).toMatchObject({ sessionId: 'session-0003', units: 'lb', unitsInferred: true })
+    expect(entries[0].sets.map(set => [set.id, set.assessment?.unusual])).toEqual([['clean3', false], ['unusual', true]])
+    expect(dashboard.bestSets[0]).toMatchObject({ id: 'clean3', exerciseId: 'e3', units: 'lb', assessment: entries[0].sets[0].assessment })
+    expect(dashboard.insights.liftSeries.find(lift => lift.movementId === 'squat')?.points.at(-1)).toMatchObject({ setId: 'clean3', exerciseId: 'e3', outlier: false })
+  })
+
+  it('returns every loaded summary beyond row 60 while default callers keep 60', async () => {
+    const { ctx } = makeStubCtx(dashboardTables(250))
+    expect((await getHistoryDashboard(ctx, { limit: 240 })).recentSessions).toHaveLength(60)
+    const result = await getHistoryDashboard(ctx, { limit: 240, recentSessionLimit: null, bestSetLimit: null })
+    expect(result.recentSessions).toHaveLength(240)
+    expect(result.recentSessions[239]).toMatchObject({ completedSetCount: 0, recordedSetCount: 0 })
   })
 })

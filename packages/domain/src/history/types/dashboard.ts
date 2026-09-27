@@ -15,12 +15,21 @@ export type RecentHistoryEntry = {
   movementCount: number
   completedSetCount: number
   plannedSetCount: number
+  /** Authoritative saved set rows, including incomplete rows; absent on older read models. */
+  recordedSetCount?: number | null
   /** Weight actually moved in this session, in the dashboard's display units. */
   tonnage: number
   /** Wall-clock minutes from start to finish; null when the session predates start tracking. */
   durationMinutes: number | null
   isAdHoc?: boolean
   isFavorite?: boolean
+}
+
+export type SetAssessment = {
+  unusual: boolean
+  estimateKg: number | null
+  thresholdKg: number | null
+  priorObservations: number
 }
 
 export type MovementHistorySet = {
@@ -39,6 +48,7 @@ export type MovementHistorySet = {
   isTopSet?: boolean
   isAmrap?: boolean
   isBackoff?: boolean
+  assessment?: SetAssessment | null
 }
 
 export type MovementHistoryEntry = {
@@ -50,6 +60,7 @@ export type MovementHistoryEntry = {
   completedAt?: string | null
   timeZone?: string | null
   units?: Unit | null
+  unitsInferred?: boolean
   equipmentMode?: PlannedSession['equipmentMode']
   plannedMovementId: string
   performedMovementId: string
@@ -126,6 +137,10 @@ export type BodyLoadSummary = {
 
 export type HistoryBestSet = {
   id: string
+  exerciseId?: string
+  assessment?: SetAssessment
+  /** First usable observation is a baseline, never an earned PR. */
+  isBaseline?: boolean
   movementId: string
   movementName: string
   role: MovementRole

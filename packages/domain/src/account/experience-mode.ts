@@ -3,8 +3,8 @@ import type { ExperienceMode } from '@sheetless/domain/account/types'
 
 /**
  * Native first run offers Simple/Advanced while retaining the stored guided/full values.
- * This existing web hint offers Full once Today has enough training history; native does not
- * use this hint yet. `ESTABLISHED_MIN_SESSIONS` matches the established insight threshold.
+ * Both clients offer an optional Today invitation once training history qualifies.
+ * Native labels the stored Full mode as Advanced. `ESTABLISHED_MIN_SESSIONS` matches the established insight threshold.
  */
 export type FullModeHintInput = {
   experienceMode: ExperienceMode

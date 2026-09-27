@@ -56,7 +56,7 @@ function AuthGate() {
       <Stack.Screen name="first-run" options={{ headerShown: false }} />
       <Stack.Screen name="session/[sessionId]/index" options={{ headerShown: false }} />
       <Stack.Screen name="session/[sessionId]/summary" options={{ headerShown: false }} />
-      <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="templates/index" options={{ headerShown: false }} />
       <Stack.Screen name="templates/find" options={{ headerShown: false }} />
       <Stack.Screen name="template/[templateId]/index" options={{ headerShown: false }} />

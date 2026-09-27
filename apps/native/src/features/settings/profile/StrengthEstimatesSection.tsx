@@ -6,10 +6,9 @@ import {
   strengthEstimateLabel,
 } from '@sheetless/domain/account/settings-form'
 import type { ProgramStateDefaults, Unit } from '@sheetless/domain/shared/types'
-import { Badge, Button, Caption, Panel, SectionLabel, TextInput } from '@/components'
+import { Button, Caption, Panel, SectionLabel, Text, TextInput } from '@/components'
 import { spacing } from '@/lib/tokens'
 import { OneRepMaxCalculatorModal } from './OneRepMaxCalculatorModal'
-import { SettingsSection } from '../SettingsSection'
 
 export function StrengthEstimatesSection({
   programStateDefaults,
@@ -31,28 +30,20 @@ export function StrengthEstimatesSection({
   onValueChange: (key: string, value: number | null) => void
 }) {
   const [calculatorOpen, setCalculatorOpen] = useState(false)
+  const hasAnyInput = oneRepMaxKeys.some(key => Boolean(estimateInputs[key]))
   return (
-    <SettingsSection
-      title="Strength Estimates"
-      description="Estimated 1RMs suggest starting values when you begin a programme."
-    >
+    <View style={{ gap: spacing.md }}>
+      <Caption>Roughly the most you could lift once. These estimates suggest starting values for a new plan.</Caption>
       <Panel style={{ gap: spacing.md, padding: spacing.md }}>
-        <Button
-          label="Calculate from a known set"
-          disabled={disabled}
-          onPress={() => setCalculatorOpen(true)}
-          testID="settings-open-calculator"
-        />
-        <View style={{ gap: spacing.sm }}>
           {oneRepMaxKeys.map((key) => {
             const isSet = hasLoadDefault(programStateDefaults[key])
             return (
-              <Panel key={key} surface="inset" style={{ gap: spacing.xs, padding: spacing.sm }}>
+              <View key={key} style={{ gap: spacing.xs }}>
                 <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.sm }}>
                   <View style={{ flex: 1 }}>
-                    <SectionLabel>{strengthEstimateLabel(key)}</SectionLabel>
+                    <Text size="sm" weight={700}>{strengthEstimateLabel(key)}</Text>
                   </View>
-                  <Badge tone={isSet ? 'success' : 'warning'}>{isSet ? 'Set' : 'Unset'}</Badge>
+                  <Caption>{isSet ? units : 'Not set'}</Caption>
                 </View>
                 <View style={{ alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm }}>
                   <TextInput
@@ -60,6 +51,7 @@ export function StrengthEstimatesSection({
                     onChangeText={(value) => onInputChange(key, value)}
                     placeholder={`Estimate (${units})`}
                     keyboardType="decimal-pad"
+                    accessibilityLabel={`${strengthEstimateLabel(key)} estimate in ${units}`}
                     editable={!disabled}
                     error={estimateErrors[key]}
                     containerStyle={{ flex: 1 }}
@@ -69,17 +61,29 @@ export function StrengthEstimatesSection({
                   <Button
                     label="Clear"
                     variant="subtle"
-                    disabled={disabled || !isSet}
+                    disabled={disabled || !estimateInputs[key]}
                     onPress={() => onValueChange(key, null)}
                   />
                 </View>
-              </Panel>
+              </View>
             )
           })}
-        </View>
-        <Caption>
-          Active programmes keep their own load values after start. Logged sets still drive e1RM history.
-        </Caption>
+        <Button label="Clear all" variant="subtle" disabled={disabled || !hasAnyInput}
+          onPress={() => oneRepMaxKeys.forEach(key => onValueChange(key, null))}
+          testID="settings-estimates-clear-all" />
+      </Panel>
+      <Panel style={{ gap: spacing.xs, padding: spacing.md }}>
+        <Text weight={700}>Not sure? Work one out</Text>
+        <Caption>Enter a set you have done and calculate a starting estimate.</Caption>
+        <Button label="Calculate from a known set" variant="subtle" disabled={disabled}
+          onPress={() => setCalculatorOpen(true)} testID="settings-open-calculator" />
+      </Panel>
+      <Panel surface="inset" style={{ gap: spacing.sm, padding: spacing.md }}>
+        <SectionLabel>Three different numbers</SectionLabel>
+        <Caption>Starting numbers are the estimates you provide before beginning a plan.</Caption>
+        <Caption>Your active plan keeps its own working values and changes them according to its progression rules.</Caption>
+        <Caption>Estimated maxes in Insights come from the sets you have logged.</Caption>
+        <Text size="sm" weight={700}>Changing these estimates does not change your active plan.</Text>
       </Panel>
 
       {calculatorOpen ? (
@@ -91,6 +95,6 @@ export function StrengthEstimatesSection({
           onClose={() => setCalculatorOpen(false)}
         />
       ) : null}
-    </SettingsSection>
+    </View>
   )
 }

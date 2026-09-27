@@ -1,5 +1,4 @@
 import { View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Panel, Text } from '@/components'
 import { spacing } from '@/lib/tokens'
 
@@ -18,14 +17,13 @@ export function SettingsSaveFooter({
   onDiscard: () => void
   onSave: () => void
 }) {
-  const insets = useSafeAreaInsets()
   if (!visible) return null
 
   return (
     <Panel
       style={{
         gap: spacing.sm,
-        marginBottom: Math.max(spacing.sm, insets.bottom),
+        marginBottom: spacing.sm,
         marginHorizontal: spacing.md,
         padding: spacing.md,
       }}

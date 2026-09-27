@@ -87,7 +87,7 @@ function estimateError(rawValue: string) {
   return null
 }
 
-export function useSettingsDraft(profile: UserProfile) {
+export function useSettingsDraft(profile: UserProfile, { convertEstimatesOnUnitChange = true } = {}) {
   const [state, setState] = useState(() => stateFromProfile(profile))
   const [observedProfile, setObservedProfile] = useState(profile)
   const dirty = !sameValues(state.values, state.baseline) ||
@@ -106,6 +106,9 @@ export function useSettingsDraft(profile: UserProfile) {
   const setUnits = useCallback((units: Unit) => {
     setState((current) => {
       if (current.values.units === units) return current
+      // The You page saves units atomically on the server; its hidden estimate fields are
+      // not edits. Keeping them unchanged also makes kg → lb → kg a clean draft again.
+      if (!convertEstimatesOnUnitChange) return { ...current, values: { ...current.values, units } }
       const programStateDefaults = convertProgramStateDefaults(
         current.values.programStateDefaults,
         current.values.units,
@@ -118,7 +121,7 @@ export function useSettingsDraft(profile: UserProfile) {
         estimateInputs: inputsFromDefaults(programStateDefaults),
       }
     })
-  }, [])
+  }, [convertEstimatesOnUnitChange])
 
   const setEstimateInput = useCallback((key: string, rawValue: string) => {
     setState((current) => {

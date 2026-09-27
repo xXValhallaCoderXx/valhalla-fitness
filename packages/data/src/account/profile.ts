@@ -61,7 +61,7 @@ export async function getMe(ctx: UserContext): Promise<UserProfile> {
   return profileFromRow(await ensureProfile(ctx))
 }
 
-function profileFromRow(profile: ProfileRow): UserProfile {
+export function profileFromRow(profile: ProfileRow): UserProfile {
   return {
     id: profile.id as string,
     email: profile.email as string | null,
