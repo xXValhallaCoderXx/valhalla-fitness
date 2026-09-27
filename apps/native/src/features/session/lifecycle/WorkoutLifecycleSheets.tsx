@@ -1,6 +1,7 @@
 import type { WorkoutSession } from '@sheetless/domain/session/types/session'
 import { Button, SheetModal, Text } from '@/components'
 import { FinishWorkoutSheet, type FinishReflection } from './FinishWorkoutSheet'
+import { DiscardWorkoutContent } from './DiscardWorkoutContent'
 import { elapsedLabel } from '../live/WorkoutProgress'
 
 export function WorkoutLifecycleSheets({ session, discardOpen, discardPending, discardError, onDiscard, onCloseDiscard,
@@ -16,9 +17,7 @@ export function WorkoutLifecycleSheets({ session, discardOpen, discardPending, d
       onClose={onCloseDiscard} closeDisabled={discardPending} footer={
         <Button label="Discard attempt" tone="danger" fullWidth loading={discardPending} onPress={onDiscard} />
       }>
-      <Text>{session.isAdHoc
-        ? 'This permanently deletes the workout and all of its logs. It will not appear in your history.'
-        : 'This permanently deletes this attempt, including its logs, notes, exercise changes, and future phase edits made during the workout. The same planned workout will remain next.'}</Text>
+      <DiscardWorkoutContent isAdHoc={Boolean(session.isAdHoc)} title={session.title} loggedSets={completedSetCount} />
       {discardError ? <Text tone="danger">{discardError}</Text> : null}
       <Button label="Keep logging" fullWidth variant="default" disabled={discardPending} onPress={onCloseDiscard} />
     </SheetModal>

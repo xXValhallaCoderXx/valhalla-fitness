@@ -26,7 +26,7 @@ export function WorkingWeightSheet({ state, overview, plan, onClose }: {
     .sort((a, b) => (b.set.targetLoad ?? -1) - (a.set.targetLoad ?? -1))[0]
   const trace = sample ? buildLoadTrace({ ...sample, program }) : null
   const typeLabel = state.stateType.replaceAll('_', ' ')
-  return <SheetModal open showHandle title={state.movementName} eyebrow={`Working weight · ${typeLabel}`} onClose={onClose}
+  return <SheetModal open showHandle title={state.movementName} eyebrow={state.stateType === 'training_max' ? 'Training max' : `Working weight · ${typeLabel}`} onClose={onClose}
     footer={<Button fullWidth label="Done" onPress={onClose} />}>
     <Text weight={900} style={{ fontSize: 34 }}>{formatNumber(state.value)} {state.units}</Text>
     <Panel surface="inset" style={{ padding: spacing.md, gap: spacing.sm }}>

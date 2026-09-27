@@ -85,6 +85,15 @@ export const updateSettingsInputSchema = z
   })
   .strict()
 
+export const completeFirstRunInputSchema = z
+  .object({
+    units: unit,
+    experienceMode,
+  })
+  .strict()
+
+export type CompleteFirstRunInput = z.infer<typeof completeFirstRunInputSchema>
+
 export const updateSexInputSchema = z
   .object({
     sex: sex.nullable(),

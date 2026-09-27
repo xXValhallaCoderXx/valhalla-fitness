@@ -2,12 +2,10 @@ import { useState } from 'react'
 import { Pressable, View } from 'react-native'
 import { ChevronRight, Info, Pencil, RotateCcw } from 'lucide-react-native'
 import {
-  FIND_MY_PLAN_QUESTIONS,
   TAG_GLOSSARY,
   type FamilyRecommendation,
 } from '@sheetless/domain/program/recommend-plan'
 import {
-  answerLabel,
   levelTone,
   tagLabel,
   type WizardAnswers,
@@ -16,6 +14,7 @@ import type { ProgramSetupOptions } from '@sheetless/domain/program/types'
 import { Badge, Button, Caption, EmptyState, Heading, Panel, SectionLabel, Text } from '@/components'
 import { radii, spacing, useTokens } from '@/lib/tokens'
 import { FindMyPlanPreview } from './FindMyPlanPreview'
+import { nativeAnswerLabel, NATIVE_FIND_MY_PLAN_QUESTIONS } from './native-find-my-plan'
 
 export function FindMyPlanResult({
   answers,
@@ -31,6 +30,8 @@ export function FindMyPlanResult({
   onSelectPlan,
   onTogglePreview,
   onRetryPreview,
+  onOpenDetail,
+  onBrowse,
 }: {
   answers: WizardAnswers
   recommendation: FamilyRecommendation | undefined
@@ -45,6 +46,8 @@ export function FindMyPlanResult({
   onSelectPlan: (index: number) => void
   onTogglePreview: () => void
   onRetryPreview: () => void
+  onOpenDetail: () => void
+  onBrowse: () => void
 }) {
   const { theme } = useTokens()
   const [glossaryOpen, setGlossaryOpen] = useState(false)
@@ -53,9 +56,11 @@ export function FindMyPlanResult({
     return (
       <View style={{ gap: spacing.md }}>
         <AnswerControls answers={answers} onEditAnswer={onEditAnswer} onReset={onReset} />
-        <EmptyState title="No plans are available">
-          Browse the catalogue or try again after it refreshes.
+        <EmptyState title="No plans fit these days">
+          No available plan fits within {answers.days} training days a week. Your answer has not been changed.
         </EmptyState>
+        <Button label="Change training days" onPress={() => onEditAnswer(1)} />
+        <Button label="Browse all plans" variant="default" onPress={onBrowse} />
       </View>
     )
   }
@@ -71,7 +76,10 @@ export function FindMyPlanResult({
             {activeIndex === 0 ? 'We recommend' : 'Also a good fit'}
           </Badge>
         </View>
-        <Heading order={2}>{recommendation.family.name}</Heading>
+        <Pressable accessibilityRole="button" accessibilityLabel={`View ${recommendation.family.name} details`}
+          onPress={onOpenDetail} style={{ minHeight: 48, justifyContent: 'center' }}>
+          <Heading order={2}>{recommendation.family.name} ›</Heading>
+        </Pressable>
         <Text size="sm" weight={800}>
           Recommended schedule: {recommendation.template.variantLabel ?? recommendation.template.name}
         </Text>
@@ -182,11 +190,11 @@ function AnswerControls({
   return (
     <View style={{ gap: spacing.sm }}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-        {FIND_MY_PLAN_QUESTIONS.map((question, index) => (
+        {NATIVE_FIND_MY_PLAN_QUESTIONS.map((question, index) => (
           <Pressable
             key={question.key}
             accessibilityRole="button"
-            accessibilityLabel={`Edit ${question.title}: ${answerLabel(question.key, answers[question.key])}`}
+            accessibilityLabel={`Edit ${question.title}: ${nativeAnswerLabel(question.key, answers[question.key])}`}
             onPress={() => onEditAnswer(index)}
             style={({ pressed }) => ({
               alignItems: 'center',
@@ -201,7 +209,7 @@ function AnswerControls({
               paddingHorizontal: spacing.sm,
             })}
           >
-            <Caption tone="action">{answerLabel(question.key, answers[question.key])}</Caption>
+            <Caption tone="action">{nativeAnswerLabel(question.key, answers[question.key])}</Caption>
             <Pencil color={theme.tones.action.text} size={13} />
           </Pressable>
         ))}

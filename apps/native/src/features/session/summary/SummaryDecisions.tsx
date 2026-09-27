@@ -7,7 +7,7 @@ import { Badge, Button, Caption, Panel, SectionLabel, Text } from '@/components'
 import { DecisionFeedback } from '@/features/feedback/DecisionFeedback'
 import { useProgressionReview } from '@/features/program/progression/useProgressionReview'
 import { spacing, useTokens } from '@/lib/tokens'
-import { recapDecisionView } from './recap-progression'
+import { recapDecisionView, simpleRecapChange } from './recap-progression'
 
 export function SummaryDecisions({ decisions, units, user, onResolved, advanced = false }: {
   decisions: ProgressionDecision[]
@@ -32,10 +32,11 @@ export function SummaryDecisions({ decisions, units, user, onResolved, advanced 
       return <View key={decision.id} style={{ gap: spacing.xs,
         ...(index ? { borderTopWidth: 1, borderColor: theme.border, paddingTop: spacing.sm } : {}) }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: spacing.xs }}>
-          <Text weight={800} style={{ flexGrow: 1 }}>{view.name}{view.kindLabel ? ` · ${view.kindLabel.toLowerCase()}` : ''}</Text>
+          <Text weight={800} style={{ flexGrow: 1 }}>{view.name}{advanced && view.kindLabel ? ` · ${view.kindLabel.toLowerCase()}` : ''}</Text>
           <Badge tone={view.tone}>{view.label}</Badge>
         </View>
-        <Text size="sm" weight={700}>{view.change}</Text>
+        {!advanced ? <Text size="sm" weight={700}>{simpleRecapChange(decision, units)}</Text> : null}
+        <Text size="sm" weight={advanced ? 700 : 500}>{view.change}</Text>
         <Caption>{view.reason}</Caption>
         {decision.status === 'pending' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           <Button label="Apply" accessibilityLabel={`Apply ${decision.movementName} recommendation`} disabled={review.isSaving}

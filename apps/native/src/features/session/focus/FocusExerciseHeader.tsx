@@ -2,7 +2,7 @@
 import { Pressable, View } from 'react-native'
 import { ChevronLeft, ChevronRight } from 'lucide-react-native'
 import type { MovementSlot } from '@sheetless/domain/session/types/session'
-import { Caption, Heading, SectionLabel } from '@/components'
+import { Heading, SectionLabel } from '@/components'
 import { spacing, useTokens, type Theme } from '@/lib/tokens'
 
 export function FocusExerciseHeader({
@@ -28,11 +28,10 @@ export function FocusExerciseHeader({
       <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
         <ChevronButton theme={theme} dir="prev" disabled={!hasPrev} onPress={onPrev} />
         <View style={{ alignItems: 'center', flex: 1, minWidth: 0 }}>
-          <SectionLabel tone="accent">{movement.role === 'main' ? 'Main lift' : movement.role}</SectionLabel>
+          <SectionLabel tone="accent">{movement.role === 'main' ? 'Main lift' : movement.role} · {ordinal} of {total}</SectionLabel>
           <Heading order={2} style={{ marginTop: 4, textAlign: 'center' }} numberOfLines={2}>
             {movement.performedMovementName ?? movement.movementName}
           </Heading>
-          <Caption>{ordinal} of {total} exercises</Caption>
         </View>
         <ChevronButton theme={theme} dir="next" disabled={!hasNext} onPress={onNext} />
       </View>
@@ -61,10 +60,8 @@ function ChevronButton({
       testID={dir === 'prev' ? 'focus-prev-exercise' : 'focus-next-exercise'}
       style={({ pressed }) => ({
         alignItems: 'center',
-        backgroundColor: theme.surface,
-        borderColor: theme.border,
+        backgroundColor: 'transparent',
         borderRadius: 22,
-        borderWidth: 1,
         height: 44,
         justifyContent: 'center',
         opacity: disabled ? 0.3 : pressed ? 0.6 : 1,

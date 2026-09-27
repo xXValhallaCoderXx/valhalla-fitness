@@ -9,9 +9,10 @@ function setup() {
   const schedule = vi.fn<Parameters<typeof createRestTimerController>[0]['schedule']>().mockResolvedValue('notification')
   const cancel = vi.fn().mockResolvedValue(undefined)
   const onChange = vi.fn()
-  const timer = createRestTimerController({ schedule, cancel, onChange })
+  const cue = vi.fn()
+  const timer = createRestTimerController({ schedule, cancel, onChange, cue })
   timer.mount()
-  return { timer, schedule, cancel, onChange, controls: timer.controls }
+  return { timer, schedule, cancel, onChange, cue, controls: timer.controls }
 }
 afterEach(() => vi.useRealTimers())
 describe('rest scheduling ownership', () => {
@@ -76,6 +77,37 @@ describe('rest scheduling ownership', () => {
     controls.confirmSession({ status: 'in_progress', movements: [{ ...movement, sets: [{ ...movement.sets[0], completed: true, clientMutationId: 'pending' }] }] } as WorkoutSession)
     expect(schedule).toHaveBeenCalledTimes(1)
   })
+})
+
+it('owns the clock without a visual presenter, extends the denominator and cues only once', () => {
+  vi.useFakeTimers()
+  const { timer, controls, onChange, cue } = setup()
+  controls.startForSlot(movement)
+  expect(onChange.mock.lastCall?.[0]).toMatchObject({ durationSeconds: 180, secondsLeft: 180 })
+  vi.advanceTimersByTime(27000)
+  timer.tick()
+  expect(onChange.mock.lastCall?.[0].secondsLeft).toBe(153)
+  controls.addTime(15)
+  expect(onChange.mock.lastCall?.[0]).toMatchObject({ durationSeconds: 195, secondsLeft: 168 })
+  vi.advanceTimersByTime(168000)
+  timer.tick()
+  timer.tick()
+  expect(cue).toHaveBeenCalledOnce()
+  expect(onChange.mock.lastCall?.[0]).toMatchObject({ active: false, durationSeconds: null, secondsLeft: 0 })
+})
+
+it('keeps auto-rest disabled and never emits a second foreground cue for a background expiry', () => {
+  vi.useFakeTimers()
+  const { timer, controls, schedule, cue } = setup()
+  timer.configure({ autoStartTimer: false, defaultRestSeconds: 120 })
+  controls.startForSlot(movement)
+  expect(schedule).not.toHaveBeenCalled()
+  timer.configure({ autoStartTimer: true, defaultRestSeconds: 120 })
+  controls.startForSlot(movement)
+  vi.advanceTimersByTime(180000)
+  timer.foreground()
+  timer.tick()
+  expect(cue).not.toHaveBeenCalled()
 })
 
 it('does not mistake an unconfirmed Undo followed by correction for new completed work', () => {

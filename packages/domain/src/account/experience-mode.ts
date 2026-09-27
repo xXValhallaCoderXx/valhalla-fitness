@@ -2,10 +2,9 @@ import { ESTABLISHED_MIN_SESSIONS } from '@sheetless/domain/history/insight-stat
 import type { ExperienceMode } from '@sheetless/domain/account/types'
 
 /**
- * Guided/Full is never asked at sign-up. Full is offered once — on Today, after the account has
- * enough history for the technical view to say anything — and is switched from Settings after
- * that. `ESTABLISHED_MIN_SESSIONS` is the same threshold insight gating uses to call an account
- * established, so the offer lands exactly when the data stops being thin.
+ * Native first run offers Simple/Advanced while retaining the stored guided/full values.
+ * This existing web hint offers Full once Today has enough training history; native does not
+ * use this hint yet. `ESTABLISHED_MIN_SESSIONS` matches the established insight threshold.
  */
 export type FullModeHintInput = {
   experienceMode: ExperienceMode

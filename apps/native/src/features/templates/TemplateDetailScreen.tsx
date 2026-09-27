@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { router, useIsFocused } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
 import { familyByTemplateId, familyMembersForTemplate } from '@sheetless/domain/program/template-families'
@@ -11,30 +11,43 @@ import { TemplatesLayout } from './catalogue/TemplatesLayout'
 import { TemplateDetailContent } from './details/TemplateDetailContent'
 import { TemplateSessionPreview } from './details/TemplateSessionPreview'
 import { templateSetupQueryOptions, templatesQueryOptions } from './queries'
+import { finderDaysParam } from './find-my-plan/native-find-my-plan'
+import { programSetupSuggestionsQueryOptions } from './setup-suggestions'
+import { initializeProgramSetupDraft } from './setup-draft'
+
+type Entry = { templateId: string; source?: string; finderDays?: string }
 
 function backToPlans() {
   if (router.canGoBack()) router.back()
   else router.replace('/program')
 }
 
-export function TemplateDetailScreen({ templateId }: { templateId: string }) {
+export function TemplateDetailScreen({ templateId, source, finderDays }: Entry) {
   const { user } = useSession()
   if (!user) return <TemplatesLayout backLabel="Plans" onBack={backToPlans}>
     <EmptyState title="Sign in to browse plans">Your plan library is available after signing in.</EmptyState>
   </TemplatesLayout>
-  return <AccountTemplateDetail key={`${user.id}:${templateId}`} user={user} templateId={templateId} />
+  return <AccountTemplateDetail key={`${user.id}:${templateId}`} user={user} templateId={templateId} source={source} finderDays={finderDays} />
 }
 
-function AccountTemplateDetail({ user, templateId }: { user: User; templateId: string }) {
+function AccountTemplateDetail({ user, templateId, source, finderDays }: Entry & { user: User }) {
   const profile = useMe()
+  const client = useQueryClient()
   const focused = useIsFocused()
   const [previewOpen, setPreviewOpen] = useState(false)
   const templates = useQuery(templatesQueryOptions(user))
   const template = templates.data?.find((item) => item.id === templateId)
   const setup = useQuery({ ...templateSetupQueryOptions(user, templateId), enabled: Boolean(template?.available) })
+  const suggestions = useQuery({ ...programSetupSuggestionsQueryOptions(user, templateId, profile.data),
+    enabled: previewOpen && Boolean(template?.available) })
   const openSetup = () => {
+    const snapshot = previewOpen && !suggestions.isError && suggestions.data?.templateId === templateId ? suggestions.data : null
+    const draftId = snapshot ? initializeProgramSetupDraft(client, user.id, snapshot) : undefined
     setPreviewOpen(false)
-    router.push({ pathname: '/template/[templateId]/setup', params: { templateId } })
+    const days = finderDaysParam(finderDays)
+    router.push({ pathname: '/template/[templateId]/setup', params: { templateId,
+      ...(source === 'finder' && days ? { source, finderDays: String(days) } : {}),
+      ...(draftId ? { draftId } : {}) } })
   }
   const footer = template?.available && !templates.isError ? <Button label="Set this up" fullWidth onPress={openSetup} /> : undefined
 
@@ -66,6 +79,11 @@ function AccountTemplateDetail({ user, templateId }: { user: User; templateId: s
       {previewOpen && focused && setup.data ? <TemplateSessionPreview
         setup={setup.data}
         scheduleLabel={template.variantLabel ?? template.name}
+        suggestions={suggestions.data}
+        suggestionsLoading={suggestions.isPending}
+        suggestionsError={suggestions.isError ? 'Your starting suggestions could not load.' : null}
+        retrying={suggestions.isFetching}
+        onRetry={() => void suggestions.refetch()}
         onClose={() => setPreviewOpen(false)}
         onSetup={openSetup}
       /> : null}

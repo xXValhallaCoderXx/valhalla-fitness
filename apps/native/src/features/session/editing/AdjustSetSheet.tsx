@@ -24,7 +24,7 @@ export function AdjustSetSheet({ open, onClose, session, movement, logger }: {
       <NumberRow label="Reps" value={input.reps} unit="reps" step={1} onChange={reps => logger.edit({ reps })} />
     </View>
     {!logger.valid ? <Caption>Enter weight (0 for bodyweight) and whole-number reps to log this set.</Caption> : null}
-    <FocusRirRow value={input.rir ?? undefined} targetRir={set.targetRir} onChange={rir => logger.edit({ rir })}
+    <FocusRirRow value={input.rir ?? undefined} targetRir={set.targetRir} disabled={logger.disabled} onChange={rir => logger.edit({ rir })}
       onClear={() => logger.edit({ rir: null })} />
     <Caption>Optional · record the reps you had left for this set.</Caption>
     {(set.targetRir ?? 0) > 3 && input.rir != null ? <Button label="Clear effort" size="sm" variant="subtle" onPress={() => logger.edit({ rir: null })} /> : null}

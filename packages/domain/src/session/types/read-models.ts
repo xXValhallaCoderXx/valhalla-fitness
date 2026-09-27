@@ -7,8 +7,12 @@ import type {
   SetLog,
   WorkoutSession,
 } from '@sheetless/domain/session/types/session'
+import type { EndedProgramSummary } from '@sheetless/domain/program/ending'
 
 export type TodayPayload = {
+  /** Ancillary history failed; entry remains available and absence is not treated as a fresh account. */
+  historyReadError?: string | null
+  lastEndedProgram?: EndedProgramSummary | null
   lastWorkoutLogged?: string | null
   activeProgram: ProgramInstance | null
   plannedSession: PlannedSession | null

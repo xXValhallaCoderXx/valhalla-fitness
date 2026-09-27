@@ -4,6 +4,7 @@ import {
   listAccessoryMovementOptions,
   listMovementOptions,
 } from '@sheetless/data/movement/catalog'
+import { getFrequentExercises } from '@sheetless/data/session/frequent-exercises'
 import { listFavoriteWorkouts } from '@sheetless/data/session/favorites'
 import { listMovementSwapOptions } from '@sheetless/data/session/movements'
 import { getSession, getToday } from '@sheetless/data/session/reads'
@@ -86,5 +87,14 @@ export function allMovementOptionsQueryOptions(user: User) {
     queryFn: () => listMovementOptions(buildUserContext(user)),
     staleTime: queryStaleTimes.options,
     gcTime: 30 * 60_000,
+  })
+}
+
+export function frequentExercisesQueryOptions(user: User, freeWeightOnly = false) {
+  return queryOptions({
+    queryKey: accountQueryKeys.frequentExercises(user.id, freeWeightOnly),
+    queryFn: () => getFrequentExercises(buildUserContext(user), { freeWeightOnly }),
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 }

@@ -124,6 +124,10 @@ describe('getToday', () => {
       activeSession: null,
       completedSession: null,
       pendingDecisions: [],
+      lastCompletedSession: null,
+      lastWorkoutLogged: null,
+      lastEndedProgram: null,
+      historyReadError: null,
     })
   })
 
@@ -137,4 +141,29 @@ describe('getToday', () => {
     expect(today.activeSession?.sessionId).toBe('session-1')
     expect(today.activeSession?.isAdHoc).toBe(true)
   })
+  it('keeps the last ad-hoc workout and genuine ended plan when no program is active', async () => {
+    const tables = sessionTables()
+    tables.workout_sessions[0] = { ...tables.workout_sessions[0], status: 'completed',
+      scheduled_date: '2026-09-20', completed_at: '2026-09-20T10:00:00Z' }
+    tables.program_instances.push({ id: 'ended', user_id: 'user-1', title: 'My plan',
+      status: 'completed', end_reason: 'manual', ended_at: '2026-09-21T10:00:00Z', units: 'kg' })
+    const { ctx } = makeStubCtx(tables)
+    const result = await getToday(ctx)
+    expect(result.activeProgram).toBeNull()
+    expect(result.lastCompletedSession?.sessionId).toBe('session-1')
+    expect(result.lastWorkoutLogged).toBe('2026-09-20')
+    expect(result.lastEndedProgram?.title).toBe('My plan')
+  })
+
+  it('preserves Resume when ancillary last-workout hydration fails', async () => {
+    const tables = sessionTables()
+    tables.workout_sessions.push({ ...tables.workout_sessions[0], id: 'broken-completed', status: 'completed',
+      scheduled_date: '2026-09-20', completed_at: '2026-09-20T10:00:00Z', prescription_snapshot: null })
+    const { ctx } = makeStubCtx(tables)
+    const result = await getToday(ctx)
+    expect(result.activeSession?.sessionId).toBe('session-1')
+    expect(result.lastCompletedSession).toBeNull()
+    expect(result.historyReadError).toBeTruthy()
+  })
+
 })

@@ -7,6 +7,8 @@ import type { WorkoutSession } from '@sheetless/domain/session/types/session'
 import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
 import { Button, Heading, Text } from '@/components'
 import { spacing, useTokens } from '@/lib/tokens'
+import { FrequentExercises } from './FrequentExercises'
+import { BlankWorkoutPlanReminder } from './BlankWorkoutPlanReminder'
 import { AddExerciseSheet } from '../editing/AddExerciseSheet'
 import { allMovementOptionsQueryOptions } from '../queries'
 import { useAddAdHocExerciseMutation } from '../editing/useAdHocExerciseMutations'
@@ -16,11 +18,13 @@ export function EmptyWorkoutOverview({
   session,
   disabled,
   onAdded,
+  onDiscardBlank,
 }: {
   user: User
   session: WorkoutSession
   disabled: boolean
   onAdded: (movementId: string) => void
+  onDiscardBlank?: () => void
 }) {
   const { theme } = useTokens()
   const [addOpen, setAddOpen] = useState(false)
@@ -50,12 +54,20 @@ export function EmptyWorkoutOverview({
             size="lg"
             fullWidth
             leftSection={<Plus size={24} color={theme.primaryFillText} />}
-            disabled={disabled}
+            disabled={disabled || addExercise.isPending}
             onPress={() => setAddOpen(true)}
             testID="empty-add-exercise"
           />
         ) : null}
       </View>
+
+      {session.isAdHoc ? <>
+        <FrequentExercises user={user} freeWeightOnly={session.equipmentMode === 'free_weight'}
+          disabled={disabled || addExercise.isPending}
+          error={addExercise.isError ? getApiErrorMessage(addExercise.error, 'Unable to add this exercise.') : null}
+          onAdd={movementId => addExercise.mutate(movementId)} />
+        <BlankWorkoutPlanReminder user={user} disabled={disabled || addExercise.isPending} onDiscardBlank={onDiscardBlank} />
+      </> : null}
 
       <AddExerciseSheet
         open={addOpen && Boolean(session.isAdHoc)}

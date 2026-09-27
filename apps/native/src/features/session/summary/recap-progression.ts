@@ -1,6 +1,7 @@
 import type { ProgressionDecision } from '@sheetless/domain/program/types'
 import { reviewDecisionView } from '@sheetless/domain/program/progression-review'
 import type { Unit } from '@sheetless/domain/shared/types'
+import { formatWeight } from '@sheetless/domain/shared/set-notation'
 
 /** Describe the recorded rule without inferring missing effort or a calendar date. */
 export function recapProgressionReason(decision: ProgressionDecision) {
@@ -29,4 +30,18 @@ export function recapDecisionView(decision: ProgressionDecision, units: Unit) {
   return { ...view, label, change, reason: recapProgressionReason(decision),
     tone: status === 'accepted' && view.delta !== null && view.delta > 0 ? 'success' as const
       : view.delta !== null && view.delta < 0 && status !== 'dismissed' && status !== 'superseded' ? 'warning' as const : 'neutral' as const }
+}
+
+/** Plain-language summary stays explicit about the saved choice and the load it affects. */
+export function simpleRecapChange(decision: ProgressionDecision, units: Unit) {
+  const view = recapDecisionView(decision, units)
+  if (decision.status === 'superseded') return 'A later change replaced this recommendation.'
+  if (decision.status === 'dismissed') return 'You kept the previous value.'
+  if (!view.isNumeric || view.delta == null) return decision.recommendation
+  const kind = decision.stateType === 'working_load' ? 'working weight' : decision.stateType === 'training_max' ? 'training max'
+    : decision.stateType === 'one_rep_max' ? 'one-rep max' : decision.stateType === 'five_rep_max' ? 'five-rep max' : 'programme reference'
+  if (view.delta === 0) return decision.status === 'pending' ? `Keep your ${kind} the same?` : `Your ${kind} stayed the same.`
+  const amount = formatWeight(Math.abs(view.delta), units)
+  if (decision.status === 'pending') return `You can ${view.delta > 0 ? 'increase' : 'reduce'} your ${kind} by ${amount}.`
+  return `Your ${kind} ${view.delta > 0 ? 'increased' : 'decreased'} by ${amount}.`
 }

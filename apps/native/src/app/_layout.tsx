@@ -2,8 +2,8 @@ import '@/lib/uuid-polyfill'
 
 import { useEffect, useMemo, useRef } from 'react'
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router'
-import { Redirect, Stack, useSegments } from 'expo-router'
-import { NavigationBar } from 'expo-navigation-bar'
+import { Stack } from 'expo-router'
+import { AppNavigationBar } from '@/lib/AppNavigationBar'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts } from 'expo-font'
 import { nativeFonts } from '@/lib/fonts'
@@ -16,6 +16,7 @@ import { createQueryClient } from '@/lib/query-client'
 import { SessionProvider, useSession } from '@/lib/session-provider'
 import { SheetlessThemeProvider, useSheetlessTheme } from '@/lib/theme-provider'
 import { useTokens } from '@/lib/tokens'
+import { entryScreenLayout } from '@/features/onboarding/EntryGate'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -25,7 +26,6 @@ function AuthGate() {
   const [fontsLoaded, fontError] = useFonts(nativeFonts)
   const { status, user } = useSession()
   const { isThemeReady } = useSheetlessTheme()
-  const segments = useSegments()
   const lastUserId = useRef<string | null>(null)
 
   useEffect(() => {
@@ -44,18 +44,16 @@ function AuthGate() {
     lastUserId.current = nextUserId
   }, [user?.id])
 
-  // Hold the splash — rendering nothing avoids a flash of the wrong screen
-  // on warm starts while the stored session restores.
-  if ((!fontsLoaded && !fontError) || status === 'restoring' || (status === 'signedIn' && !isThemeReady)) return null
-
-  const inAuthGroup = segments[0] === 'auth'
-  if (status === 'signedOut' && !inAuthGroup) return <Redirect href="/auth" />
-  if (status === 'signedIn' && inAuthGroup) return <Redirect href="/(tabs)" />
+  // The splash can cover a mounted navigator while the initial theme loads. Once session
+  // restoration finishes, keep the Stack alive: signing in starts a new profile/theme read,
+  // and unmounting here would erase the auth continuation before EntryGate can use it.
+  if ((!fontsLoaded && !fontError) || status === 'restoring') return null
 
   return (
-    <Stack>
+    <Stack screenLayout={entryScreenLayout}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="auth" options={{ headerShown: false }} />
+      <Stack.Screen name="first-run" options={{ headerShown: false }} />
       <Stack.Screen name="session/[sessionId]/index" options={{ headerShown: false }} />
       <Stack.Screen name="session/[sessionId]/summary" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ title: 'Settings' }} />
@@ -92,7 +90,7 @@ function ThemedApp() {
   return (
     <ThemeProvider value={navigationTheme}>
       <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
-      <NavigationBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
+      <AppNavigationBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
       <AuthGate />
     </ThemeProvider>
   )

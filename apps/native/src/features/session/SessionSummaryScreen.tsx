@@ -8,6 +8,7 @@ import { formatFullDate, formatWeekdayLongDate } from '@sheetless/domain/shared/
 import { buildWorkoutShareModel } from '@sheetless/domain/history/workout-share'
 import { Button, EmptyState, Panel, Screen, SheetModal, Text } from '@/components'
 import { WorkoutSharePreview } from '@/features/history/sharing/WorkoutSharePreview'
+import { consumeSetupReturn } from '@/features/templates/setup-return'
 import { useSession } from '@/lib/session-provider'
 import { useMe } from '@/lib/account'
 import { spacing } from '@/lib/tokens'
@@ -33,7 +34,7 @@ function AccountSummary({ user, sessionId }: { user: User; sessionId: string }) 
     client.removeQueries({ queryKey: accountQueryKeys.summary(user.id, sessionId), exact: true })
   }, [client, sessionId, user.id])
   const query = useQuery(sessionSummaryQueryOptions(user, sessionId))
-  const done = () => router.dismissTo('/(tabs)')
+  const done = () => router.dismissTo(consumeSetupReturn(client, user.id, sessionId) ?? '/(tabs)')
   if (query.isPending || (!query.isError && !query.isFetchedAfterMount)) return <RecapLayout title="Workout recap" onClose={done}
     footer={<RecapActions onDone={done} />}>
     <Text>Loading your recap…</Text>

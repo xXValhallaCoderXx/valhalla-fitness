@@ -7,6 +7,19 @@ import {
 import { makeStubCtx } from './support/supabase-stub'
 
 describe('exportAccountData', () => {
+  it('exports every owned reviewed-start receipt without leaking another account', async () => {
+    const receipts = Array.from({ length: 1_001 }, (_, index) => ({
+      id: `receipt-${String(index).padStart(4, '0')}`, user_id: 'user-1',
+      request_id: `start-${index}`, intent: { units: 'lb' }, receipt: { programId: `program-${index}` },
+    }))
+    const { ctx, stub } = makeStubCtx({
+      program_start_receipts: [...receipts, { id: 'foreign', user_id: 'user-2' }],
+    })
+    const exported = await exportAccountData(ctx)
+    expect(exported.data.program_start_receipts).toEqual(receipts)
+    expect(stub.rangeCalls.filter(call => call.table === 'program_start_receipts')).toHaveLength(2)
+  })
+
   it('exports and paginates the account equipment-mode choices under the current schema', async () => {
     const choices = Array.from({ length: 1_001 }, (_, index) => ({
       id: `choice-${String(index).padStart(4, '0')}`,

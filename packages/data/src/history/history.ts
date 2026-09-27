@@ -355,28 +355,22 @@ export async function getTodayHistorySupport(ctx: UserContext): Promise<TodayHis
     const profile = await getProfileHistoryContext(supabase, user.id)
     const today = calendarDateInTimeZone(now, profile.timeZone)
     const scheduledAfter = todayHistoryWindowStart(today)
-    const [history, completedSession] = await Promise.all([
+    const [history, completedDates] = await Promise.all([
       getHistoryInputs(supabase, user.id, {
         scheduledAfter,
         includeFavorites: false,
         includeSubstitutions: false,
       }),
-      supabase
-        .from('workout_sessions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('status', 'completed')
-        .order('scheduled_date', { ascending: false })
-        .order('completed_at', { ascending: false })
-        .order('id', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+      collectPostgrestPages((from, to) => supabase.from('workout_sessions')
+        .select('id, scheduled_date').eq('user_id', user.id).eq('status', 'completed')
+        .order('scheduled_date').order('id').range(from, to)),
     ])
-    if (completedSession.error) throw new Error(completedSession.error.message)
 
     return buildTodayHistorySupport({
       sessions: history.sessions,
-      hasCompletedSessions: Boolean(completedSession.data),
+      hasCompletedSessions: completedDates.length > 0,
+      completedDates: completedDates.map(row => row.scheduled_date),
+      displayUnits: profile.units,
       now,
       today,
     })

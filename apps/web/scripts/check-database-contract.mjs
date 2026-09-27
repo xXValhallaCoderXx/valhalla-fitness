@@ -196,6 +196,9 @@ const databaseTypes = requireFragments('packages/domain/src/shared/types/databas
   'set_session_favorite_v2:',
   'start_program_v2:',
   'start_program_v3:',
+  'start_program_v4:',
+  'get_program_start_review_v1:',
+  'program_start_receipts:',
   'set_program_equipment_mode_v1:',
   'start_session_v2:',
   'start_ad_hoc_session_v2:',
@@ -386,6 +389,35 @@ requireFragments('supabase/migrations/202609060002_program_return_protocol.sql',
 requireFragments('supabase/migrations/202609060003_program_return_finish.sql', [
   'RETURN_PROGRESSION_CAP_INVALID', 'RETURN_INCREASE_NOT_EARNED', 'completed_workouts+1',
 ])
+
+requireFragments('supabase/migrations/202609270001_manual_program_end.sql', [
+  'end_program_v1', 'program_end_receipts', 'pg_advisory_xact_lock',
+  'PROGRAM_END_PENDING_REVIEW', 'PROGRAM_END_ACTIVE_WORKOUT', 'PROGRAM_VERSION_CONFLICT',
+  'IDEMPOTENCY_KEY_REUSED', "end_reason = 'manual'", 'state_version = state_version + 1',
+  'enable row level security', 'revoke all',
+])
+requireFragments('packages/data/src/program/ending.ts', ["rpc('end_program_v1'", 'getLastEndedProgram'])
+
+requireFragments('supabase/migrations/202609270002_reviewed_program_start.sql', [
+  'program_start_receipts', 'get_program_start_review_v1', 'start_program_v4',
+  'pg_advisory_xact_lock', 'PROGRAM_START_REVIEW_STALE', 'PROGRAM_START_ACTIVE_WORKOUT',
+  'PROGRAM_START_PENDING_REVIEW', 'PROGRAM_START_TEMPLATE_STALE', 'IDEMPOTENCY_KEY_REUSED',
+  'v_receipt.intent is distinct from p_intent', 'return v_receipt.receipt',
+  'enable row level security', 'on delete cascade', 'revoke all',
+])
+requireFragments('packages/data/src/program/reviewed-start.ts', [
+  "rpc('start_program_v4'", "rpc('get_program_start_review_v1'", 'programStartReceiptSchema.parse',
+])
+requireFragments('supabase/migrations/202609270003_reviewed_program_start_validation.sql', [
+  'create or replace function public.start_program_v4',
+  "((p_intent->'expectedActiveProgram') - array['id','stateVersion'])",
+])
+requireFragments('supabase/migrations/202609270004_reviewed_program_start_account_binding.sql', [
+  'p_expected_user_id is distinct from auth.uid()', 'PROGRAM_START_ACCOUNT_CHANGED',
+  'revoke all on function public.start_program_v4(text,jsonb) from public, anon, authenticated',
+  'revoke all on function public.get_program_start_review_v1() from public, anon, authenticated',
+])
+requireFragments('packages/data/src/account/data-rights.ts', ["from('program_start_receipts')"])
 
 if (failures.length > 0) {
   console.error('Database contract verification failed:')

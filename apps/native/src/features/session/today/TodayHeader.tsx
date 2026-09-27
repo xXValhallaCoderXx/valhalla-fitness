@@ -11,13 +11,14 @@ import { Button, Heading, SectionLabel, SheetModal, Text } from '@/components'
 import { radii, spacing, useTokens } from '@/lib/tokens'
 import { StartBlankWorkoutButton } from './StartBlankWorkoutButton'
 
-export function TodayHeader({ date, program, session, mode, subtitle, ready = false, activeSessionId }: {
+export function TodayHeader({ date, program, session, mode, subtitle, ready = false, activeSessionId, streakWeeks }: {
   date: string
   program?: ProgramInstance | null
   session?: PlannedSession | null
   mode?: ExperienceMode
   subtitle?: string
   ready?: boolean
+  streakWeeks?: number
   activeSessionId?: string
 }) {
   const { theme } = useTokens()
@@ -37,6 +38,9 @@ export function TodayHeader({ date, program, session, mode, subtitle, ready = fa
           <SectionLabel>{formatWeekdayLongDate(date)}</SectionLabel>
           <Heading order={1} style={{ fontSize: 28 }}>Today</Heading>
         </View>
+        {streakWeeks != null && streakWeeks >= 2 ? <View style={{ borderRadius: radii.lg, paddingHorizontal: 9, paddingVertical: 8, backgroundColor: theme.surface, alignSelf: 'center' }}>
+          <Text size="xs" weight={800} tone="action">{streakWeeks}-week run</Text>
+        </View> : null}
         <Pressable accessibilityRole="button" accessibilityLabel="Workout options"
           accessibilityState={{ disabled: !ready, expanded: open }} disabled={!ready} onPress={() => setOpen(true)}
           testID="today-workout-options" style={({ pressed }) => ({

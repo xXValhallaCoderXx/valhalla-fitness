@@ -6,8 +6,8 @@ export type Sex = 'male' | 'female'
 
 /**
  * How much the interface explains. `guided` speaks plain words and is the default for every
- * account; `full` swaps in technical notation. Nobody is ever asked which they are — Today
- * offers `full` once the account has history, and Settings switches it either way.
+ * account; `full` swaps in technical notation. Native first-run offers Simple/Advanced,
+ * and Settings switches it either way. Web can offer `full` once the account has history.
  */
 export type ExperienceMode = 'guided' | 'full'
 

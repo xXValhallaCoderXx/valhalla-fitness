@@ -771,6 +771,18 @@ export type Database = {
           },
         ]
       }
+      program_start_receipts: {
+        Row: { id: string; user_id: string; program_instance_id: string; request_id: string; intent: Json; receipt: Json; created_at: string }
+        Insert: { id?: string; user_id: string; program_instance_id: string; request_id: string; intent: Json; receipt: Json; created_at?: string }
+        Update: { id?: string; user_id?: string; program_instance_id?: string; request_id?: string; intent?: Json; receipt?: Json; created_at?: string }
+        Relationships: [{ foreignKeyName: "program_start_receipts_program_instance_id_user_id_fkey"; columns: ["program_instance_id", "user_id"]; isOneToOne: false; referencedRelation: "program_instances"; referencedColumns: ["id", "user_id"] }]
+      }
+      program_end_receipts: {
+        Row: { id: string; user_id: string; program_instance_id: string; request_id: string; intent: Json; resulting_version: number; ended_at: string }
+        Insert: { id?: string; user_id: string; program_instance_id: string; request_id: string; intent: Json; resulting_version: number; ended_at: string }
+        Update: { id?: string; user_id?: string; program_instance_id?: string; request_id?: string; intent?: Json; resulting_version?: number; ended_at?: string }
+        Relationships: [{ foreignKeyName: "program_end_receipts_program_instance_id_user_id_fkey"; columns: ["program_instance_id", "user_id"]; isOneToOne: false; referencedRelation: "program_instances"; referencedColumns: ["id", "user_id"] }]
+      }
       program_instances: {
         Row: {
           client_mutation_id: string | null
@@ -779,6 +791,8 @@ export type Database = {
           current_week_index: number
           customization_status: string
           customization_summary: Json
+          ended_at: string | null
+          end_reason: string | null
           equipment_mode: string
           free_weight_choices_hash: string | null
           free_weight_policy_version_id: string | null
@@ -801,6 +815,8 @@ export type Database = {
           current_week_index?: number
           customization_status?: string
           customization_summary?: Json
+          ended_at?: string | null
+          end_reason?: string | null
           equipment_mode?: string
           free_weight_choices_hash?: string | null
           free_weight_policy_version_id?: string | null
@@ -823,6 +839,8 @@ export type Database = {
           current_week_index?: number
           customization_status?: string
           customization_summary?: Json
+          ended_at?: string | null
+          end_reason?: string | null
           equipment_mode?: string
           free_weight_choices_hash?: string | null
           free_weight_policy_version_id?: string | null
@@ -1670,6 +1688,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      end_program_v1: {
+        Args: { p_program_id: string; p_expected_version: number; p_request_id: string }
+        Returns: Json
+      }
       finish_session_v3: {
         Args: {
           p_decisions: Json
@@ -1996,6 +2018,14 @@ export type Database = {
           p_units: string
         }
         Returns: string
+      }
+      get_program_start_review_v1: {
+        Args: { p_expected_user_id: string }
+        Returns: Json
+      }
+      start_program_v4: {
+        Args: { p_request_id: string; p_intent: Json; p_expected_user_id: string }
+        Returns: Json
       }
       start_program_v3: {
         Args: {

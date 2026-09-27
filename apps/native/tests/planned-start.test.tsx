@@ -41,6 +41,28 @@ function deferred<T>() {
 beforeEach(() => vi.resetAllMocks())
 
 describe('shared planned-workout entry', () => {
+  it('pins setup success to its programme and changes retry identity when that programme changes', async () => {
+    const { wrapper } = harness()
+    api.start.mockRejectedValue(new Error('The active plan changed'))
+    const { result, rerender } = renderHook(({ expected }) => useStartPlannedWorkout(userA, expected), {
+      wrapper, initialProps: { expected: 'created-plan' },
+    })
+    act(() => result.current.mutate())
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    const first = api.start.mock.calls[0][1]
+    expect(first.expectedProgramId).toBe('created-plan')
+    expect(api.push).not.toHaveBeenCalled()
+    act(() => result.current.mutate())
+    await waitFor(() => expect(api.start).toHaveBeenCalledTimes(2))
+    expect(api.start.mock.calls[1][1]).toEqual(first)
+    rerender({ expected: 'different-created-plan' })
+    act(() => result.current.mutate())
+    await waitFor(() => expect(api.start).toHaveBeenCalledTimes(3))
+    expect(api.start.mock.calls[2][1]).toMatchObject({ expectedProgramId: 'different-created-plan' })
+    expect(api.start.mock.calls[2][1].clientMutationId).not.toBe(first.clientMutationId)
+    expect(api.push).not.toHaveBeenCalled()
+  })
+
   it('retries the same request explicitly and clears its token only after confirmation', async () => {
     const { client, wrapper } = harness()
     const resultSession = workout()
@@ -106,6 +128,24 @@ describe('shared planned-workout entry', () => {
     expect(client.getQueryData(accountQueryKeys.session(userA.id, 'workout-a'))).toBeUndefined()
     expect(api.push).not.toHaveBeenCalled()
     expect(onSuccess).not.toHaveBeenCalled()
+  })
+
+  it('ignores a late start response after setup success has moved to a different receipt', async () => {
+    const { client, wrapper } = harness()
+    const pending = deferred<WorkoutSession>()
+    const onSuccess = vi.fn()
+    api.start.mockReturnValue(pending.promise)
+    const { result, rerender } = renderHook(({ expected }) => useStartPlannedWorkout(userA, expected), {
+      wrapper, initialProps: { expected: 'created-plan' },
+    })
+    act(() => result.current.mutate(undefined, { onSuccess }))
+    await waitFor(() => expect(api.start).toHaveBeenCalledTimes(1))
+    rerender({ expected: 'new-created-plan' })
+    await act(async () => pending.resolve(workout()))
+    await waitFor(() => expect(client.isMutating()).toBe(0))
+    expect(api.push).not.toHaveBeenCalled()
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(client.getQueryData(accountQueryKeys.session(userA.id, 'workout-a'))).toBeUndefined()
   })
 
   it('recovers a committed start with a lost response through its original request', async () => {

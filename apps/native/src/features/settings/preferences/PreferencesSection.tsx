@@ -1,5 +1,5 @@
 import { Switch, View } from 'react-native'
-import type { ThemePreference } from '@sheetless/domain/account/types'
+import type { ExperienceMode, ThemePreference } from '@sheetless/domain/account/types'
 import type { Unit } from '@sheetless/domain/shared/types'
 import { Button, Caption, Panel, SectionLabel, SegmentedControl, Text } from '@/components'
 import { spacing, useTokens } from '@/lib/tokens'
@@ -10,6 +10,8 @@ const MAX_REST_SECONDS = 600
 const REST_STEP_SECONDS = 30
 
 export function PreferencesSection({
+  experienceMode,
+  onExperienceModeChange,
   themePreference,
   effectiveScheme,
   isThemePreviewing,
@@ -24,6 +26,8 @@ export function PreferencesSection({
   onAutoStartTimerChange,
   onDefaultRestSecondsChange,
 }: {
+  experienceMode: ExperienceMode
+  onExperienceModeChange: (value: ExperienceMode) => void
   themePreference: ThemePreference
   effectiveScheme: 'light' | 'dark'
   isThemePreviewing: boolean
@@ -48,9 +52,16 @@ export function PreferencesSection({
   return (
     <SettingsSection
       title="Preferences"
-      description="Appearance, training units, rounding, and your default rest timer."
+      description="Detail level, appearance, training units, and your default rest timer."
     >
       <Panel style={{ gap: spacing.lg, padding: spacing.md }}>
+        <View style={{ gap: spacing.xs }}>
+          <SectionLabel>Detail level</SectionLabel>
+          <ChoiceRow values={[{ value: 'guided', label: 'Simple' }, { value: 'full', label: 'Advanced' }]}
+            selected={experienceMode} disabled={disabled} accessibilityLabel="Detail level"
+            onChange={value => onExperienceModeChange(value as ExperienceMode)} />
+          <Caption>Simple keeps your next action in focus. Advanced shows the full targets and training detail. Your workout and progress stay the same.</Caption>
+        </View>
         <View style={{ gap: spacing.xs }}>
           <SectionLabel>Theme</SectionLabel>
           <ChoiceRow
@@ -174,6 +185,7 @@ function ChoiceRow({
   return (
     <SegmentedControl
       variant="segments"
+      accessibilityRole="radiogroup"
       options={values.map((item) => ({
         value: item.value,
         label: item.label,

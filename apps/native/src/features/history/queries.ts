@@ -10,10 +10,14 @@ import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { queryStaleTimes } from '@sheetless/domain/shared/query-stale-times'
 import { buildUserContext } from '@/lib/account'
 
-export function todayHistorySupportQueryOptions(user: User) {
+export function todayHistorySupportQueryOptions(user: User | null) {
   return queryOptions({
-    queryKey: accountQueryKeys.todayHistorySupport(user.id),
-    queryFn: () => getTodayHistorySupport(buildUserContext(user)),
+    queryKey: accountQueryKeys.todayHistorySupport(user?.id ?? 'anonymous'),
+    queryFn: () => {
+      if (!user) throw new Error('Sign in to load your week.')
+      return getTodayHistorySupport(buildUserContext(user))
+    },
+    enabled: Boolean(user),
     staleTime: queryStaleTimes.history,
   })
 }

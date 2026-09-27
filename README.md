@@ -65,7 +65,7 @@ legal/operator review, exercise instructions/media, and a few logging-quality ga
 | Progression | **Shipped** | Recommendations are calculated from completed work, stored as decisions, and require explicit accept/later/dismiss handling. |
 | Ad-hoc sessions and favourites | **Shipped** | Users can start unprogrammed workouts, repeat prior sessions, and save/reuse favourites while retaining comparable history. |
 | Programme and Insights views | **Shipped** | Programme position, timeline, loads, decisions, recent sessions, e1RM, DOTS/bodyweight-multiple fallbacks, trends, consistency, calibration, muscle-set estimates, records, and history are data-backed. |
-| Body profile | **Partial** | Web and native Settings support units, sex, bodyweight history, saved strength estimates, and a known-set 1RM calculator. Units, sex, and bodyweight are not yet collected in first-run onboarding, and both Overview screens plot actual dated bodyweight measurements in account units, including accounts with no workouts. |
+| Body profile | **Partial** | Web and native Settings support units, sex, bodyweight history, saved strength estimates, and a known-set 1RM calculator. Native first-run collects units; sex and bodyweight remain contextual Settings actions. Both Overview screens plot actual dated bodyweight measurements in account units, including accounts with no workouts. |
 | Exercise catalogue | **Shipped; media deferred** | The catalogue stores 151 movements (140 active and 11 resolvable deprecated aliases) with resistance mode, required equipment, pattern, primary/secondary muscles, aliases, load convention, and replacement lineage. Instructions, external IDs, and media are not yet included. |
 | Feedback | **Shipped** | Web and native global, fresh post-workout, and decision feedback forms write to `feedback_events`; `pnpm feedback:report` reads submissions. An owner and review cadence must be assigned. |
 | PWA | **Shipped; production verification pending** | Manifest/service-worker build checks exist. Install, update, auth persistence, and HTTPS behavior must be verified on the live canonical host. |
@@ -119,7 +119,7 @@ and standalone acceptance remain separate. Changes are local and awaiting review
 
 1. Persist the rest timer across reloads and add per-movement defaults and `-15`.
 2. Make exact previous-set values tappable to fill the current set.
-3. Capture units, sex, and bodyweight in onboarding.
+3. Keep native onboarding to units and reading mode; collect sex, bodyweight, and starting numbers where needed. Web onboarding remains a separate pass.
 4. Decide whether finish-time PR summaries are sufficient or whether live PR feedback is required.
 
 #### Deferred
@@ -173,6 +173,67 @@ the remaining visual integration screens still require their own implementation 
 
 #### Updated native design references and integration backlog
 
+The **27 September native iteration** uses the newer [mobile UI audit and screen allocation](https://linear.app/sentiment-hound/document/27-september-mobile-ui-audit-screen-allocation-and-beta-plan-cf37f02508f9)
+as its reference for overlapping screens. Its 13-board HTML export has SHA-256
+`60c907f4fa69791dc6443043c28b0e46b90cac0ec9974522fa14bed33a107d49`; the matching PDF has
+`837037f014dcbe3ca96cdc655ae00cb67aa6ecc5518fb4039d4a592c93118527`.
+The older inventory below describes earlier passes, rather than replacing this latest reference.
+
+This iteration covers SHE-47 Today, SHE-48 Workout and SHE-49 Recap, with the bounded SHE-45/46
+foundation decisions, SHE-27 failed-save regression and SHE-34 timer checks. Native Settings now
+labels existing `guided`/`full` values **Simple/Advanced** within the existing Save/Discard form;
+`show_formulas` is unchanged. The full You redesign and web visual revamp remain separate work.
+
+- Today uses real Monday–Sunday account-calendar activity, plan weekly target, current-week volume
+  against the previous full week, and an exact weekly streak from paginated completed dates. The
+  detailed history window remains bounded. Simple shows the main lift and expands to every numeric
+  prescription; Advanced shows the full target table. Last workout works without an active plan.
+- Focus and Overview share one controlled logger. Focus has a segmented set ring and countdown;
+  Overview has the selected movement's full set table and a source-labelled rest dock. Completion
+  and the foreground cue belong to one timer controller. Start set now dismisses rest without
+  logging a set. Failed-save retries, unsaved raw input, Undo and Finish guards remain in force.
+- Blank workouts offer up to three eligible active catalogue exercises used in completed workouts
+  during today and the preceding 89 account-calendar days. Each workout counts once per performed
+  movement and requires a completed set with actual reps above zero, including bodyweight work.
+  The planned-workout reminder is a fresh read-only preview; returning to Today requires explicit
+  confirmed discard and never starts a second workout automatically.
+- Recap remains shared by Finish and history, with saved workout units, explicit Apply/Keep and
+  truthful pending/applied/kept/superseded outcomes. PR comparisons require real prior evidence.
+
+**Manual End plan** is available in native Plan settings after a fresh check. It preserves saved
+workouts, snapshots, working weights and records, blocks an active workout belonging to that plan
+or pending progression, and offers Resume/Review. An unrelated blank workout is preserved. Ending
+cancels an open return guide, records `status = completed` with `end_reason = manual` and `ended_at`,
+and increments the programme version once. Today says the plan ended without claiming every
+scheduled workout was completed. Recurring cycles still repeat; no automatic ending, block-boundary
+prompt, archived-plan reset or Run again action is included.
+
+The new migration `202609270001_manual_program_end.sql` must be applied before releasing this client.
+Its `end_program_v1` RPC uses the existing account advisory lock, owner/version/status guards and
+an account-owned durable receipt. Exact retries return the original result; changing the intent
+under the same request ID is rejected. Client writes to receipts are denied, account export includes
+them, and account deletion cascades them. Hosted migration deployment and installed Android
+acceptance are separate from local implementation and checks.
+
+Local verification for this iteration passed **1,635 tests** (1,047 domain, 138 data, 21 sharing,
+133 web and 296 native; four existing local-database integration skips), typecheck, lint, web build,
+Android/web/static Metro export, PWA, bundle, architecture, docs and static database contracts.
+Lint retains 16 existing warnings, with none in changed files. The initial parallel `pnpm verify`
+run encountered native test timeouts during an unrelated Gradle build; the final complete native
+suite passed with `--maxWorkers=1 --testTimeout=15000`. The final frozen-source Metro export passed
+with `--clear --max-workers 2` after an earlier crawl missed a newly created component.
+
+The local review gallery is `.artifacts/mobile-iteration-20260927/index.html`, with validation
+metadata in `evidence.json`. It includes 48 Today state scenarios plus eight corrected final visual
+scenarios, 72 workout captures, 21 recap scenarios/37 captures, and 16 Settings/End plan scenarios.
+Additional 320px browser text-stress checks cover larger labels and long numeric inputs. These
+render native components through react-native-web with fixture data; they do not establish actual
+Android font scaling, TalkBack, keyboard, Back, notification delivery or standalone acceptance.
+The new `supabase/tests/program_end.sql` contains 64 pgTAP assertions, but local PostgreSQL/Docker
+was unavailable, so runtime execution and hosted migration remain pending. The connected phone's
+dev client also lacks a running local Supabase/Metro transport; no account or device state was changed.
+
+
 On 22 September 2026, the supplied `new-website/` exports were inventoried against source
 `29c3a40` on `feature/mobile-native-ui`. They contain 81 embedded artboards across eight files.
 The requested `mobile-audit.html` is not present; [design-system.html](new-website/design-system.html)
@@ -201,7 +262,7 @@ Existing correctness issues retain ownership.
 
 The navigation shell is **Today / Plan / Insights / You**. Plan provides programme browsing,
 existing programme/settings deep links remain valid, and You opens the existing settings screen.
-The Plan and library passes are described below; setup, Insights and You designs remain separate work. Figtree is bundled
+The Plan, library and setup passes are described below; Insights and You designs remain separate work. Figtree is bundled
 locally, using existing theme tokens and shared primitives for Today’s typography and surfaces.
 
 Today prioritizes Resume, progression review, then the planned start. It includes a compact
@@ -227,14 +288,15 @@ options preserve active-session Resume and the existing ad-hoc start operation.
 The SHE-50 native Plan pass follows all twelve boards in `current-plan.html`. Plan now has
 cycle-aware week selection, completed-workout recap links, upcoming session previews, working-weight
 explanations, All weeks, and scoped Plan settings. Simple and Advanced share values and actions;
-Advanced includes the compact weekly target table. Saved targets and counts come from existing
+Advanced retains overall completion and per-week progress. Both modes can open the
+“Top sets, week by week” sheet, with the current week highlighted. Saved targets and counts come from existing
 history reads; future targets use current references without assuming future increases. Missing
 historical details stay unavailable. Plan and Today share the serialized planned-start operation,
 including pending-review, active-workout, retry and account-change protections.
 
 Equipment remains selection → authoritative review → explicit apply. Plan settings displays rounding
-read-only and links to existing app preferences and programme replacement. Standalone End plan,
-editable rounding, direct Plan movement swaps, manual working-weight holds and archived-plan Run
+read-only and links to existing app preferences and programme replacement. Manual End plan was added
+in the 27 September iteration below; editable rounding, direct Plan movement swaps, manual working-weight holds and archived-plan Run
 again remain deferred. No-plan offers the existing finder, catalogue and Today/ad-hoc entry.
 
 The return guide uses two stages of review plus Fine-tune, with temporary account/programme-scoped
@@ -258,30 +320,71 @@ filter sheet. Counts and cycle durations come from actual catalogue definitions,
 in the active family. Search retains name/description/tag matching. Custom plans and favourite workouts
 remain accessible; favourite repeat checks current workout state before starting.
 
-`/template/[templateId]` presents read-only Simple/Advanced details and an unsaved programme-prescription
-session preview. The selected schedule is explicit; personal starting weights remain SHE-36 work.
-`/template/[templateId]/setup` retains the existing setup form and its replacement, equipment, retry
-and dirty-leave contracts. `/templates/find` provides the existing three-question recommendation flow
-as a full screen, retaining answers when visiting a detail and returning. Browsing preserves the originating
-tab, and cold-link Back returns to Plan. These routes reuse existing reads with optional duration,
-structured-set and equipment metadata; no migration or new endpoint is required. Archived-plan browsing,
+`/template/[templateId]` presents read-only Simple/Advanced details and a personal session preview.
+Suggested weights are explicitly unsaved and carry their source; unavailable starting numbers remain
+unavailable. The exact selected schedule and suggestion snapshot carry into setup. The native Finder
+keeps the three existing goals and uses explicit Continue/Skip actions. Availability is an exact maximum
+of 2, 3, 4 or 5 days. Recommendations never exceed it; the current catalogue has no two-day match,
+so that answer offers Change days or Browse plans. Answers survive detail navigation and Back.
+Browsing preserves the originating tab, and cold-link Back returns to Plan. Archived-plan browsing,
 Run again, comparisons, method-aware search and native custom authoring remain deferred.
 
-SHE-51 verification includes 1,583 passing tests (four existing skips), repository typecheck/lint,
+The SHE-36 native setup follows schedule → starting numbers → equipment → review → success.
+Suggestions use eligible recorded strength from fully paginated history, converted into the selected
+units before calculation, then saved estimates or manual input. Unknown-unit records are excluded
+with a coverage explanation. Source-labelled numbers remain editable; manual overrides survive
+percentage changes and background refreshes, and Use suggestion explicitly resets an override.
+Programme units, rounding and applicable training-max/working-load percentages do not update the
+profile. Equipment choices, permitted substitutions and accessories retain authoritative review.
+The reviewed first workout comes from the same compiler as the live workout, including the chosen
+movements, phase accessories, effort targets and unknown loads.
+
+Setup drafts are account-scoped, in-memory state. Back, backgrounding, workout Resume and progression
+Review retain entered values; explicit abandonment, successful creation, account changes and process
+death clear them. Unfinished workouts and pending progression must be resolved before replacement.
+Returning from either detour requires fresh review and never automatically starts a plan. A different
+schedule requires confirmation before discarding schedule-specific edits. Success can return to Today
+without a workout, or start the first workout through the existing serialized operation after a fresh
+check that the newly created plan is still active.
+
+The new native start path requires the ordered `202609270002_reviewed_program_start.sql`,
+`202609270003_reviewed_program_start_validation.sql` and
+`202609270004_reviewed_program_start_account_binding.sql` migrations: review freezes the
+normalized start intent and expected active-plan identity/version; `start_program_v4` atomically checks
+workout, progression, template and policy guards under the account lock. Immutable owner-readable
+receipts return the exact created plan after an identical retry, including a lost response. Changed
+intent with the same request ID is rejected. Apply the schema before deploying the new native JS;
+an unavailable RPC never falls back to destructive replacement. The start call is bound to the
+reviewing account, so a changed authenticated session cannot create a plan for another account.
+Existing web UI and legacy start RPCs
+retain their prior contracts. Hosted migration and standalone/device acceptance remain separate.
+
+The September 27 Plan/setup batch passed **1,736 tests** (1,068 domain, 173 data, 21 sharing,
+133 web and 341 native; four existing integration skips), typecheck, lint, production web build,
+Android/web/static Metro export, PWA/bundle, architecture, docs and static database contracts.
+The parallel native run hit four 5-second timeouts; the complete isolated suite passed with
+`--maxWorkers=1 --testTimeout=15000`. Lint retains 15 existing warnings, with none in touched files.
+All three new migrations are applied locally. The database suite passed 384 pgTAP assertions,
+including 73 reviewed-start and 64 manual-End assertions. Evidence is under
+`.artifacts/native-plan-iteration-20260927/`. The user deferred phone testing until returning;
+the new setup/Plan screens and failed-row/navigation-bar fixes still need targeted device checks.
+
+The earlier September 22 SHE-51 verification included 1,583 passing tests (four existing skips), repository typecheck/lint,
 production build, architecture/documentation/database-contract checks, PWA/bundle checks and Metro
 web/Android exports. The local Expo Go 57.0.9 pass on an SM-S938B running Android 16 covered
 library/filter/search states, filter cancellation, the three-question finder, detail/preview/setup
 handoff, preserved answers on Back, Simple/Advanced, both themes, keyboard handling and 1.3× system
 text. Larger text reflows week tiles; scrolling content stays above Android's system buttons.
 Screenshots are local artifacts under `.artifacts/she51/android`. This pass uses local demo data
-and does not replace standalone-build, small-phone or transaction/failure acceptance.
+and does not certify the changed September 27 setup flow or replace standalone-build, small-phone
+or transaction/failure acceptance.
 
 The separately authorized SHE-48 pass now implements Workout and Finish, as described below.
 The earlier broader prototype remains historical evidence, not acceptance of the current work.
-Settings redesign and Simple/Advanced preference presentation remain separate ticket scope. The current recap implementation was reviewed against the rendered Simple,
+The full Settings redesign remains separate ticket scope; the 27 September iteration adds a Simple/Advanced preference to the existing Save/Discard form. The current recap implementation was reviewed against the rendered Simple,
 Advanced, Nothing logged and Saved boards before reusing any recap-specific prototype work.
 SHE-17 remains linked to SHE-49 for native wording acceptance without requiring web implementation.
-No public API, migration, durable drafts, offline queue or persisted mode value is added here.
+That earlier recap pass added no public API, migration, durable drafts, offline queue or persisted mode value.
 
 The earlier Today-only checkout passed 1,437 tests (153 native; four existing skips), typecheck,
 lint (17 existing warnings), architecture/documentation checks and Metro Android/web export.
@@ -427,7 +530,7 @@ down into `packages/domain`, so the enablers come first.
    account/session-scoped AsyncStorage plus an in-memory success guard; the global opt-out stays in
    the profile. Cross-device per-session deduplication is outside scope.
 6. Port custom-programme creation. Management is create-only, matching web.
-7. Port first-run onboarding. The optional live walkthrough/replay stays deferred.
+7. Validate native first-run onboarding in the standalone acceptance matrix. The optional live walkthrough/replay stays deferred.
 8. Finish Google auth and remaining Android release polish.
 
 Insights physical Android acceptance remains pending: painted SVGs, tap inspection, scrolling,
@@ -481,10 +584,28 @@ the corresponding onboarding experience is implemented there.
 
 ### Onboarding
 
-- Today onboarding is controlled by `profiles.onboarding_completed` and completed-session history.
+- Native entry is welcome → create account/sign in → six-digit email code → two quick choices → Today or a validated internal destination. Create account accepts an optional first name; sign-in never creates an account. New profiles default to kg and Simple (`guided`). Advanced stores `full`.
+- Native requires the two choices whenever `profiles.onboarding_completed` is false, including test accounts with workout history. Existing units/mode are prefilled. Continue saves units, mode and completion together; errors preserve the choices for an explicit retry. Saved starting estimates convert only when units change, using current rounding; existing programme units stay unchanged. Retried completion does not overwrite later Settings changes.
+- The code screen supports paste/autofill, one verification request at a time, a 60-second resend cooldown and manual retry. Android opens an installed email app through `expo-intent-launcher`; failure leaves code entry usable with manual instructions. Profile loading/error is visible after the splash with a retry action.
+- Internal continuation survives auth and first-run through validated routes and supported query parameters. External, recursive auth and unsafe destinations fall back to Today; account-specific setup drafts are not carried across authentication.
+- Units and Simple/Advanced remain editable in Settings with its existing Save/Discard behavior. No-plan Today’s Add starting numbers action opens the measured starting-numbers section without completing or starting a plan.
+- Web Today onboarding remains controlled by `profiles.onboarding_completed` and completed-session history. Its visual redesign is separate.
 - Live-session onboarding is separate and controlled by `profiles.live_onboarding_dismissed`.
 - The live walkthrough is optional. It starts from the live-session onboarding card or via
   `/sessions/:sessionId?tour=live`; it must never block normal logging.
+
+The 27–28 September native entry batch covers SHE-54, the native first-run portion of SHE-37,
+and initial preference persistence from SHE-38. The development APK includes
+`expo-intent-launcher`; changing this dependency requires an updated native binary, while the
+remaining UI runs through Metro. No migration or hosted configuration change is needed.
+The local SM-S938B pass covered fresh-account OTP, invalid-code recovery, optional name persistence,
+Gmail handoff, profile-read recovery, atomic choice-save failure/retry, both detail choices and units,
+dark/light themes, 1.3× text, and the starting-numbers link with Settings Discard. It exposed and
+led to fixes for keyboard visibility at a simulated 320dp width and navigation being remounted
+while the signed-in profile theme loads. Their regression checks pass; the final phone recheck of
+those two fixes remains separate from the completed device cases. Evidence and remaining cases
+are recorded in `.artifacts/native-entry-iteration-20260927/android/README.md`. Hosted OTP, OS
+autofill, TalkBack, a second physical small phone, and standalone release acceptance remain open.
 
 ## Architecture
 
@@ -545,7 +666,8 @@ components and hooks live together in folders named for what they do:
 
 | Feature | Entry screens | Supporting folders |
 | --- | --- | --- |
-| `auth` | `AuthScreen.tsx` | Email and code sign-in are contained in this screen. |
+| `auth` | `AuthScreen.tsx` | Welcome, account identity, code entry, async auth state and platform email launching are composed at this small feature root. |
+| `onboarding` | `FirstRunScreen.tsx` | Entry gating and two-choice profile completion remain separate from live-workout onboarding. |
 | `session` | `TodayScreen.tsx`, `LiveSessionScreen.tsx`, `SessionSummaryScreen.tsx` | `today/` starts and resumes workouts; `live/` coordinates Focus/Overview navigation; `focus/` logs sets; `overview/` lists exercises; `editing/` manages movements, order, titles, and notes; `lifecycle/` finishes/discards; `summary/` presents the recap, decisions, Repeat, and favourites; `movement-picker/`, `plate-calculator/`, and `rest-timer/` own their tools. |
 | `history` | `InsightsScreen.tsx` → `InsightsTabs.tsx` | `overview/`, `strength/`, `muscle-fatigue/`, `movements/`, `records/`, and `sessions/` follow the six tabs; `bodyweight/` owns the measurement trend and profile prompt; `sharing/` owns workout image preview and platform export adapters. |
 | `program` | `ProgramScreen.tsx`, `ProgramWeeksScreen.tsx`, `ProgramEquipmentScreen.tsx` | `overview/` presents cycle-aware Plan and details; `settings/` groups scoped actions; `equipment/` reviews conversions; `return/` owns the staged guide; `progression/` reviews and resolves decisions. |

@@ -56,7 +56,8 @@ export function useWorkoutLogger(user: User, session: WorkoutSession, movement: 
   const sameAttempt = save.variables?.movementSlotId === movement.id && save.variables.setIndex === set?.setIndex
   const alreadyConfirmed = sameAttempt && set?.clientMutationId === save.variables?.clientMutationId && set?.syncState === 'synced'
   const label = failed ? changed ? 'Save changes' : 'Retry save' : set?.completed ? 'Update set' : 'Log set'
-  return { set, input, edit, submit, selectSet, selectMovement, selectMovementSet, saving, failed, label, valid: Boolean(parsed),
+  const draftForSet = (setIndex: number) => drafts.sets[setDraftId(movement, setIndex)]
+  return { set, input, draftForSet, edit, submit, selectSet, selectMovement, selectMovementSet, saving, failed, label, valid: Boolean(parsed),
     disabled: busy || saving, error: sameAttempt && !alreadyConfirmed ? save.error : null, selectedSetIndex: set?.setIndex ?? 1 }
 }
 export type WorkoutLogger = ReturnType<typeof useWorkoutLogger>

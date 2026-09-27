@@ -7,6 +7,7 @@ import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { patchSetInSession } from '@sheetless/domain/session/session-cache'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkoutLogger } from '../src/features/session/editing/useWorkoutLogger'
+import { setInputLabel } from '../src/features/session/focus/workout-display'
 import { RestTimerControlsContext } from '../src/features/session/rest-timer/rest-timer-context'
 import { createRestTimerController } from '../src/features/session/rest-timer/rest-timer-controller'
 const api = vi.hoisted(() => ({ save: vi.fn() }))
@@ -36,6 +37,31 @@ function deferred<T>() { let resolve!: (value: T) => void; let reject!: (reason:
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
 beforeEach(() => vi.resetAllMocks())
 describe('shared workout logger', () => {
+  it('keeps a failed raw row visible after saving another set, then retries its exact value', async () => {
+    const { client, wrapper, hook } = setup()
+    const { result } = renderHook(hook, { wrapper })
+    act(() => result.current.edit({ load: '52.75', reps: '5', rir: null }))
+    await waitFor(() => expect(result.current.input.load).toBe('52.75'))
+    api.save.mockRejectedValueOnce(new Error('Disconnected'))
+    act(() => result.current.submit())
+    await waitFor(() => expect(result.current.failed).toBe(true))
+    const firstAttempt = api.save.mock.calls[0][1]
+    act(() => result.current.selectSet(2))
+    api.save.mockImplementation(async (_ctx, attempt) => patchSetInSession(client.getQueryData<WorkoutSession>(key)!, {
+      ...attempt, movementSlotId: 'bench', syncState: 'synced',
+    }))
+    act(() => result.current.submit())
+    await waitFor(() => expect(api.save).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(result.current.saving).toBe(false))
+    act(() => result.current.selectMovement('bench'))
+    act(() => result.current.selectSet(2))
+    expect(setInputLabel(result.current.draftForSet(1)!, 'kg')).toBe('52.75 kg × 5')
+    act(() => result.current.selectSet(1))
+    act(() => result.current.submit())
+    await waitFor(() => expect(api.save).toHaveBeenCalledTimes(3))
+    expect(api.save.mock.calls[2][1]).toMatchObject({ actualLoad: 52.75, actualReps: 5, actualRir: null,
+      clientMutationId: firstAttempt.clientMutationId })
+  })
   it('retains raw drafts through exercise changes, unrelated server data and a Today round trip', async () => {
     const { client, wrapper, hook } = setup()
     const first = renderHook(hook, { wrapper })

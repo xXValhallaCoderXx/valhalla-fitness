@@ -18,7 +18,7 @@ import { useDiscardWorkout } from '../lifecycle/useDiscardWorkout'
 import { useFinishSession } from '../lifecycle/useFinishSession'
 import { WorkoutLifecycleSheets } from '../lifecycle/WorkoutLifecycleSheets'
 import { EmptyWorkoutOverview } from '../overview/EmptyWorkoutOverview'
-import { useRestTimerControls, useRestTimerState } from '../rest-timer/rest-timer-context'
+import { useRestTimerControls } from '../rest-timer/rest-timer-context'
 import { FocusTopBar } from './FocusTopBar'
 import { WorkoutProgress } from './WorkoutProgress'
 
@@ -27,7 +27,6 @@ export function FocusWorkoutView({ user, session }: { user: User; session: Worko
   const insets = useSafeAreaInsets()
   const client = useQueryClient()
   const rest = useRestTimerControls()
-  const { active: resting } = useRestTimerState()
   const drafts = useWorkoutDrafts(user.id, session.sessionId)
   const ordered = [...session.movements].sort((a, b) => a.orderIndex - b.orderIndex)
   const [overview, setOverview] = useState(!session.movements.length)
@@ -61,16 +60,16 @@ export function FocusWorkoutView({ user, session }: { user: User; session: Worko
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => { back(); return true })
     return () => subscription.remove()
   }, [back]))
-  return <View style={{ flex: 1, backgroundColor: theme.background, paddingBottom: resting ? 0 : insets.bottom }}>
+  return <View style={{ flex: 1, backgroundColor: theme.background, paddingBottom: insets.bottom }}>
     <View style={{ height: insets.top, backgroundColor: theme.backgroundElevated }} />
     <FocusTopBar title={session.title} subtitle={session.isAdHoc ? 'Not part of your plan' : session.weekLabel || session.programTitle}
-      overview={showOverview} busy={busy} finishBlocked={finishBlocked} onBack={back} onMenu={() => setMenuOpen(true)}
+      overview={showOverview} startedAt={session.startedAt} busy={busy} finishBlocked={finishBlocked} onBack={back} onMenu={() => setMenuOpen(true)}
       onFinish={() => { if (!finishBlocked) setFinishOpen(true) }} />
-    {showOverview && movement ? <WorkoutProgress session={session} /> : null}
+    {showOverview && movement ? <WorkoutProgress session={session} activeMovementId={movement.id} /> : null}
     {movement ? <PopulatedFocusWorkoutView user={user} session={session} activeMovementId={movement.id} notes={notes}
       sessionBusy={busy} overview={showOverview} onNotesChange={setNotes} onSelectMovement={setActiveId} onShowFocus={() => setOverview(false)} />
       : <ScrollView contentContainerStyle={{ gap: spacing.md, padding: spacing.md }}><EmptyWorkoutOverview user={user} session={session}
-        disabled={busy} onAdded={setActiveId} /></ScrollView>}
+        disabled={busy} onAdded={setActiveId} onDiscardBlank={() => setDiscardOpen(true)} /></ScrollView>}
     <SheetModal open={menuOpen} title="Workout menu" onClose={() => setMenuOpen(false)}>
       <Button label={showOverview ? 'Focus' : 'Overview'} variant="default" fullWidth disabled={!movement}
         onPress={() => { setOverview(!showOverview); setMenuOpen(false) }} />

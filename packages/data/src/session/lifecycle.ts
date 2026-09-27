@@ -23,14 +23,21 @@ export async function startSession(
   ctx: UserContext,
   data: z.infer<typeof startSessionInputSchema>,
 ): Promise<WorkoutSession> {
-  const today = await getToday(ctx, data.timeZone)
+  const input = startSessionInputSchema.parse(data)
+  const today = await getToday(ctx, input.timeZone)
+  if (input.expectedProgramId && today.activeProgram?.id !== input.expectedProgramId) {
+    throw new Error('The active plan changed. Return to Today before starting a workout.')
+  }
   if (!today.activeProgram || !today.plannedSession) throw new Error('No planned session')
-  if (today.activeSession) return today.activeSession
+  if (today.activeSession) {
+    await assertExpectedSessionProgram(ctx, today.activeSession.sessionId, input.expectedProgramId)
+    return today.activeSession
+  }
   if (today.pendingDecisions.length > 0) {
     throw new Error('Resolve your pending progression changes before starting the next session.')
   }
   const { data: sessionId, error } = await ctx.supabase.rpc('start_session_v3', {
-    p_client_mutation_id: data.clientMutationId,
+    p_client_mutation_id: input.clientMutationId,
     p_program_instance_id: today.activeProgram.id,
     p_planned_session_id: today.plannedSession.id,
     p_scheduled_date: today.plannedSession.scheduledDate,
@@ -39,7 +46,20 @@ export async function startSession(
     p_source_session_id: null,
   })
   if (error) throw new Error(error.message)
+  // The RPC serializes starts and may resume a workout that appeared after our read.
+  // A setup-success CTA must never navigate to an unrelated workout in that race.
+  await assertExpectedSessionProgram(ctx, sessionId, input.expectedProgramId)
   return getSession(ctx, sessionId)
+}
+
+async function assertExpectedSessionProgram(ctx: UserContext, sessionId: string, expectedProgramId?: string) {
+  if (!expectedProgramId) return
+  const { data, error } = await ctx.supabase.from('workout_sessions').select('program_instance_id')
+    .eq('user_id', ctx.user.id).eq('id', sessionId).single()
+  if (error) throw new Error(error.message)
+  if (data?.program_instance_id !== expectedProgramId) {
+    throw new Error('Another workout is now active. Return to Today to resume it.')
+  }
 }
 
 export async function startAdHocSession(

@@ -1,4 +1,4 @@
-import { resolveRestSeconds } from '@sheetless/domain/session/rest-timer'
+import { remaining, resolveRestSeconds } from '@sheetless/domain/session/rest-timer'
 import { setDraftId } from '@sheetless/domain/session/set-draft'
 import type { MovementSlot } from '@sheetless/domain/session/types/session'
 import { IDLE_REST, type RestTimerControls, type RestTimerState } from './rest-timer-context'
@@ -8,6 +8,7 @@ type Ports = {
   schedule: (endsAt: number, label: string | null, isCurrent: () => boolean) => Promise<string | null>
   cancel: (id: string | null) => Promise<void>
   onChange: (state: RestTimerState) => void
+  cue?: () => void
 }
 
 /** Screen lifetime only. Generations invalidate schedules still awaiting permission. */
@@ -42,7 +43,7 @@ export function createRestTimerController(ports: Ports) {
       const endsAt = Date.now() + seconds * 1000
       const label = slot.performedMovementName ?? slot.movementName
       schedule(endsAt, label)
-      publish({ ...state, endsAt, active: true, label, source: source ?? null })
+      publish({ ...state, endsAt, active: true, label, source: source ?? null, durationSeconds: seconds, secondsLeft: seconds })
     },
     trackSave(slot, before, mutationId, completed, setIndex) {
       if (!active) return false
@@ -78,7 +79,7 @@ export function createRestTimerController(ports: Ports) {
       if (!active || !state.active || state.endsAt == null) return
       const endsAt = state.endsAt + seconds * 1000
       schedule(endsAt, state.label)
-      publish({ ...state, endsAt })
+      publish({ ...state, endsAt, durationSeconds: Math.max(0, (state.durationSeconds ?? 0) + seconds), secondsLeft: remaining(endsAt, Date.now()) })
     },
     dismiss() { cancel(); publish({ ...IDLE_REST, receipt: state.receipt }) },
     exit() { pending.clear(); cancel(); publish(IDLE_REST); active = false },
@@ -87,5 +88,11 @@ export function createRestTimerController(ports: Ports) {
   return { controls, configure: (next: Preferences) => { preferences = next },
     mount: () => { active = true }, dispose: controls.exit,
     foreground: () => { if (state.endsAt != null && state.endsAt <= Date.now()) controls.dismiss() },
+    tick: () => {
+      if (!active || !state.active || state.endsAt == null) return
+      const secondsLeft = remaining(state.endsAt, Date.now())
+      if (secondsLeft === 0) { controls.dismiss(); ports.cue?.() }
+      else if (secondsLeft !== state.secondsLeft) publish({ ...state, secondsLeft })
+    },
   }
 }

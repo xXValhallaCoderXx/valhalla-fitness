@@ -1,13 +1,15 @@
 import { useRef, useState } from 'react'
-import { ScrollView, View } from 'react-native'
+import { ScrollView } from 'react-native'
 import type { User } from '@supabase/supabase-js'
 import type { WorkoutSession } from '@sheetless/domain/session/types/session'
 import { exerciseNeighbors } from '@sheetless/domain/session/live-focus-utils'
 import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
-import { Button, Caption, Panel, SectionLabel, Text } from '@/components'
+import { Button, Panel, SectionLabel, Text } from '@/components'
 import { spacing } from '@/lib/tokens'
+import { useMe } from '@/lib/account'
 import { FocusExerciseHeader } from './FocusExerciseHeader'
 import { FocusSetCard } from './FocusSetCard'
+import { FocusRestCard } from './FocusRestCard'
 import { useAddExerciseSet } from './useAddExerciseSet'
 import { LoggedSetReceipt } from './LoggedSetReceipt'
 import { ReturnSessionNotice } from '../live/ReturnSessionNotice'
@@ -18,6 +20,10 @@ import { WorkoutManagementSheets } from '../editing/WorkoutManagementSheets'
 import { useWorkoutManagement } from '../editing/useWorkoutManagement'
 import { useAccessoryOrderMutation } from '../editing/useAccessoryOrderMutation'
 import { WorkoutOverviewRow } from '../overview/WorkoutOverviewRow'
+import { WorkoutSetTable } from '../overview/WorkoutSetTable'
+import { RestTimerPill } from '../rest-timer/RestTimerPill'
+import { useRestTimerState } from '../rest-timer/rest-timer-context'
+import { focusRestTarget } from '../rest-timer/focus-rest'
 
 export function PopulatedFocusWorkoutView({ user, session, activeMovementId, notes, sessionBusy,
   overview, onNotesChange, onSelectMovement, onShowFocus }: {
@@ -28,6 +34,9 @@ export function PopulatedFocusWorkoutView({ user, session, activeMovementId, not
   const scroll = useRef<ScrollView>(null)
   const selectMovement = (id: string | null) => { onSelectMovement(id); scroll.current?.scrollTo({ y: 0, animated: true }) }
   const logger = useWorkoutLogger(user, session, movement, selectMovement, sessionBusy)
+  const advanced = useMe().data?.experienceMode === 'full'
+  const rest = useRestTimerState()
+  const restTarget = !overview ? focusRestTarget(session, rest, movement.id, logger.selectedSetIndex) : null
   const [adjustOpen, setAdjustOpen] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(false)
   const addSet = useAddExerciseSet(user, session, movement)
@@ -37,34 +46,38 @@ export function PopulatedFocusWorkoutView({ user, session, activeMovementId, not
   const management = useWorkoutManagement({ user, session, movement, selectedSet: logger.set, initialPlateLoad: Number.isFinite(typedLoad) ? typedLoad : null, notes,
     disabled: sessionBusy, onNotesChange, onSelectMovement: logger.selectMovement })
   const { hasPrev, hasNext, prevId, nextId } = exerciseNeighbors(session, movement.id)
+  const otherMovements = order.displayMovements.filter(item => item.id !== movement.id)
+  const receipt = <LoggedSetReceipt user={user} session={session} disabled={sessionBusy}
+    onSelect={logger.selectMovementSet} />
 
   return <>
     <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, gap: spacing.sm, padding: spacing.lg, paddingBottom: spacing.xl }} keyboardShouldPersistTaps="handled">
       <ReturnSessionNotice session={session} />
       {!overview ? <FocusExerciseHeader movement={movement} ordinal={order.displayMovements.findIndex(item => item.id === movement.id) + 1} total={session.movements.length} hasPrev={hasPrev} hasNext={hasNext}
         onPrev={() => prevId && logger.selectMovement(prevId)} onNext={() => nextId && logger.selectMovement(nextId)} /> : null}
-      <FocusSetCard session={session} movement={movement} logger={logger} overview={overview}
+      {overview ? <WorkoutSetTable session={session} movement={movement} logger={logger} advanced={advanced}
+        ordinal={order.displayMovements.findIndex(item => item.id === movement.id) + 1}
         onFocus={onShowFocus} onAdjust={() => setAdjustOpen(true)} onTools={() => setToolsOpen(true)} />
+        : restTarget ? <FocusRestCard session={session} movement={movement} setIndex={logger.selectedSetIndex}
+          input={logger.input} complete={restTarget.kind === 'sessionComplete'} receipt={receipt} />
+          : <FocusSetCard session={session} movement={movement} logger={logger}
+            onAdjust={() => setAdjustOpen(true)} onTools={() => setToolsOpen(true)} />}
       {logger.error && !logger.failed ? <Text tone="danger" size="sm">{getApiErrorMessage(logger.error, 'Unable to save this set.')}</Text> : null}
-      <LoggedSetReceipt user={user} session={session} disabled={sessionBusy} onSelect={(movementId, index) => {
-        // The selection hook accepts a scope so Undo can select a different exercise's set.
-        logger.selectMovementSet(movementId, index)
-      }} />
+      {!restTarget ? receipt : null}
       {overview ? <>
         <Panel style={{ paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: 4, borderRadius: 20,
           boxShadow: 'none', elevation: 0 }}>
-          <SectionLabel>The rest of this session</SectionLabel>
-          {order.displayMovements.map((item, index) => <WorkoutOverviewRow key={item.id}
-            movement={item} ordinal={index + 1} active={item.id === movement.id} last={index === order.displayMovements.length - 1}
+          <SectionLabel>{otherMovements.length ? `Other exercises · ${otherMovements.length}` : 'All exercises shown above'}</SectionLabel>
+          {otherMovements.map((item, index) => <WorkoutOverviewRow key={item.id}
+            movement={item} session={session} advanced={advanced} ordinal={order.displayMovements.indexOf(item) + 1} active={false} last={index === otherMovements.length - 1}
             onOpen={() => logger.selectMovement(item.id)} />)}
         </Panel>
         <Button label={session.isAdHoc ? 'Add exercise' : 'Add accessory'} variant="default" fullWidth
           style={{ borderStyle: 'dashed', backgroundColor: 'transparent' }} disabled={sessionBusy} onPress={management.workoutTools.onAddMovement} />
-      </> : <View style={{ marginTop: 'auto', paddingTop: spacing.lg }}>
-        <Caption style={{ textAlign: 'center' }}>Focus hides the rest of the session. Your sets log exactly the same.</Caption>
-      </View>}
+      </> : null}
       {order.errorMessage ? <Text tone="danger">{order.errorMessage}</Text> : null}
     </ScrollView>
+    {!restTarget ? <RestTimerPill /> : null}
     <AdjustSetSheet open={adjustOpen} onClose={() => setAdjustOpen(false)} session={session} movement={movement} logger={logger} />
     <ExerciseToolsSheet open={toolsOpen} onClose={() => setToolsOpen(false)} name={movement.performedMovementName ?? movement.movementName}
       tools={management.movementTools} canAddSet={movement.role === 'accessory' || Boolean(session.isAdHoc)}

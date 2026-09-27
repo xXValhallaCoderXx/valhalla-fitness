@@ -266,125 +266,137 @@ function validateStartFreeWeightChoices({
   return normalizeFreeWeightChoices(Array.from(submitted.values()))
 }
 
-export async function startProgram(
+async function readStartProfile(ctx: UserContext) {
+  const { data, error } = await ctx.supabase.from('profiles').select('*').eq('id', ctx.user.id).single()
+  if (error) throw new Error(error.message)
+  if (!data) throw new Error('PROFILE_NOT_FOUND')
+  return data
+}
+
+/** Authoritative preparation is shared; read-only review never creates a profile. */
+export async function prepareProgramStart(
   ctx: UserContext,
   data: z.infer<typeof startProgramInputSchema>,
+  readOnly = false,
 ) {
-  {
-    const input = startProgramInputSchema.parse(data)
-    const profile = await ensureProfile(ctx)
-    const { supabase } = ctx
-    const { data: templateRow, error: templateError } = await supabase
-      .from('program_templates')
-      .select('*')
-      .eq('id', input.templateId)
-      .eq('is_active', true)
-      .single()
-    if (templateError) throw new Error(templateError.message)
+  const input = startProgramInputSchema.parse(data)
+  const profile = readOnly
+    ? await readStartProfile(ctx)
+    : await ensureProfile(ctx)
+  const { supabase } = ctx
+  const { data: templateRow, error: templateError } = await supabase
+    .from('program_templates')
+    .select('*')
+    .eq('id', input.templateId)
+    .eq('is_active', true)
+    .single()
+  if (templateError) throw new Error(templateError.message)
 
-    const template = mapTemplateRow(templateRow)
-    const templateVersion = await getLatestTemplateVersion(
-      supabase,
-      input.templateId,
-    )
-    const [catalog, rules, freeWeightPolicy] = await Promise.all([
-      getMovementCatalogForSwap(supabase),
-      getReplacementRulesForSwap(supabase),
-      getLatestFreeWeightPolicyVersion(supabase),
-    ])
-    const setupOptions = buildProgramSetupOptions({
-      template,
-      definition: templateVersion.definition,
-      catalog,
-      rules,
-      freeWeightPolicy,
-    })
-    const movementOverrides = normalizeStartMovementOverrides(
-      input.movementOverrides,
-      setupOptions,
-    )
-    const accessoryAdditions = normalizeStartAccessoryAdditions(
-      input.accessoryAdditions,
-      setupOptions,
-    )
-    const equipmentMode = input.equipmentMode ?? 'standard'
-    let freeWeightChoices: FreeWeightChoiceDraft[] = []
-    if (equipmentMode === 'free_weight') {
-      if (
-        input.freeWeightPolicyVersionId !== freeWeightPolicy.id ||
-        input.freeWeightPolicyChecksum !== freeWeightPolicy.checksum
-      ) {
-        throw new Error('FREE_WEIGHT_POLICY_STALE')
-      }
-      freeWeightChoices = validateStartFreeWeightChoices({
-        choices: input.freeWeightChoices ?? [],
-        policy: freeWeightPolicy,
-        setupOptions,
-        movementOverrides,
-        accessoryAdditions: input.accessoryAdditions ?? [],
-        catalog,
-      })
-    } else if (
-      input.freeWeightPolicyVersionId ||
-      input.freeWeightPolicyChecksum ||
-      input.freeWeightChoices?.length
+  const template = mapTemplateRow(templateRow)
+  const templateVersion = await getLatestTemplateVersion(
+    supabase,
+    input.templateId,
+  )
+  const [catalog, rules, freeWeightPolicy] = await Promise.all([
+    getMovementCatalogForSwap(supabase),
+    getReplacementRulesForSwap(supabase),
+    getLatestFreeWeightPolicyVersion(supabase),
+  ])
+  const setupOptions = buildProgramSetupOptions({
+    template,
+    definition: templateVersion.definition,
+    catalog,
+    rules,
+    freeWeightPolicy,
+  })
+  const movementOverrides = normalizeStartMovementOverrides(
+    input.movementOverrides,
+    setupOptions,
+  )
+  const accessoryAdditions = normalizeStartAccessoryAdditions(
+    input.accessoryAdditions,
+    setupOptions,
+  )
+  const equipmentMode = input.equipmentMode ?? 'standard'
+  let freeWeightChoices: FreeWeightChoiceDraft[] = []
+  if (equipmentMode === 'free_weight') {
+    if (
+      input.freeWeightPolicyVersionId !== freeWeightPolicy.id ||
+      input.freeWeightPolicyChecksum !== freeWeightPolicy.checksum
     ) {
-      throw new Error('VALIDATION_FAILED')
+      throw new Error('FREE_WEIGHT_POLICY_STALE')
     }
-    const units = (input.units ?? profile.units) as Unit
-    const rounding = input.rounding ?? Number(profile.rounding)
-    const profileStateDefaults = normalizeProgramStateDefaults(
-      profile.program_state_defaults,
-      units,
-    )
-    const stateValues = input.stateValues
-      ? input.stateValues
-      : defaultStateValues(
-          units,
-          templateVersion.definition.requiredState.filter(
-            (state) =>
-              state.type !== 'training_max' &&
-              state.type !== 'working_load',
-          ),
-          profileStateDefaults,
-        )
-    const persistedStateValues = validProgramStateValues(
-      templateVersion.definition,
-      stateValues,
-    )
-
-    const { error } = await supabase.rpc('start_program_v3', {
-      p_request_id: input.requestId,
-      p_template_id: input.templateId,
-      p_template_version_id: templateVersion.id,
-      p_definition_checksum: templateVersion.definitionChecksum,
-      p_title: input.title || template.name,
-      p_start_date: calendarDateInTimeZone(
-        new Date(),
-        input.timeZone ?? profile.timezone,
-      ),
-      p_units: units,
-      p_rounding: rounding,
-      p_current_block_id:
-        templateVersion.definition.weeks[0]?.phaseKey ?? null,
-      p_state_values: persistedStateValues as unknown as Json,
-      p_movement_overrides: movementOverrides as unknown as Json,
-      p_accessory_additions: accessoryAdditions as unknown as Json,
-      p_replace_active: input.replaceActiveProgram ?? false,
-      p_equipment_mode: equipmentMode,
-      p_free_weight_policy_version_id:
-        equipmentMode === 'free_weight' ? freeWeightPolicy.id : null,
-      p_free_weight_policy_checksum:
-        equipmentMode === 'free_weight' ? freeWeightPolicy.checksum : null,
-      p_free_weight_choices:
-        freeWeightChoices as unknown as Json,
+    freeWeightChoices = validateStartFreeWeightChoices({
+      choices: input.freeWeightChoices ?? [],
+      policy: freeWeightPolicy,
+      setupOptions,
+      movementOverrides,
+      accessoryAdditions: input.accessoryAdditions ?? [],
+      catalog,
     })
-    if (error) {
-      if (error.message.includes('ACTIVE_PROGRAM_EXISTS')) {
-        throw new Error('Active program in progress')
-      }
-      throw new Error(error.message)
-    }
-    return getActiveProgram(ctx)
+  } else if (
+    input.freeWeightPolicyVersionId ||
+    input.freeWeightPolicyChecksum ||
+    input.freeWeightChoices?.length
+  ) {
+    throw new Error('VALIDATION_FAILED')
   }
+  const units = (input.units ?? profile.units) as Unit
+  const rounding = input.rounding ?? Number(profile.rounding)
+  const profileStateDefaults = normalizeProgramStateDefaults(
+    profile.program_state_defaults,
+    units,
+  )
+  const stateValues = input.stateValues
+    ? input.stateValues
+    : defaultStateValues(
+        units,
+        templateVersion.definition.requiredState.filter(
+          (state) =>
+            state.type !== 'training_max' &&
+            state.type !== 'working_load',
+        ),
+        profileStateDefaults,
+      )
+  const persistedStateValues = validProgramStateValues(
+    templateVersion.definition,
+    stateValues,
+  )
+
+  return { template, templateVersion, setupOptions, args: {
+    p_template_id: input.templateId,
+    p_template_version_id: templateVersion.id,
+    p_definition_checksum: templateVersion.definitionChecksum,
+    p_title: input.title || template.name,
+    p_start_date: calendarDateInTimeZone(
+      new Date(),
+      input.timeZone ?? profile.timezone,
+    ),
+    p_units: units,
+    p_rounding: rounding,
+    p_current_block_id:
+      templateVersion.definition.weeks[0]?.phaseKey ?? null,
+    p_state_values: persistedStateValues as unknown as Json,
+    p_movement_overrides: movementOverrides as unknown as Json,
+    p_accessory_additions: accessoryAdditions as unknown as Json,
+    p_replace_active: input.replaceActiveProgram ?? false,
+    p_equipment_mode: equipmentMode,
+    p_free_weight_policy_version_id:
+      equipmentMode === 'free_weight' ? freeWeightPolicy.id : null,
+    p_free_weight_policy_checksum:
+      equipmentMode === 'free_weight' ? freeWeightPolicy.checksum : null,
+    p_free_weight_choices:
+      freeWeightChoices as unknown as Json,
+  } }
+}
+
+export async function startProgram(ctx: UserContext, data: z.infer<typeof startProgramInputSchema>) {
+  const input = startProgramInputSchema.parse(data)
+  const { args } = await prepareProgramStart(ctx, input)
+  const { error } = await ctx.supabase.rpc('start_program_v3', { ...args, p_request_id: input.requestId })
+  if (error) {
+    if (error.message.includes('ACTIVE_PROGRAM_EXISTS')) throw new Error('Active program in progress')
+    throw new Error(error.message)
+  }
+  return getActiveProgram(ctx)
 }

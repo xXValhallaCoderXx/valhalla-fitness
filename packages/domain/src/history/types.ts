@@ -12,4 +12,16 @@ export type TodayHistorySupport = {
   bodyLoad: BodyLoadSummary
   weeklyVolume: HistoryWeeklyVolume[]
   consistency: ConsistencySummary
+  /** Account-calendar facts, independent of the programme's repeating session cursor. */
+  calendarWeek?: TodayCalendarWeek
+}
+
+export type TodayCalendarWeek = {
+  today: string
+  weekStart: string
+  days: Array<{ date: string; completedSessions: number }>
+  completedSessions: number
+  volume: number
+  previousWeekVolume: number
+  volumeChangePercent: number | null
 }

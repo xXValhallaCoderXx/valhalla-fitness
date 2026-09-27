@@ -56,6 +56,8 @@ export type ProgramSetupPreviewMovement = {
   roleLabel: string
   defaultMovementId: string
   defaultMovementName: string
+  /** Authoritative percentage-load anchor; absent on older cached setup responses. */
+  anchorMovementId?: string
   defaultFreeWeightCompatible?: boolean
   targetSummary: string
   progressionRuleId?: string | null

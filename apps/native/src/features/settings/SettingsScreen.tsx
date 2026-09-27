@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
-import { ScrollView, View } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { View } from 'react-native'
 import { useNavigation } from 'expo-router'
 import { usePreventRemove, type NavigationAction } from 'expo-router/react-navigation'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 import { deleteOwnAccount } from '@sheetless/data/account/data-rights'
@@ -11,21 +10,19 @@ import { deleteAccountInputSchema } from '@sheetless/domain/account/data-rights'
 import type { UserProfile } from '@sheetless/domain/account/types'
 import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
-import { Badge, Button, Panel, Screen, Text } from '@/components'
+import { Button, Panel, Screen, Text } from '@/components'
 import { buildUserContext, useMe } from '@/lib/account'
 import { useSession } from '@/lib/session-provider'
 import { getSupabase } from '@/lib/supabase'
 import { useSheetlessTheme } from '@/lib/theme-provider'
 import { spacing } from '@/lib/tokens'
-import { BetaFeedback } from '@/features/feedback/BetaFeedback'
-import { TrainingSettings } from './TrainingSettings'
-import { AccountSection } from './account/AccountSection'
-import { DataSyncSection } from './account/DataSyncSection'
+import { SettingsContent } from './SettingsContent'
 import { SettingsDialogs, type DestructiveIntent } from './SettingsDialogs'
 import { SettingsSaveFooter } from './SettingsSaveFooter'
 import { useSettingsDraft, type SettingsDraftValues } from './useSettingsDraft'
+import type { SettingsEntrySection } from './settings-section'
 
-export function SettingsScreen() {
+export function SettingsScreen({ section }: { section?: SettingsEntrySection }) {
   const me = useMe()
   const { user } = useSession()
 
@@ -51,12 +48,11 @@ export function SettingsScreen() {
       </Screen>
     )
   }
-  return <LoadedSettingsScreen key={user.id} profile={me.data} user={user} />
+  return <LoadedSettingsScreen key={user.id} profile={me.data} user={user} section={section} />
 }
 
-function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: User }) {
+function LoadedSettingsScreen({ profile, user, section }: { profile: UserProfile; user: User; section?: SettingsEntrySection }) {
   const navigation = useNavigation()
-  const insets = useSafeAreaInsets()
   const queryClient = useQueryClient()
   const draft = useSettingsDraft(profile)
   const { effectiveScheme, previewPreference, setPreviewPreference } = useSheetlessTheme()
@@ -107,7 +103,7 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
     setPreviewPreference(null)
     save.reset()
   }
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     setSigningOut(true)
     setSignOutError(null)
     try {
@@ -120,7 +116,7 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
     } finally {
       setSigningOut(false)
     }
-  }
+  }, [queryClient])
   const deletion = useMutation({
     mutationFn: (confirmation: string) =>
       deleteOwnAccount(buildUserContext(user), deleteAccountInputSchema.parse({ confirmation })),
@@ -145,7 +141,7 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
     setReadyIntent(null)
     if (intent === 'signOut') void signOut()
     else setDeleteOpen(true)
-  }, [readyIntent, bypassRemoval])
+  }, [readyIntent, bypassRemoval, signOut])
 
   const confirmDiscardForIntent = () => {
     if (!pendingIntent) return
@@ -171,47 +167,21 @@ function LoadedSettingsScreen({ profile, user }: { profile: UserProfile; user: U
     <>
       <Screen scroll={false} padTop={false} style={{ flex: 1, padding: 0 }}>
         <View style={{ flex: 1 }}>
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{
-              gap: spacing.lg,
-              padding: spacing.md,
-              paddingBottom: spacing.md + insets.bottom,
+          <SettingsContent
+            section={section}
+            training={{ user, draft, effectiveScheme, previewPreference, controlsDisabled, changeTheme }}
+            account={{
+              displayName: profile.displayName,
+              email: profile.email,
+              signingOut,
+              signOutError,
+              destructiveDisabled,
+              onSignOut: () => runIntent('signOut'),
+              onDelete: () => runIntent('delete'),
             }}
-          >
-            <Panel surface="inset" style={{ gap: spacing.xs, padding: spacing.sm }}>
-              <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.sm }}>
-                <Text size="sm" weight={800} style={{ flex: 1 }}>Profile & training defaults</Text>
-                <Badge tone="action">Online only</Badge>
-              </View>
-              <Text size="xs" tone="dimmed">
-                Tune appearance, training defaults, equipment, body profile, data, and account controls.
-              </Text>
-              {save.isSuccess && !draft.dirty ? (
-                <Text size="sm" tone="success">Settings saved.</Text>
-              ) : null}
-            </Panel>
-
-            <TrainingSettings user={user} draft={draft} effectiveScheme={effectiveScheme}
-              previewPreference={previewPreference} controlsDisabled={controlsDisabled} changeTheme={changeTheme} />
-
-            <DataSyncSection
-              user={user}
-              disabled={draft.dirty || controlsDisabled}
-              onPendingChange={setExportPending}
-            />
-
-            <BetaFeedback user={user} />
-            <AccountSection
-              displayName={profile.displayName}
-              email={profile.email}
-              signingOut={signingOut}
-              signOutError={signOutError}
-              destructiveDisabled={destructiveDisabled}
-              onSignOut={() => runIntent('signOut')}
-              onDelete={() => runIntent('delete')}
-            />
-          </ScrollView>
+            settingsSaved={save.isSuccess && !draft.dirty}
+            onExportPendingChange={setExportPending}
+          />
 
           <SettingsSaveFooter
             visible={draft.dirty}

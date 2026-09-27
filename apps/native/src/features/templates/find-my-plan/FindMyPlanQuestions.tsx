@@ -1,13 +1,12 @@
 import { Pressable, View } from 'react-native'
 import { Check } from 'lucide-react-native'
-import { FIND_MY_PLAN_QUESTIONS } from '@sheetless/domain/program/recommend-plan'
 import {
   RECAP_KEYS,
-  answerLabel,
   type WizardAnswers,
 } from '@sheetless/domain/program/find-my-plan'
 import { Caption, Heading, Panel, SectionLabel, Text } from '@/components'
 import { radii, spacing, useTokens } from '@/lib/tokens'
+import { nativeAnswerLabel, NATIVE_FIND_MY_PLAN_QUESTIONS } from './native-find-my-plan'
 
 export function FindMyPlanQuestions({
   step,
@@ -19,15 +18,15 @@ export function FindMyPlanQuestions({
   onChoose: (value: string | number) => void
 }) {
   const { theme } = useTokens()
-  const question = FIND_MY_PLAN_QUESTIONS[step]
-  const progress = Math.round(((step + 1) / FIND_MY_PLAN_QUESTIONS.length) * 100)
+  const question = NATIVE_FIND_MY_PLAN_QUESTIONS[step]
+  const progress = Math.round(((step + 1) / NATIVE_FIND_MY_PLAN_QUESTIONS.length) * 100)
   const answeredKeys = RECAP_KEYS.filter((key) => answers[key] != null)
 
   return (
     <View style={{ gap: spacing.lg }}>
       <View style={{ gap: spacing.xs }}>
         <View style={{ alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }}>
-          <SectionLabel>Question {step + 1} of {FIND_MY_PLAN_QUESTIONS.length}</SectionLabel>
+          <SectionLabel>Question {step + 1} of {NATIVE_FIND_MY_PLAN_QUESTIONS.length}</SectionLabel>
           <Caption tone="action">{progress}%</Caption>
         </View>
         <View
@@ -96,7 +95,7 @@ export function FindMyPlanQuestions({
           <SectionLabel>So far</SectionLabel>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
             {answeredKeys.map((key) => (
-              <Caption key={key} tone="action">{answerLabel(key, answers[key])}</Caption>
+              <Caption key={key} tone="action">{nativeAnswerLabel(key, answers[key])}</Caption>
             ))}
           </View>
         </Panel>

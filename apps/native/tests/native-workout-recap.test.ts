@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { WorkoutSession } from '@sheetless/domain/session/types'
 import type { ProgressionDecision } from '@sheetless/domain/program/types'
 import { buildNativeWorkoutRecap, recordedSetLabel } from '../src/features/session/summary/native-workout-recap'
-import { recapDecisionView } from '../src/features/session/summary/recap-progression'
+import { recapDecisionView, simpleRecapChange } from '../src/features/session/summary/recap-progression'
 
 const session: WorkoutSession = {
   id: 'planned', sessionId: 'saved', stateVersion: 1, status: 'completed', title: 'Workout',
@@ -60,5 +60,18 @@ describe('saved native recap facts', () => {
     const view = recapDecisionView({ ...decision, previousValue: null, recommendedValue: null,
       recommendation: 'Keep the rep range', ruleId: 'accessory_double_progression' }, 'lb')
     expect(view).toMatchObject({ label: 'Recommendation proposed', change: 'Keep the rep range', isNumeric: false })
+  })
+  it('keeps Simple proposals distinct from applied changes without promising a date or changing scope', () => {
+    expect(simpleRecapChange({ ...decision, recommendedValue: 102.5 }, 'kg')).toBe('You can increase your training max by 2.5 kg.')
+    expect(simpleRecapChange({ ...decision, status: 'accepted', stateType: 'working_load', recommendedValue: 95 }, 'lb'))
+      .toBe('Your working weight decreased by 5 lb.')
+    expect(simpleRecapChange({ ...decision, status: 'dismissed' }, 'kg')).toBe('You kept the previous value.')
+  })
+  it.each(['kg', 'lb'] as const)('keeps every saved recap result in %s', units => {
+    const saved = { ...session, units, movements: [{ ...session.movements[0], sets: [{ ...session.movements[0].sets[0], actualLoad: 80, actualReps: 5 }] }] }
+    const recap = buildNativeWorkoutRecap(saved)
+    expect(recap.stats.volumeLabel).toBe(`400 ${units}`)
+    expect(recap.exercises[0].sets[0].resultLabel).toBe(`80 ${units} × 5`)
+    expect(recap.sessionBest?.resultLabel).toBe(`80 ${units} × 5`)
   })
 })

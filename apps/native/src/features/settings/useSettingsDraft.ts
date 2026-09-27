@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Sex, ThemePreference, UserProfile } from '@sheetless/domain/account/types'
+import { useCallback, useMemo, useState } from 'react'
+import type { ExperienceMode, Sex, ThemePreference, UserProfile } from '@sheetless/domain/account/types'
 import { toggleEquipmentProfileItem } from '@sheetless/domain/account/equipment-profile'
 import {
   convertProgramStateDefaults,
@@ -10,6 +10,7 @@ import {
 import type { ProgramStateDefaults, Unit } from '@sheetless/domain/shared/types'
 
 export type SettingsDraftValues = {
+  experienceMode: ExperienceMode
   units: Unit
   rounding: number
   equipmentProfile: string[]
@@ -31,6 +32,7 @@ const MAX_PROFILE_LOAD = 100_000
 
 function valuesFromProfile(profile: UserProfile): SettingsDraftValues {
   return {
+    experienceMode: profile.experienceMode,
     units: profile.units,
     rounding: profile.rounding,
     equipmentProfile: [...profile.equipmentProfile],
@@ -61,6 +63,7 @@ function stateFromProfile(profile: UserProfile): DraftState {
 
 function sameValues(left: SettingsDraftValues, right: SettingsDraftValues) {
   return (
+    left.experienceMode === right.experienceMode &&
     left.units === right.units &&
     left.rounding === right.rounding &&
     left.themePreference === right.themePreference &&
@@ -86,16 +89,15 @@ function estimateError(rawValue: string) {
 
 export function useSettingsDraft(profile: UserProfile) {
   const [state, setState] = useState(() => stateFromProfile(profile))
+  const [observedProfile, setObservedProfile] = useState(profile)
   const dirty = !sameValues(state.values, state.baseline) ||
     !sameInputs(state.estimateInputs, state.baselineEstimateInputs)
 
-  useEffect(() => {
-    setState((current) => {
-      const currentIsDirty = !sameValues(current.values, current.baseline) ||
-        !sameInputs(current.estimateInputs, current.baselineEstimateInputs)
-      return currentIsDirty ? current : stateFromProfile(profile)
-    })
-  }, [profile])
+  // Reconcile fresh server data before rendering controls, preserving an unsaved draft.
+  if (observedProfile !== profile) {
+    setObservedProfile(profile)
+    if (!dirty) setState(stateFromProfile(profile))
+  }
 
   const updateValues = useCallback((update: (current: SettingsDraftValues) => SettingsDraftValues) => {
     setState((current) => ({ ...current, values: update(current.values) }))
@@ -168,6 +170,7 @@ export function useSettingsDraft(profile: UserProfile) {
     dirty,
     hasValidationErrors,
     setUnits,
+    setExperienceMode: (experienceMode: ExperienceMode) => updateValues((current) => ({ ...current, experienceMode })),
     setRounding: (rounding: number) => updateValues((current) => ({ ...current, rounding })),
     setThemePreference: (themePreference: ThemePreference) =>
       updateValues((current) => ({ ...current, themePreference })),

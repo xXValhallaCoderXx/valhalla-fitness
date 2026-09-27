@@ -7,13 +7,14 @@ import { spacing } from '@/lib/tokens'
 export function PlanWorkingWeights({ states, onSelect }: {
   states: ProgramStateOverview[]; onSelect: (state: ProgramStateOverview) => void
 }) {
+  const trainingMaxes = states.length > 0 && states.every(state => state.stateType === 'training_max')
   return <Panel style={{ padding: spacing.md, gap: spacing.sm }}>
-    <SectionLabel>Your working weights</SectionLabel>
+    <SectionLabel>{trainingMaxes ? 'Your training maxes' : 'Your working weights'}</SectionLabel>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
       {states.map(state => {
         const delta = state.value - state.startValue - (state.resetDelta ?? 0)
         return <Pressable key={state.stateKey} accessibilityRole="button"
-          accessibilityLabel={`${state.movementName}, ${state.value} ${state.units}. View working weight details`}
+          accessibilityLabel={`${state.movementName}, ${state.value} ${state.units}. View ${state.stateType === 'training_max' ? 'training max' : 'working weight'} details`}
           onPress={() => onSelect(state)} style={({ pressed }) => ({ minWidth: 130, flexBasis: '44%', flexGrow: 1, minHeight: 64, opacity: pressed ? 0.7 : 1 })}>
           <Caption>{state.movementName}</Caption>
           <Text weight={800}>{formatNumber(state.value)} {state.units} ›</Text>

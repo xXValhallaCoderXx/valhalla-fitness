@@ -5,6 +5,7 @@
  * no longer references the session AND the row provably 404s). Errors surface
  * on the mutation object for the dialog; success feedback is the navigation.
  */
+import { useLayoutEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { router } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
@@ -16,13 +17,21 @@ import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { clearWorkoutDrafts } from '../editing/workout-drafts'
 import { useRestTimerControls } from '../rest-timer/rest-timer-context'
 import { buildUserContext } from '@/lib/account'
+import { consumeSetupReturn } from '@/features/templates/setup-return'
 
 export function useDiscardWorkout(user: User, sessionId: string, onDiscarded?: () => void) {
   const userId = user.id
   const queryClient = useQueryClient()
   const rest = useRestTimerControls()
+  const ownerKey = `${userId}:${sessionId}`
+  const owner = useRef<string | null>(ownerKey)
+  useLayoutEffect(() => {
+    owner.current = ownerKey
+    return () => { owner.current = null }
+  }, [ownerKey])
 
   const finishDiscard = async () => {
+    if (owner.current !== ownerKey) return
     rest.exit()
     clearWorkoutDrafts(queryClient, userId, sessionId)
     await Promise.allSettled([
@@ -33,6 +42,7 @@ export function useDiscardWorkout(user: User, sessionId: string, onDiscarded?: (
       }),
     ])
 
+    if (owner.current !== ownerKey) return
     queryClient.removeQueries({ queryKey: accountQueryKeys.session(userId, sessionId) })
     queryClient.removeQueries({ queryKey: accountQueryKeys.summary(userId, sessionId) })
     queryClient.removeQueries({
@@ -49,25 +59,33 @@ export function useDiscardWorkout(user: User, sessionId: string, onDiscarded?: (
       queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(userId) }),
     ])
 
+    if (owner.current !== ownerKey) return
+    const destination = consumeSetupReturn(queryClient, userId, sessionId) ?? '/(tabs)'
     onDiscarded?.()
-    router.dismissTo('/(tabs)')
+    if (owner.current === ownerKey) router.dismissTo(destination)
   }
 
-  return useMutation({
-    mutationKey: ['discardSession', sessionId],
+  const mutation = useMutation({
+    mutationKey: ['discardSession', userId, sessionId],
     scope: { id: `session:${sessionId}` },
-    mutationFn: () => discardSession(buildUserContext(user), { sessionId }),
-    onSuccess: finishDiscard,
-    onError: async (error) => {
+    mutationFn: (intent: { user: User; sessionId: string; ownerKey: string }) =>
+      discardSession(buildUserContext(intent.user), { sessionId: intent.sessionId }),
+    onSuccess: (_result, intent) => {
+      if (owner.current === intent.ownerKey) return finishDiscard()
+    },
+    onError: async (error, intent) => {
+      if (owner.current !== intent.ownerKey) return
       // If the response was lost after the transaction committed, require both
       // a refreshed Today payload and proof that the target row no longer exists.
       try {
         await queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) })
+        if (owner.current !== ownerKey) return
         const today = await queryClient.fetchQuery({
           queryKey: accountQueryKeys.today(userId),
           queryFn: () => getToday(buildUserContext(user)),
           staleTime: 0,
         })
+        if (owner.current !== ownerKey) return
         const noLongerActive = today.activeSession?.sessionId !== sessionId
         let targetMissing = false
         if (noLongerActive) {
@@ -87,6 +105,10 @@ export function useDiscardWorkout(user: User, sessionId: string, onDiscarded?: (
       void error
     },
   })
+  return { ...mutation,
+    mutate: () => mutation.mutate({ user, sessionId, ownerKey }),
+    mutateAsync: () => mutation.mutateAsync({ user, sessionId, ownerKey }),
+  }
 }
 
 export function isMissingSessionError(error: unknown) {

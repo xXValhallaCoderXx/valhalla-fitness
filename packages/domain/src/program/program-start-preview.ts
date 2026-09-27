@@ -127,6 +127,7 @@ export function buildProgramStartPreview({
           roleLabel: previewRoleLabel(slot.role, roleCounts.get(slot.role) ?? 1, roleIndex),
           defaultMovementId: movementId,
           defaultMovementName: catalog[movementId]?.name ?? movementId,
+          anchorMovementId: slot.anchorMovementId ?? movementId,
           defaultFreeWeightCompatible: isFreeWeightMovement(
             catalog[movementId],
           ),

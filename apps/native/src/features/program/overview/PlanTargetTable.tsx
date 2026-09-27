@@ -23,7 +23,8 @@ export function PlanTargetTable({ plan, units, compact = false }: { plan: Progra
             </View>)}
           </View>
           {plan.weeks.map(week => <View key={week.index} style={{ flexDirection: 'row', alignItems: 'center',
-            borderTopWidth: compact ? 0 : 1, borderColor: theme.border, paddingVertical: compact ? 4 : 8 }}>
+            borderTopWidth: compact ? 0 : 1, borderColor: theme.border, paddingVertical: compact ? 4 : 8,
+            backgroundColor: week.status === 'current' ? theme.tones.action.soft : 'transparent' }}>
             <View style={{ width: labelWidth, paddingRight: 4 }}>
               <Text size={compact ? 'xs' : 'sm'} weight={week.status === 'current' ? 800 : 600}>{compact ? `W${week.number} · ${week.phaseLabel.replace(/ week$/i, '')}` : `Week ${week.number}`}</Text>
               {!compact ? <Text size="xs" tone="dimmed">{week.phaseLabel}{week.status === 'current' ? ' · now' : ''}</Text> : null}
@@ -32,7 +33,7 @@ export function PlanTargetTable({ plan, units, compact = false }: { plan: Progra
               const target = week.targets.find(item => item.movementId === lift.movementId)
               const value = target?.load != null ? formatNumber(target.load) : '—'
               return <View key={lift.movementId} accessible
-                accessibilityLabel={`Week ${week.number}, ${lift.movementName}: ${value === '—' ? 'unavailable' : `${value} ${units}, ${target?.source}`}`}
+                accessibilityLabel={`Week ${week.number}, ${lift.movementName}: ${value === '—' ? 'unavailable' : `${value} ${units}, ${target?.source === 'saved' ? 'saved prescription' : target?.source === 'mixed' ? 'saved prescription and current-reference preview' : 'current-reference preview'}`}`}
                 style={{ width: cellWidth, paddingHorizontal: 3 }}>
                 <Text size="sm" weight={week.status === 'current' ? 800 : 500}
                   tone={target?.source === 'preview' ? 'dimmed' : 'default'}>

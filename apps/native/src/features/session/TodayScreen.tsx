@@ -1,6 +1,5 @@
 import { ReturnGuideCard } from '@/features/program/return/ReturnGuideCard'
 import { useState } from 'react'
-import { View } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { router } from 'expo-router'
 import { getToday } from '@sheetless/data/session/reads'
@@ -9,7 +8,6 @@ import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { queryStaleTimes } from '@sheetless/domain/shared/query-stale-times'
 import {
   Button,
-  EmptyState,
   Panel,
   Text,
 } from '@/components'
@@ -20,7 +18,9 @@ import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { useTimezoneSync } from '@/lib/use-timezone-sync'
 import { useStartPlannedWorkout } from './today/useStartPlannedWorkout'
-import { StartBlankWorkoutButton } from './today/StartBlankWorkoutButton'
+import { TodayNoPlan } from './today/TodayNoPlan'
+import { TodayWeekSummary } from './today/TodayWeekSummary'
+import { todayHistorySupportQueryOptions } from '@/features/history/queries'
 import { TodayActiveSessionCard } from './today/TodayActiveSessionCard'
 import { TodayPlannedSessionCard } from './today/TodayPlannedSessionCard'
 import { LastWorkoutCard } from './today/LastWorkoutCard'
@@ -40,6 +40,11 @@ export function TodayScreen() {
     queryFn: () => getToday(buildUserContext(user!), me.data?.timezone ?? undefined),
     enabled: Boolean(user) && me.isSuccess,
     staleTime: queryStaleTimes.today,
+  })
+
+  const history = useQuery({
+    ...todayHistorySupportQueryOptions(user),
+    enabled: Boolean(user) && me.isSuccess,
   })
 
   const openSession = (sessionId: string) =>
@@ -79,6 +84,15 @@ export function TodayScreen() {
   const pending = data?.pendingDecisions ?? []
   const mode = me.data?.experienceMode ?? 'guided'
   const last = data?.lastCompletedSession ?? data?.completedSession
+  const weekSummary = <TodayWeekSummary data={history.data ?? undefined} mode={mode}
+    plannedDays={program?.templateDefinition?.daysPerWeek} loading={history.isFetching} error={history.isError}
+    onRetry={() => void history.refetch()} />
+  const streakWeeks = history.data?.consistency.currentStreakWeeks
+
+  const recentHistoryError = data?.historyReadError ? <Panel style={{ padding: spacing.md, gap: spacing.xs }}>
+    <Text size="sm" tone="dimmed">Your recent training history could not load. You can still start or resume a workout.</Text>
+    <Button label="Retry recent history" variant="subtle" loading={today.isFetching} onPress={() => void today.refetch()} />
+  </Panel> : null
   const lastWorkout = <LastWorkoutCard key={last?.sessionId} session={last} mode={mode} today={date}
     program={program} lastWorkoutLogged={data?.lastWorkoutLogged} hasActiveSession={Boolean(active)} />
   const openReview = () => {
@@ -91,12 +105,14 @@ export function TodayScreen() {
   if (active) {
     return (
       <Screen>
-        <TodayHeader key={`header:${user!.id}`} date={date} program={program} session={active} mode={mode} ready activeSessionId={active.sessionId}
+        <TodayHeader key={`header:${user!.id}`} date={date} program={program} session={active} mode={mode} ready streakWeeks={streakWeeks} activeSessionId={active.sessionId}
           subtitle={active.kind === 'ad_hoc' || active.isAdHoc ? 'Ad-hoc workout' : undefined} />
         <TodayActiveSessionCard
           session={active}
           onResume={() => openSession(active.sessionId)}
         />
+        {weekSummary}
+        {recentHistoryError}
         {lastWorkout}
         <ProgressionReviewAlert decisions={pending} onReview={openReview} />
         <ProgressionReviewSheet
@@ -115,26 +131,11 @@ export function TodayScreen() {
   if (!program || !planned) {
     return (
       <Screen>
-        <TodayHeader
-          key={`header:${user!.id}`} date={date} ready
-          subtitle={program ? 'Your programme is complete. Choose what comes next.' : 'Choose a plan, or make today your own.'}
-        />
-        <EmptyState
-          title={program ? 'Plan completed' : 'No active program'}
-          action={
-            <View style={{ alignSelf: 'stretch', gap: spacing.sm }}>
-              <Button
-                label="Browse programs"
-                fullWidth
-                onPress={() => router.navigate('/templates')}
-                testID="today-browse-programs"
-              />
-              <StartBlankWorkoutButton />
-            </View>
-          }
-        >
-          Choose a programme from Plan, or start a one-off workout now.
-        </EmptyState>
+        <TodayHeader key={`header:${user!.id}`} date={date} ready streakWeeks={streakWeeks}
+          subtitle={data?.lastEndedProgram ? 'Choose what comes next.' : last || data?.historyReadError ? 'Make today your own.' : me.data?.displayName ? `Welcome to Sheetless, ${me.data.displayName}.` : 'Welcome to Sheetless.'} />
+        <TodayNoPlan ended={data?.lastEndedProgram} hasHistory={Boolean(last) || Boolean(data?.historyReadError)} timeZone={me.data?.timezone} />
+        {last ? weekSummary : null}
+        {recentHistoryError}
         {lastWorkout}
       </Screen>
     )
@@ -142,7 +143,8 @@ export function TodayScreen() {
 
   return (
     <Screen>
-      <TodayHeader key={`header:${user!.id}`} date={date} program={program} session={planned} mode={mode} ready />
+      <TodayHeader key={`header:${user!.id}`} date={date} program={program} session={planned} mode={mode} ready streakWeeks={streakWeeks} />
+      {weekSummary}
 
       <TodayPlannedSessionCard
         session={planned}
@@ -163,6 +165,7 @@ export function TodayScreen() {
         }
         onStart={() => startMutation.mutate()}
       />
+      {recentHistoryError}
       {lastWorkout}
       {!last ? <ReturnGuideCard program={program} today lastWorkoutLogged={data?.lastWorkoutLogged} /> : null}
 

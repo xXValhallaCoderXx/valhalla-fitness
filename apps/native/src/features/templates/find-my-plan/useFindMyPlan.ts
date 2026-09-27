@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react'
 import type { ProgramTemplateSummary } from '@sheetless/domain/program/types'
 import { templateFamilies } from '@sheetless/domain/program/template-families'
 import {
-  FIND_MY_PLAN_QUESTIONS, recommendFamilies, type ExperienceLevel,
+  recommendFamilies, type ExperienceLevel,
   type FindMyPlanAnswers, type PlanGoal,
 } from '@sheetless/domain/program/recommend-plan'
 import type { WizardAnswers } from '@sheetless/domain/program/find-my-plan'
+import { NATIVE_FIND_MY_PLAN_QUESTIONS } from './native-find-my-plan'
 
 /** A route-local draft. Pushing a detail screen preserves it; leaving the finder discards it. */
 export function useFindMyPlan(templates: ProgramTemplateSummary[]) {
@@ -21,7 +22,7 @@ export function useFindMyPlan(templates: ProgramTemplateSummary[]) {
         ? { experience: answers.experience as ExperienceLevel, days: answers.days as number, goal: answers.goal as PlanGoal }
         : null
     return complete ? recommendFamilies(
-      templates.filter(template => template.origin !== 'user_created'), templateFamilies, complete, 3,
+      templates.filter(template => template.origin !== 'user_created' && template.daysPerWeek <= complete.days), templateFamilies, complete, 3,
     ) : []
   }, [answers, phase, templates])
   const selectedIndex = recommendations.findIndex(item => item.template.id === selectedTemplateId)
@@ -31,9 +32,12 @@ export function useFindMyPlan(templates: ProgramTemplateSummary[]) {
     .filter(({ index }) => index !== activeIndex).slice(0, 2)
 
   const choose = (value: string | number) => {
-    const question = FIND_MY_PLAN_QUESTIONS[step]
+    const question = NATIVE_FIND_MY_PLAN_QUESTIONS[step]
     setAnswers(current => ({ ...current, [question.key]: value }))
-    if (step === FIND_MY_PLAN_QUESTIONS.length - 1) {
+  }
+  const advance = () => {
+    if (answers[NATIVE_FIND_MY_PLAN_QUESTIONS[step].key] == null) return
+    if (step === NATIVE_FIND_MY_PLAN_QUESTIONS.length - 1) {
       setPhase('result')
       setSelectedTemplateId(null)
     } else setStep(current => current + 1)
@@ -48,14 +52,15 @@ export function useFindMyPlan(templates: ProgramTemplateSummary[]) {
   const back = () => {
     if (phase === 'result') {
       setPhase('questions')
-      setStep(FIND_MY_PLAN_QUESTIONS.length - 1)
+      setStep(NATIVE_FIND_MY_PLAN_QUESTIONS.length - 1)
       setPreviewOpen(false)
     } else setStep(current => Math.max(0, current - 1))
   }
 
   return {
     step, answers, phase, activeIndex, activeRecommendation, alternatives, previewOpen,
-    canGoBack: phase === 'result' || step > 0, choose, reset, back,
+    canGoBack: phase === 'result' || step > 0, choose, advance, reset, back,
+    canAdvance: answers[NATIVE_FIND_MY_PLAN_QUESTIONS[step].key] != null,
     editAnswer: (nextStep: number) => { setPhase('questions'); setStep(nextStep); setPreviewOpen(false) },
     selectPlan: (index: number) => {
       setSelectedTemplateId(recommendations[index]?.template.id ?? null)

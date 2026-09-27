@@ -18,6 +18,7 @@ vi.mock('@/components', async () => {
 import { TodayPlannedSessionCard } from '../src/features/session/today/TodayPlannedSessionCard'
 import { LastWorkoutCard } from '../src/features/session/today/LastWorkoutCard'
 import { TodayHeader } from '../src/features/session/today/TodayHeader'
+import { TodayNoPlan } from '../src/features/session/today/TodayNoPlan'
 
 const session: PlannedSession = { id: 'planned', title: 'Workout A', programTitle: 'Programme', templateId: 'template',
   weekIndex: 0, weekLabel: 'Week 1', hardness: null, scheduledDate: '2026-09-22', estimatedMinutes: 45, units: 'kg', rounding: 2.5,
@@ -31,6 +32,15 @@ const props = { session, units: 'kg' as const, completedToday: false, pendingDec
   isStarting: false, startError: null, onStart: vi.fn(), onReview: vi.fn() }
 
 describe('native Today contract', () => {
+  it('opens optional starting estimates at their Settings section without blocking blank entry', () => {
+    navigate.mockClear()
+    render(<TodayNoPlan hasHistory={false} />)
+    expect(screen.getByText('Save optional estimates for future plan setup. Recorded lifts take priority.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Start blank workout' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Add starting numbers' }))
+    expect(navigate).toHaveBeenCalledExactlyOnceWith({ pathname: '/settings', params: { section: 'starting-numbers' } })
+  })
+
   it('opens workout options deliberately and preserves the active-session entry guard', () => {
     navigate.mockClear()
     const view = render(<TodayHeader date="2026-09-20" />)
@@ -49,17 +59,16 @@ describe('native Today contract', () => {
 
   it('keeps numbers, arithmetic access and entry actions in both modes; Advanced adds provenance', () => {
     const view = render(<TodayPlannedSessionCard {...props} />)
-    expect(screen.getAllByText('3 sets of 5 · at 80 kg · leave 2 reps')).toHaveLength(5)
-    expect(screen.getByText('1 more movement')).toBeTruthy()
+    expect(screen.getByText('3 sets of 5 · at 80 kg · leave 2 reps')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'See all sets and targets' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'How Bench is worked out' }))
     expect(screen.getByRole('dialog', { name: 'Bench' })).toBeTruthy()
     expect(screen.getAllByText('Calculated: 80 kg')).toHaveLength(3)
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     view.rerender(<TodayPlannedSessionCard {...props} mode="full" />)
-    expect(screen.getAllByText('3 × 5 · RIR 2')).toHaveLength(4)
-    expect(screen.getAllByText('80 kg')).toHaveLength(4)
-    expect(screen.getAllByText('Load set by the programme ›')).toHaveLength(4)
-    fireEvent.click(screen.getByRole('button', { name: '2 more movements' }))
+    expect(screen.getAllByText('3 × 5 · RIR 2')).toHaveLength(6)
+    expect(screen.getAllByText('80')).toHaveLength(6)
+    expect(screen.getAllByText('Load set by the programme ›')).toHaveLength(6)
     expect(screen.getByRole('button', { name: 'How Lunge is worked out' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Start workout' }))
     expect(props.onStart).toHaveBeenCalledTimes(1)
@@ -89,7 +98,7 @@ describe('native Today contract', () => {
     expect(screen.getByText(/Reps left recorded for 0 of 1/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Got it' }))
     expect(screen.queryByRole('dialog')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'View recap' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Recap ›' }))
     expect(navigate).toHaveBeenCalledWith({ pathname: '/session/[sessionId]/summary', params: { sessionId: 'completed-workout' } })
   })
 })

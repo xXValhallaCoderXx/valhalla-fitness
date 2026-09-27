@@ -5,10 +5,12 @@ import type { WorkoutSession } from '@sheetless/domain/session/types/session'
 import { reflectionImprovePrompt, reflectionWinPrompt } from '@sheetless/domain/session/session-reflection'
 import { themeProviderMock } from './support/theme'
 vi.mock('@/lib/theme-provider', () => themeProviderMock())
+vi.mock('lucide-react-native', () => ({ CalendarDays: () => null, Check: () => null, Trash2: () => null }))
 vi.mock('@/components', async () => ({
   ...await import('../src/components/Button'), ...await import('../src/components/Caption'),
   ...await import('../src/components/SectionLabel'), ...await import('../src/components/Text'),
   ...await import('../src/components/TextInput'),
+  ...await import('../src/components/Panel'),
   SheetModal: ({ open, children, footer, title }: PropsWithChildren<{ open: boolean; footer?: ReactNode; title: string }>) => open ? <div aria-label={title}>{children}{footer}</div> : null,
 }))
 import { FinishWorkoutSheet } from '../src/features/session/lifecycle/FinishWorkoutSheet'
@@ -53,7 +55,8 @@ describe('native Finish controls', () => {
     expect(discard).toHaveBeenCalledOnce()
     expect(confirm).not.toHaveBeenCalled()
     rerender(<WorkoutLifecycleSheets {...props} finishOpen={false} discardOpen />)
-    expect(screen.getByText(/same planned workout will remain next/)).toBeTruthy()
+    expect(screen.getByText(/Today will offer the same planned workout again/)).toBeTruthy()
+    expect(screen.getByText('Your completed workouts stay saved')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Discard attempt' }))
     expect(confirm).toHaveBeenCalledOnce()
     expect(finish).not.toHaveBeenCalled()

@@ -61,7 +61,7 @@ export function TemplateDetailContent({ template, family, members, setup, advanc
           gap: spacing.sm, minHeight: 58, opacity: pressed ? 0.7 : 1 })}>
         <View style={{ flex: 1, gap: 3 }}>
           <Text size="sm" weight={800}>Look at a session before you decide</Text>
-          <Caption>Week 1, day 1 · movements and prescribed work</Caption>
+          <Caption>Week 1, day 1 · with your suggested starting weights</Caption>
         </View>
         <ChevronRight size={18} color={theme.tones.action.text} />
       </Pressable> : <Caption>No session preview is available for this plan.</Caption>}

@@ -5,7 +5,7 @@ import { themeProviderMock } from './support/theme'
 
 // Exercise query gates and retry wiring, not native layout, sheets, charts or navigation.
 const api = vi.hoisted(() => ({
-  profile: vi.fn(), today: vi.fn(), templates: vi.fn(), setup: vi.fn(),
+  suggestions: vi.fn(), profile: vi.fn(), today: vi.fn(), templates: vi.fn(), setup: vi.fn(),
   program: vi.fn(), activeProgram: vi.fn(), session: vi.fn(), summary: vi.fn(), openBrowser: vi.fn(), navigate: vi.fn(),
 }))
 vi.mock('@/lib/theme-provider', () => themeProviderMock())
@@ -14,16 +14,18 @@ vi.mock('@/lib/session-provider', () => ({ useSession: () => ({ user: { id: 'acc
 vi.mock('@/lib/supabase', () => ({ getSupabase: () => ({}) }))
 vi.mock('@/lib/use-timezone-sync', () => ({ useTimezoneSync: () => {} }))
 vi.mock('expo-router', () => ({
-  router: { push: api.navigate, replace: api.navigate, navigate: api.navigate },
+  router: { push: api.navigate, replace: api.navigate, navigate: api.navigate, setParams: api.navigate },
   useIsFocused: () => true,
 }))
 vi.mock('expo-keep-awake', () => ({ useKeepAwake: () => {} }))
+vi.mock('expo-router/react-navigation', () => ({ usePreventRemove: () => {} }))
 vi.mock('expo-web-browser', () => ({ openBrowserAsync: api.openBrowser }))
 vi.mock('lucide-react-native', () => ({ Mail: () => null, Plus: () => null, Info: () => null, ListChecks: () => null }))
 vi.mock('@sheetless/data/account/profile', () => ({ getMe: api.profile }))
 vi.mock('@sheetless/data/session/reads', () => ({ getToday: api.today, getSession: api.session }))
 vi.mock('@sheetless/data/session/summary', () => ({ getSessionSummary: api.summary }))
 vi.mock('@sheetless/data/session/lifecycle', () => ({ startSession: vi.fn() }))
+vi.mock('@sheetless/data/program/setup-suggestions', () => ({ getProgramSetupSuggestions: api.suggestions }))
 vi.mock('@sheetless/data/program/templates', () => ({ listTemplates: api.templates, getProgramSetupOptions: api.setup }))
 vi.mock('@sheetless/data/history/history', () => ({ getProgramOverview: api.program }))
 vi.mock('@sheetless/data/program/active-program', () => ({ getActiveProgram: api.activeProgram }))
@@ -103,6 +105,7 @@ beforeEach(() => {
   api.today.mockResolvedValue({ activeProgram: null, activeSession: null, plannedSession: null, pendingDecisions: [] })
   api.templates.mockResolvedValue([])
   api.setup.mockResolvedValue({})
+  api.suggestions.mockResolvedValue({ templateId: 'template-a', units: 'kg', rounding: 2.5, trainingMaxPercent: 90, workingLoadPercent: 75, stateValues: [], sourceRows: [], historyStatus: 'ready', unknownUnitSessions: 0 })
   api.program.mockResolvedValue({ activeProgram: null })
   api.activeProgram.mockResolvedValue(null)
   api.session.mockResolvedValue({ sessionId: 'session-a', status: 'in_progress', title: 'Workout', movements: [], units: 'kg' })
@@ -118,9 +121,9 @@ const mount = (node: React.ReactNode) => render(<QueryClientProvider client={cli
 
 describe('native load recovery wiring', () => {
   it.each([
-    { name: 'Today', renderScreen: () => <TodayScreen />, recovered: 'No active program' },
+    { name: 'Today', renderScreen: () => <TodayScreen />, recovered: 'Pick a plan and we do the maths' },
     { name: 'programme setup', renderScreen: () => <TemplateSetupScreen templateId="template-a" />, recovered: 'Programme setup ready' },
-  ])('retries a cold profile failure on $name before starting the dependent Today request', async ({ renderScreen, recovered }) => {
+  ])('retries a cold profile failure on $name before starting dependent personal reads', async ({ renderScreen, recovered }) => {
     let resolveProfile!: (value: typeof profile) => void
     api.profile.mockRejectedValueOnce(new Error('Profile unavailable'))
       .mockImplementationOnce(() => new Promise((resolve) => { resolveProfile = resolve }))
@@ -131,13 +134,15 @@ describe('native load recovery wiring', () => {
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Retry' })))
     await waitFor(() => expect(api.profile).toHaveBeenCalledTimes(2))
     expect(api.today).not.toHaveBeenCalled()
+    expect(api.suggestions).not.toHaveBeenCalled()
     await act(async () => resolveProfile(profile))
     await screen.findByText(recovered)
-    expect(api.today).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ user: expect.objectContaining({ id: 'account-a' }) }), 'Asia/Singapore')
     if (recovered === 'Programme setup ready') {
+      expect(api.today).not.toHaveBeenCalled()
+      expect(api.suggestions).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ user: expect.objectContaining({ id: 'account-a' }) }), { templateId: 'template-a' })
       expect(api.templates).toHaveBeenCalledTimes(1)
       expect(api.setup).toHaveBeenCalledTimes(1)
-    }
+    } else expect(api.today).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ user: expect.objectContaining({ id: 'account-a' }) }), 'Asia/Singapore')
   })
 
   it.each([
@@ -158,6 +163,7 @@ describe('native load recovery wiring', () => {
   it('opens signed-out legal pages and recovers a browser failure without clearing the email draft', async () => {
     api.openBrowser.mockRejectedValueOnce(new Error('Browser unavailable'))
     mount(<AuthScreen />)
+    fireEvent.click(screen.getByRole('button', { name: 'Get started' }))
     fireEvent.change(screen.getByLabelText('auth-email'), { target: { value: 'member@example.test' } })
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Open Terms in browser' })))
     await screen.findByText('Unable to open that page. Please try again.')

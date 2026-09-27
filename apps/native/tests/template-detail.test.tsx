@@ -4,11 +4,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProgramSetupOptions, ProgramTemplateSummary } from '@sheetless/domain/program/types'
+import type { ProgramSetupSuggestionSnapshot } from '@sheetless/domain/program/setup-suggestions'
 import { themeProviderMock } from './support/theme'
 
 const api = vi.hoisted(() => ({
   user: { id: 'account-a' } as User, mode: 'guided', profileError: false,
-  catalogue: vi.fn(), setup: vi.fn(), profileRetry: vi.fn(), push: vi.fn(), back: vi.fn(), replace: vi.fn(), canGoBack: true,
+  catalogue: vi.fn(), setup: vi.fn(), suggestions: vi.fn(), initialize: vi.fn(), profileRetry: vi.fn(), push: vi.fn(), back: vi.fn(), replace: vi.fn(), canGoBack: true,
 }))
 vi.mock('@/lib/theme-provider', () => themeProviderMock())
 vi.mock('@/lib/session-provider', () => ({ useSession: () => ({ user: api.user }) }))
@@ -20,6 +21,11 @@ vi.mock('@/features/templates/queries', () => ({
   templatesQueryOptions: (user: User) => ({ queryKey: ['templates', user.id], queryFn: () => api.catalogue(user.id), staleTime: Infinity }),
   templateSetupQueryOptions: (user: User, id: string) => ({ queryKey: ['setup', user.id, id], queryFn: () => api.setup(user.id, id), staleTime: Infinity }),
 }))
+vi.mock('@/features/templates/setup-suggestions', () => ({
+  programSetupSuggestionsQueryOptions: (user: User, id: string) => ({ queryKey: ['suggestions', user.id, id],
+    queryFn: () => api.suggestions(user.id, id), staleTime: Infinity }),
+}))
+vi.mock('@/features/templates/setup-draft', () => ({ initializeProgramSetupDraft: api.initialize }))
 vi.mock('@/features/templates/catalogue/TemplatesLayout', () => ({
   TemplatesLayout: ({ children, footer, onBack }: { children: ReactNode; footer: ReactNode; onBack: () => void }) => <div>
     <button onClick={onBack}>Back to plans</button>{children}{footer}
@@ -48,6 +54,11 @@ const setup: ProgramSetupOptions = { templateId: template.id, templateName: temp
         setupPhaseKey: 'base', role: 'main', roleLabel: 'Main', defaultMovementId: 'squat', defaultMovementName: 'Squat',
         targetSummary: '3 × 5', progressionRuleId: 'simple_linear_completion', replacementOptions: [], requiredEquipment: ['barbell', 'rack'],
         sets: Array.from({ length: 3 }, () => ({ targetLoad: { kind: 'state', stateType: 'working_load' }, targetReps: 5, targetRir: 2 })) }] }] }] }
+const snapshot: ProgramSetupSuggestionSnapshot = { templateId: template.id, units: 'kg', rounding: 2.5,
+  trainingMaxPercent: 90, workingLoadPercent: 75, historyStatus: 'ready', unknownUnitSessions: 0,
+  stateValues: [{ key: 'squat_working_load', movementId: 'squat', type: 'working_load', value: 75, unit: 'kg' }],
+  sourceRows: [{ key: 'squat_working_load', source: 'history', reference: 100, bestSet: { load: 80, reps: 5, date: '2026-09-01' } }],
+}
 let client: QueryClient
 beforeEach(() => {
   vi.clearAllMocks()
@@ -57,22 +68,45 @@ beforeEach(() => {
   api.canGoBack = true
   api.catalogue.mockResolvedValue([template])
   api.setup.mockResolvedValue(setup)
+  api.suggestions.mockResolvedValue(snapshot)
+  api.initialize.mockReturnValue('setup-draft-1')
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
 })
 afterEach(() => client.clear())
 function mount() { return render(<QueryClientProvider client={client}><TemplateDetailScreen templateId={template.id} /></QueryClientProvider>) }
 
 describe('read-only native plan details', () => {
-  it('opens a generic session and hands its exact template to setup without starting a workout', async () => {
+  it('previews personal loads and seeds setup with that exact unsaved snapshot', async () => {
     mount()
     fireEvent.click(await screen.findByRole('button', { name: 'Look at a session before you decide' }))
     expect(screen.getByRole('dialog', { name: 'Week 1, day 1' })).toBeTruthy()
-    expect(screen.getByText('3 × 5 · working load · RIR 2')).toBeTruthy()
-    expect(screen.getByText(/choose your starting weights during setup/)).toBeTruthy()
-    expect(screen.queryByText(/\d+ kg/)).toBeNull()
+    expect(await screen.findByText('3 × 5 · 75 kg · RIR 2')).toBeTruthy()
+    expect(screen.getByText(/Nothing is saved here/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Where these weights come from' }))
+    expect(screen.getByText('Logged 80 kg × 5 on 2026-09-01')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Set this plan up' }))
-    expect(api.push).toHaveBeenCalledExactlyOnceWith({ pathname: '/template/[templateId]/setup', params: { templateId: 'custom-detail' } })
+    expect(api.initialize).toHaveBeenCalledWith(client, 'account-a', snapshot)
+    expect(api.push).toHaveBeenCalledExactlyOnceWith({ pathname: '/template/[templateId]/setup', params: { templateId: 'custom-detail', draftId: 'setup-draft-1' } })
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('retains Finder provenance and selected template when entering setup without opening preview', async () => {
+    render(<QueryClientProvider client={client}><TemplateDetailScreen templateId={template.id} source="finder" finderDays="4" /></QueryClientProvider>)
+    fireEvent.click(await screen.findByRole('button', { name: 'Set this up' }))
+    expect(api.push).toHaveBeenCalledWith({ pathname: '/template/[templateId]/setup',
+      params: { templateId: template.id, source: 'finder', finderDays: '4' } })
+    expect(api.initialize).not.toHaveBeenCalled()
+    expect(api.suggestions).not.toHaveBeenCalled()
+  })
+
+  it('retries personal suggestions without blocking the original prescriptions or changing the template', async () => {
+    api.suggestions.mockRejectedValueOnce(new Error('Offline'))
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: 'Look at a session before you decide' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry starting suggestions' }))
+    expect(await screen.findByText('3 × 5 · 75 kg · RIR 2')).toBeTruthy()
+    expect(api.suggestions).toHaveBeenCalledTimes(2)
+    expect(api.setup).toHaveBeenCalledOnce()
   })
 
   it('keeps prescriptions available on demand in Simple and visible in Advanced', async () => {

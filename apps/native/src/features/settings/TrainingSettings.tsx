@@ -1,21 +1,25 @@
 import type { User } from '@supabase/supabase-js'
 import type { ThemePreference } from '@sheetless/domain/account/types'
+import { View, type LayoutChangeEvent } from 'react-native'
 import { BodyStrengthSection } from './profile/BodyStrengthSection'
 import { EquipmentSection } from './preferences/EquipmentSection'
 import { PreferencesSection } from './preferences/PreferencesSection'
 import { StrengthEstimatesSection } from './profile/StrengthEstimatesSection'
 import type { useSettingsDraft } from './useSettingsDraft'
 
-export function TrainingSettings({ user, draft, effectiveScheme, previewPreference, controlsDisabled, changeTheme }: {
+export function TrainingSettings({ user, draft, effectiveScheme, previewPreference, controlsDisabled, changeTheme, onStartingNumbersLayout }: {
   user: User
   draft: ReturnType<typeof useSettingsDraft>
   effectiveScheme: 'light' | 'dark'
   previewPreference: ThemePreference | null
   controlsDisabled: boolean
   changeTheme: (theme: ThemePreference) => void
+  onStartingNumbersLayout?: (event: LayoutChangeEvent) => void
 }) {
   return <>
     <PreferencesSection
+      experienceMode={draft.values.experienceMode}
+      onExperienceModeChange={draft.setExperienceMode}
       themePreference={draft.values.themePreference}
       effectiveScheme={effectiveScheme}
       isThemePreviewing={previewPreference !== null}
@@ -39,16 +43,18 @@ export function TrainingSettings({ user, draft, effectiveScheme, previewPreferen
       onSexChange={draft.setSex}
     />
 
-    <StrengthEstimatesSection
-      programStateDefaults={draft.values.programStateDefaults}
-      estimateInputs={draft.estimateInputs}
-      estimateErrors={draft.estimateErrors}
-      units={draft.values.units}
-      rounding={draft.values.rounding}
-      disabled={controlsDisabled}
-      onInputChange={draft.setEstimateInput}
-      onValueChange={draft.setEstimateValue}
-    />
+    <View onLayout={onStartingNumbersLayout}>
+      <StrengthEstimatesSection
+        programStateDefaults={draft.values.programStateDefaults}
+        estimateInputs={draft.estimateInputs}
+        estimateErrors={draft.estimateErrors}
+        units={draft.values.units}
+        rounding={draft.values.rounding}
+        disabled={controlsDisabled}
+        onInputChange={draft.setEstimateInput}
+        onValueChange={draft.setEstimateValue}
+      />
+    </View>
 
     <EquipmentSection
       equipmentProfile={draft.values.equipmentProfile}

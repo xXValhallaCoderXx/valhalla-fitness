@@ -8,12 +8,13 @@ import { Button, Caption, Panel, SheetModal, Text } from '@/components'
 import { spacing, useTokens } from '@/lib/tokens'
 import { currentEquipmentSwaps } from '../equipment/equipment-presentation'
 
-export function PlanSettingsSheet({ open, onClose, overview, onEquipment, onReturn }: {
+export function PlanSettingsSheet({ open, onClose, overview, onEquipment, onReturn, onEnd }: {
   open: boolean
   onClose: () => void
   overview: ProgramOverview
   onEquipment: () => void
   onReturn: () => void
+  onEnd: () => void
 }) {
   const [now] = useState(() => Date.now())
   const program = overview.activeProgram
@@ -44,6 +45,7 @@ export function PlanSettingsSheet({ open, onClose, overview, onEquipment, onRetu
     <Button label="Change to a different plan" variant="default" fullWidth
       onPress={() => { onClose(); router.navigate('/templates') }} />
     <Caption>Browse programmes and review a replacement before changing your current plan. Your logged workouts stay in history.</Caption>
+    <Button label="End this plan" variant="subtle" tone="danger" onPress={onEnd} />
   </SheetModal>
 }
 

@@ -1,10 +1,12 @@
 import type { z } from 'zod'
 import {
+  completeFirstRunInputSchema,
   updateSettingsInputSchema,
   updateSexInputSchema,
   updateTimezoneInputSchema,
 } from '@sheetless/domain/account/schemas'
 import { normalizeEquipmentProfile } from '@sheetless/domain/account/equipment-profile'
+import { convertProgramStateDefaults } from '@sheetless/domain/account/settings-form'
 import { defaultProgramStateDefaults } from '@sheetless/domain/program/program-state-defaults'
 import { normalizeIanaTimeZone } from '@sheetless/domain/shared/calendar-date'
 import type { ExperienceMode, Sex, ThemePreference, UserProfile } from '@sheetless/domain/account/types'
@@ -20,8 +22,8 @@ export async function ensureProfile(ctx: UserContext) {
   const { data: profile, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
   if (profileError) throw new Error(profileError.message)
   if (profile) return profile
-  // OAuth providers (Google) put a name in user metadata — capture it so the profile has a display
-  // name from the start. Magic-link users have none, so this stays null.
+  // Providers and the optional native signup name seed a new profile through auth metadata.
+  // Returning users retain their existing profile name.
   const metadata = user.user_metadata ?? {}
   const displayName =
     typeof metadata.full_name === 'string'
@@ -56,7 +58,10 @@ function normalizeNullableLoadDefault(value: unknown) {
 }
 
 export async function getMe(ctx: UserContext): Promise<UserProfile> {
-  const profile = await ensureProfile(ctx)
+  return profileFromRow(await ensureProfile(ctx))
+}
+
+function profileFromRow(profile: ProfileRow): UserProfile {
   return {
     id: profile.id as string,
     email: profile.email as string | null,
@@ -89,6 +94,45 @@ async function updateProfile(ctx: UserContext, values: TablesUpdate<'profiles'>)
 
 export function completeOnboarding(ctx: UserContext) {
   return updateProfile(ctx, { onboarding_completed: true })
+}
+
+/** Save the two first-run choices once, using the profile row as the completion receipt. */
+export async function completeFirstRun(
+  ctx: UserContext,
+  data: z.infer<typeof completeFirstRunInputSchema>,
+): Promise<UserProfile> {
+  const parsed = completeFirstRunInputSchema.parse(data)
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const row = await ensureProfile(ctx)
+    const profile = profileFromRow(row)
+    if (profile.onboardingCompleted) return profile
+    const updatedAt = row.updated_at as string
+    const values: TablesUpdate<'profiles'> = {
+      units: parsed.units,
+      experience_mode: parsed.experienceMode,
+      onboarding_completed: true,
+      ...(profile.units !== parsed.units ? {
+        program_state_defaults: convertProgramStateDefaults(
+          profile.programStateDefaults, profile.units, parsed.units, profile.rounding,
+        ),
+      } : {}),
+    }
+    const { data: saved, error } = await ctx.supabase
+      .from('profiles')
+      .update(values)
+      .eq('id', ctx.user.id)
+      .eq('onboarding_completed', false)
+      .eq('updated_at', updatedAt)
+      .select('*')
+      .maybeSingle()
+    if (error) throw new Error(error.message)
+    if (saved) return profileFromRow(saved)
+    // Another write changed the row. Recompute conversion from its current units/defaults;
+    // a competing completion (including a lost response) must never overwrite later settings.
+  }
+  const current = await getMe(ctx)
+  if (current.onboardingCompleted) return current
+  throw new Error('Your profile changed while saving. Please try again.')
 }
 
 export function dismissLiveOnboarding(ctx: UserContext) {
