@@ -14,12 +14,16 @@ export interface SheetModalProps {
   children: React.ReactNode
   footer?: React.ReactNode
   onClose: () => void
+  /** Optional in-sheet navigation for Android Back, after dismissing the keyboard. */
+  onBack?: () => void
   closeDisabled?: boolean
   /** Disable when the child owns its scrolling, such as a virtualized movement list. */
   scroll?: boolean
   maxHeight?: number | `${number}%`
   testID?: string
   showHandle?: boolean
+  /** Reset the scroll position when a sheet changes to another step or detail. */
+  contentKey?: string
 }
 
 /** Accessible, keyboard-aware native bottom sheet shared by workout tools. */
@@ -31,11 +35,13 @@ export function SheetModal({
   children,
   footer,
   onClose,
+  onBack,
   closeDisabled = false,
   scroll = true,
   maxHeight = '92%',
   testID,
   showHandle = false,
+  contentKey,
 }: SheetModalProps) {
   const { theme } = useTokens()
   const insets = useSafeAreaInsets()
@@ -44,6 +50,7 @@ export function SheetModal({
   }
   const requestClose = () => {
     if (Keyboard.isVisible()) Keyboard.dismiss()
+    else if (!closeDisabled && onBack) onBack()
     else close()
   }
   const content = (
@@ -134,6 +141,7 @@ export function SheetModal({
 
             {scroll ? (
               <ScrollView
+                key={contentKey}
                 keyboardShouldPersistTaps="handled"
                 style={{ flexGrow: 0, flexShrink: 1, minHeight: 0 }}
                 contentContainerStyle={{ paddingBottom: footer ? 0 : spacing.lg + insets.bottom }}

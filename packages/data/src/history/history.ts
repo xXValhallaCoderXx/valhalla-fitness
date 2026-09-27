@@ -25,6 +25,7 @@ import {
 } from '@sheetless/domain/history/today-history-support'
 import type { TodayHistorySupport } from '@sheetless/domain/history/types'
 import { buildProgramOverview } from '@sheetless/domain/program/program-overview'
+import { buildProgramSessionStamps } from '@sheetless/domain/program/program-session-stamps'
 import { getMovementName } from '@sheetless/domain/movement/movements'
 import { externalLoadOrNull } from '@sheetless/domain/shared/load'
 import { formatNumber } from '@sheetless/domain/shared/set-notation'
@@ -402,17 +403,7 @@ export async function getProgramOverview(ctx: UserContext): Promise<ProgramOverv
     ? await getAcceptedDecisionsInternal(supabase, user.id, today.activeProgram.id)
     : []
   const sessionStamps = today.activeProgram
-    ? history.sessions
-        .filter((session) => session.programInstanceId === today.activeProgram!.id)
-        .filter((session): session is typeof session & { weekIndex: number; completedAt: string } =>
-          typeof session.weekIndex === 'number' && Boolean(session.completedAt),
-        )
-        .map((session) => ({
-          weekIndex: session.weekIndex,
-          completedAt: session.completedAt,
-          id: session.id,
-          title: session.title,
-        }))
+    ? buildProgramSessionStamps(history.sessions, today.activeProgram.id)
     : []
   return buildProgramOverview({
     today,

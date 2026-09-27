@@ -27,6 +27,17 @@ export type ProgramSessionStamp = {
   /** The workout this stamp came from, so a past week can open its own sessions. */
   id?: string
   title?: string
+  /** Saved workout facts; absent on older overview payloads, never reconstructed from today's plan. */
+  units?: Unit | null
+  movementCount?: number
+  plannedSetCount?: number
+  completedSetCount?: number
+  mainTargets?: Array<{
+    plannedMovementId: string
+    performedMovementId: string
+    /** Highest prescribed load in the saved main exercise, not the load actually lifted. */
+    targetLoad: number | null
+  }>
 }
 
 export type ProgramStateOverview = {

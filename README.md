@@ -201,7 +201,7 @@ Existing correctness issues retain ownership.
 
 The navigation shell is **Today / Plan / Insights / You**. Plan provides programme browsing,
 existing programme/settings deep links remain valid, and You opens the existing settings screen.
-The full Plan, library/setup, Insights and You designs remain separate work. Figtree is bundled
+The Plan and library passes are described below; setup, Insights and You designs remain separate work. Figtree is bundled
 locally, using existing theme tokens and shared primitives for Today’s typography and surfaces.
 
 Today prioritizes Resume, progression review, then the planned start. It includes a compact
@@ -223,6 +223,58 @@ exercises with completed sets. Muscle chips are display-only, as in the referenc
 counts use the same fractional estimates as Insights. Missing effort stays unavailable; comparisons use completed sets with both
 actual and target reps left. The overall rating is a reflection, not a progression input. Workout
 options preserve active-session Resume and the existing ad-hoc start operation.
+
+The SHE-50 native Plan pass follows all twelve boards in `current-plan.html`. Plan now has
+cycle-aware week selection, completed-workout recap links, upcoming session previews, working-weight
+explanations, All weeks, and scoped Plan settings. Simple and Advanced share values and actions;
+Advanced includes the compact weekly target table. Saved targets and counts come from existing
+history reads; future targets use current references without assuming future increases. Missing
+historical details stay unavailable. Plan and Today share the serialized planned-start operation,
+including pending-review, active-workout, retry and account-change protections.
+
+Equipment remains selection → authoritative review → explicit apply. Plan settings displays rounding
+read-only and links to existing app preferences and programme replacement. Standalone End plan,
+editable rounding, direct Plan movement swaps, manual working-weight holds and archived-plan Run
+again remain deferred. No-plan offers the existing finder, catalogue and Today/ad-hoc entry.
+
+The return guide uses two stages of review plus Fine-tune, with temporary account/programme-scoped
+edits retained across Back and failed writes. Opening requires a fresh read; resetting an edited
+preview requires an explicit reload. Initial defaults and apply/update/extend/end operations remain
+unchanged. Return changes still protect active workouts and require explicit pending-progression
+handling. Both Plan and the conditional Today shortcut open the same guide. Android Back dismisses
+the keyboard first and then steps back within the guide.
+
+SHE-50 verification includes domain/data regressions, the native behavior suite, repository
+static/build/architecture checks and Metro web/Android exports. The local Expo Go pass on an
+SM-S938B covered Simple/Advanced presentation, light/dark themes, 1.3× system text, scrolling,
+completed recap entry, pending-review entry, equipment review/cancel and return step/keyboard/Back
+navigation. Screenshots are local artifacts under `.artifacts/she50/android`. Standalone-device
+transaction/failure coverage and the broader SHE-4/SHE-5 acceptance matrix remain separate gates;
+these layout checks do not close them.
+
+The SHE-51 library pass follows the supported `plans.html` boards. `/templates` is now a full-screen
+library reached from Plan and the no-plan Today entry, with compact family cards and a days/level/goal
+filter sheet. Counts and cycle durations come from actual catalogue definitions, including all schedules
+in the active family. Search retains name/description/tag matching. Custom plans and favourite workouts
+remain accessible; favourite repeat checks current workout state before starting.
+
+`/template/[templateId]` presents read-only Simple/Advanced details and an unsaved programme-prescription
+session preview. The selected schedule is explicit; personal starting weights remain SHE-36 work.
+`/template/[templateId]/setup` retains the existing setup form and its replacement, equipment, retry
+and dirty-leave contracts. `/templates/find` provides the existing three-question recommendation flow
+as a full screen, retaining answers when visiting a detail and returning. Browsing preserves the originating
+tab, and cold-link Back returns to Plan. These routes reuse existing reads with optional duration,
+structured-set and equipment metadata; no migration or new endpoint is required. Archived-plan browsing,
+Run again, comparisons, method-aware search and native custom authoring remain deferred.
+
+SHE-51 verification includes 1,583 passing tests (four existing skips), repository typecheck/lint,
+production build, architecture/documentation/database-contract checks, PWA/bundle checks and Metro
+web/Android exports. The local Expo Go 57.0.9 pass on an SM-S938B running Android 16 covered
+library/filter/search states, filter cancellation, the three-question finder, detail/preview/setup
+handoff, preserved answers on Back, Simple/Advanced, both themes, keyboard handling and 1.3× system
+text. Larger text reflows week tiles; scrolling content stays above Android's system buttons.
+Screenshots are local artifacts under `.artifacts/she51/android`. This pass uses local demo data
+and does not replace standalone-build, small-phone or transaction/failure acceptance.
 
 The separately authorized SHE-48 pass now implements Workout and Finish, as described below.
 The earlier broader prototype remains historical evidence, not acceptance of the current work.
@@ -496,8 +548,8 @@ components and hooks live together in folders named for what they do:
 | `auth` | `AuthScreen.tsx` | Email and code sign-in are contained in this screen. |
 | `session` | `TodayScreen.tsx`, `LiveSessionScreen.tsx`, `SessionSummaryScreen.tsx` | `today/` starts and resumes workouts; `live/` coordinates Focus/Overview navigation; `focus/` logs sets; `overview/` lists exercises; `editing/` manages movements, order, titles, and notes; `lifecycle/` finishes/discards; `summary/` presents the recap, decisions, Repeat, and favourites; `movement-picker/`, `plate-calculator/`, and `rest-timer/` own their tools. |
 | `history` | `InsightsScreen.tsx` → `InsightsTabs.tsx` | `overview/`, `strength/`, `muscle-fatigue/`, `movements/`, `records/`, and `sessions/` follow the six tabs; `bodyweight/` owns the measurement trend and profile prompt; `sharing/` owns workout image preview and platform export adapters. |
-| `program` | `ProgramScreen.tsx` | `overview/` presents the active plan; `equipment/` reviews conversions; `progression/` reviews and resolves progression decisions. |
-| `templates` | `TemplatesScreen.tsx`, `TemplateDetailScreen.tsx` | `catalogue/`, `favorites/`, `find-my-plan/`, `setup/`, and `start/` separate browsing, recommendations, customisation, and programme start. |
+| `program` | `ProgramScreen.tsx`, `ProgramWeeksScreen.tsx`, `ProgramEquipmentScreen.tsx` | `overview/` presents cycle-aware Plan and details; `settings/` groups scoped actions; `equipment/` reviews conversions; `return/` owns the staged guide; `progression/` reviews and resolves decisions. |
+| `templates` | `TemplatesScreen.tsx`, `TemplateDetailScreen.tsx`, `TemplateSetupScreen.tsx`, `FindMyPlanScreen.tsx` | `catalogue/`, `details/`, `favorites/`, `find-my-plan/`, `setup/`, and `start/` separate browsing, read-only details, recommendations, customisation, and programme start. |
 | `settings` | `YouScreen.tsx`, `SettingsScreen.tsx` | `profile/` owns bodyweight and strength; `preferences/` owns appearance, units, rest, and equipment; `account/` owns account actions and data export. Draft/save coordination and the shared section wrapper stay at the feature root. |
 | `feedback` | `BetaFeedback.tsx`, `PostWorkoutFeedback.tsx`, `DecisionFeedback.tsx` | Embedded forms share submission and prompt state in this small feature folder. |
 

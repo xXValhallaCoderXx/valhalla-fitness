@@ -21,8 +21,10 @@ export function ReturnReductionSlider({ value, onChange, disabled }: ReturnReduc
   }
   return (
     <View style={{ gap: spacing.xs }}>
-      <Text weight={700}>Starting weight · {value}%</Text>
-      <Caption>{100 - value}% lighter. Your workout weights update together.</Caption>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: spacing.xs }}>
+        <Text weight={700}>Start at {value}% of your weights</Text>
+        <Caption>{100 - value}% lighter</Caption>
+      </View>
       <View
         accessible
         accessibilityRole="adjustable"
@@ -72,8 +74,8 @@ export function ReturnReductionSlider({ value, onChange, disabled }: ReturnReduc
         />
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Caption>50% · lighter</Caption>
-        <Caption>100% · current</Caption>
+        <Caption>50% · much lighter</Caption>
+        <Caption>100% · where you left off</Caption>
       </View>
     </View>
   )

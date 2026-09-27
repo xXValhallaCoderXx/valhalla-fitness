@@ -1,66 +1,34 @@
-import { View } from 'react-native'
-import {
-  complexityRangeLabel,
-  lowestComplexity,
-  scheduleRangeLabel,
-  type CatalogueItem,
-} from '@sheetless/domain/program/template-families'
-import { Badge, Button, Caption, Heading, Panel, Text } from '@/components'
-import { spacing, useTokens } from '@/lib/tokens'
+import { Pressable, View } from 'react-native'
+import { ChevronRight } from 'lucide-react-native'
+import { complexityRangeLabel, scheduleRangeLabel, type CatalogueItem } from '@sheetless/domain/program/template-families'
+import { catalogueDurationLabel, catalogueEntryTemplate, type CatalogueBrowseFilters } from '@sheetless/domain/program/catalogue-browsing'
+import { Caption, Heading, Text } from '@/components'
+import { radii, spacing, useTokens } from '@/lib/tokens'
 
-function complexityTone(complexity: string): 'success' | 'warning' | 'action' {
-  if (complexity === 'Beginner') return 'success'
-  if (complexity === 'Advanced') return 'warning'
-  return 'action'
-}
-
-export function TemplateCard({
-  item,
-  onOpen,
-}: {
+export function TemplateCard({ item, filters, onOpen }: {
   item: CatalogueItem
+  filters: CatalogueBrowseFilters
   onOpen: (templateId: string) => void
 }) {
   const { theme } = useTokens()
-  const isFamily = item.kind === 'family'
-  const template = isFamily
-    ? item.members.find((member) => member.available) ?? item.members[0]
-    : item.template
-  const title = isFamily ? item.family.name : template.name
-  const description = isFamily ? item.family.tagline ?? item.family.description : template.description
-  const complexity = isFamily ? complexityRangeLabel(item.members) : template.complexity
-  const accent = complexityTone(isFamily ? lowestComplexity(item.members) : template.complexity)
-  const schedule = isFamily ? scheduleRangeLabel(item.members) : `${template.daysPerWeek} days/wk`
-
-  return (
-    <Panel style={{ borderTopColor: theme.tones[accent].text, borderTopWidth: 3, gap: spacing.sm, padding: spacing.md }}>
-      <View style={{ alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-        <Badge tone={template.origin === 'user_created' ? 'accent' : 'neutral'}>{template.sourceLabel}</Badge>
-        <Caption>{schedule}</Caption>
-      </View>
-      <View style={{ gap: 4 }}>
-        <Heading order={3}>{title}</Heading>
-        <Text size="sm" tone="dimmed">{description}</Text>
-      </View>
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        <Panel surface="inset" style={{ flex: 1, gap: 2, padding: spacing.xs }}>
-          <Caption>LEVEL</Caption>
-          <Text size="xs" tone={accent} weight={800}>{complexity}</Text>
-        </Panel>
-        <Panel surface="inset" style={{ flex: 1, gap: 2, padding: spacing.xs }}>
-          <Caption>PROGRESSION</Caption>
-          <Text size="xs" weight={800} numberOfLines={1}>
-            {isFamily ? `${item.members.length} variants` : template.progressionLabel}
-          </Text>
-        </Panel>
-      </View>
-      {isFamily ? <Caption tone="action">Choose your schedule · {item.members.length} options</Caption> : null}
-      <Button
-        label={template.available ? 'View programme' : 'Not yet available'}
-        fullWidth
-        disabled={!template.available}
-        onPress={() => onOpen(template.id)}
-      />
-    </Panel>
-  )
+  const family = item.kind === 'family'
+  const template = catalogueEntryTemplate(item, filters)
+  const title = family ? item.family.name : item.template.name
+  const description = family ? item.family.tagline ?? item.family.description : item.template.description
+  const level = family ? complexityRangeLabel(item.members) : item.template.complexity
+  const schedule = family ? scheduleRangeLabel(item.members) : `${item.template.daysPerWeek} days a week`
+  const duration = catalogueDurationLabel(item)
+  return <Pressable accessibilityRole="button" accessibilityLabel={`View ${title}`}
+    accessibilityState={{ disabled: !template }} disabled={!template} onPress={() => template && onOpen(template.id)}
+    style={({ pressed }) => ({ backgroundColor: theme.surface, borderRadius: radii.lg,
+      padding: spacing.md, gap: spacing.sm, flexDirection: 'row', alignItems: 'center', opacity: pressed ? 0.7 : 1 })}>
+    <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+      <Text size="xs" weight={800} tone="action">{level}</Text>
+      <Heading order={3}>{title}</Heading>
+      <Text size="sm" tone="dimmed">{description}</Text>
+      <Caption>{[duration ? `${duration} per cycle` : null, schedule].filter(Boolean).join(' · ')}</Caption>
+      {!template ? <Caption>Currently unavailable</Caption> : null}
+    </View>
+    <ChevronRight size={18} color={theme.textMuted} />
+  </Pressable>
 }

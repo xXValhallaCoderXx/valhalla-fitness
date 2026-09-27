@@ -116,7 +116,7 @@ export function TemplateStartSetup({
           selectedTemplateId={template.id}
           disabled={setupControlsDisabled}
           onSelect={(nextTemplateId) =>
-            router.replace({ pathname: '/template/[templateId]', params: { templateId: nextTemplateId } })
+            router.replace({ pathname: '/template/[templateId]/setup', params: { templateId: nextTemplateId } })
           }
         />
         <TemplateFacts template={template} setup={setup} phases={phases} />

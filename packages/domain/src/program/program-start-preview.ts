@@ -132,6 +132,11 @@ export function buildProgramStartPreview({
           ),
           targetSummary: slot.targetSummary ?? prescription?.targetSummary ?? 'No prescription',
           progressionRuleId: prescription?.progressionRuleId ?? null,
+          sets: prescription?.sets.map((set) => ({
+            ...set,
+            ...(set.targetLoad ? { targetLoad: { ...set.targetLoad } } : {}),
+          })),
+          requiredEquipment: catalog[movementId]?.requiredEquipment.slice(),
           replacementOptions,
         }
       })

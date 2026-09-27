@@ -59,7 +59,10 @@ function AuthGate() {
       <Stack.Screen name="session/[sessionId]/index" options={{ headerShown: false }} />
       <Stack.Screen name="session/[sessionId]/summary" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ title: 'Settings' }} />
-      <Stack.Screen name="template/[templateId]" options={{ title: 'Programme' }} />
+      <Stack.Screen name="templates/index" options={{ headerShown: false }} />
+      <Stack.Screen name="templates/find" options={{ headerShown: false }} />
+      <Stack.Screen name="template/[templateId]/index" options={{ headerShown: false }} />
+      <Stack.Screen name="template/[templateId]/setup" options={{ title: 'Programme setup' }} />
     </Stack>
   )
 }
@@ -89,7 +92,7 @@ function ThemedApp() {
   return (
     <ThemeProvider value={navigationTheme}>
       <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
-      <NavigationBar style={theme.scheme} />
+      <NavigationBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
       <AuthGate />
     </ThemeProvider>
   )

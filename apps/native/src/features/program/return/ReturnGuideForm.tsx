@@ -1,230 +1,65 @@
-import { ReturnSettingsFields } from './ReturnSettingsFields'
-import { useState } from 'react'
-import { View } from 'react-native'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { View, useWindowDimensions } from 'react-native'
 import { router } from 'expo-router'
-import { buildReturnOutlook } from '@sheetless/domain/program/return-outlook'
-import { ReturnOverview } from './ReturnOverview'
-import { ReturnReductionSlider } from './ReturnReductionSlider'
-import { buildReturnPreview } from '@sheetless/domain/program/return-preview'
-import {
-  defaultReturnSettings,
-  isReturnActive,
-  returnSettingsSchema,
-} from '@sheetless/domain/program/return-settings'
-import {
-  changeProgramReturn,
-  getReturnGuide,
-  returnChangeInput,
-} from '@sheetless/data/program/return-guide'
-import type { ReturnSettings } from '@sheetless/domain/program/types'
-import { Button, Caption, SectionLabel, Text } from '@/components'
+import { Button, Caption, SheetModal, Text } from '@/components'
 import { useSession } from '@/lib/session-provider'
-import { buildUserContext } from '@/lib/account'
-import { useStableMutationRequest } from '@/lib/useStableMutationRequest'
 import { spacing } from '@/lib/tokens'
-import { invalidateProgramStateBestEffort } from '../program-cache'
-import { ReturnNumberField } from './ReturnNumberField'
-import { ReturnWorkoutPreview } from './ReturnWorkoutPreview'
+import { ReturnStartStep } from './ReturnStartStep'
+import { ReturnOverview } from './ReturnOverview'
+import { ReturnFineTune } from './ReturnFineTune'
+import { useReturnGuideDraft, type ReturnGuideState } from './useReturnGuideDraft'
+import { useReturnGuideMutation } from './useReturnGuideMutation'
 
-export function ReturnGuideForm({
-  state,
-  onClose,
-  onRefresh,
-  onSaving,
-}: {
-  state: Awaited<ReturnType<typeof getReturnGuide>>
+export function ReturnGuideForm({ state, onClose, onRefresh }: {
+  state: ReturnGuideState
   onClose: () => void
   onRefresh: () => void
-  onSaving: (saving: boolean) => void
 }) {
   const { user } = useSession()
-  const program = state.program
-  const client = useQueryClient()
-  const request = useStableMutationRequest()
-  const editing = isReturnActive(program.returnPeriod)
-  const [reduction, setReduction] = useState(20)
-  const [settings, setSettings] = useState<ReturnSettings>(
-    () =>
-      program.returnPeriod?.settings ??
-      defaultReturnSettings(program.templateDefinition!.daysPerWeek, program.rounding),
-  )
-  const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [values, setValues] = useState<Record<string, number | null>>({})
-  const settingsValid = returnSettingsSchema.safeParse(settings).success
-  const preview = buildReturnPreview(program, {
-    reduction: Math.max(0, Math.min(100, reduction ?? 20)) / 100,
-    settings,
-    values,
-    scheduledDate: new Date().toISOString().slice(0, 10),
-  })
-  const outlook = buildReturnOutlook(program, preview, state.baseline)
-  const mutation = useMutation({
-    mutationFn: (action: 'apply' | 'update' | 'extend' | 'end') => {
-      const intent = {
-        programId: program.id,
-        expectedVersion: program.stateVersion,
-        action,
-        settings,
-        changes: action === 'end' ? [] : preview.changes,
-        pendingDecisionIds: state.pendingDecisionIds,
-      }
-      return changeProgramReturn(
-        buildUserContext(user!),
-        returnChangeInput(
-          state,
-          action === 'end' ? program.returnPeriod!.settings : settings,
-          preview.changes,
-          action,
-          request.requestIdFor(intent),
-        ),
-      )
-    },
-    onMutate: () => onSaving(true),
-    onSettled: () => onSaving(false),
-    onSuccess: async () => {
-      request.clearRequest()
-      await invalidateProgramStateBestEffort(client, user!.id)
-      onClose()
-    },
-  })
-  const blocked =
-    mutation.isPending ||
-    state.hasActiveSession ||
-    !settingsValid ||
-    !preview.canApply ||
-    reduction < 0 ||
-    reduction > 100 ||
-    (editing && state.pendingDecisionIds.length > 0)
-  return (
-    <View style={{ gap: spacing.md }}>
-      <Text>
-        Choose a lighter starting point. Your programme takes care of the workout weights and
-        gradual increases.
-      </Text>
-      {state.hasActiveSession ? (
-        <Text tone="warning">Finish or discard your active workout before changing the guide.</Text>
-      ) : null}
-      {!editing ? (
-        <ReturnReductionSlider
-          value={100 - reduction}
-          disabled={mutation.isPending}
-          onChange={(value) => {
-            setReduction(100 - value)
-            setValues({})
-          }}
-        />
-      ) : (
-        <Caption>
-          Your weights reflect your progress so far. Change individual values in Fine-tune.
-        </Caption>
-      )}
-      <ReturnOverview outlook={outlook} units={program.units} />
-      <Caption>
-        Start with {settings.minimumRir} reps in reserve. These are editable starting suggestions,
-        not estimates of lost strength.
-      </Caption>
-      <Button
-        variant="subtle"
-        label={advancedOpen ? 'Hide fine-tuning' : 'Fine-tune loads, sets and progression'}
-        onPress={() => setAdvancedOpen(!advancedOpen)}
-      />
-      {advancedOpen || !preview.canApply ? (
-        <View style={{ gap: spacing.md }}>
-          {editing ? (
-            <Caption>
-              The original reduction is never applied again. These edits use your current weights.
-            </Caption>
-          ) : null}
-          <SectionLabel>Programme load references · {program.units}</SectionLabel>
-          <Caption>
-            Historical results and account strength estimates stay separate. Enter an explicit value
-            when a positive load rounds to zero.
-          </Caption>
-          {preview.changes.map((change) => (
-            <ReturnNumberField
-              key={`${change.kind}:${change.key}`}
-              label={`${change.label} · ${change.before} ${program.units} →`}
-              value={change.after}
-              onChange={(value) =>
-                setValues((current) => ({ ...current, [`${change.kind}:${change.key}`]: value }))
-              }
-            />
-          ))}
-          {!preview.changes.length ? <Caption>Choose manual loads while logging.</Caption> : null}
-          <ReturnSettingsFields
-            program={program}
-            settings={settings}
-            setSettings={setSettings}
-            preview={preview}
-            editing={editing}
-          />
-          <ReturnWorkoutPreview sessions={preview.upcoming} />
-        </View>
-      ) : null}
-      {state.pendingDecisionIds.length ? (
-        <Text tone="warning">
-          {editing
-            ? 'Resolve outstanding progression recommendations in Today or Plan before editing or ending the guide.'
-            : `${state.pendingDecisionIds.length} pending progression recommendations will be superseded by this reset.`}
-        </Text>
-      ) : null}
-      <Caption>
-        End return guide restores ordinary sets and effort at current weights, including accepted
-        increases. Review stays open after the final stage until you choose.
-      </Caption>
-      {state.pendingDecisions.map((decision) => (
-        <Caption key={decision.id}>
-          {decision.movementName}: {decision.recommendation}
-        </Caption>
-      ))}
-      {mutation.isError ? (
-        <>
-          <Text tone="danger">{mutation.error.message}</Text>
-          <Button label="Refresh current programme" onPress={onRefresh} />
-        </>
-      ) : null}
-      <Button
-        label={
-          editing
-            ? program.returnPeriod?.status === 'review'
-              ? 'Extend adjusted guide'
-              : 'Save guide changes'
-            : 'Start my return'
-        }
-        disabled={blocked}
-        loading={mutation.isPending}
-        onPress={() =>
-          mutation.mutate(
-            editing ? (program.returnPeriod?.status === 'review' ? 'extend' : 'update') : 'apply',
-          )
-        }
-      />
-      {editing ? (
-        <Button
-          label={
-            program.returnPeriod?.status === 'review'
-              ? 'Normal sets at current weights'
-              : 'End return guide'
-          }
-          variant="default"
-          disabled={
-            mutation.isPending || state.hasActiveSession || state.pendingDecisionIds.length > 0
-          }
-          onPress={() => mutation.mutate('end')}
-        />
-      ) : null}
-      <Button label="Cancel" variant="subtle" disabled={mutation.isPending} onPress={onClose} />
-      {editing && !state.pendingDecisionIds.length ? (
-        <Button
-          label="Choose a replacement programme"
-          variant="subtle"
-          onPress={() => {
-            onClose()
-            router.navigate('/(tabs)/templates')
-          }}
-        />
-      ) : null}
+  const { height } = useWindowDimensions()
+  const draft = useReturnGuideDraft(state)
+  const mutation = useReturnGuideMutation(user!, draft, onClose)
+  const pending = mutation.isPending
+  const blocked = pending || draft.state.hasActiveSession || (draft.editing && draft.state.pendingDecisionIds.length > 0)
+  const stagesLabel = draft.raw.stages.length === 2 ? 'Your first two stages' : 'Your return stages'
+  const title = draft.step === 'fineTune' ? 'Fine-tune' : draft.step === 'start' ? 'Ease back in' : draft.editing ? 'Review your return' : stagesLabel
+  const eyebrow = draft.step === 'fineTune' ? 'Your return' : draft.editing ? 'Your current guide' : draft.step === 'start' ? 'Step 1 of 2 · how light to start' : 'Step 2 of 2 · what happens next'
+  const saveLabel = draft.editing ? draft.program.returnPeriod?.status === 'review' ? 'Extend adjusted guide' : 'Save guide changes' : 'Start my return'
+  const save = () => mutation.mutate(draft.editing ? draft.program.returnPeriod?.status === 'review' ? 'extend' : 'update' : 'apply')
+  const back = () => {
+    if (draft.step === 'fineTune') draft.setStep('preview')
+    else if (draft.step === 'preview' && !draft.editing) draft.setStep('start')
+    else onClose()
+  }
+  return <SheetModal open title={title} eyebrow={eyebrow} onClose={onClose} onBack={back} closeDisabled={pending} contentKey={draft.step}
+    showHandle testID="return-guide-sheet" footer={<View style={{ gap: spacing.xs }}>
+      {mutation.isError ? <>
+        <Text size="sm" tone="danger">{mutation.error.message}</Text>
+        <Caption>Your edits are kept. Retry the same change, or reload the programme to reset this preview.</Caption>
+        <Button label="Reload programme and reset preview" fullWidth variant="subtle" disabled={pending} onPress={onRefresh} />
+      </> : null}
+      {draft.step === 'start' ? <Button label={`See ${stagesLabel.toLowerCase()}`} fullWidth onPress={() => draft.setStep('preview')} disabled={pending} /> :
+        draft.step === 'fineTune' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          <Button label={draft.editing ? 'Reset my edits' : 'Back to suggested'} variant="default" disabled={pending} style={{ flex: 1, minWidth: 130 }} onPress={draft.reset} />
+          <Button label="Use these" disabled={pending || !draft.valid} style={{ flex: 1, minWidth: 130 }} onPress={() => draft.setStep('preview')} />
+        </View> : <>
+          <Button label={saveLabel} fullWidth loading={pending} disabled={blocked || !draft.valid} onPress={save} />
+          {draft.editing ? <Button label={draft.program.returnPeriod?.status === 'review' ? 'Normal sets at current weights' : 'End return guide'}
+            fullWidth variant="default" disabled={blocked} onPress={() => mutation.mutate('end')} /> : null}
+        </>}
+      <Button label={draft.step === 'start' ? 'Not now' : draft.editing && draft.step === 'preview' ? 'Cancel' : 'Back'}
+        fullWidth variant="subtle" disabled={pending} onPress={back} />
+    </View>}>
+    <View style={{ gap: spacing.md, minHeight: draft.step === 'fineTune' ? 0 : Math.min(470, height * 0.5) }}>
+      {draft.state.hasActiveSession ? <Text size="sm" tone="warning">Finish or discard your active workout before changing the guide.</Text> : null}
+      {draft.step === 'start' ? <ReturnStartStep draft={draft} disabled={pending} /> : draft.step === 'preview' ?
+        <ReturnOverview draft={draft} disabled={pending} /> : <ReturnFineTune draft={draft} disabled={pending} />}
+      {!draft.valid ? <Text size="sm" tone="danger">Correct the values in Fine-tune to continue. A positive load that rounds to zero needs an explicit starting value.</Text> : null}
+      {draft.state.pendingDecisionIds.length ? <View style={{ gap: spacing.xs }}>
+        <Text size="sm" tone="warning">{draft.editing ? 'Resolve outstanding progression recommendations in Today or Plan before editing or ending the guide.' : `${draft.state.pendingDecisionIds.length} pending progression recommendations will be superseded when you start this return.`}</Text>
+        {draft.state.pendingDecisions.map(decision => <Caption key={decision.id}>{decision.movementName}: {decision.recommendation}</Caption>)}
+      </View> : null}
+      {draft.editing && draft.step === 'preview' && !draft.state.pendingDecisionIds.length ? <Button label="Choose a replacement programme" variant="subtle"
+        disabled={blocked} onPress={() => { onClose(); router.navigate('/templates') }} /> : null}
     </View>
-  )
+  </SheetModal>
 }

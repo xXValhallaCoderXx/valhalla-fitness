@@ -1,12 +1,10 @@
 import { ReturnGuideCard } from '@/features/program/return/ReturnGuideCard'
 import { useState } from 'react'
 import { View } from 'react-native'
-import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { router } from 'expo-router'
-import { startSession } from '@sheetless/data/session/lifecycle'
 import { getToday } from '@sheetless/data/session/reads'
 import { createAccountClock } from '@sheetless/domain/shared/dates'
-import { browserIanaTimeZone } from '@sheetless/domain/shared/calendar-date'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { queryStaleTimes } from '@sheetless/domain/shared/query-stale-times'
 import {
@@ -17,15 +15,11 @@ import {
 } from '@/components'
 import { ProgressionReviewAlert } from '@/features/program/progression/ProgressionReviewAlert'
 import { ProgressionReviewSheet } from '@/features/program/progression/ProgressionReviewSheet'
-import {
-  invalidateProgramOverviewBestEffort,
-  patchProgramHasActiveSession,
-} from '@/features/program/program-cache'
 import { buildUserContext, useMe } from '@/lib/account'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
 import { useTimezoneSync } from '@/lib/use-timezone-sync'
-import { useStableMutationRequest } from '@/lib/useStableMutationRequest'
+import { useStartPlannedWorkout } from './today/useStartPlannedWorkout'
 import { StartBlankWorkoutButton } from './today/StartBlankWorkoutButton'
 import { TodayActiveSessionCard } from './today/TodayActiveSessionCard'
 import { TodayPlannedSessionCard } from './today/TodayPlannedSessionCard'
@@ -36,9 +30,8 @@ import { TodayLayout as Screen } from './today/TodayLayout'
 export function TodayScreen() {
   const { user } = useSession()
   const me = useMe()
-  const queryClient = useQueryClient()
-  const plannedStartRequest = useStableMutationRequest()
-  const activeStartMutations = useIsMutating({ mutationKey: ['startSession', user?.id] })
+  const startMutation = useStartPlannedWorkout(user)
+  const activeStartMutations = startMutation.activeStarts
   const [reviewOpen, setReviewOpen] = useState(false)
   useTimezoneSync()
 
@@ -47,31 +40,6 @@ export function TodayScreen() {
     queryFn: () => getToday(buildUserContext(user!), me.data?.timezone ?? undefined),
     enabled: Boolean(user) && me.isSuccess,
     staleTime: queryStaleTimes.today,
-  })
-
-  const startMutation = useMutation({
-    mutationKey: ['startSession', user?.id, 'planned'],
-    scope: { id: `account:${user?.id ?? 'anonymous'}:start-session` },
-    mutationFn: () => {
-      const timeZone = browserIanaTimeZone() ?? undefined
-      return startSession(buildUserContext(user!), {
-        clientMutationId: plannedStartRequest.requestIdFor({ timeZone: timeZone ?? null }),
-        timeZone,
-      })
-    },
-    onSuccess: (session) => {
-      plannedStartRequest.clearRequest()
-      queryClient.setQueryData(accountQueryKeys.session(user!.id, session.sessionId), session)
-      patchProgramHasActiveSession(queryClient, user!.id, true)
-      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(user!.id) })
-      void invalidateProgramOverviewBestEffort(queryClient, user!.id)
-      router.push({ pathname: '/session/[sessionId]', params: { sessionId: session.sessionId } })
-    },
-    onError: () => {
-      // A stale Today cache can reach the authoritative start guard. Refresh so
-      // any newly-discovered review is rendered instead of leaving a dead end.
-      void today.refetch()
-    },
   })
 
   const openSession = (sessionId: string) =>
@@ -158,7 +126,7 @@ export function TodayScreen() {
               <Button
                 label="Browse programs"
                 fullWidth
-                onPress={() => router.navigate('/(tabs)/templates')}
+                onPress={() => router.navigate('/templates')}
                 testID="today-browse-programs"
               />
               <StartBlankWorkoutButton />

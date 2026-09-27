@@ -1,7 +1,7 @@
 import { View } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
-import { Caption, Panel, SectionLabel } from '@/components'
+import { Button, Caption, Panel, SectionLabel } from '@/components'
 import { favoriteWorkoutsQueryOptions, todayQueryOptions } from '@/features/session/queries'
 import { spacing } from '@/lib/tokens'
 import { FavoriteWorkoutCard } from './FavoriteWorkoutCard'
@@ -9,13 +9,12 @@ import { FavoriteWorkoutCard } from './FavoriteWorkoutCard'
 /** Independent, non-blocking favourites surface for the Programs catalogue. */
 export function FavoriteWorkoutsSection({
   user,
-  activeSessionId,
 }: {
   user: User
-  activeSessionId: string | null
 }) {
   const favorites = useQuery(favoriteWorkoutsQueryOptions(user))
-  const today = useQuery(todayQueryOptions(user))
+  const today = useQuery({ ...todayQueryOptions(user),
+    enabled: favorites.isSuccess && favorites.data.length > 0, staleTime: 0, refetchOnMount: 'always' })
 
   if (favorites.isPending) return null
   if (favorites.isError) {
@@ -24,6 +23,7 @@ export function FavoriteWorkoutsSection({
         <Caption tone="warning">
           Favourites could not load. The programme library is still available.
         </Caption>
+        <Button label="Retry favourites" variant="subtle" loading={favorites.isFetching} onPress={() => void favorites.refetch()} />
       </Panel>
     )
   }
@@ -35,13 +35,16 @@ export function FavoriteWorkoutsSection({
         <SectionLabel>Favourite workouts</SectionLabel>
         <Caption>{favorites.data.length}</Caption>
       </View>
+      {today.isError ? <Panel surface="inset" style={{ gap: spacing.xs, padding: spacing.sm }}>
+        <Caption tone="warning">Your current workout could not be checked. Retry before starting a favourite.</Caption>
+        <Button label="Retry workout check" variant="subtle" loading={today.isFetching} onPress={() => void today.refetch()} />
+      </Panel> : today.isPending || today.isFetching ? <Caption>Checking your current workout…</Caption> : null}
       {favorites.data.map((workout) => (
         <FavoriteWorkoutCard
-          key={workout.sessionId}
+          key={`${user.id}:${workout.sessionId}`}
           user={user}
           workout={workout}
-          activeSessionId={today.data?.activeSession?.sessionId ?? activeSessionId}
-          activeSessionCheckPending={today.isPending}
+          activeSessionCheckPending={today.isPending || today.isFetching || today.isError || !today.data}
         />
       ))}
     </View>

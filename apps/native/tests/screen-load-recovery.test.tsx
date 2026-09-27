@@ -19,7 +19,7 @@ vi.mock('expo-router', () => ({
 }))
 vi.mock('expo-keep-awake', () => ({ useKeepAwake: () => {} }))
 vi.mock('expo-web-browser', () => ({ openBrowserAsync: api.openBrowser }))
-vi.mock('lucide-react-native', () => ({ Mail: () => null, Plus: () => null, Info: () => null }))
+vi.mock('lucide-react-native', () => ({ Mail: () => null, Plus: () => null, Info: () => null, ListChecks: () => null }))
 vi.mock('@sheetless/data/account/profile', () => ({ getMe: api.profile }))
 vi.mock('@sheetless/data/session/reads', () => ({ getToday: api.today, getSession: api.session }))
 vi.mock('@sheetless/data/session/summary', () => ({ getSessionSummary: api.summary }))
@@ -62,7 +62,8 @@ vi.mock('@/features/templates/catalogue/TemplateCatalogueFilters', () => ({ Temp
 vi.mock('@/features/templates/catalogue/TemplateCard', () => ({ TemplateCard: () => null }))
 vi.mock('@/features/templates/catalogue/TemplateFinderPrompt', () => ({ TemplateFinderPrompt: () => null }))
 vi.mock('@/features/templates/favorites/FavoriteWorkoutsSection', () => ({ FavoriteWorkoutsSection: () => null }))
-vi.mock('@/features/templates/find-my-plan/FindMyPlanSheet', () => ({ FindMyPlanSheet: () => null }))
+vi.mock('@/features/templates/catalogue/TemplatesLayout', () => ({ TemplatesLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }))
+vi.mock('@/features/templates/catalogue/TemplateFilterSheet', () => ({ TemplateFilterSheet: () => null }))
 vi.mock('@/features/session/live/FocusWorkoutView', () => ({ FocusWorkoutView: () => <div>Workout ready</div> }))
 vi.mock('@/features/session/rest-timer/RestTimerProvider', () => ({ RestTimerProvider: ({ children }: { children: React.ReactNode }) => children }))
 vi.mock('@sheetless/domain/history/workout-summary', () => ({
@@ -86,7 +87,7 @@ vi.mock('@/features/session/summary/RecapLayout', () => ({
 
 vi.stubGlobal('__DEV__', true)
 const { TodayScreen } = await import('../src/features/session/TodayScreen')
-const { TemplateDetailScreen } = await import('../src/features/templates/TemplateDetailScreen')
+const { TemplateSetupScreen } = await import('../src/features/templates/TemplateSetupScreen')
 const { ProgramScreen } = await import('../src/features/program/ProgramScreen')
 const { TemplatesScreen } = await import('../src/features/templates/TemplatesScreen')
 const { LiveSessionScreen } = await import('../src/features/session/LiveSessionScreen')
@@ -118,7 +119,7 @@ const mount = (node: React.ReactNode) => render(<QueryClientProvider client={cli
 describe('native load recovery wiring', () => {
   it.each([
     { name: 'Today', renderScreen: () => <TodayScreen />, recovered: 'No active program' },
-    { name: 'programme setup', renderScreen: () => <TemplateDetailScreen templateId="template-a" />, recovered: 'Programme setup ready' },
+    { name: 'programme setup', renderScreen: () => <TemplateSetupScreen templateId="template-a" />, recovered: 'Programme setup ready' },
   ])('retries a cold profile failure on $name before starting the dependent Today request', async ({ renderScreen, recovered }) => {
     let resolveProfile!: (value: typeof profile) => void
     api.profile.mockRejectedValueOnce(new Error('Profile unavailable'))
@@ -140,8 +141,8 @@ describe('native load recovery wiring', () => {
   })
 
   it.each([
-    { name: 'Plan', renderScreen: () => <ProgramScreen />, read: api.program, recovered: 'No active program' },
-    { name: 'Programs', renderScreen: () => <TemplatesScreen />, read: api.templates, recovered: 'No matching programs' },
+    { name: 'Plan', renderScreen: () => <ProgramScreen />, read: api.program, recovered: 'You are not running a plan' },
+    { name: 'Plans', renderScreen: () => <TemplatesScreen />, read: api.templates, recovered: 'No plans available' },
     { name: 'Workout', renderScreen: () => <LiveSessionScreen sessionId="session-a" />, read: api.session, recovered: 'Workout ready' },
     { name: 'Recap', renderScreen: () => <SessionSummaryScreen sessionId="session-a" />, read: api.summary, recovered: 'Recap ready' },
   ])('recovers $name in place after a failed read', async ({ renderScreen, read, recovered }) => {

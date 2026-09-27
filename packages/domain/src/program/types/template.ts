@@ -116,6 +116,8 @@ export type ProgramTemplateSummary = {
   origin: ProgramTemplateOrigin
   description: string
   daysPerWeek: number
+  /** Cycle length from the validated current definition; absent when it is unavailable. */
+  durationWeeks?: number
   progressionLabel: string
   complexity: string
   tags: string[]

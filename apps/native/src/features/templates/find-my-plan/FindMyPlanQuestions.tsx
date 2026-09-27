@@ -1,24 +1,22 @@
 import { Pressable, View } from 'react-native'
-import { Check, ChevronLeft } from 'lucide-react-native'
+import { Check } from 'lucide-react-native'
 import { FIND_MY_PLAN_QUESTIONS } from '@sheetless/domain/program/recommend-plan'
 import {
   RECAP_KEYS,
   answerLabel,
   type WizardAnswers,
 } from '@sheetless/domain/program/find-my-plan'
-import { Button, Caption, Heading, Panel, SectionLabel, Text } from '@/components'
+import { Caption, Heading, Panel, SectionLabel, Text } from '@/components'
 import { radii, spacing, useTokens } from '@/lib/tokens'
 
 export function FindMyPlanQuestions({
   step,
   answers,
   onChoose,
-  onBack,
 }: {
   step: number
   answers: WizardAnswers
   onChoose: (value: string | number) => void
-  onBack: () => void
 }) {
   const { theme } = useTokens()
   const question = FIND_MY_PLAN_QUESTIONS[step]
@@ -104,15 +102,7 @@ export function FindMyPlanQuestions({
         </Panel>
       ) : null}
 
-      {step > 0 ? (
-        <Button
-          label="Back"
-          variant="subtle"
-          leftSection={<ChevronLeft color={theme.tones.action.text} size={18} />}
-          style={{ minHeight: 44 }}
-          onPress={onBack}
-        />
-      ) : null}
+
     </View>
   )
 }

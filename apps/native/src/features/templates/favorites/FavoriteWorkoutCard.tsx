@@ -1,72 +1,30 @@
-import { Alert, View } from 'react-native'
+import { View } from 'react-native'
 import { Play, Star } from 'lucide-react-native'
-import { router } from 'expo-router'
-import { useIsMutating, useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
-import type { FavoriteWorkout, TodayPayload } from '@sheetless/domain/session/types/read-models'
+import type { FavoriteWorkout } from '@sheetless/domain/session/types/read-models'
 import { formatCompactDate } from '@sheetless/domain/shared/dates'
-import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { Button, Caption, Panel, Text } from '@/components'
 import { useSessionFavorite } from '@/features/session/summary/useSessionFavorite'
-import { useStartAdHocWorkout } from '@/features/session/today/useStartAdHocWorkout'
 import { spacing, useTokens } from '@/lib/tokens'
+import { useFavoriteWorkoutEntry } from './useFavoriteWorkoutEntry'
 
 export function FavoriteWorkoutCard({
   user,
   workout,
-  activeSessionId,
   activeSessionCheckPending,
 }: {
   user: User
   workout: FavoriteWorkout
-  activeSessionId: string | null
   activeSessionCheckPending: boolean
 }) {
   const { theme } = useTokens()
-  const queryClient = useQueryClient()
-  const activeStarts = useIsMutating({ mutationKey: ['startSession', user.id] })
-  const start = useStartAdHocWorkout(user)
+  const entry = useFavoriteWorkoutEntry(user, workout.sessionId)
   const favorite = useSessionFavorite(user)
-  const error = start.isError
-    ? start.error instanceof Error
-      ? start.error.message
-      : 'Unable to start this workout.'
-    : favorite.isError
+  const error = entry.error ?? (favorite.isError
       ? favorite.error instanceof Error
         ? favorite.error.message
         : 'Unable to remove this favourite.'
-      : null
-
-  const startWorkout = () => {
-    start.reset()
-    const cachedActiveSessionId = queryClient.getQueryData<TodayPayload>(
-      accountQueryKeys.today(user.id),
-    )?.activeSession?.sessionId
-    const currentSessionId = activeSessionId ?? cachedActiveSessionId
-    if (currentSessionId) {
-      Alert.alert(
-        'Workout already in progress',
-        'Open your current workout before starting another one.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Open workout',
-            onPress: () => router.push({
-              pathname: '/session/[sessionId]',
-              params: { sessionId: currentSessionId },
-            }),
-          },
-        ],
-      )
-      return
-    }
-    start.mutate({ sourceSessionId: workout.sessionId }, {
-      onSuccess: (session) => router.push({
-        pathname: '/session/[sessionId]',
-        params: { sessionId: session.sessionId },
-      }),
-    })
-  }
+      : null)
 
   return (
     <Panel style={{ gap: spacing.sm, padding: spacing.md }}>
@@ -84,7 +42,7 @@ export function FavoriteWorkoutCard({
           variant="subtle"
           tone="accent"
           loading={favorite.isPending}
-          disabled={start.isPending}
+          disabled={entry.busy}
           accessibilityLabel={`Remove ${workout.title} from favourites`}
           leftSection={<Star color={theme.tones.accent.text} fill={theme.tones.accent.text} size={15} />}
           onPress={() => {
@@ -99,12 +57,12 @@ export function FavoriteWorkoutCard({
           {workout.scheduledDate ? ` · last ${formatCompactDate(workout.scheduledDate)}` : ''}
         </Caption>
         <Button
-          label="Start"
-          loading={start.isPending}
-          disabled={favorite.isPending || activeStarts > 0 || activeSessionCheckPending}
+          label={entry.error ? 'Retry start' : 'Start'}
+          loading={entry.busy}
+          disabled={favorite.isPending || entry.activeStarts > 0 || activeSessionCheckPending}
           accessibilityLabel={`Start ${workout.title}`}
           leftSection={<Play color={theme.primaryFillText} size={15} />}
-          onPress={startWorkout}
+          onPress={() => void entry.startWorkout()}
           testID={`start-favorite-${workout.sessionId}`}
         />
       </View>

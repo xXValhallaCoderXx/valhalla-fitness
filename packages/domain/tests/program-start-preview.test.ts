@@ -77,4 +77,38 @@ describe('program start preview', () => {
     expect(latPulldown?.requiredEquipment).toEqual(['cable', 'machine'])
     expect(replacement?.requiredEquipment).toEqual(['cable', 'machine'])
   })
+
+  it('exposes exact unsaved prescriptions including percentages, effort and back-off flags', () => {
+    const definition = getFallbackTemplateDefinition('healthy-531-fsl')
+    const preview = buildProgramStartPreview({
+      templateId: definition.id, definition, catalog: movementCatalog, rules: [],
+    })
+    const slot = definition.sessions[0].slots[0]
+    const prescribed = definition.weeks[0].prescriptions[slot.prescriptionId].sets
+    const movement = preview[0].sessions[0].movements[0]
+    expect(movement.sets).toEqual(prescribed)
+    expect(movement.sets).not.toBe(prescribed)
+    expect(movement.sets?.[0].targetLoad).not.toBe(prescribed[0].targetLoad)
+    expect(movement.sets?.some((set) => set.isAmrap)).toBe(true)
+    expect(movement.sets?.some((set) => set.isBackoff)).toBe(true)
+    expect(movement.requiredEquipment).toEqual(movementCatalog[movement.defaultMovementId].requiredEquipment)
+  })
+
+  it('resolves equipment with each phase movement and leaves unknown equipment unavailable', () => {
+    const definition = getFallbackTemplateDefinition('generic_alternating_5x5_lp')
+    const preview = buildProgramStartPreview({
+      templateId: definition.id, definition, catalog: movementCatalog, rules: [],
+    })
+    expect(preview[0].sessions[0].movements[1].defaultMovementId).toBe('bench_press')
+    expect(preview[1].sessions[0].movements[1].defaultMovementId).toBe('overhead_press')
+    for (const week of preview) {
+      for (const session of week.sessions) {
+        for (const movement of session.movements) {
+          expect(movement.requiredEquipment).toEqual(movementCatalog[movement.defaultMovementId].requiredEquipment)
+        }
+      }
+    }
+    const missing = buildProgramStartPreview({ templateId: definition.id, definition, catalog: {}, rules: [] })
+    expect(missing[0].sessions[0].movements[0].requiredEquipment).toBeUndefined()
+  })
 })

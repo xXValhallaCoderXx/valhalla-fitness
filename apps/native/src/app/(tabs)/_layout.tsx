@@ -48,7 +48,7 @@ export default function TabsLayout() {
           backgroundColor: theme.backgroundElevated,
           borderTopColor: theme.border,
           borderTopWidth: 1,
-          height: 64 + insets.bottom,
+          height: 56 + insets.bottom,
           paddingBottom: insets.bottom,
         },
         tabBarLabelStyle: {
@@ -70,7 +70,6 @@ export default function TabsLayout() {
           }}
         />
       ))}
-      <Tabs.Screen name="templates" options={{ href: null }} />
     </Tabs>
   )
 }

@@ -5,7 +5,7 @@ import type {
   ResistanceMode,
 } from '@sheetless/domain/movement/types'
 import type { MovementRole, SessionHardness } from '@sheetless/domain/shared/types'
-import type { ProgramTemplateOrigin } from '@sheetless/domain/program/types/template'
+import type { ProgramTemplateOrigin, TemplateSetDefinition } from '@sheetless/domain/program/types/template'
 import type { FreeWeightPolicyVersion } from '@sheetless/domain/program/types/equipment-mode'
 
 export type ProgramStartMovementOverrideInput = {
@@ -59,6 +59,10 @@ export type ProgramSetupPreviewMovement = {
   defaultFreeWeightCompatible?: boolean
   targetSummary: string
   progressionRuleId?: string | null
+  /** Unexpanded prescriptions, without invented starting weights or personal training state. */
+  sets?: TemplateSetDefinition[]
+  /** Required equipment for this phase's resolved default movement. */
+  requiredEquipment?: RequiredEquipment[]
   replacementOptions: MovementSwapOption[]
 }
 

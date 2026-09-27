@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 import {
@@ -23,49 +23,72 @@ import {
 } from '../program-cache'
 
 type PreviewRequest = {
+  actor: EquipmentActor
   targetMode: ProgramEquipmentMode
   refreshed?: boolean
 }
 
 type SetModeInput = Parameters<typeof setProgramEquipmentMode>[1]
+type EquipmentActor = { user: User; programId: string; lifetime: object }
+type ApplyRequest = { actor: EquipmentActor; input: SetModeInput }
 
 export function useProgramEquipmentMode({
   user,
   program,
   hasActiveSession,
+  onSaved,
 }: {
   user: User
   program: ProgramInstance
   hasActiveSession: boolean
+  onSaved?: () => void
 }) {
   const queryClient = useQueryClient()
+  // A queued response belongs to this mounted account/programme editor only.
+  // Re-entering the same account receives a new token, so old callbacks stay inert.
+  const lifetime = useRef<object | null>(null)
+  useLayoutEffect(() => {
+    lifetime.current = {}
+    return () => { lifetime.current = null }
+  }, [user.id, program.id])
+  const ownsActor = (actor: EquipmentActor) => lifetime.current === actor.lifetime
+  const captureActor = (): EquipmentActor | null => lifetime.current
+    ? { user, programId: program.id, lifetime: lifetime.current } : null
   const [preview, setPreview] = useState<ProgramEquipmentModePreview | null>(null)
   const [choices, setChoices] = useState<FreeWeightChoiceDraft[]>([])
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [applyError, setApplyError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const currentMode = program.equipmentMode ?? 'standard'
+  const [confirmedMode, setConfirmedMode] = useState<{ mode: ProgramEquipmentMode; stateVersion: number } | null>(null)
+  const currentMode = confirmedMode && confirmedMode.stateVersion >= program.stateVersion
+    ? confirmedMode.mode : program.equipmentMode ?? 'standard'
   const targetMode: ProgramEquipmentMode = currentMode === 'free_weight' ? 'standard' : 'free_weight'
 
   const previewMutation = useMutation({
-    mutationFn: ({ targetMode: requestedMode }: PreviewRequest) =>
-      previewProgramEquipmentMode(buildUserContext(user), {
-        programId: program.id,
+    mutationFn: ({ actor, targetMode: requestedMode }: PreviewRequest) => {
+      if (!ownsActor(actor)) throw new Error('The equipment editor is no longer active.')
+      return previewProgramEquipmentMode(buildUserContext(actor.user), {
+        programId: actor.programId,
         targetMode: requestedMode,
-      }),
-    onMutate: ({ refreshed }) => {
+      })
+    },
+    onMutate: ({ actor, refreshed }) => {
+      if (!ownsActor(actor)) return
       setPreviewError(null)
       setSuccessMessage(null)
       if (refreshed) setApplyError('Programme changed. Refreshing the review…')
       else setApplyError(null)
     },
     onSuccess: (nextPreview, request) => {
+      if (!ownsActor(request.actor)) return
       if (nextPreview.currentMode === request.targetMode) {
+        setConfirmedMode({ mode: nextPreview.currentMode, stateVersion: nextPreview.expectedStateVersion })
         setPreview(null)
         setChoices([])
         setApplyError(null)
         setSuccessMessage('The equipment change was already saved.')
-        void invalidateProgramStateBestEffort(queryClient, user.id)
+        onSaved?.()
+        if (ownsActor(request.actor)) void invalidateProgramStateBestEffort(queryClient, request.actor.user.id)
         return
       }
 
@@ -76,6 +99,7 @@ export function useProgramEquipmentMode({
         : null)
     },
     onError: (error, request) => {
+      if (!ownsActor(request.actor)) return
       const message = equipmentModeErrorMessage(
         error,
         'Unable to build the equipment conversion review.',
@@ -90,14 +114,21 @@ export function useProgramEquipmentMode({
   })
 
   const applyMutation = useMutation({
-    mutationFn: (input: SetModeInput) =>
-      setProgramEquipmentMode(buildUserContext(user), input),
-    onMutate: () => {
+    mutationFn: ({ actor, input }: ApplyRequest) => {
+      if (!ownsActor(actor)) throw new Error('The equipment editor is no longer active.')
+      return setProgramEquipmentMode(buildUserContext(actor.user), input)
+    },
+    onMutate: ({ actor }) => {
+      if (!ownsActor(actor)) return
       setApplyError(null)
       setSuccessMessage(null)
     },
-    onSuccess: async (updatedProgram) => {
-      if (updatedProgram) seedActiveProgram(queryClient, user.id, updatedProgram)
+    onSuccess: async (updatedProgram, { actor }) => {
+      if (!ownsActor(actor)) return
+      if (updatedProgram) {
+        seedActiveProgram(queryClient, actor.user.id, updatedProgram)
+        setConfirmedMode({ mode: updatedProgram.equipmentMode ?? 'standard', stateVersion: updatedProgram.stateVersion })
+      }
       setPreview(null)
       setChoices([])
       setApplyError(null)
@@ -108,12 +139,14 @@ export function useProgramEquipmentMode({
           ? 'Free weights only is on for future programme workouts.'
           : 'All equipment is on for future programme workouts.',
       )
-      await invalidateProgramStateBestEffort(queryClient, user.id)
+      onSaved?.()
+      if (ownsActor(actor)) await invalidateProgramStateBestEffort(queryClient, actor.user.id)
     },
-    onError: (error, input) => {
+    onError: (error, { actor, input }) => {
+      if (!ownsActor(actor)) return
       if (equipmentReviewMustRefresh(error)) {
-        void invalidateProgramStateBestEffort(queryClient, user.id)
-        previewMutation.mutate({ targetMode: input.targetMode, refreshed: true })
+        void invalidateProgramStateBestEffort(queryClient, actor.user.id)
+        previewMutation.mutate({ actor, targetMode: input.targetMode, refreshed: true })
         return
       }
 
@@ -123,18 +156,20 @@ export function useProgramEquipmentMode({
       )
       setApplyError(message)
       if (equipmentStateMustInvalidate(error)) {
-        void invalidateProgramStateBestEffort(queryClient, user.id)
+        void invalidateProgramStateBestEffort(queryClient, actor.user.id)
       }
     },
   })
 
   const requestReview = () => {
     if (hasActiveSession || previewMutation.isPending || applyMutation.isPending) return
+    const actor = captureActor()
+    if (!actor) return
     previewMutation.reset()
     applyMutation.reset()
     setPreview(null)
     setChoices([])
-    previewMutation.mutate({ targetMode })
+    previewMutation.mutate({ actor, targetMode })
   }
 
   const closeReview = () => {
@@ -149,6 +184,7 @@ export function useProgramEquipmentMode({
     original: FreeWeightChoiceDraft,
     replacementMovementId: string,
   ) => {
+    if (previewMutation.isPending || applyMutation.isPending) return
     setChoices((current) => current.map((choice) =>
       sameChoice(choice, original)
         ? { ...choice, replacementMovementId }
@@ -159,7 +195,9 @@ export function useProgramEquipmentMode({
   }
 
   const apply = () => {
-    if (!preview || !preview.canApply || hasActiveSession || applyMutation.isPending) return
+    if (!preview || !preview.canApply || hasActiveSession || previewMutation.isPending || applyMutation.isPending) return
+    const actor = captureActor()
+    if (!actor) return
     const input: SetModeInput = {
       programId: program.id,
       targetMode: preview.targetMode,
@@ -171,7 +209,7 @@ export function useProgramEquipmentMode({
       freeWeightChoices:
         preview.targetMode === 'free_weight' ? [...choices] : undefined,
     }
-    applyMutation.mutate(input)
+    applyMutation.mutate({ actor, input })
   }
 
   const reviewRows: EquipmentModeReviewRow[] = preview?.changes.map((change) => ({

@@ -56,7 +56,7 @@ export function TodayHeader({ date, program, session, mode, subtitle, ready = fa
       }} /> : <StartBlankWorkoutButton onStarted={() => setOpen(false)} />}
       <Button label="Browse programmes" variant="default" fullWidth onPress={() => {
         setOpen(false)
-        router.navigate('/(tabs)/templates')
+        router.navigate('/templates')
       }} />
     </SheetModal> : null}
   </>
