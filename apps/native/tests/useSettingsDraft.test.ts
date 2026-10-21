@@ -25,12 +25,29 @@ const profile = (overrides: Partial<UserProfile> = {}): UserProfile => ({
 })
 
 /**
- * `useSettingsDraft` re-adopts the server profile through an effect keyed on the
+ * `useSettingsDraft` re-adopts the server profile when the
  * profile's object identity, so every test holds ONE fixture reference for the
  * lifetime of the hook — exactly what `useMe().data` gives the real screen. A
- * fresh object per render would re-fire that effect on every commit.
+ * fresh object per render would trigger reconciliation on every render.
  */
 describe('useSettingsDraft', () => {
+  it('saves detail level in the draft, preserves dirty input across refresh, and discards cleanly', () => {
+    const saved = profile()
+    const { result, rerender } = renderHook(({ value }) => useSettingsDraft(value), { initialProps: { value: saved } })
+    act(() => result.current.setExperienceMode('full'))
+    expect(result.current.dirty).toBe(true)
+    rerender({ value: { ...saved, rounding: 5 } })
+    expect(result.current.values.experienceMode).toBe('full')
+    act(() => result.current.discard())
+    expect(result.current.values.experienceMode).toBe('guided')
+    expect(result.current.dirty).toBe(false)
+    act(() => result.current.setExperienceMode('full'))
+    act(() => result.current.reset({ ...saved, experienceMode: 'full' }))
+    expect(result.current.values.experienceMode).toBe('full')
+    expect(result.current.dirty).toBe(false)
+    expect(result.current.values).not.toHaveProperty('showFormulas')
+  })
+
   it('starts clean and valid', () => {
     const saved = profile()
     const { result } = renderHook(() => useSettingsDraft(saved))
@@ -68,6 +85,18 @@ describe('useSettingsDraft', () => {
     const { result } = renderHook(() => useSettingsDraft(saved))
     act(() => result.current.setUnits('kg'))
     expect(result.current.dirty).toBe(false)
+  })
+
+  it('keeps a You unit round-trip clean so subsequent profile refreshes are adopted', () => {
+    const saved = profile({ programStateDefaults: { squat_one_rep_max: 123 } })
+    const { result, rerender } = renderHook(({ value }) => useSettingsDraft(value, { convertEstimatesOnUnitChange: false }),
+      { initialProps: { value: saved } })
+    act(() => result.current.setUnits('lb'))
+    act(() => result.current.setUnits('kg'))
+    expect(result.current.dirty).toBe(false)
+    expect(result.current.values.programStateDefaults.squat_one_rep_max).toBe(123)
+    rerender({ value: { ...saved, themePreference: 'dark' } })
+    expect(result.current.values.themePreference).toBe('dark')
   })
 
   it('flags a non-positive estimate and blocks saving', () => {

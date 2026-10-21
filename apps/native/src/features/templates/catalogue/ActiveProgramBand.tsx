@@ -1,49 +1,23 @@
-import { View } from 'react-native'
-import type { ProgramOverview, ProgramTemplateSummary } from '@sheetless/domain/program/types'
-import { Badge, Button, Caption, Heading, Panel, Text } from '@/components'
+import { Pressable, View } from 'react-native'
+import { ChevronRight } from 'lucide-react-native'
+import type { ProgramOverview } from '@sheetless/domain/program/types'
+import { Caption, Text } from '@/components'
 import { radii, spacing, useTokens } from '@/lib/tokens'
 
-export function ActiveProgramBand({
-  template,
-  position,
-  onOpen,
-}: {
-  template: ProgramTemplateSummary
+export function ActiveProgramBand({ name, position, onOpen }: {
+  name: string
   position?: ProgramOverview['position']
   onOpen: () => void
 }) {
   const { theme } = useTokens()
-  const percent = position && position.totalWeeks > 0
-    ? Math.min(100, Math.max(0, Math.round((position.weekNumber / position.totalWeeks) * 100)))
-    : null
-
-  return (
-    <Panel style={{ borderColor: theme.tones.action.border, gap: spacing.sm, padding: spacing.md }}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-        <Badge tone="action" variant="filled">Active program</Badge>
-        <Badge tone={template.origin === 'user_created' ? 'accent' : 'neutral'}>{template.sourceLabel}</Badge>
-      </View>
-      <Heading order={2}>{template.name}</Heading>
-      <Text size="sm" tone="dimmed">{template.description}</Text>
-      {position && percent != null ? (
-        <View style={{ gap: 5 }}>
-          <View style={{ flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between' }}>
-            <Caption>Week {position.weekNumber} of {position.totalWeeks} · {position.phaseLabel}</Caption>
-            <Caption tone="action">{percent}%</Caption>
-          </View>
-          <View style={{ backgroundColor: theme.surfaceInset, borderRadius: radii.xl, height: 7, overflow: 'hidden' }}>
-            <View
-              style={{
-                backgroundColor: theme.tones.action.text,
-                borderRadius: radii.xl,
-                height: 7,
-                width: `${percent}%` as `${number}%`,
-              }}
-            />
-          </View>
-        </View>
-      ) : null}
-      <Button label="View programme" variant="default" fullWidth onPress={onOpen} />
-    </Panel>
-  )
+  return <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`Open current plan: ${name}`}
+    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+      backgroundColor: theme.surface, borderRadius: radii.lg, padding: spacing.md, opacity: pressed ? 0.7 : 1 })}>
+    <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.primaryFill }} />
+    <View style={{ flex: 1, gap: 2 }}>
+      <Text size="sm" weight={800}>Running {name}</Text>
+      {position ? <Caption>Week {position.weekNumber} of {position.totalWeeks} · {position.phaseLabel}</Caption> : null}
+    </View>
+    <ChevronRight size={18} color={theme.textMuted} />
+  </Pressable>
 }

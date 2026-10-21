@@ -27,6 +27,40 @@ describe('getBodyweightEntries', () => {
       { id: expect.any(String), recordedOn: '2026-08-24', weightKg: 81.2 },
     ])
   })
+
+  it.each([1_000, 1_001])('reads all %i entries beyond the response limit without including another account', async count => {
+    const rows = Array.from({ length: count }, (_, index) => ({
+      id: `entry-${index}`, user_id: 'user-1', weight_kg: 80,
+      recorded_on: new Date(Date.UTC(2020, 0, index + 1)).toISOString().slice(0, 10),
+    }))
+    const { ctx, stub } = makeStubCtx({ bodyweight_entries: [
+      ...[...rows].reverse(),
+      { id: 'other-entry', user_id: 'user-2', weight_kg: 70, recorded_on: '2020-01-01' },
+    ] })
+
+    const entries = await getBodyweightEntries(ctx)
+
+    expect(entries).toHaveLength(count)
+    expect(entries[0]).toMatchObject({ id: 'entry-0', recordedOn: rows[0].recorded_on })
+    expect(entries.at(-1)).toMatchObject({ id: `entry-${count - 1}`, recordedOn: rows[count - 1].recorded_on })
+    expect(stub.rangeCalls).toEqual([
+      { table: 'bodyweight_entries', from: 0, to: 999 },
+      { table: 'bodyweight_entries', from: 1_000, to: 1_999 },
+    ])
+  })
+
+  it('fails a later-page error instead of returning an incomplete history', async () => {
+    const { ctx, stub } = makeStubCtx({ bodyweight_entries: Array.from({ length: 1_000 }, (_, index) => ({
+      id: `entry-${index}`, user_id: 'user-1', weight_kg: 80,
+      recorded_on: new Date(Date.UTC(2020, 0, index + 1)).toISOString().slice(0, 10),
+    })) })
+    const firstPage = stub.from('bodyweight_entries')
+    const secondPage = stub.from('bodyweight_entries')
+    vi.spyOn(secondPage, 'range').mockResolvedValueOnce({ data: null, error: { message: 'Connection lost' } })
+    vi.spyOn(stub, 'from').mockReturnValueOnce(firstPage).mockReturnValueOnce(secondPage)
+
+    await expect(getBodyweightEntries(ctx)).rejects.toThrow('Connection lost')
+  })
 })
 
 describe('logBodyweight', () => {

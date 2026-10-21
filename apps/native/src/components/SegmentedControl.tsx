@@ -1,5 +1,5 @@
 import { Pressable, ScrollView, Text as RNText, View, type StyleProp, type ViewStyle } from 'react-native'
-import { fontFamily, fontSizes, radii, spacing, useTokens } from '@/lib/tokens'
+import { fontFamily, fontForWeight, fontSizes, radii, spacing, useTokens, type ToneName } from '@/lib/tokens'
 import { SectionLabel } from './SectionLabel'
 
 export interface SegmentedControlOption<T extends string> {
@@ -8,6 +8,7 @@ export interface SegmentedControlOption<T extends string> {
   accessibilityLabel?: string
   disabled?: boolean
   testID?: string
+  tone?: ToneName
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -26,6 +27,8 @@ export interface SegmentedControlProps<T extends string> {
   accessibilityLabel: string
   accessibilityRole?: 'tablist' | 'radiogroup'
   style?: StyleProp<ViewStyle>
+  size?: 'sm' | 'md'
+  appearance?: 'buttons' | 'inset'
 }
 
 /**
@@ -43,12 +46,16 @@ export function SegmentedControl<T extends string>({
   accessibilityLabel,
   accessibilityRole = 'tablist',
   style,
+  size = 'md',
+  appearance = 'buttons',
 }: SegmentedControlProps<T>) {
   const { theme } = useTokens()
 
   const segments = options.map((option) => {
     const selected = option.value === value
     const inactive = disabled || Boolean(option.disabled)
+    const tone = option.tone ? theme.tones[option.tone] : null
+    const inset = appearance === 'inset'
     return (
       <Pressable
         key={option.value}
@@ -63,9 +70,10 @@ export function SegmentedControl<T extends string>({
         testID={option.testID}
         style={({ pressed }) => ({
           alignItems: 'center',
-          backgroundColor: selected ? theme.primaryFill : theme.surface,
-          borderColor: selected ? theme.primaryFill : theme.border,
-          borderRadius: radii.md,
+          backgroundColor: selected ? inset ? theme.surface : theme.primaryFill : tone?.soft ?? (inset ? 'transparent' : theme.surface),
+          borderColor: selected && !inset && pressed && !inactive ? theme.primaryFillText
+            : inset || tone && !selected ? 'transparent' : selected ? theme.primaryFill : theme.border,
+          borderRadius: size === 'sm' || inset ? radii.sm : radii.md,
           borderWidth: 1,
           // A closed set shares the width evenly; a scrolling row hugs its label.
           flex: variant === 'segments' ? 1 : undefined,
@@ -74,7 +82,7 @@ export function SegmentedControl<T extends string>({
           // movement picker already opted into it by hand; this applies it to
           // every segment instead.
           minHeight: 44,
-          opacity: inactive ? 0.55 : pressed ? 0.85 : 1,
+          opacity: inactive ? 0.55 : pressed && (!selected || inset) ? 0.85 : 1,
           paddingHorizontal: variant === 'segments' ? spacing.xs : spacing.md,
           paddingVertical: 8,
         })}
@@ -82,9 +90,9 @@ export function SegmentedControl<T extends string>({
         <RNText
           numberOfLines={1}
           style={{
-            color: selected ? theme.primaryFillText : theme.text,
-            fontFamily,
-            fontSize: fontSizes.md,
+            color: selected ? inset ? theme.text : theme.primaryFillText : tone?.text ?? theme.text,
+            fontFamily: size === 'sm' ? fontForWeight(800) : fontFamily,
+            fontSize: size === 'sm' ? fontSizes.xs : fontSizes.md,
             fontWeight: '800',
           }}
         >
@@ -105,7 +113,8 @@ export function SegmentedControl<T extends string>({
     >
       {label ? <SectionLabel>{label}</SectionLabel> : null}
       {variant === 'segments' ? (
-        <View style={{ flexDirection: 'row', gap: spacing.xs }}>{segments}</View>
+        <View style={{ flexDirection: 'row', gap: appearance === 'inset' ? 2 : spacing.xs,
+          ...(appearance === 'inset' ? { padding: 3, backgroundColor: theme.surfaceInset, borderRadius: radii.md } : {}) }}>{segments}</View>
       ) : (
         <ScrollView
           horizontal

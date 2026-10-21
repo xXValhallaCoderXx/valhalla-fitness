@@ -20,6 +20,9 @@ export interface TextInputProps {
   keyboardType?: RNTextInputProps['keyboardType']
   autoCapitalize?: RNTextInputProps['autoCapitalize']
   autoComplete?: RNTextInputProps['autoComplete']
+  textContentType?: RNTextInputProps['textContentType']
+  importantForAutofill?: RNTextInputProps['importantForAutofill']
+  autoCorrect?: boolean
   autoFocus?: boolean
   secureTextEntry?: boolean
   maxLength?: number
@@ -46,6 +49,9 @@ export function TextInput({
   keyboardType,
   autoCapitalize = 'none',
   autoComplete,
+  textContentType,
+  importantForAutofill,
+  autoCorrect,
   autoFocus,
   secureTextEntry,
   maxLength,
@@ -76,6 +82,9 @@ export function TextInput({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         autoComplete={autoComplete}
+        textContentType={textContentType}
+        importantForAutofill={importantForAutofill}
+        autoCorrect={autoCorrect}
         autoFocus={autoFocus}
         secureTextEntry={secureTextEntry}
         maxLength={maxLength}

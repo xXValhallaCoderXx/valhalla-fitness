@@ -14,9 +14,8 @@ vi.mock('@sheetless/data/session/reads', () => ({ getSession: api.read, getToday
 vi.mock('@sheetless/data/session/completion', () => ({ finishSession: api.finish }))
 vi.mock('@/lib/account', () => ({ buildUserContext: (user: User) => ({ user }) }))
 vi.mock('expo-router', () => ({ router: { replace: api.replace } }))
-vi.mock('../src/features/session/rest-timer/rest-timer-context', () => ({
-  useRestTimerControls: () => ({ prime: api.prime, startForSlot: api.start }),
-}))
+import { RestTimerControlsContext } from '../src/features/session/rest-timer/rest-timer-context'
+import { createRestTimerController } from '../src/features/session/rest-timer/rest-timer-controller'
 import { useSetLogMutation } from '../src/features/session/focus/useSetLogMutation'
 import { useFinishSession } from '../src/features/session/lifecycle/useFinishSession'
 import { sessionQueryOptions } from '../src/features/session/queries'
@@ -45,7 +44,9 @@ function harness(session = workout()) {
   })
   client.setQueryData(sessionKey, session)
   client.setQueryData(accountQueryKeys.today(user.id), { activeSession: session })
-  const wrapper = ({ children }: PropsWithChildren) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  const timer = createRestTimerController({ schedule: api.start.mockResolvedValue(null), cancel: vi.fn().mockResolvedValue(undefined), onChange: vi.fn() })
+  timer.mount()
+  const wrapper = ({ children }: PropsWithChildren) => <QueryClientProvider client={client}><RestTimerControlsContext.Provider value={timer.controls}>{children}</RestTimerControlsContext.Provider></QueryClientProvider>
   return { client, wrapper, cached: () => client.getQueryData<WorkoutSession>(sessionKey)! }
 }
 
@@ -84,7 +85,7 @@ describe('native set saving', () => {
     await act(async () => retry.resolve(saved))
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(cached()).toEqual(saved)
-    expect(api.start).not.toHaveBeenCalled()
+    expect(api.start).toHaveBeenCalledTimes(1)
   })
 
   it('keeps a corrected failed undo through refetch and retries its exact values without restarting rest', async () => {
@@ -149,7 +150,7 @@ describe('native set saving', () => {
 
 describe('native finish recovery', () => {
   it.each(['saving', 'syncFailed'] as const)('blocks finish while a cached set is %s', async (syncState) => {
-    const session = workout()
+    const session = completedWorkout()
     const { client, wrapper } = harness(session)
     const { result } = renderHook(() => useFinishSession(user, session), { wrapper })
     client.setQueryData(sessionKey, patchSetInSession(session, { movementSlotId: 'exercise-1', setIndex: 1, syncState }))
@@ -161,9 +162,10 @@ describe('native finish recovery', () => {
   })
 
   it('retries a lost response with the same intent and reaches the persisted recap', async () => {
-    const session = workout()
+    const session = completedWorkout()
     const { client, wrapper } = harness(session)
-    const summary: SessionSummary = { session: { ...session, status: 'completed' }, completedSets: 0, totalSets: 2, topSets: [], accessoryOutcomes: [], decisions: [] }
+    client.setQueryData(accountQueryKeys.experienceSignals(user.id), { completedSessions: 7 })
+    const summary: SessionSummary = { session: { ...session, status: 'completed' }, completedSets: 1, totalSets: 2, topSets: [], accessoryOutcomes: [], decisions: [] }
     api.finish.mockRejectedValueOnce(new Error('Connection lost')).mockResolvedValueOnce(summary)
     const { result } = renderHook(() => useFinishSession(user, session, '  Kept notes  '), { wrapper })
     await act(async () => { await expect(result.current.mutateAsync(reflection)).rejects.toThrow('Connection lost') })
@@ -174,11 +176,23 @@ describe('native finish recovery', () => {
     expect(api.finish.mock.calls[1][1]).toMatchObject({ ...reflection, notes: 'Kept notes', requestId: expect.any(String) })
     expect(client.getQueryData(accountQueryKeys.summary(user.id, session.sessionId))).toEqual(summary)
     expect(client.getQueryData(sessionKey)).toEqual(summary.session)
+    expect(client.getQueryState(accountQueryKeys.experienceSignals(user.id))?.isInvalidated).toBe(true)
+    expect(api.replace).toHaveBeenCalledWith({ pathname: '/session/[sessionId]/summary', params: { sessionId: session.sessionId } })
+  })
+
+  it('refreshes the Advanced invitation count when retry discovers the workout already finished', async () => {
+    const session = completedWorkout()
+    const { client, wrapper } = harness(session)
+    client.setQueryData(accountQueryKeys.experienceSignals(user.id), { completedSessions: 7 })
+    api.finish.mockRejectedValue(new Error('Workout already finished'))
+    const { result } = renderHook(() => useFinishSession(user, session), { wrapper })
+    await act(async () => { await expect(result.current.mutateAsync(reflection)).rejects.toThrow('already finished') })
+    expect(client.getQueryState(accountQueryKeys.experienceSignals(user.id))?.isInvalidated).toBe(true)
     expect(api.replace).toHaveBeenCalledWith({ pathname: '/session/[sessionId]/summary', params: { sessionId: session.sessionId } })
   })
 
   it('still opens recap when a post-finish cache refresh fails', async () => {
-    const session = workout()
+    const session = completedWorkout()
     const { client, wrapper } = harness(session)
     api.finish.mockResolvedValue({ session: { ...session, status: 'completed' } })
     vi.spyOn(client, 'invalidateQueries').mockRejectedValueOnce(new Error('Offline'))
@@ -186,4 +200,30 @@ describe('native finish recovery', () => {
     await act(async () => { await result.current.mutateAsync(reflection) })
     expect(api.replace).toHaveBeenCalledTimes(1)
   })
+})
+
+function completedWorkout() {
+  return patchSetInSession(workout(), { movementSlotId: 'exercise-1', setIndex: 1, completed: true, actualLoad: 0, actualReps: 8, syncState: 'synced' })
+}
+it('never submits an empty native workout, even with optimistic failed completion', async () => {
+  const session = workout()
+  const { wrapper } = harness(session)
+  const { result } = renderHook(() => useFinishSession(user, session), { wrapper })
+  await act(async () => { await expect(result.current.mutateAsync(reflection)).rejects.toThrow('Log a completed set') })
+  expect(api.finish).not.toHaveBeenCalled()
+})
+
+it('keeps an authoritative receipt when a later transport error arrives for that exact write', async () => {
+  const session = workout()
+  const { client, wrapper, cached } = harness(session)
+  const pending = deferred<WorkoutSession>()
+  api.save.mockReturnValue(pending.promise)
+  const { result } = renderHook(() => useSetLogMutation(user, session, session.movements[0], 1), { wrapper })
+  const patch = { movementSlotId: 'exercise-1', setIndex: 1, actualLoad: 50, actualReps: 5, completed: true, clientMutationId: 'confirmed' }
+  act(() => result.current.mutate(patch))
+  await waitFor(() => expect(api.save).toHaveBeenCalledOnce())
+  act(() => client.setQueryData(sessionKey, patchSetInSession(session, { ...patch, syncState: 'synced' })))
+  await act(async () => pending.reject(new Error('Late transport failure')))
+  await waitFor(() => expect(result.current.isError).toBe(true))
+  expect(cached().movements[0].sets[0].syncState).toBe('synced')
 })

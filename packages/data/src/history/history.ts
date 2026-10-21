@@ -25,12 +25,15 @@ import {
 } from '@sheetless/domain/history/today-history-support'
 import type { TodayHistorySupport } from '@sheetless/domain/history/types'
 import { buildProgramOverview } from '@sheetless/domain/program/program-overview'
+import { buildProgramSessionStamps } from '@sheetless/domain/program/program-session-stamps'
 import { getMovementName } from '@sheetless/domain/movement/movements'
 import { externalLoadOrNull } from '@sheetless/domain/shared/load'
 import { formatNumber } from '@sheetless/domain/shared/set-notation'
 import { favoriteLineageKeys, sessionLineageKey } from '@sheetless/domain/session/ad-hoc'
 import { getToday } from '../session/reads'
 import { getMovementHistoryEntries } from './movement-history'
+import { assessHistorySets, assessmentKey } from '@sheetless/domain/history/set-assessment'
+import { historicalFallbackUnits } from '@sheetless/domain/history/history-units'
 import {
   calendarDateInTimeZone,
   calendarDateToUtcDate,
@@ -321,7 +324,7 @@ async function getProfileHistoryContext(
 
 export async function getHistoryDashboard(
   ctx: UserContext,
-  options: { limit?: number } = {},
+  options: { limit?: number; recentSessionLimit?: number | null; bestSetLimit?: number | null } = {},
 ): Promise<HistoryDashboardWithInsights> {
     const { supabase, user } = ctx
     const generatedAt = new Date()
@@ -334,6 +337,9 @@ export async function getHistoryDashboard(
     const dashboard = buildHistoryDashboard({
       ...history,
       now: calendarDateToUtcDate(today) ?? generatedAt,
+      displayUnits: profile.units,
+      recentSessionLimit: options.recentSessionLimit,
+      bestSetLimit: options.bestSetLimit,
     })
     const insights = buildHistoryInsights({
       sessions: history.sessions,
@@ -354,28 +360,22 @@ export async function getTodayHistorySupport(ctx: UserContext): Promise<TodayHis
     const profile = await getProfileHistoryContext(supabase, user.id)
     const today = calendarDateInTimeZone(now, profile.timeZone)
     const scheduledAfter = todayHistoryWindowStart(today)
-    const [history, completedSession] = await Promise.all([
+    const [history, completedDates] = await Promise.all([
       getHistoryInputs(supabase, user.id, {
         scheduledAfter,
         includeFavorites: false,
         includeSubstitutions: false,
       }),
-      supabase
-        .from('workout_sessions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('status', 'completed')
-        .order('scheduled_date', { ascending: false })
-        .order('completed_at', { ascending: false })
-        .order('id', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+      collectPostgrestPages((from, to) => supabase.from('workout_sessions')
+        .select('id, scheduled_date').eq('user_id', user.id).eq('status', 'completed')
+        .order('scheduled_date').order('id').range(from, to)),
     ])
-    if (completedSession.error) throw new Error(completedSession.error.message)
 
     return buildTodayHistorySupport({
       sessions: history.sessions,
-      hasCompletedSessions: Boolean(completedSession.data),
+      hasCompletedSessions: completedDates.length > 0,
+      completedDates: completedDates.map(row => row.scheduled_date),
+      displayUnits: profile.units,
       now,
       today,
     })
@@ -402,17 +402,7 @@ export async function getProgramOverview(ctx: UserContext): Promise<ProgramOverv
     ? await getAcceptedDecisionsInternal(supabase, user.id, today.activeProgram.id)
     : []
   const sessionStamps = today.activeProgram
-    ? history.sessions
-        .filter((session) => session.programInstanceId === today.activeProgram!.id)
-        .filter((session): session is typeof session & { weekIndex: number; completedAt: string } =>
-          typeof session.weekIndex === 'number' && Boolean(session.completedAt),
-        )
-        .map((session) => ({
-          weekIndex: session.weekIndex,
-          completedAt: session.completedAt,
-          id: session.id,
-          title: session.title,
-        }))
+    ? buildProgramSessionStamps(history.sessions, today.activeProgram.id)
     : []
   return buildProgramOverview({
     today,
@@ -437,5 +427,19 @@ export async function getMovementHistory(
   data: z.infer<typeof movementHistoryInputSchema>,
 ): Promise<MovementHistoryEntry[]> {
     const { supabase, user } = ctx
-    return getMovementHistoryEntries(supabase, user.id, data.movementId)
+    const [entries, history] = await Promise.all([
+      getMovementHistoryEntries(supabase, user.id, data.movementId),
+      getHistoryInputs(supabase, user.id, { limit: 240, includeFavorites: false, includeSubstitutions: false }),
+    ])
+    const assessments = assessHistorySets(history.sessions)
+    const fallback = historicalFallbackUnits(history.sessions)
+    return entries.map(entry => ({
+      ...entry,
+      units: entry.units ?? fallback,
+      unitsInferred: !entry.units,
+      sets: entry.sets.map(set => ({
+        ...set,
+        assessment: assessments.get(assessmentKey(entry.sessionId, entry.id, set.id)) ?? null,
+      })),
+    }))
 }

@@ -1,3 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query'
+import { clearWorkoutDrafts } from './editing/workout-drafts'
 import { useEffect } from 'react'
 import { router, useIsFocused } from 'expo-router'
 import { useKeepAwake } from 'expo-keep-awake'
@@ -28,13 +30,15 @@ export function LiveSessionScreen({ sessionId }: { sessionId: string }) {
 }
 
 function AccountLiveSession({ user, sessionId }: { user: User; sessionId: string }) {
+  const client = useQueryClient()
   const { session, entry, retry } = useLiveSessionEntry(user, sessionId)
 
   useEffect(() => {
+    if (entry.status === 'verified' && session.data && session.data.status !== 'in_progress') clearWorkoutDrafts(client, user.id, sessionId)
     if (entry.status === 'verified' && session.isSuccess && session.data.status === 'completed') {
       router.replace({ pathname: '/session/[sessionId]/summary', params: { sessionId } })
     }
-  }, [entry.status, session.data?.status, session.isSuccess, sessionId])
+  }, [client, user.id, entry.status, session.data, session.isSuccess, sessionId])
 
   // A cached active workout may have ended elsewhere. Its logger and timers must
   // stay unmounted until this entry's authoritative read succeeds.

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type SetStateAction } from 'react'
+import { blankSetupCustomizations, type SetupCustomizations } from '@sheetless/domain/program/native-setup-draft'
 import type {
   FreeWeightChoiceDraft,
   ProgramEquipmentMode,
@@ -32,15 +33,23 @@ function strippedAdditions(additions: AccessoryAdditionDraft[]) {
   }))
 }
 
-export function useTemplateStartCustomizations(setup: ProgramSetupOptions) {
-  const [movementOverrides, setMovementOverrides] = useState<ProgramStartMovementOverrideInput[]>([])
-  const [accessoryAdditions, setAccessoryAdditions] = useState<AccessoryAdditionDraft[]>([])
-  const [equipmentMode, setEquipmentMode] = useState<ProgramEquipmentMode>('standard')
-  const [reviewOpen, setReviewOpen] = useState(false)
-  const [choiceState, setChoiceState] = useState<ChoiceState>({
-    choices: [],
-    reviewedChoices: [],
-  })
+export function useTemplateStartCustomizations(setup: ProgramSetupOptions, controlled?: {
+  value: SetupCustomizations
+  onChange: (updater: (current: SetupCustomizations) => SetupCustomizations) => void
+}) {
+  const [local, setLocal] = useState(blankSetupCustomizations)
+  const state = controlled?.value ?? local
+  const change = controlled?.onChange ?? setLocal
+  const setField = <K extends keyof SetupCustomizations>(key: K, value: SetStateAction<SetupCustomizations[K]>) => {
+    change((current) => ({ ...current, [key]: typeof value === 'function'
+      ? (value as (previous: SetupCustomizations[K]) => SetupCustomizations[K])(current[key]) : value }))
+  }
+  const { movementOverrides, accessoryAdditions, equipmentMode, reviewOpen, choiceState } = state
+  const setMovementOverrides = (value: ProgramStartMovementOverrideInput[]) => setField('movementOverrides', value)
+  const setAccessoryAdditions = (value: AccessoryAdditionDraft[]) => setField('accessoryAdditions', value)
+  const setEquipmentMode = (value: ProgramEquipmentMode) => setField('equipmentMode', value)
+  const setReviewOpen = (value: boolean) => setField('reviewOpen', value)
+  const setChoiceState = (value: SetStateAction<ChoiceState>) => setField('choiceState', value)
   const additions = useMemo(() => strippedAdditions(accessoryAdditions), [accessoryAdditions])
   const freeWeightPreview = useMemo(
     () => buildSetupPreviewForCustomizations(setup, movementOverrides, additions),

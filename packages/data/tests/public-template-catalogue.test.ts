@@ -38,6 +38,7 @@ describe('public template projection', () => {
     expect(result[0]).toMatchObject({
       id: templateId, name: template.name, origin: 'system_default', available: true,
       requiredState: definition.requiredState,
+      durationWeeks: definition.durationWeeks,
     })
     expect(result[0]).not.toHaveProperty('created_by')
   })
@@ -48,6 +49,23 @@ describe('public template projection', () => {
     expect(result.templateId).toBe(templateId)
     expect(result.previewWeeks[0].sessions).toHaveLength(definition.sessions.length)
     expect(result.previewWeeks[0].sessions[0].movementSummary).toContain('Squat')
+    expect(result.previewWeeks[0].sessions[0].movements[0].sets).toEqual(
+      definition.weeks[0].prescriptions[definition.sessions[0].slots[0].prescriptionId].sets,
+    )
     expect(result.freeWeightPolicy?.id).toBe(freeWeightPolicyV1.id)
+  })
+
+  it('does not borrow duration or state from an older valid definition when the newest is invalid', async () => {
+    const { ctx } = makeStubCtx({
+      program_templates: [template],
+      program_template_versions: [
+        { id: 'older', template_id: templateId, created_at: '2026-01-01', definition },
+        { id: 'latest', template_id: templateId, created_at: '2026-02-01', definition: {} },
+      ],
+    })
+    const [result] = await listTemplates(ctx.supabase)
+    expect(result.available).toBe(false)
+    expect(result.durationWeeks).toBeUndefined()
+    expect(result.requiredState).toEqual([])
   })
 })

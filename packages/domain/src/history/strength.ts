@@ -10,6 +10,9 @@ import type {
 } from '@sheetless/domain/history/types'
 import type { Movement } from '@sheetless/domain/movement/types'
 import type { Unit } from '@sheetless/domain/shared/types'
+import { assessHistorySets, assessmentKey } from './set-assessment'
+import { withHistoricalUnits, historicalFallbackUnits } from './history-units'
+import type { SetAssessment } from './types'
 import { isPositiveLoad } from '@sheetless/domain/shared/load'
 import { e1rm, mround, convertWeight } from '@sheetless/domain/shared/math'
 import {
@@ -20,9 +23,7 @@ import {
 import { getMovementName, movementCatalog } from '@sheetless/domain/movement/movements'
 
 export const E1RM_MAX_REPS = 12
-export const OUTLIER_MIN_PRIOR_POINTS = 3
-export const OUTLIER_MEDIAN_WINDOW = 5
-export const OUTLIER_HIGH_FACTOR = 1.5
+export { OUTLIER_MIN_PRIOR_POINTS, OUTLIER_MEDIAN_WINDOW, OUTLIER_HIGH_FACTOR } from './set-assessment'
 export const TREND_MIN_POINTS = 4
 export const TREND_MIN_SPAN_DAYS = 21
 export const TREND_SLOPE_PCT_PER_WEEK = 0.3
@@ -47,7 +48,7 @@ export const e1rmTrendLabels: Record<E1rmTrendSignal, string> = {
 }
 
 export const estimatedMaxExplanation =
-  'e1RM is the heaviest single rep we estimate you could lift right now, worked out from the weights and reps you actually log. A rising line means you are getting stronger.'
+  'Estimated max (e1RM) uses the load, reps and effort you logged. It describes that recorded workout, not a measurement of your strength today.'
 
 export const stallSignalLabels: Record<StallSignal, string> = {
   progressing: 'Progressing',
@@ -62,6 +63,9 @@ const DAYS_PER_MONTH = 30.44
 const strengthLiftSet = new Set<string>(STRENGTH_LIFTS)
 
 type EligibleSet = {
+  id: string
+  exerciseId: string
+  assessment: SetAssessment | undefined
   load: number
   reps: number
   rir: number | null
@@ -90,11 +94,12 @@ type TimedPoint = {
  */
 export function buildLiftE1rmSeries(
   sessions: HistorySessionInput[],
-  options?: { catalog?: Record<string, Movement> },
+  options?: { catalog?: Record<string, Movement>; units?: Unit },
 ): LiftE1rmSeries[] {
   const catalog = options?.catalog ?? movementCatalog
-  const orderedSessions = [...sessions].sort(compareHistorySessionsNewestFirst)
-  const displayUnits = orderedSessions.find((session) => session.units)?.units ?? null
+  const orderedSessions = withHistoricalUnits(sessions).sort(compareHistorySessionsNewestFirst)
+  const displayUnits = options?.units ?? historicalFallbackUnits(sessions)
+  const assessments = assessHistorySets(sessions)
   const byLift = new Map<string, LiftSessionEntry[]>()
 
   for (const session of orderedSessions) {
@@ -112,6 +117,8 @@ export function buildLiftE1rmSeries(
           ? convertWeight(set.actualLoad, session.units ?? displayUnits, displayUnits)
           : set.actualLoad
         const eligible: EligibleSet = {
+          id: set.id, exerciseId: exercise.id,
+          assessment: assessments.get(assessmentKey(session.id, exercise.id, set.id)),
           load,
           reps: set.actualReps,
           rir: set.actualRir ?? null,
@@ -143,16 +150,16 @@ export function buildLiftE1rmSeries(
     entries.sort((left, right) => compareHistorySessionsNewestFirst(right, left))
 
     const points: E1rmPoint[] = []
-    const priorValues: number[] = []
     const nonOutlierEntries: LiftSessionEntry[] = []
     for (const entry of entries) {
-      const best = entry.sets.reduce((max, set) => (set.value > max.value ? set : max))
-      const outlier =
-        priorValues.length >= OUTLIER_MIN_PRIOR_POINTS &&
-        best.value > OUTLIER_HIGH_FACTOR * median(priorValues.slice(-OUTLIER_MEDIAN_WINDOW))
+      const clean = entry.sets.filter(set => !set.assessment?.unusual)
+      const candidates = clean.length ? clean : entry.sets
+      const best = candidates.reduce((max, set) => (set.value > max.value ? set : max))
+      const outlier = !clean.length
       points.push({
         date: entry.scheduledDate,
         sessionId: entry.id,
+        setId: best.id, exerciseId: best.exerciseId, assessment: best.assessment,
         e1rm: best.value,
         load: best.load,
         reps: best.reps,
@@ -160,8 +167,7 @@ export function buildLiftE1rmSeries(
         outlier,
       })
       if (!outlier) {
-        priorValues.push(best.value)
-        nonOutlierEntries.push(entry)
+        nonOutlierEntries.push({ ...entry, sets: clean })
       }
     }
 
@@ -377,10 +383,4 @@ function leastSquaresSlopePerDay(points: TimedPoint[]): number {
     denominator += dx * dx
   }
   return denominator === 0 ? 0 : numerator / denominator
-}
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b)
-  const mid = Math.floor(sorted.length / 2)
-  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }

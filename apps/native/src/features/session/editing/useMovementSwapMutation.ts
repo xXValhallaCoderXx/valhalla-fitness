@@ -1,3 +1,4 @@
+import { clearWorkoutDrafts } from './workout-drafts'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 import { substituteMovement } from '@sheetless/data/session/movements'
@@ -83,6 +84,7 @@ export function useMovementSwapMutation({
       }).catch(() => undefined)
     },
     onSuccess: async (nextSession, intent) => {
+      clearWorkoutDrafts(queryClient, user.id, session.sessionId, movement.id)
       request.clearRequest()
       updateSessionManagementCaches(queryClient, user.id, nextSession)
       await queryClient.invalidateQueries({

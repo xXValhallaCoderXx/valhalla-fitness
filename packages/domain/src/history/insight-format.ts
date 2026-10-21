@@ -29,3 +29,8 @@ export function formatNumber(value: number) {
     maximumFractionDigits: Number.isInteger(value) ? 0 : 1,
   }).format(value)
 }
+
+/** kg can be shown as metric tonnes; pounds retain their own unit. */
+export function formatHistoryVolume(value: number, units: Unit | null) {
+  return units === 'lb' ? `${formatNumber(value)} lb` : `${(value / 1000).toFixed(1)} t`
+}

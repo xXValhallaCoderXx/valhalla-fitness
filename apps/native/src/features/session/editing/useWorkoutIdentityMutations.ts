@@ -54,11 +54,13 @@ export function useRenameWorkoutMutation({
         sessionId: session.sessionId,
         includeProgram: false,
       }).catch(() => undefined)
+      await queryClient.invalidateQueries({ queryKey: accountQueryKeys.sessionReceipts(user.id) }).catch(() => undefined)
     },
     onSuccess: async (nextSession) => {
       request.clearRequest()
       updateSessionManagementCaches(queryClient, user.id, nextSession)
       await queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(user.id) })
+      await queryClient.invalidateQueries({ queryKey: accountQueryKeys.sessionReceipts(user.id) })
       onRenamed?.()
     },
   })

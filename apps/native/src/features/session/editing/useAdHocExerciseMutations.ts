@@ -1,3 +1,4 @@
+import { clearWorkoutDrafts } from './workout-drafts'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 import {
@@ -87,6 +88,7 @@ export function useRemoveAdHocExerciseMutation({
       }).catch(() => undefined)
     },
     onSuccess: async (nextSession) => {
+      clearWorkoutDrafts(queryClient, user.id, session.sessionId, movement.id)
       request.clearRequest()
       updateSessionManagementCaches(queryClient, user.id, nextSession)
       await queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(user.id) })

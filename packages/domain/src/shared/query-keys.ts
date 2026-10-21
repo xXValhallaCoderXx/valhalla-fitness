@@ -48,6 +48,8 @@ export const accountQueryKeys = {
   favoriteWorkouts: (userId: string) =>
     ['account', userId, 'favorite-workouts'] as const,
   history: (userId: string) => ['account', userId, 'history'] as const,
+  frequentExercises: (userId: string, freeWeightOnly = false) =>
+    ['account', userId, 'history', 'frequent-exercises', { freeWeightOnly }] as const,
   recentHistory: (userId: string) => ['account', userId, 'history', 'recent'] as const,
   historyDashboard: (userId: string) =>
     ['account', userId, 'history', 'dashboard'] as const,

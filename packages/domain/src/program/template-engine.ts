@@ -1,5 +1,7 @@
+import { cycleDisplayIndex } from './cycle-boundary'
 import { applyReturnPrescription } from './return-prescription'
-import { fixedLoadKey, percentOf, referencedStateKey } from './return-loads'
+import { fixedLoadKey, referencedStateKey } from './return-loads'
+import { resolveTemplateTargetLoad } from './template-load'
 import type { Movement } from '@sheetless/domain/movement/types'
 import type {
   ProgramAccessoryAddition,
@@ -19,8 +21,6 @@ import {
   resolveEquipmentModeMovement,
   resolveProgramMovementOverride,
 } from '@sheetless/domain/program/equipment-mode'
-import { mround } from '@sheetless/domain/program/progression'
-import { convertWeight } from '@sheetless/domain/shared/math'
 // Zod parsing stays in `template-engine-schema.ts` so clients that only build
 // timelines and previews never bundle Zod.
 export type {
@@ -216,14 +216,14 @@ export function programForNextUncompletedSessionFromDefinition(
 }
 
 export function buildProgramTimelineFromDefinition(
-  program: Pick<ProgramInstance, 'currentWeekIndex'>,
+  program: Pick<ProgramInstance, 'currentWeekIndex' | 'cycleBoundary'>,
   definition: TemplateDefinition,
 ): ProgramTimelineModel {
   const currentWeekIndex = Math.min(
-    positiveModulo(Math.floor(program.currentWeekIndex / definition.daysPerWeek), definition.durationWeeks),
+    positiveModulo(Math.floor(cycleDisplayIndex(program) / definition.daysPerWeek), definition.durationWeeks),
     definition.durationWeeks - 1,
   )
-  const currentSessionInWeek = positiveModulo(program.currentWeekIndex, definition.daysPerWeek)
+  const currentSessionInWeek = positiveModulo(cycleDisplayIndex(program), definition.daysPerWeek)
 
   return {
     totalWeeks: definition.durationWeeks,
@@ -300,7 +300,7 @@ function expandSet(
   },
 ): SetLog {
   const targetLoad = set.targetLoad?.kind === 'fixed' && context.fixedOverride !== undefined
-    ? context.fixedOverride : resolveTargetLoad(set.targetLoad, context)
+    ? context.fixedOverride : resolveTemplateTargetLoad(set.targetLoad, context)
   const key = referencedStateKey(set.targetLoad, context.movementId, context.anchorMovementId)
   const state = key ? context.stateValues.find((item) => item.key === key) : null
   const label =
@@ -330,32 +330,6 @@ function expandSet(
     actualReps: set.targetReps ?? set.targetRepMin ?? null,
     label,
   }
-}
-
-function resolveTargetLoad(
-  load: TemplateSetDefinition['targetLoad'] | undefined,
-  context: {
-    fixedOverride?: number
-    stateValues: ProgramStateInput[]
-    movementId: string
-    anchorMovementId: string
-    rounding: number
-    units: Unit
-  },
-) {
-  if (!load || load.kind === 'user_selected' || (load.kind === 'percent_of_state' && load.default === 'blank')) return null
-  if (load.kind === 'fixed') {
-    return context.units === 'kg' ? load.kg : load.lb ?? mround(convertWeight(load.kg, 'kg', 'lb'), 5)
-  }
-  const movementId = load.kind === 'percent_of_state' ? context.anchorMovementId : context.movementId
-  const stateKey = load.stateKey ?? programStateKey(movementId, load.stateType)
-  const state = context.stateValues.find((item) => item.key === stateKey)
-  if (!state || !Number.isFinite(state.value) || Number(state.value) <= 0) {
-    throw new Error(`Missing valid programme state for ${stateKey}`)
-  }
-  if (load.kind === 'state') return Number(state.value)
-  if (load.default === 'blank') return null
-  return mround(Number(state.value) * percentOf(load), context.rounding)
 }
 
 export function resolveMovementId(movementId: string | { default: string; byPhase?: Record<string, string> }, phaseKey: string) {

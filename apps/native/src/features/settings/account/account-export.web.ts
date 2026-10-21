@@ -4,7 +4,8 @@ import {
 } from '@sheetless/domain/account/data-rights'
 import type { ShareableAccountExport } from './account-export'
 
-export async function shareAccountExport(value: ShareableAccountExport): Promise<void> {
+export async function shareAccountExport(value: ShareableAccountExport, isCurrent: () => boolean = () => true): Promise<void> {
+  if (!isCurrent()) return
   const objectUrl = URL.createObjectURL(
     new Blob([serializeAccountExport(value)], { type: 'application/json' }),
   )

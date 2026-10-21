@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   bodyweightLogInputSchema,
+  completeFirstRunInputSchema,
   deleteBodyweightEntryInputSchema,
   emailAuthInputSchema,
   exchangeCodeInputSchema,
@@ -88,6 +89,24 @@ describe('account auth ingress schemas', () => {
 })
 
 describe('account profile ingress schemas', () => {
+  it('requires exactly the two persisted first-run choices', () => {
+    for (const units of ['kg', 'lb'] as const) {
+      for (const experienceMode of ['guided', 'full'] as const) {
+        const input = { units, experienceMode }
+        expect(completeFirstRunInputSchema.parse(input)).toEqual(input)
+      }
+    }
+    for (const input of [
+      { units: 'kg' },
+      { experienceMode: 'guided' },
+      { units: 'stone', experienceMode: 'full' },
+      { units: 'kg', experienceMode: 'Simple' },
+      { units: 'kg', experienceMode: 'guided', onboardingCompleted: false },
+      { units: 'kg', experienceMode: 'guided', userId: 'another-account' },
+      { units: 'kg', experienceMode: 'guided', rounding: 5 },
+    ]) expect(completeFirstRunInputSchema.safeParse(input).success).toBe(false)
+  })
+
   it('accepts the full settings form and the partial quick-unit payload', () => {
     expect(
       updateSettingsInputSchema.safeParse({

@@ -38,6 +38,7 @@ export const startSessionInputSchema = z
   .object({
     clientMutationId: requestId,
     timeZone: optionalTimeZone,
+    expectedProgramId: z.uuid().optional(),
   })
   .strict()
 

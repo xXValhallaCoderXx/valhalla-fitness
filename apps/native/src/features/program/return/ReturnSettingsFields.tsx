@@ -1,128 +1,46 @@
-import type { Dispatch, SetStateAction } from 'react'
-import type { ProgramInstance, ReturnSettings } from '@sheetless/domain/program/types'
-import type { buildReturnPreview } from '@sheetless/domain/program/return-preview'
-import { useState } from 'react'
+import { View } from 'react-native'
 import { Button, Caption, Panel, SectionLabel } from '@/components'
 import { spacing } from '@/lib/tokens'
 import { ReturnNumberField } from './ReturnNumberField'
+import type { ReturnGuideDraft } from './useReturnGuideDraft'
 
-export function ReturnSettingsFields({
-  program,
-  settings,
-  setSettings,
-  preview,
-  editing,
-}: {
-  program: ProgramInstance
-  settings: ReturnSettings
-  setSettings: Dispatch<SetStateAction<ReturnSettings>>
-  preview: ReturnType<typeof buildReturnPreview>
-  editing: boolean
-}) {
-  const [individual, setIndividual] = useState(false)
-  const updateStage = (index: number, update: Partial<ReturnSettings['stages'][number]>) =>
-    setSettings((current) => ({
-      ...current,
-      stages: current.stages.map((stage, i) => (i === index ? { ...stage, ...update } : stage)),
-    }))
-  const movements = [
-    ...new Map(
-      preview.upcoming.flatMap((session) =>
-        session.movements.map((movement) => [movement.slotId!, movement] as const),
-      ),
-    ).values(),
-  ]
-  return (
-    <>
-      <Button
-        variant="subtle"
-        label={individual ? 'Hide individual adjustments' : 'Adjust individual set counts and caps'}
-        onPress={() => setIndividual(!individual)}
-      />
-      {settings.stages.map((stage, index) => (
-        <Panel key={index} surface="inset" style={{ padding: spacing.sm, gap: spacing.sm }}>
-          <SectionLabel>Stage {index + 1}</SectionLabel>
-          <ReturnNumberField
-            label="Qualifying workouts"
-            value={stage.workouts}
-            onChange={(value) => updateStage(index, { workouts: value ?? 0 })}
-          />
-          <ReturnNumberField
-            label="Normal sets (%)"
-            value={stage.setFraction * 100}
-            onChange={(value) => updateStage(index, { setFraction: (value ?? 0) / 100 })}
-          />
-          {individual ? (
-            <>
-              <Caption>
-                Leave counts blank to use the stage percentage. Essential sets are preserved.
-              </Caption>
-              {movements.map((movement) => (
-                <ReturnNumberField
-                  key={movement.slotId}
-                  label={`${movement.movementName} sets`}
-                  value={stage.setCounts[movement.slotId!] ?? null}
-                  onChange={(value) => {
-                    const counts = { ...stage.setCounts }
-                    if (value !== null) counts[movement.slotId!] = value
-                    else delete counts[movement.slotId!]
-                    updateStage(index, { setCounts: counts })
-                  }}
-                />
-              ))}
-            </>
-          ) : null}
-        </Panel>
-      ))}
-      {editing && settings.stages.length < 8 ? (
-        <Button
-          variant="default"
-          label="Add another rotation"
-          onPress={() =>
-            setSettings((current) => ({
-              ...current,
-              stages: [
-                ...current.stages,
-                {
-                  ...current.stages[current.stages.length - 1],
-                  workouts: program.templateDefinition!.daysPerWeek,
-                },
-              ],
-            }))
-          }
-        />
-      ) : null}
-      <ReturnNumberField
-        label="Minimum repetitions in reserve"
-        value={settings.minimumRir}
-        onChange={(value) => setSettings((current) => ({ ...current, minimumRir: value ?? 0 }))}
-      />
-      <ReturnNumberField
-        label={`Maximum suggested increase (${program.units})`}
-        value={settings.defaultCap}
-        onChange={(value) => setSettings((current) => ({ ...current, defaultCap: value ?? -1 }))}
-      />
-      <Caption>
-        Default: one {program.rounding} {program.units} programme step. Zero holds increases.
-        Training-max changes affect individual sets through their prescribed percentages.
-      </Caption>
-      {individual
-        ? preview.changes
-            .filter((change) => change.kind === 'state')
-            .map((change) => (
-              <ReturnNumberField
-                key={change.key}
-                label={`${change.label} cap`}
-                value={settings.caps[change.key] ?? settings.defaultCap}
-                onChange={(value) =>
-                  setSettings((current) => ({
-                    ...current,
-                    caps: { ...current.caps, [change.key]: value ?? -1 },
-                  }))
-                }
-              />
-            ))
-        : null}
-    </>
-  )
+export function ReturnSettingsFields({ draft, disabled }: { draft: ReturnGuideDraft; disabled: boolean }) {
+  const { program, raw, preview } = draft
+  const movements = [...new Map(preview.upcoming.flatMap(session =>
+    session.movements.map(movement => [movement.slotId!, movement] as const))).values()]
+  return <>
+    <Panel style={{ padding: spacing.md, gap: spacing.md }}>
+      <SectionLabel>{raw.stages.length === 2 ? 'The two stages' : 'Return stages'}</SectionLabel>
+      {raw.stages.map((stage, index) => <View key={index} style={{ gap: spacing.sm }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          <ReturnNumberField label={`Stage ${index + 1} · workouts`} value={stage.workouts} disabled={disabled} minimum={1} maximum={100} integer
+            onChange={workouts => draft.updateStage(index, { workouts })} />
+          <ReturnNumberField label={`Stage ${index + 1} · share of sets`} suffix="%" value={stage.percentage} disabled={disabled} maximum={100}
+            onChange={percentage => draft.updateStage(index, { percentage })} />
+        </View>
+        {draft.individual ? movements.map(movement => <ReturnNumberField key={movement.slotId}
+          label={`Stage ${index + 1} · ${movement.movementName} sets`} value={stage.counts[movement.slotId!] ?? ''} disabled={disabled} minimum={1} maximum={100} integer optional
+          onChange={value => draft.updateStage(index, { counts: { ...stage.counts, [movement.slotId!]: value } })} />) : null}
+      </View>)}
+      <Caption>Warmups, top sets and distinct prescriptions stay. Duplicate sets are reduced first, so actual counts can be higher.</Caption>
+      {draft.individual ? <Caption>Leave individual counts blank to use the stage percentage.</Caption> : null}
+      {draft.editing && raw.stages.length < 8 ? <Button variant="default" label="Add another rotation" disabled={disabled} onPress={draft.addStage} /> : null}
+    </Panel>
+    <Panel style={{ padding: spacing.md, gap: spacing.sm }}>
+      <SectionLabel>How hard to go</SectionLabel>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        <ReturnNumberField label="Leave at least · reps" suffix="RIR" value={raw.minimumRir} disabled={disabled} minimum={3} maximum={10}
+          onChange={value => draft.setField('minimumRir', value)} />
+        <ReturnNumberField label="Maximum suggested increase" suffix={program.units} value={raw.defaultCap} disabled={disabled} maximum={100}
+          onChange={value => draft.setField('defaultCap', value)} />
+      </View>
+      <Caption>Leave 3–10 reps in reserve. The cap applies per eligible programme-reference increase; zero holds increases. Training-max changes reach your sets through their prescribed percentages.</Caption>
+      {draft.individual ? preview.changes.filter(change => change.kind === 'state').map(change =>
+        <ReturnNumberField key={change.key} label={`${change.label} cap`} suffix={program.units}
+          value={raw.caps[change.key] ?? ''} disabled={disabled} maximum={100} optional onChange={value => draft.setCap(change.key, value)} />) : null}
+      {draft.individual ? <Caption>Leave an individual cap blank to use the default.</Caption> : null}
+    </Panel>
+    <Button variant="subtle" label={draft.individual ? 'Hide individual set counts and caps' : 'Adjust individual set counts and caps'}
+      disabled={disabled} onPress={() => draft.setIndividual(!draft.individual)} />
+  </>
 }

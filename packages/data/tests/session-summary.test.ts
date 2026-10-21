@@ -33,6 +33,22 @@ function tables(): TestTables {
 }
 
 describe('saved session summary', () => {
+  it.each(['kg', 'lb'])('resolves missing source units from history instead of the %s profile preference', async units => {
+    const rows = tables()
+    const snapshot = rows.workout_sessions[0].prescription_snapshot as Record<string, unknown>
+    delete snapshot.units
+    rows.workout_sessions[0].scheduled_date = '2026-09-13'
+    rows.profiles = [{ id: 'user-1', units }]
+    rows.workout_sessions.push({ id: 'newer', user_id: 'user-1', status: 'completed', scheduled_date: '2026-09-14',
+      prescription_snapshot: { units: 'lb', movements: [] } })
+    const { ctx } = makeStubCtx(rows)
+    const summary = await getSessionSummary(ctx, 'session-1')
+    expect(summary.session.units).toBe('lb')
+    expect(summary.session.movements[0].sets[0].actualLoad).toBe(80)
+    rows.workout_sessions.pop()
+    expect((await getSessionSummary(ctx, 'session-1')).session.units).toBe('kg')
+  })
+
   it('reads exact session decisions in every status and preserves the saved workout details', async () => {
     const rows = tables()
     const decision = rows.progression_decisions[0]

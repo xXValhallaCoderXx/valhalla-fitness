@@ -1,100 +1,35 @@
-/**
- * Native port of the web RestTimerProvider. Session-scoped: state changes only
- * on start/dismiss/extend — the per-second tick lives in RestTimerPill, and
- * `controls` is memoized on the two pref primitives so ticks and timer starts
- * never re-render the session tree. visibilitychange becomes AppState.
- */
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { AppState, View } from 'react-native'
-import type { MovementSlot } from '@sheetless/domain/session/types/session'
-import { resolveRestSeconds } from '@sheetless/domain/session/rest-timer'
 import { useMe } from '@/lib/account'
 import { cancelRestEnd, scheduleRestEnd } from '@/lib/rest-notifications'
-import {
-  RestTimerControlsContext,
-  RestTimerStateContext,
-  type RestTimerControls,
-  type RestTimerState,
-} from './rest-timer-context'
-import { RestTimerPill } from './RestTimerPill'
-
-const IDLE: RestTimerState = { endsAt: null, active: false, label: null }
-const FALLBACK_PREFS = { autoStartTimer: true, defaultRestSeconds: 120 }
+import { playRestCompleteCue } from '@/lib/rest-cue'
+import { IDLE_REST, RestTimerControlsContext, RestTimerStateContext } from './rest-timer-context'
+import { createRestTimerController } from './rest-timer-controller'
 
 export function RestTimerProvider({ children }: { children: ReactNode }) {
   const me = useMe().data
-  const autoStartTimer = me?.autoStartTimer ?? FALLBACK_PREFS.autoStartTimer
-  const defaultRestSeconds = me?.defaultRestSeconds ?? FALLBACK_PREFS.defaultRestSeconds
-
-  const [state, setState] = useState<RestTimerState>(IDLE)
-  // The background notification mirroring the running timer (null = none scheduled).
-  const notificationId = useRef<string | null>(null)
-
-  const controls = useMemo<RestTimerControls>(() => {
-    const reschedule = (endsAt: number, label: string | null) => {
-      const previous = notificationId.current
-      notificationId.current = null
-      void cancelRestEnd(previous)
-      void scheduleRestEnd(endsAt, label).then((id) => {
-        notificationId.current = id
-      })
-    }
-    const cancel = () => {
-      const previous = notificationId.current
-      notificationId.current = null
-      void cancelRestEnd(previous)
-    }
-    return {
-      startForSlot: (slot: MovementSlot) => {
-        const seconds = resolveRestSeconds(slot, { autoStartTimer, defaultRestSeconds })
-        if (seconds == null) return
-        const endsAt = Date.now() + seconds * 1000
-        reschedule(endsAt, slot.movementName)
-        setState({ endsAt, active: true, label: slot.movementName })
-      },
-      addTime: (seconds: number) =>
-        setState((current) => {
-          if (!current.active || current.endsAt == null) return current
-          const endsAt = current.endsAt + seconds * 1000
-          reschedule(endsAt, current.label)
-          return { ...current, endsAt }
-        }),
-      dismiss: () => {
-        cancel()
-        setState(IDLE)
-      },
-      prime: () => {},
-    }
-  }, [autoStartTimer, defaultRestSeconds])
-
-  // Leaving the session screen unmounts the provider — never leave a stray alarm behind.
-  useEffect(
-    () => () => {
-      void cancelRestEnd(notificationId.current)
-    },
-    [],
-  )
-
-  // A backgrounded app freezes the pill's interval; on return, drop a timer that
-  // already elapsed while away (the pill recomputes live remaining from endsAt).
+  const autoStartTimer = me?.autoStartTimer ?? true
+  const defaultRestSeconds = me?.defaultRestSeconds ?? 120
+  const [state, setState] = useState(IDLE_REST)
+  const [timer] = useState(() => createRestTimerController({
+    schedule: scheduleRestEnd, cancel: cancelRestEnd, onChange: setState, cue: playRestCompleteCue,
+  }))
+  useEffect(() => { timer.configure({ autoStartTimer, defaultRestSeconds }) }, [timer, autoStartTimer, defaultRestSeconds])
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (next) => {
-      if (next !== 'active') return
-      setState((current) =>
-        current.active && current.endsAt != null && current.endsAt <= Date.now() ? IDLE : current,
-      )
+    timer.mount()
+    let foreground = AppState.currentState !== 'background' && AppState.currentState !== 'inactive'
+    const subscription = AppState.addEventListener('change', next => {
+      foreground = next === 'active'
+      if (foreground) timer.foreground()
     })
-    return () => subscription.remove()
-  }, [])
-
+    // The timer owns expiry even when neither of its visual presenters is mounted.
+    const interval = setInterval(() => { if (foreground) timer.tick() }, 250)
+    return () => { clearInterval(interval); subscription.remove(); timer.dispose() }
+  }, [timer])
   return (
-    <RestTimerControlsContext.Provider value={controls}>
+    <RestTimerControlsContext.Provider value={timer.controls}>
       <RestTimerStateContext.Provider value={state}>
-        <View style={{ flex: 1 }}>
-          {children}
-          <RestTimerPill />
-        </View>
+        <View style={{ flex: 1 }}>{children}</View>
       </RestTimerStateContext.Provider>
     </RestTimerControlsContext.Provider>
   )

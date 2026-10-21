@@ -1,10 +1,11 @@
+import { useState } from 'react'
 import { View } from 'react-native'
-import { ArrowRight, Dumbbell } from 'lucide-react-native'
+import { ArrowRight } from 'lucide-react-native'
 import type {
   FreeWeightChoiceDraft,
   ProgramEquipmentMode,
 } from '@sheetless/domain/program/types'
-import { Badge, Button, Caption, Panel, SectionLabel, SheetModal, Text } from '@/components'
+import { Button, Caption, Panel, SectionLabel, SheetModal, Text } from '@/components'
 import { spacing, useTokens } from '@/lib/tokens'
 
 export type EquipmentModeReviewRow = {
@@ -36,6 +37,7 @@ export type EquipmentModeReviewSheetProps = {
   canApply: boolean
   isPending?: boolean
   error?: string | null
+  context?: 'setup' | 'plan'
   onChoiceChange: (
     choice: FreeWeightChoiceDraft,
     replacementMovementId: string,
@@ -55,13 +57,17 @@ export function EquipmentModeReviewSheet({
   canApply,
   isPending = false,
   error,
+  context = 'setup',
   onChoiceChange,
   onClose,
   onConfirm,
 }: EquipmentModeReviewSheetProps) {
   const { theme } = useTokens()
+  const [expanded, setExpanded] = useState(false)
   const enabling = targetMode === 'free_weight'
-  const title = enabling ? 'Use free weights only?' : 'Use all equipment?'
+  const title = context === 'plan'
+    ? enabling ? 'Switch to free weights only?' : 'Switch to all equipment?'
+    : enabling ? 'Use free weights only?' : 'Use all equipment?'
   const effectiveUnresolvedCount = Math.max(
     unresolved.length,
     unresolvedCount ?? 0,
@@ -71,9 +77,10 @@ export function EquipmentModeReviewSheet({
     <SheetModal
       open={open}
       title={title}
+      showHandle
       subtitle={enabling
-        ? 'Review replacements across every future phase.'
-        : 'Review the automatic replacements that will be removed.'}
+        ? `${rows.length} replacement${rows.length === 1 ? '' : 's'} across future phases. Nothing you swapped by hand changes.`
+        : `${rows.length} replacement${rows.length === 1 ? '' : 's'} will be removed. Nothing you swapped by hand changes.`}
       closeDisabled={isPending}
       onClose={onClose}
       testID="equipment-mode-review-sheet"
@@ -91,7 +98,7 @@ export function EquipmentModeReviewSheet({
               testID="confirm-equipment-mode"
             />
             <Button
-              label="Cancel"
+              label={context === 'plan' ? enabling ? 'Keep all equipment' : 'Keep free weights only' : 'Cancel'}
               variant="default"
               fullWidth
               disabled={isPending}
@@ -103,18 +110,6 @@ export function EquipmentModeReviewSheet({
       )}
     >
       <View style={{ gap: spacing.sm }}>
-        <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.sm }}>
-          <Dumbbell color={theme.text} size={19} />
-          <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
-            <Text weight={900}>{enabling ? 'Free weights only' : 'All equipment'}</Text>
-            <Caption>
-              {enabling
-                ? 'Replacement loads start blank. Reps and effort targets stay intact, and completed workout history does not change.'
-                : 'Automatic free-weight replacements are removed. Manual programme customizations stay in place.'}
-            </Caption>
-          </View>
-        </View>
-
         {effectiveUnresolvedCount > 0 ? (
           <Panel
             surface="inset"
@@ -150,7 +145,7 @@ export function EquipmentModeReviewSheet({
                 : 'Future workout swaps and added exercises can use all saved equipment again.'}
             </Caption>
           </Panel>
-        ) : rows.map((row) => {
+        ) : (expanded ? rows : rows.slice(0, 4)).map((row) => {
           const selected = choices.find((choice) => sameChoice(choice, row.choice)) ?? row.choice
           const selectedName = row.alternatives.find(
             (alternative) => alternative.movementId === selected.replacementMovementId,
@@ -164,18 +159,15 @@ export function EquipmentModeReviewSheet({
               surface="inset"
               style={{ gap: spacing.sm, padding: spacing.sm }}
             >
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-                <Badge>{row.sessionTitle}</Badge>
-                <Badge tone="action">{row.phaseLabel}</Badge>
-                {addedAccessoryLabel(row.choice.slotId) ? (
-                  <Badge>{addedAccessoryLabel(row.choice.slotId)}</Badge>
-                ) : null}
-              </View>
+              <SectionLabel>{row.sessionTitle} · {row.phaseLabel}{addedAccessoryLabel(row.choice.slotId)
+                ? ` · ${addedAccessoryLabel(row.choice.slotId)}` : ''}</SectionLabel>
               <View style={{ alignItems: 'center', flexDirection: 'row', gap: spacing.xs }}>
-                <Text size="sm" weight={700} style={{ flex: 1 }}>{fromName}</Text>
+                <Text size="sm" tone="dimmed" style={{ flex: 1 }}>{fromName}</Text>
                 <ArrowRight color={theme.textMuted} size={15} />
                 <Text size="sm" weight={900} style={{ flex: 1 }} align="right">{toName}</Text>
               </View>
+              <Caption>{enabling ? 'Loads start blank — reps and effort stay as planned.'
+                : 'The original prescription resumes. Replacement loads are not carried across.'}</Caption>
 
               {enabling && row.alternatives.length > 1 ? (
                 <View style={{ gap: spacing.xs }}>
@@ -201,6 +193,11 @@ export function EquipmentModeReviewSheet({
             </Panel>
           )
         })}
+        {rows.length > 4 ? <Button
+          label={expanded ? 'Show fewer changes' : `${rows.length - 4} more change${rows.length - 4 === 1 ? '' : 's'}`}
+          variant="subtle" size="sm" style={{ paddingHorizontal: 0 }}
+          onPress={() => setExpanded((value) => !value)} /> : null}
+        <Caption>Completed workout history stays as it was logged.</Caption>
       </View>
     </SheetModal>
   )

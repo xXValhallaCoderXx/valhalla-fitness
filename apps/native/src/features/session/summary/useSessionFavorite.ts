@@ -18,11 +18,14 @@ export function useSessionFavorite(user: User) {
         accountQueryKeys.session(user.id, session.sessionId),
         session,
       )
-      void Promise.allSettled([
-        queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(user.id) }),
-        queryClient.invalidateQueries({ queryKey: accountQueryKeys.favoriteWorkouts(user.id) }),
-        queryClient.invalidateQueries({ queryKey: accountQueryKeys.sessions(user.id) }),
-      ])
     },
+    // A lost response can still mean the server committed the favourite/title.
+    onSettled: () => Promise.allSettled([
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(user.id) }),
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.favoriteWorkouts(user.id) }),
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.sessions(user.id) }),
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.sessionReceipts(user.id) }),
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(user.id) }),
+    ]),
   })
 }

@@ -4,6 +4,7 @@ import type { SessionSummary } from '@sheetless/domain/session/types'
 import { mapProgressionDecision } from '../program/active-program'
 import type { UserContext } from '../shared/context'
 import { getSession } from './reads'
+import { getSessionCycleBoundary } from '../program/cycle-reads'
 
 /** Rebuild a completed workout receipt from its saved work and exact decision links. */
 export async function getSessionSummary(ctx: UserContext, sessionId: string): Promise<SessionSummary> {
@@ -22,6 +23,7 @@ export async function getSessionSummary(ctx: UserContext, sessionId: string): Pr
     : []
   const sets = session.movements.flatMap((movement) => movement.sets)
   return {
+    cycleBoundary: session.isAdHoc ? null : await getSessionCycleBoundary(ctx, sessionId),
     session,
     completedSets: sets.filter((set) => set.completed).length,
     totalSets: sets.length,

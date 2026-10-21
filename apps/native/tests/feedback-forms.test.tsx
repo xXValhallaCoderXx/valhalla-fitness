@@ -171,18 +171,20 @@ describe('feedback forms', () => {
 })
 
 
-it.each([['Apply', 'accepted'], ['Keep', 'dismissed'], ['Apply all 1', 'accepted']] as const)(
+it.each([['Apply Squat recommendation', 'accepted'], ['Keep current Squat value', 'dismissed'], ['Apply all 2', 'accepted']] as const)(
   'keeps feedback accessible after %s and submits its resolved status', async (action, status) => {
     const decision = { id: crypto.randomUUID(), movementId: 'squat', movementName: 'Squat', ruleId: 'linear', scope: 'session',
       status: 'pending', inputSummary: 'Done', recommendation: 'Add load', previousValue: 80, recommendedValue: 82.5 } as ProgressionDecision
     function Review() {
-      const [value, setValue] = useState(decision)
-      return <SummaryDecisions user={user} decisions={[value]} units="kg"
-        onResolved={(_id, next) => setValue((current) => ({ ...current, status: next }))} />
+      const [values, setValues] = useState(action === 'Apply all 2'
+        ? [decision, { ...decision, id: crypto.randomUUID(), movementName: 'Press' }]
+        : [decision])
+      return <SummaryDecisions user={user} decisions={values} units="kg"
+        onResolved={(id, next) => setValues(current => current.map(value => value.id === id ? { ...value, status: next } : value))} />
     }
     render(<Review />)
     fireEvent.click(screen.getByRole('button', { name: action }))
-    fireEvent.click(screen.getByRole('button', { name: /Report an issue/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Report an issue with the Squat recommendation' }))
     fireEvent.click(screen.getByRole('tab', { name: 'Weight should stay the same' }))
     fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
     await screen.findByText('Feedback sent')

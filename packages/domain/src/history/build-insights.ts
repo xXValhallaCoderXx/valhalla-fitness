@@ -41,14 +41,14 @@ export function buildHistoryInsights({
   timeZone?: string | null
   catalog?: Record<string, Movement>
 }): HistoryInsights {
-  const units = sessions.find((session) => session.units)?.units ?? null
+  const units = accountUnits
   const firstSessionDate = sessions.length
-    ? sessions[sessions.length - 1].scheduledDate
+    ? [...sessions].map(session => session.scheduledDate).sort()[0]
     : null
   const resolvedTimeZone = resolveIanaTimeZone(timeZone)
   const accountToday = today ?? calendarDateInTimeZone(new Date(now), resolvedTimeZone)
 
-  const liftSeries = buildLiftE1rmSeries(sessions, { catalog })
+  const liftSeries = buildLiftE1rmSeries(sessions, { catalog, units })
   const totalSeries = decorateTotalPoints(buildPowerliftingTotal(liftSeries, units), bodyweightEntries, sex)
   const latestTotal = totalSeries.length ? totalSeries[totalSeries.length - 1] : null
   // Headline score pairs the best-so-far total with the *current* bodyweight,
@@ -70,7 +70,7 @@ export function buildHistoryInsights({
     units,
     liftSeries,
     totalSeries,
-    weeklyVolume: buildWeeklyVolumeBuckets(sessions, undefined, { maxWeeks: null }),
+    weeklyVolume: buildWeeklyVolumeBuckets(sessions, units, { maxWeeks: null }),
     weeklyRegionSets: buildWeeklyRegionSets(sessions, { catalog }),
     weeklyMovements: buildWeeklyMovementTotals(sessions, { units, catalog }),
     weeklySessions,

@@ -13,6 +13,8 @@ import type { MovementSlot, WorkoutSession } from '@sheetless/domain/session/typ
 import type { TodayPayload } from '@sheetless/domain/session/types/read-models'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { buildUserContext } from '@/lib/account'
+import { setDraftId } from '@sheetless/domain/session/set-draft'
+import { reconcileWorkoutDrafts, submittedSetDraft } from '../editing/workout-drafts'
 import { useRestTimerControls } from '../rest-timer/rest-timer-context'
 
 export function useSetLogMutation(
@@ -31,8 +33,8 @@ export function useSetLogMutation(
     mutationFn: (patch: SetLogAttempt) =>
       upsertSetLog(buildUserContext(user), {
         sessionId: session.sessionId,
-        exerciseLogId: movement.id,
-        setIndex,
+        exerciseLogId: patch.movementSlotId!,
+        setIndex: patch.setIndex,
         actualLoad: patch.actualLoad,
         actualReps: patch.actualReps,
         actualRir: patch.actualRir,
@@ -50,18 +52,21 @@ export function useSetLogMutation(
       const sessionKey = accountQueryKeys.session(userId, session.sessionId)
       await queryClient.cancelQueries({ queryKey: sessionKey })
       const previous = queryClient.getQueryData<WorkoutSession>(sessionKey)
+      const target = previous?.movements.find(item => item.id === patch.movementSlotId) ?? movement
+      const before = target.sets.find(item => item.setIndex === patch.setIndex)
+      const newCompletion = rest.trackSave(target, before, patch.clientMutationId!, Boolean(patch.completed), patch.setIndex)
       if (previous) {
         queryClient.setQueryData(
           sessionKey,
           patchSetInSession(previous, {
             ...patch,
-            movementSlotId: movement.id,
-            setIndex,
+            movementSlotId: patch.movementSlotId,
+            setIndex: patch.setIndex,
             syncState: 'saving',
           }),
         )
       }
-      return { previous }
+      return { previous, newCompletion }
     },
     onError: (_error, attempt, context) => {
       const patch = { ...attempt }
@@ -72,20 +77,22 @@ export function useSetLogMutation(
         queryClient.setQueryData<WorkoutSession>(
           accountQueryKeys.session(userId, session.sessionId),
           (current) => {
-            const latestSet = current?.movements.find((item) => item.id === movement.id)
-              ?.sets.find((item) => item.setIndex === setIndex)
+            const latestSet = current?.movements.find((item) => item.id === patch.movementSlotId)
+              ?.sets.find((item) => item.setIndex === patch.setIndex)
             if (current && latestSet?.clientMutationId !== patch.clientMutationId) return current
+            // A fresh read may already have proved this exact write committed.
+            if (latestSet?.clientMutationId === patch.clientMutationId && latestSet?.syncState === 'synced') return current
             return patchSetInSession(current ?? previous, {
               ...patch,
-              movementSlotId: movement.id,
-              setIndex,
+              movementSlotId: patch.movementSlotId,
+              setIndex: patch.setIndex,
               syncState: 'syncFailed',
             })
           },
         )
       }
     },
-    onSuccess: (nextSession, patch, context) => {
+    onSuccess: (nextSession) => {
       const sessionKey = accountQueryKeys.session(userId, session.sessionId)
       const reconciled = reconcileSessionSets(queryClient.getQueryData<WorkoutSession>(sessionKey), nextSession)
       queryClient.setQueryData(sessionKey, reconciled)
@@ -94,19 +101,16 @@ export function useSetLogMutation(
         (current: TodayPayload | undefined) =>
           current ? { ...current, activeSession: reconciled } : current,
       )
-      // Auto-start rest only on a genuine incomplete -> complete transition (not edits/retries).
-      if (patch.completed === true) {
-        const priorSet = context?.previous?.movements
-          .find((item) => item.id === movement.id)
-          ?.sets.find((set) => set.setIndex === setIndex)
-        if (priorSet?.completed === false) rest.startForSlot(movement)
-      }
+      reconcileWorkoutDrafts(queryClient, userId, reconciled)
+      rest.confirmSession(reconciled)
     },
   })
   const prepare = (patch: SetPatch) => {
     const current = queryClient.getQueryData<WorkoutSession>(sessionKey) ?? session
     const set = current.movements.find((item) => item.id === movement.id)?.sets.find((item) => item.setIndex === setIndex)
-    return prepareSetLogAttempt(set, patch, () => crypto.randomUUID())
+    const attempt = prepareSetLogAttempt(set, { ...patch, movementSlotId: movement.id, setIndex }, () => crypto.randomUUID())
+    submittedSetDraft(queryClient, userId, session.sessionId, setDraftId(movement, setIndex), attempt.clientMutationId!, attempt)
+    return attempt
   }
   return {
     ...mutation,

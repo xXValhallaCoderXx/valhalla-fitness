@@ -33,6 +33,8 @@ export type TrendSeries = {
 export interface TrendChartProps {
   series: TrendSeries[]
   inspectable?: boolean
+  /** Opens the authoritative source for the inspected reading, when supplied. */
+  onOpenPoint?: (index: number) => void
   showPoints?: boolean
   height?: number
   /** Formats y-axis ticks. Keep it short — the labels reserve width by length. */
@@ -58,6 +60,7 @@ const CHAR_WIDTH = 6.5
 export function TrendChart({
   series,
   inspectable = false,
+  onOpenPoint,
   showPoints = false,
   height = 180,
   formatValue = (value) => String(Math.round(value)),
@@ -194,6 +197,7 @@ export function TrendChart({
               disabled={adjacentPointIndex(values, selectedIndex, 1) === selectedIndex}
               onPress={() => select(adjacentPointIndex(values, selectedIndex, 1))} />
           </View>
+          {onOpenPoint && selectedIndex !== null ? <Button label="Open source workout" variant="subtle" onPress={() => onOpenPoint(selectedIndex)} /> : null}
         </View>
       ) : null}
     </View>

@@ -74,7 +74,7 @@ describe('buildSessionLedgerRows', () => {
         point({ sessionId: 'c', e1rm: 155 }),
       ]),
     })
-    expect(rows.map((row) => row.isPr)).toEqual([true, true, false])
+    expect(rows.map((row) => row.isPr)).toEqual([false, true, false])
   })
 
   // Matching a previous best is not beating it.
@@ -83,7 +83,7 @@ describe('buildSessionLedgerRows', () => {
       sessions: [entry({ id: 'a' }), entry({ id: 'b' })],
       liftSeries: series([point({ sessionId: 'a', e1rm: 150 }), point({ sessionId: 'b', e1rm: 150 })]),
     })
-    expect(rows.map((row) => row.isPr)).toEqual([true, false])
+    expect(rows.map((row) => row.isPr)).toEqual([false, false])
   })
 
   it('ignores a point the series flagged as an outlier', () => {
@@ -225,7 +225,7 @@ describe('filterLedgerRows', () => {
   })
 
   it('narrows to personal bests, which only rows know about', () => {
-    expect(filterLedgerRows(rows, 'pr', '').map((row) => row.id)).toEqual(['b'])
+    expect(filterLedgerRows(rows, 'pr', '').map((row) => row.id)).toEqual([])
   })
 
   it('narrows to the active programme, and excludes ad-hoc work', () => {

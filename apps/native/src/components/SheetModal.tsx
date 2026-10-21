@@ -1,41 +1,57 @@
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
+import { Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
 import { X } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Caption } from './Caption'
 import { Heading } from './Heading'
+import { SectionLabel } from './SectionLabel'
 import { cardShadow, radii, spacing, useTokens } from '@/lib/tokens'
 
 export interface SheetModalProps {
   open: boolean
   title: string
+  eyebrow?: string
   subtitle?: string
   children: React.ReactNode
   footer?: React.ReactNode
   onClose: () => void
+  /** Optional in-sheet navigation for Android Back, after dismissing the keyboard. */
+  onBack?: () => void
   closeDisabled?: boolean
   /** Disable when the child owns its scrolling, such as a virtualized movement list. */
   scroll?: boolean
   maxHeight?: number | `${number}%`
   testID?: string
+  showHandle?: boolean
+  /** Reset the scroll position when a sheet changes to another step or detail. */
+  contentKey?: string
 }
 
 /** Accessible, keyboard-aware native bottom sheet shared by workout tools. */
 export function SheetModal({
   open,
   title,
+  eyebrow,
   subtitle,
   children,
   footer,
   onClose,
+  onBack,
   closeDisabled = false,
   scroll = true,
   maxHeight = '92%',
   testID,
+  showHandle = false,
+  contentKey,
 }: SheetModalProps) {
   const { theme } = useTokens()
   const insets = useSafeAreaInsets()
   const close = () => {
     if (!closeDisabled) onClose()
+  }
+  const requestClose = () => {
+    if (Keyboard.isVisible()) Keyboard.dismiss()
+    else if (!closeDisabled && onBack) onBack()
+    else close()
   }
   const content = (
     <View style={{ flexShrink: scroll ? 0 : 1, gap: spacing.md, minHeight: 0, padding: spacing.lg }}>
@@ -49,7 +65,7 @@ export function SheetModal({
       transparent
       animationType="slide"
       statusBarTranslucent
-      onRequestClose={close}
+      onRequestClose={requestClose}
     >
       <View style={{ backgroundColor: 'rgba(6, 12, 14, 0.6)', flex: 1 }}>
         {/* The backdrop must not compete with the sheet's scrolling responder. */}
@@ -82,21 +98,24 @@ export function SheetModal({
               ...cardShadow(theme),
             }}
           >
+            {showHandle ? <View accessible={false} style={{ width: 38, height: 4, borderRadius: 2,
+              alignSelf: 'center', backgroundColor: theme.border, marginTop: 8 }} /> : null}
             <View
               style={{
                 alignItems: 'flex-start',
                 borderBottomColor: theme.border,
-                borderBottomWidth: 1,
+                borderBottomWidth: showHandle ? 0 : 1,
                 flexDirection: 'row',
                 flexShrink: 0,
                 gap: spacing.sm,
-                paddingBottom: spacing.sm,
+                paddingBottom: showHandle ? 0 : spacing.sm,
                 paddingLeft: spacing.lg,
                 paddingRight: spacing.sm,
-                paddingTop: spacing.md,
+                paddingTop: showHandle ? spacing.xs : spacing.md,
               }}
             >
               <View style={{ flex: 1, gap: 3, minWidth: 0, paddingTop: 4 }}>
+                {eyebrow ? <SectionLabel>{eyebrow}</SectionLabel> : null}
                 <Heading order={2}>{title}</Heading>
                 {subtitle ? <Caption>{subtitle}</Caption> : null}
               </View>
@@ -122,6 +141,7 @@ export function SheetModal({
 
             {scroll ? (
               <ScrollView
+                key={contentKey}
                 keyboardShouldPersistTaps="handled"
                 style={{ flexGrow: 0, flexShrink: 1, minHeight: 0 }}
                 contentContainerStyle={{ paddingBottom: footer ? 0 : spacing.lg + insets.bottom }}
@@ -137,7 +157,7 @@ export function SheetModal({
                 style={{
                   backgroundColor: theme.surface,
                   borderTopColor: theme.border,
-                  borderTopWidth: 1,
+                  borderTopWidth: showHandle ? 0 : 1,
                   flexShrink: 0,
                   padding: spacing.md,
                   paddingBottom: spacing.md + insets.bottom,

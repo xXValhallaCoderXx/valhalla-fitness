@@ -1,107 +1,92 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { familyMembersForTemplate } from '@sheetless/domain/program/template-families'
-import { Button, EmptyState, PageHeader, Panel, Screen, Text } from '@/components'
-import { todayQueryOptions } from '@/features/session/queries'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { router, useIsFocused } from 'expo-router'
+import type { User } from '@supabase/supabase-js'
+import { familyByTemplateId, familyMembersForTemplate } from '@sheetless/domain/program/template-families'
+import { Button, EmptyState, Panel, Text } from '@/components'
 import { useMe } from '@/lib/account'
 import { useSession } from '@/lib/session-provider'
 import { spacing } from '@/lib/tokens'
-import { TemplateStartSetup } from './setup/TemplateStartSetup'
+import { TemplatesLayout } from './catalogue/TemplatesLayout'
+import { TemplateDetailContent } from './details/TemplateDetailContent'
+import { TemplateSessionPreview } from './details/TemplateSessionPreview'
 import { templateSetupQueryOptions, templatesQueryOptions } from './queries'
+import { finderDaysParam } from './find-my-plan/native-find-my-plan'
+import { programSetupSuggestionsQueryOptions } from './setup-suggestions'
+import { initializeProgramSetupDraft } from './setup-draft'
 
-export function TemplateDetailScreen({ templateId }: { templateId: string }) {
+type Entry = { templateId: string; source?: string; finderDays?: string }
+
+function backToPlans() {
+  if (router.canGoBack()) router.back()
+  else router.replace('/program')
+}
+
+export function TemplateDetailScreen({ templateId, source, finderDays }: Entry) {
   const { user } = useSession()
+  if (!user) return <TemplatesLayout backLabel="Plans" onBack={backToPlans}>
+    <EmptyState title="Sign in to browse plans">Your plan library is available after signing in.</EmptyState>
+  </TemplatesLayout>
+  return <AccountTemplateDetail key={`${user.id}:${templateId}`} user={user} templateId={templateId} source={source} finderDays={finderDays} />
+}
+
+function AccountTemplateDetail({ user, templateId, source, finderDays }: Entry & { user: User }) {
   const profile = useMe()
-  const [setupRevision, setSetupRevision] = useState(0)
-  const [reloadPending, setReloadPending] = useState(false)
-  const [reloadError, setReloadError] = useState<string | null>(null)
-  const templates = useQuery({ ...templatesQueryOptions(user!), enabled: Boolean(user) })
+  const client = useQueryClient()
+  const focused = useIsFocused()
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const templates = useQuery(templatesQueryOptions(user))
   const template = templates.data?.find((item) => item.id === templateId)
-  const setup = useQuery({
-    ...templateSetupQueryOptions(user!, templateId),
-    enabled: Boolean(user && template),
-  })
-  const today = useQuery({
-    ...todayQueryOptions(user!, profile.data?.timezone ?? undefined),
-    enabled: Boolean(user && profile.data),
-  })
-
-  const reloadSetup = async () => {
-    if (reloadPending) return false
-    setReloadPending(true)
-    setReloadError(null)
-    try {
-      const result = await setup.refetch()
-      if (result.isError) throw result.error
-      setSetupRevision((current) => current + 1)
-      return true
-    } catch (error) {
-      setReloadError(error instanceof Error ? error.message : 'Unable to reload programme setup.')
-      return false
-    } finally {
-      setReloadPending(false)
-    }
+  const setup = useQuery({ ...templateSetupQueryOptions(user, templateId), enabled: Boolean(template?.available) })
+  const suggestions = useQuery({ ...programSetupSuggestionsQueryOptions(user, templateId, profile.data),
+    enabled: previewOpen && Boolean(template?.available) })
+  const openSetup = () => {
+    const snapshot = previewOpen && !suggestions.isError && suggestions.data?.templateId === templateId ? suggestions.data : null
+    const draftId = snapshot ? initializeProgramSetupDraft(client, user.id, snapshot) : undefined
+    setPreviewOpen(false)
+    const days = finderDaysParam(finderDays)
+    router.push({ pathname: '/template/[templateId]/setup', params: { templateId,
+      ...(source === 'finder' && days ? { source, finderDays: String(days) } : {}),
+      ...(draftId ? { draftId } : {}) } })
   }
+  const footer = template?.available && !templates.isError ? <Button label="Set this up" fullWidth onPress={openSetup} /> : undefined
 
-  const failedQuery = templates.isError ? templates : profile.isError ? profile : today.isError ? today : setup.isError ? setup : null
-  if (failedQuery) {
-    return (
-      <Screen>
-        <PageHeader title="Programme" />
-        <EmptyState title="Programme could not load">
-          {failedQuery.error instanceof Error ? failedQuery.error.message : 'Try again in a moment.'}
-        </EmptyState>
-        <Button
-          label="Retry"
-          variant="default"
-          loading={failedQuery.isFetching || reloadPending}
-          fullWidth
-          onPress={() => {
-            if (failedQuery === setup) void reloadSetup()
-            else void failedQuery.refetch()
-          }}
-        />
-      </Screen>
-    )
-  }
-
-  if (
-    templates.isPending ||
-    profile.isPending ||
-    today.isPending ||
-    (template && setup.isPending)
-  ) {
-    return (
-      <Screen>
-        <PageHeader title={template?.name ?? 'Programme'} />
-        <Panel style={{ padding: spacing.md }}>
-          <Text tone="dimmed">Loading programme setup…</Text>
-        </Panel>
-      </Screen>
-    )
-  }
-
-  if (!user || !templates.data || !template || !setup.data || !profile.data || !today.data) {
-    return (
-      <Screen>
-        <PageHeader title="Programme" />
-        <EmptyState title="Programme not found">This programme is no longer available.</EmptyState>
-      </Screen>
-    )
-  }
-
-  return (
-    <TemplateStartSetup
-      key={`${templateId}:${setupRevision}`}
-      user={user}
-      profile={profile.data}
-      today={today.data}
-      template={template}
-      setup={setup.data}
-      familyMembers={familyMembersForTemplate(templateId, templates.data)}
-      reloadPending={reloadPending}
-      reloadError={reloadError}
-      onReloadSetup={reloadSetup}
-    />
-  )
+  return <TemplatesLayout backLabel="Plans" onBack={backToPlans} footer={footer}>
+    {templates.isError ? <>
+      <EmptyState title="Plan could not load">
+        {templates.error instanceof Error ? templates.error.message : 'Try again in a moment.'}
+      </EmptyState>
+      <Button label="Retry plan" variant="default" loading={templates.isFetching} fullWidth onPress={() => void templates.refetch()} />
+    </> : templates.isPending ? <Panel style={{ padding: spacing.md }}>
+      <Text tone="dimmed">Loading plan…</Text>
+    </Panel> : !template ? <EmptyState title="Plan not found">This plan is no longer available.</EmptyState> : <>
+      {profile.isError ? <Panel style={{ padding: spacing.md, gap: spacing.sm }}>
+        <Text size="sm">{profile.data ? 'Using your last loaded display preference.' : 'Display preference could not load. Showing Simple.'}</Text>
+        <Button label="Retry display preference" variant="subtle" loading={profile.isFetching} onPress={() => void profile.refetch()} />
+      </Panel> : null}
+      <TemplateDetailContent
+        template={template}
+        family={familyByTemplateId.get(templateId)}
+        members={familyMembersForTemplate(templateId, templates.data ?? [])}
+        setup={setup.data}
+        advanced={profile.data?.experienceMode === 'full'}
+        previewLoading={setup.isPending && template.available}
+        previewError={setup.isError ? setup.error instanceof Error ? setup.error.message : 'The plan preview could not load.' : null}
+        retrying={setup.isFetching}
+        onRetry={() => void setup.refetch()}
+        onPreview={() => setPreviewOpen(true)}
+      />
+      {previewOpen && focused && setup.data ? <TemplateSessionPreview
+        setup={setup.data}
+        scheduleLabel={template.variantLabel ?? template.name}
+        suggestions={suggestions.data}
+        suggestionsLoading={suggestions.isPending}
+        suggestionsError={suggestions.isError ? 'Your starting suggestions could not load.' : null}
+        retrying={suggestions.isFetching}
+        onRetry={() => void suggestions.refetch()}
+        onClose={() => setPreviewOpen(false)}
+        onSetup={openSetup}
+      /> : null}
+    </>}
+  </TemplatesLayout>
 }

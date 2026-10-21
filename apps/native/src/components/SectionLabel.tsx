@@ -1,5 +1,5 @@
 import { Text as RNText } from 'react-native'
-import { fontFamily, fontSizes, toneColor, useTokens, type Tone } from '@/lib/tokens'
+import { fontForWeight, fontSizes, toneColor, useTokens, type Tone } from '@/lib/tokens'
 
 export interface SectionLabelProps {
   children: React.ReactNode
@@ -13,7 +13,7 @@ export function SectionLabel({ children, tone }: SectionLabelProps) {
     <RNText
       style={{
         color: toneColor(theme, tone) ?? theme.textMuted,
-        fontFamily,
+        fontFamily: fontForWeight(800),
         fontSize: fontSizes.caption,
         fontWeight: '800',
         letterSpacing: 0.8,

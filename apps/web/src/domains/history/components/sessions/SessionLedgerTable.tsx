@@ -1,3 +1,4 @@
+import { formatHistoryVolume } from '@sheetless/domain/history/insight-format'
 import { Badge } from '@mantine/core'
 import { ChevronRight, Star, Trophy } from 'lucide-react'
 import type { SessionLedgerRow } from '~/domains/history/lib/session-ledger'
@@ -179,7 +180,7 @@ function LedgerRow({
 function formatTonnage(tonnage: number, units: Unit | null, isFull: boolean): string {
   if (!tonnage) return '—'
   if (isFull && tonnage < 10000) return `${tonnage} ${units ?? ''}`.trim()
-  return `${(tonnage / 1000).toFixed(1)} t`
+  return formatHistoryVolume(tonnage, units)
 }
 
 function Th({

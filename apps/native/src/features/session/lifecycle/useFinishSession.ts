@@ -14,6 +14,9 @@ import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
 import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 import { buildUserContext } from '@/lib/account'
 import { useStableMutationRequest } from '@/lib/useStableMutationRequest'
+import { confirmedSetCount } from '@sheetless/domain/session/set-draft'
+import { clearWorkoutDrafts } from '../editing/workout-drafts'
+import { useRestTimerControls } from '../rest-timer/rest-timer-context'
 import type { FinishReflection } from './FinishWorkoutSheet'
 
 export function useFinishSession(
@@ -25,6 +28,8 @@ export function useFinishSession(
   const sessionId = session.sessionId
   const queryClient = useQueryClient()
   const request = useStableMutationRequest()
+  const rest = useRestTimerControls()
+  const terminal = () => { rest.exit(); clearWorkoutDrafts(queryClient, userId, sessionId) }
 
   const goToSummary = () =>
     router.replace({ pathname: '/session/[sessionId]/summary', params: { sessionId } })
@@ -34,7 +39,9 @@ export function useFinishSession(
     scope: { id: `session:${sessionId}` },
     mutationFn: (reflection: FinishReflection) => {
       const current = queryClient.getQueryData<WorkoutSession>(accountQueryKeys.session(userId, sessionId)) ?? session
+      if (queryClient.isMutating({ predicate: m => m.options.scope?.id === `session:${sessionId}` && m.options.mutationKey?.[0] !== 'finishSession' }) > 0) throw new Error('Wait for the workout to finish saving.')
       if (hasUnsettledSessionSets(current)) throw new Error('Save or retry all sets before finishing.')
+      if (confirmedSetCount(current) === 0) throw new Error('Log a completed set, or discard this attempt.')
       const notes = notesDraft.trim() || null
       return finishSession(buildUserContext(user), {
         sessionId,
@@ -45,6 +52,7 @@ export function useFinishSession(
       })
     },
     onSuccess: async (summary) => {
+      terminal()
       request.clearRequest()
       queryClient.setQueryData(accountQueryKeys.summary(userId, sessionId), summary)
       queryClient.setQueryData(accountQueryKeys.session(userId, sessionId), summary.session)
@@ -53,6 +61,7 @@ export function useFinishSession(
           queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) }),
           queryClient.invalidateQueries({ queryKey: accountQueryKeys.history(userId) }),
           queryClient.invalidateQueries({ queryKey: accountQueryKeys.program(userId) }),
+          queryClient.invalidateQueries({ queryKey: accountQueryKeys.experienceSignals(userId) }),
         ])
       } catch {
         void queryClient.invalidateQueries({ queryKey: accountQueryKeys.today(userId) })
@@ -61,7 +70,11 @@ export function useFinishSession(
     },
     onError: (error) => {
       const message = getApiErrorMessage(error, 'Unable to finish this session')
-      if (message.includes('already finished')) goToSummary()
+      if (message.includes('already finished')) {
+        terminal()
+        void queryClient.invalidateQueries({ queryKey: accountQueryKeys.experienceSignals(userId) }).catch(() => undefined)
+        goToSummary()
+      }
     },
   })
 

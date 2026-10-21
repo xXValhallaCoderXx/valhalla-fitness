@@ -140,6 +140,24 @@ export function adequacyTierForSets(weeklySets: number): AdequacyTier {
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
+/** Recent calendar weeks, including untrained weeks as zero and the incomplete current week. */
+export function calendarRegionWeeks(weekly: WeeklyRegionSets[], now: string, count: number | null = ADEQUACY_WINDOW_WEEKS): WeeklyRegionSets[] {
+  const date = parseDate(now)
+  if (!date) return []
+  const current = startOfWeek(date).getTime()
+  const first = weekly.map(week => parseDate(week.weekStart)?.getTime()).filter((time): time is number => time !== undefined && time <= current).sort((a, b) => a - b)[0]
+  if (first === undefined) return []
+  const start = count === null ? first : Math.max(first, current - (count - 1) * WEEK_MS)
+  const byWeek = new Map(weekly.map(week => [week.weekStart, week]))
+  const result: WeeklyRegionSets[] = []
+  for (let time = start; time <= current; time += WEEK_MS) {
+    const date = new Date(time)
+    const weekStart = formatDateKey(date)
+    result.push(byWeek.get(weekStart) ?? { weekStart, weekLabel: formatWeekLabel(date), regionSets: {}, totalSets: 0 })
+  }
+  return result
+}
+
 /**
  * `now` anchors the window to CALENDAR weeks: the weekly buckets only contain
  * trained weeks, so slicing the array would silently average a returning
@@ -164,7 +182,7 @@ export function buildRegionAdequacy(weekly: WeeklyRegionSets[], now: string): Ad
   const windowStart = currentWeekStart - (ADEQUACY_WINDOW_WEEKS - 1) * WEEK_MS
   const buckets = weekly.filter((bucket) => {
     const date = parseDate(bucket.weekStart)
-    return date !== null && date.getTime() >= windowStart
+    return date !== null && date.getTime() >= windowStart && date.getTime() <= currentWeekStart
   })
   const weeksSinceFirst = Math.floor((currentWeekStart - startOfWeek(firstEver).getTime()) / WEEK_MS) + 1
   const weeks = Math.max(1, Math.min(ADEQUACY_WINDOW_WEEKS, weeksSinceFirst))

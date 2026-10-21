@@ -1,5 +1,6 @@
 import type { Movement } from '@sheetless/domain/movement/types'
 import type { Unit } from '@sheetless/domain/shared/types'
+import { withHistoricalUnits } from './history-units'
 import { convertWeight } from '@sheetless/domain/shared/math'
 import { isPositiveLoad } from '@sheetless/domain/shared/load'
 import { movementCatalog } from '@sheetless/domain/movement/movements'
@@ -37,7 +38,7 @@ export function buildWeeklyMovementTotals(
   const catalog = options.catalog ?? movementCatalog
   const buckets = new Map<string, WeeklyMovementTotal>()
 
-  for (const session of sessions) {
+  for (const session of withHistoricalUnits(sessions)) {
     const date = parseDate(session.scheduledDate)
     if (!date) continue
     const weekStart = formatDateKey(startOfWeek(date))

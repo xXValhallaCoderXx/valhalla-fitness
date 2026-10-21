@@ -21,7 +21,9 @@ import {
   updateProgramCurrentWeekIndex,
 } from '../program/active-program'
 import { getPreviousComparablesBySlotId } from './previous-comparables'
+import { getLastEndedProgram } from '../program/ending'
 import type { UserContext } from '../shared/context'
+import { getHistoricalFallbackUnits } from '../history/history-units'
 
 export async function getToday(ctx: UserContext, timeZone?: string | null): Promise<TodayPayload> {
   const { supabase, user } = ctx
@@ -39,13 +41,42 @@ export async function getToday(ctx: UserContext, timeZone?: string | null): Prom
   if (error) throw new Error(error.message)
   const activeSession = activeSessionRow ? await getSession(ctx, activeSessionRow.id) : null
 
+  const { data: lastLogged, error: lastLoggedError } = await supabase.from('workout_sessions')
+    .select('id, scheduled_date').eq('user_id', user.id).eq('status', 'completed')
+    .order('scheduled_date', { ascending: false }).order('completed_at', { ascending: false })
+    .order('id', { ascending: false }).limit(1).maybeSingle()
+  let historyReadError: string | null = lastLoggedError?.message ?? null
+  const readLastCompleted = async () => {
+    if (!lastLogged || lastLoggedError) return null
+    try { return await getSession(ctx, lastLogged.id) }
+    catch (error) {
+      historyReadError = error instanceof Error ? error.message : 'Your last workout could not load.'
+      return null
+    }
+  }
+  const readLastEnded = async () => {
+    try { return await getLastEndedProgram(ctx) }
+    catch (error) {
+      historyReadError = error instanceof Error ? error.message : 'Your ended plan could not load.'
+      return null
+    }
+  }
+
   if (!activeProgram) {
+    const [lastCompletedSession, lastEndedProgram] = await Promise.all([
+      readLastCompleted(),
+      readLastEnded(),
+    ])
     return {
       activeProgram: null,
       plannedSession: null,
       activeSession,
       completedSession: null,
       pendingDecisions: [],
+      lastCompletedSession,
+      lastWorkoutLogged: lastLogged?.scheduled_date ?? null,
+      lastEndedProgram,
+      historyReadError,
     }
   }
 
@@ -67,6 +98,15 @@ export async function getToday(ctx: UserContext, timeZone?: string | null): Prom
 
   const completedSessionRow = completedSessionRows?.[0]
   const completedSession = completedSessionRow ? await getSession(ctx, completedSessionRow.id) : null
+  // A saved boundary must not be mistaken for no plan or repaired into a new cycle.
+  if (activeProgram.cycleBoundary) {
+    const [pendingDecisions, acceptedDecisions, lastCompletedSession] = await Promise.all([
+      getPendingDecisions(ctx, activeProgram.id), getAcceptedDecisions(ctx, activeProgram.id), readLastCompleted(),
+    ])
+    return { activeProgram, plannedSession: null, activeSession, completedSession,
+      cycleBoundary: activeProgram.cycleBoundary, pendingDecisions, acceptedDecisions,
+      lastCompletedSession, lastWorkoutLogged: lastLogged?.scheduled_date ?? null, historyReadError }
+  }
   if (!activeSession) {
     const nextProgram = programForNextUncompletedSession(
       activeProgram,
@@ -92,16 +132,10 @@ export async function getToday(ctx: UserContext, timeZone?: string | null): Prom
     ),
     timeZone: resolvedTimeZone,
   }
-  const [pendingDecisions, acceptedDecisions, lastLoggedResult] = await Promise.all([
+  const [pendingDecisions, acceptedDecisions] = await Promise.all([
     getPendingDecisions(ctx, activeProgram.id),
     getAcceptedDecisions(ctx, activeProgram.id),
-    supabase.from('workout_sessions')
-      .select('id, scheduled_date').eq('user_id', user.id).eq('status', 'completed')
-      .order('scheduled_date', { ascending: false }).order('completed_at', { ascending: false })
-      .limit(1).maybeSingle(),
   ])
-  if (lastLoggedResult.error) throw new Error(lastLoggedResult.error.message)
-  const lastLogged = lastLoggedResult.data
 
   // The Today card wants the last workout whenever it happened, while `completedSession` is
   // scoped to today. When they are the same row, reuse it rather than reading it twice.
@@ -109,7 +143,7 @@ export async function getToday(ctx: UserContext, timeZone?: string | null): Prom
     ? null
     : completedSession?.sessionId === lastLogged.id
       ? completedSession
-      : await getSession(ctx, lastLogged.id)
+      : await readLastCompleted()
 
   return {
     activeProgram,
@@ -120,6 +154,7 @@ export async function getToday(ctx: UserContext, timeZone?: string | null): Prom
     lastCompletedSession,
     pendingDecisions,
     acceptedDecisions,
+    historyReadError,
   }
 }
 
@@ -154,6 +189,7 @@ export async function getSession(ctx: UserContext, sessionId: string): Promise<W
   if (setError) throw new Error(setError.message)
 
   const snapshot = sessionRow.prescription_snapshot as PlannedSession
+  const units = snapshot.units ?? await getHistoricalFallbackUnits(supabase, user.id)
   const isAdHoc = sessionRow.program_instance_id === null || snapshot.kind === 'ad_hoc'
   // Favourite state belongs to the workout lineage, not this row alone: a repeat of a
   // favourited workout (or the root of a favourited repeat) reads as favourited too.
@@ -173,6 +209,7 @@ export async function getSession(ctx: UserContext, sessionId: string): Promise<W
   }
   return {
     ...snapshot,
+    units,
     sessionId: sessionRow.id,
     stateVersion: Number(sessionRow.state_version),
     status: sessionRow.status as WorkoutSession['status'],

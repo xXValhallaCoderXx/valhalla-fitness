@@ -70,6 +70,7 @@ export function mapTemplateRow(
     origin,
     description: row.description,
     daysPerWeek: row.days_per_week,
+    durationWeeks: definition?.durationWeeks,
     progressionLabel: row.progression_label,
     complexity: row.complexity as ProgramTemplateSummary['complexity'],
     tags: row.tags ?? [],

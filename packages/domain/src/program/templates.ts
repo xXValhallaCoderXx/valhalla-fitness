@@ -154,7 +154,10 @@ const rawTemplateCatalog: ProgramTemplateSummary[] = [
 ]
 
 /** Fallback catalogue (no-Supabase path), enriched with programme-family/variant metadata. */
-export const templateCatalog: ProgramTemplateSummary[] = rawTemplateCatalog.map(applyFamilyMeta)
+export const templateCatalog: ProgramTemplateSummary[] = rawTemplateCatalog.map((template) => applyFamilyMeta({
+  ...template,
+  durationWeeks: getFallbackTemplateDefinition(template.id).durationWeeks,
+}))
 
 // State-default helpers live in the import-light `program-state-defaults` module so client
 // code can use them without bundling the template DSL data; re-exported here for server code

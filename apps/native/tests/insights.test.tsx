@@ -9,59 +9,70 @@ import { svgMock } from './support/svg'
 
 vi.mock('@/lib/theme-provider', () => themeProviderMock())
 vi.mock('react-native-svg', () => svgMock())
-vi.mock('expo-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+vi.mock('lucide-react-native', () => ({ ChevronLeft: () => null, ChevronRight: () => null }))
+vi.mock('@/components/SettingsHeaderAction', () => ({ SettingsHeaderAction: () => null }))
+vi.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }))
+const navigation = vi.hoisted(() => ({ push: vi.fn(), dismissTo: vi.fn() }))
+vi.mock('expo-router', () => ({ useRouter: () => navigation }))
 vi.mock('@/components/SheetModal', () => ({ SheetModal: () => null }))
 vi.mock('@/components/ConfirmDialog', () => ({ ConfirmDialog: () => null }))
-vi.mock('@/components/Screen', () => ({ Screen: ({ children }: { children: React.ReactNode }) => <>{children}</> }))
-vi.mock('@/components/SettingsHeaderAction', () => ({ SettingsHeaderAction: () => null }))
 vi.mock('@/features/history/sessions/SessionSummarySheet', () => ({ SessionSummarySheet: () => null }))
 vi.mock('@/features/history/movements/MovementHistorySheet', () => ({ MovementHistorySheet: () => null }))
-const api = vi.hoisted(() => ({ dashboard: vi.fn(), program: vi.fn(), user: { id: 'one' } as User }))
+const api = vi.hoisted(() => ({ dashboard: vi.fn(), program: vi.fn(), user: { id: 'one' } as User | null }))
 vi.mock('@/features/history/queries', () => ({ historyDashboardQueryOptions: (user: User) => ({ queryKey: ['dashboard', user.id], queryFn: api.dashboard }) }))
 vi.mock('@/features/program/queries', () => ({ programOverviewQueryOptions: (user: User) => ({ queryKey: ['program', user.id], queryFn: api.program }) }))
 vi.mock('@/lib/session-provider', () => ({ useSession: () => ({ user: api.user }) }))
-vi.mock('@/lib/account', () => ({ buildUserContext: vi.fn() }))
+vi.mock('@/lib/account', () => ({ useMe: () => ({ data: { experienceMode: 'guided' } }) }))
 const { InsightsScreen } = await import('../src/features/history/InsightsScreen')
+const { StrengthScreen } = await import('../src/features/history/StrengthScreen')
+const { InsightsStateProvider } = await import('../src/features/history/navigation/InsightsState')
 
 const dashboard = buildHistoryDashboard({ sessions: [], substitutions: [] })
 const data = { ...dashboard, insights: buildHistoryInsights({ sessions: [], overview: dashboard.overview,
   bodyweightEntries: [{ id: 'w', recordedOn: '2026-09-05', weightKg: 80 }], sex: null,
   accountUnits: 'lb', now: '2026-09-05T12:00:00Z', today: '2026-09-05' }) }
 
-describe('Insights screen state', () => {
-  it('supports direct entry, bodyweight-only accounts, six tabs, persistent ranges, and account changes', async () => {
+describe('Insights screen recovery and navigation', () => {
+  it('supports direct entry, bodyweight-only accounts, nested destinations, persistent ranges and account reset', async () => {
     api.user = { id: 'one' } as User
     api.dashboard.mockResolvedValue(data)
     api.program.mockResolvedValue({ activeProgram: null })
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    const view = () => <QueryClientProvider client={client}><InsightsScreen /></QueryClientProvider>
+    const view = (strength = false) => <QueryClientProvider client={client}><InsightsStateProvider accountId={api.user?.id ?? 'anonymous'}>
+      {strength ? <StrengthScreen /> : <InsightsScreen />}
+    </InsightsStateProvider></QueryClientProvider>
     const { rerender } = render(view())
     await screen.findByText('Latest recorded · 2026-09-05')
-    expect(api.program).toHaveBeenCalledOnce()
     expect(screen.getAllByText(/176.4 lb/).length).toBeGreaterThan(0)
-    for (const name of ['Overview', 'Strength', 'Muscle Fatigue', 'Movements', 'Records', 'Sessions']) {
-      expect(screen.getByRole('tab', { name })).toBeTruthy()
+    for (const name of ['See your strength', 'Your lifts', 'All your best sets', 'Muscles', 'Past workouts']) {
+      expect(screen.getByRole('button', { name })).toBeTruthy()
     }
+    fireEvent.click(screen.getByRole('button', { name: 'Past workouts' }))
+    expect(navigation.push).toHaveBeenCalledWith('/history/workouts')
     fireEvent.click(screen.getByRole('tab', { name: '3M' }))
-    const selectedFill = screen.getByRole('tab', { name: '3M' }).style.backgroundColor
-    fireEvent.click(screen.getByRole('tab', { name: 'Strength' }))
-    expect(screen.getByRole('tab', { name: '3M' }).style.backgroundColor).toBe(selectedFill)
-    fireEvent.click(screen.getByRole('tab', { name: 'Muscle Fatigue' }))
-    expect(screen.getByText('Muscle fatigue · last 7 days')).toBeTruthy()
-    fireEvent.click(screen.getByRole('tab', { name: 'Overview' }))
-    expect(screen.getByRole('tab', { name: '3M' }).style.backgroundColor).toBe(selectedFill)
+    expect(screen.getByText('Selected range: 3M')).toBeTruthy()
+    rerender(view(true))
+    expect(await screen.findByText('Selected range: 3M')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Insights' }))
+    expect(navigation.dismissTo).toHaveBeenCalledWith('/history')
+    rerender(view())
+    expect(await screen.findByText('Selected range: 3M')).toBeTruthy()
     api.user = { id: 'two' } as User
     rerender(view())
-    await waitFor(() => expect(screen.getByRole('tab', { name: '8W' }).style.backgroundColor).toBe(selectedFill))
+    await screen.findByText('Selected range: 8W')
+    api.user = null
+    rerender(view())
+    expect(screen.queryByText('Selected range: 8W')).toBeNull()
   })
 
   it('provides explicit retries for dashboard and programme failures', async () => {
+    api.user = { id: 'one' } as User
     api.dashboard.mockRejectedValueOnce(new Error('Training unavailable')).mockResolvedValue(data)
     api.program.mockRejectedValue(new Error('Programme unavailable'))
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    render(<QueryClientProvider client={client}><InsightsScreen /></QueryClientProvider>)
+    render(<QueryClientProvider client={client}><InsightsStateProvider accountId={api.user.id}><InsightsScreen /></InsightsStateProvider></QueryClientProvider>)
     fireEvent.click(await screen.findByRole('button', { name: 'Retry Insights' }))
     expect(await screen.findByText('Latest recorded · 2026-09-05')).toBeTruthy()
-    expect(await screen.findByRole('button', { name: 'Retry programme context' })).toBeTruthy()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Retry programme context' })).toBeTruthy())
   })
 })

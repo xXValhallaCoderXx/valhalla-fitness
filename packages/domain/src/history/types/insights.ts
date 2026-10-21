@@ -5,6 +5,7 @@ import type {
   BodyRegionId,
   HistoryDashboard,
   HistoryWeeklyVolume,
+  SetAssessment,
 } from '@sheetless/domain/history/types/dashboard'
 
 export type E1rmTrendSignal = 'rising' | 'flat' | 'declining' | 'detraining' | 'insufficient'
@@ -39,6 +40,9 @@ export type E1rmPoint = {
   /** Scheduled workout calendar date (YYYY-MM-DD). One point per session per lift. */
   date: string
   sessionId: string
+  setId?: string
+  exerciseId?: string
+  assessment?: SetAssessment
   e1rm: number
   load: number
   reps: number

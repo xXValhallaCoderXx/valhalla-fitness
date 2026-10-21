@@ -1,31 +1,33 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { View } from 'react-native'
+import { Plus } from 'lucide-react-native'
 import type { User } from '@supabase/supabase-js'
 import type { WorkoutSession } from '@sheetless/domain/session/types/session'
 import { getApiErrorMessage } from '@sheetless/domain/shared/api-error'
-import { Button, EmptyState } from '@/components'
+import { Button, Heading, Text } from '@/components'
+import { spacing, useTokens } from '@/lib/tokens'
+import { FrequentExercises } from './FrequentExercises'
+import { BlankWorkoutPlanReminder } from './BlankWorkoutPlanReminder'
 import { AddExerciseSheet } from '../editing/AddExerciseSheet'
 import { allMovementOptionsQueryOptions } from '../queries'
-import { SessionNotesSheet } from '../editing/SessionNotesSheet'
 import { useAddAdHocExerciseMutation } from '../editing/useAdHocExerciseMutations'
 
 export function EmptyWorkoutOverview({
   user,
   session,
-  notes,
   disabled,
-  onNotesChange,
   onAdded,
+  onDiscardBlank,
 }: {
   user: User
   session: WorkoutSession
-  notes: string
   disabled: boolean
-  onNotesChange: (notes: string) => void
   onAdded: (movementId: string) => void
+  onDiscardBlank?: () => void
 }) {
+  const { theme } = useTokens()
   const [addOpen, setAddOpen] = useState(false)
-  const [notesOpen, setNotesOpen] = useState(false)
   const options = useQuery({
     ...allMovementOptionsQueryOptions(user),
     enabled: addOpen && Boolean(session.isAdHoc),
@@ -41,31 +43,31 @@ export function EmptyWorkoutOverview({
 
   return (
     <>
-      <EmptyState
-        title={session.isAdHoc ? 'Build this workout' : 'No exercises available'}
-        action={session.isAdHoc ? (
+      <View style={{ gap: spacing.sm }}>
+        <Heading order={1}>{session.isAdHoc ? 'Nothing in here yet' : 'No exercises available'}</Heading>
+        <Text size="sm" tone="dimmed">{session.isAdHoc
+          ? 'A blank workout for training that is not in your plan. Add your first exercise, then log the sets you complete.'
+          : 'Return to Today and refresh this planned workout.'}</Text>
+        {session.isAdHoc ? (
           <Button
-            label="Add exercise"
-            disabled={disabled}
+            label="Add your first exercise"
+            size="lg"
+            fullWidth
+            leftSection={<Plus size={24} color={theme.primaryFillText} />}
+            disabled={disabled || addExercise.isPending}
             onPress={() => setAddOpen(true)}
             testID="empty-add-exercise"
           />
-        ) : undefined}
-      >
-        {session.isAdHoc
-          ? 'Choose anything from the movement catalogue to start logging, or finish now to keep only your session notes.'
-          : 'Return to Today and refresh this planned workout.'}
-      </EmptyState>
+        ) : null}
+      </View>
 
-      {session.isAdHoc ? (
-        <Button
-          label={notes.trim() ? 'Edit session notes' : 'Session notes'}
-          variant="default"
-          fullWidth
-          disabled={disabled}
-          onPress={() => setNotesOpen(true)}
-        />
-      ) : null}
+      {session.isAdHoc ? <>
+        <FrequentExercises user={user} freeWeightOnly={session.equipmentMode === 'free_weight'}
+          disabled={disabled || addExercise.isPending}
+          error={addExercise.isError ? getApiErrorMessage(addExercise.error, 'Unable to add this exercise.') : null}
+          onAdd={movementId => addExercise.mutate(movementId)} />
+        <BlankWorkoutPlanReminder user={user} disabled={disabled || addExercise.isPending} onDiscardBlank={onDiscardBlank} />
+      </> : null}
 
       <AddExerciseSheet
         open={addOpen && Boolean(session.isAdHoc)}
@@ -82,16 +84,6 @@ export function EmptyWorkoutOverview({
         onRetry={() => options.refetch()}
         onClose={() => setAddOpen(false)}
         onSubmit={(draft) => addExercise.mutate(draft.movement.movementId)}
-      />
-      <SessionNotesSheet
-        open={notesOpen}
-        notes={notes}
-        disabled={disabled}
-        onClose={() => setNotesOpen(false)}
-        onSave={(nextNotes) => {
-          onNotesChange(nextNotes)
-          setNotesOpen(false)
-        }}
       />
     </>
   )

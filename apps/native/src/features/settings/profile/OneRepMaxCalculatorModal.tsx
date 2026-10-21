@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Modal, Pressable, ScrollView, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { View } from 'react-native'
 import {
   buildLiftOptions,
   calculateOneRepMaxFromKnownSet,
@@ -13,8 +12,8 @@ import {
 } from '@sheetless/domain/account/settings-form'
 import { formatWeight } from '@sheetless/domain/shared/set-notation'
 import type { ProgramStateDefaults, Unit } from '@sheetless/domain/shared/types'
-import { Button, Caption, Heading, Panel, SectionLabel, Text, TextInput } from '@/components'
-import { cardShadow, radii, spacing, useTokens } from '@/lib/tokens'
+import { Button, Caption, Panel, SectionLabel, SegmentedControl, SheetModal, Text, TextInput } from '@/components'
+import { spacing } from '@/lib/tokens'
 
 const emptyKnownSet: KnownSetInput = { weight: '', reps: '', rir: '0' }
 
@@ -31,8 +30,6 @@ export function OneRepMaxCalculatorModal({
   onApply: (key: string, value: number) => void
   onClose: () => void
 }) {
-  const { theme } = useTokens()
-  const insets = useSafeAreaInsets()
   const [selectedKey, setSelectedKey] = useState(
     () => firstUnsetKey(programStateDefaults) ?? oneRepMaxKeys[0]!,
   )
@@ -71,123 +68,49 @@ export function OneRepMaxCalculatorModal({
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable
-        accessible={false}
-        onPress={onClose}
-        style={{
-          backgroundColor: 'rgba(6, 12, 14, 0.6)',
-          flex: 1,
-          justifyContent: 'flex-end',
-          paddingTop: spacing.xl,
-        }}
-      >
-        <Pressable accessible={false} onPress={() => {}} style={{ cursor: 'auto' }}>
-          <View
-            accessibilityViewIsModal
-            style={{
-              backgroundColor: theme.surface,
-              borderColor: theme.cardBorder,
-              borderTopLeftRadius: radii.xl,
-              borderTopRightRadius: radii.xl,
-              borderWidth: 1,
-              maxHeight: '92%',
-              ...cardShadow(theme),
-            }}
-          >
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{
-                gap: spacing.md,
-                padding: spacing.lg,
-                paddingBottom: spacing.lg + insets.bottom,
-              }}
-            >
-              <View style={{ gap: 4 }}>
-                <Heading order={2}>Calculate estimated 1RM</Heading>
-                <Caption>
-                  Enter a recent hard set and apply the rounded estimate to a future programme default.
-                </Caption>
-                <Text size="xs" weight={800} tone="action">
-                  {setCount} of {oneRepMaxKeys.length} lifts set
-                </Text>
-              </View>
-
-              <View style={{ gap: spacing.xs }}>
-                <SectionLabel>Lift</SectionLabel>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-                  {liftOptions.map((option) => (
-                    <Button
-                      key={option.value}
-                      label={strengthEstimateLabel(option.value)}
-                      selected={selectedKey === option.value}
-                      variant={selectedKey === option.value ? 'filled' : 'default'}
-                      onPress={() => selectLift(option.value)}
-                    />
-                  ))}
-                </View>
-              </View>
-
-              <Panel surface="inset" style={{ gap: spacing.sm, padding: spacing.md }}>
-                <View style={{ gap: 4 }}>
-                  <SectionLabel>Known-set load</SectionLabel>
-                  <TextInput
-                    value={knownSet.weight}
-                    onChangeText={(value) => updateKnownSet('weight', value)}
-                    placeholder={`Load (${units})`}
-                    keyboardType="decimal-pad"
-                    testID="settings-calculator-load"
-                  />
-                </View>
-                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <SectionLabel>Reps</SectionLabel>
-                    <TextInput
-                      value={knownSet.reps}
-                      onChangeText={(value) => updateKnownSet('reps', value)}
-                      placeholder="Reps"
-                      keyboardType="number-pad"
-                      testID="settings-calculator-reps"
-                    />
-                  </View>
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <SectionLabel>RIR</SectionLabel>
-                    <TextInput
-                      value={knownSet.rir}
-                      onChangeText={(value) => updateKnownSet('rir', value)}
-                      placeholder="0"
-                      keyboardType="number-pad"
-                      testID="settings-calculator-rir"
-                    />
-                  </View>
-                </View>
-                <Panel style={{ gap: 2, padding: spacing.sm }}>
-                  <SectionLabel>Estimated 1RM</SectionLabel>
-                  <Text weight={900}>{formatWeight(calculated, units) ?? 'Unset'}</Text>
-                </Panel>
-              </Panel>
-
-              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                <Button
-                  label="Set & close"
-                  variant="default"
-                  style={{ flex: 1 }}
-                  disabled={!hasLoadDefault(calculated)}
-                  onPress={() => apply(false)}
-                />
-                <Button
-                  label={nextUnsetKey(programStateDefaults, selectedKey) ? 'Set & next' : 'Done'}
-                  style={{ flex: 1 }}
-                  disabled={!hasLoadDefault(calculated)}
-                  onPress={() => apply(true)}
-                  testID="settings-calculator-apply"
-                />
-              </View>
-              <Button label="Cancel" variant="subtle" fullWidth onPress={onClose} />
-            </ScrollView>
+    <SheetModal open title="Calculate a starting number" onClose={onClose}
+      subtitle="Enter a recent hard set. Apply the estimate, then save your starting numbers."
+      footer={<View style={{ gap: spacing.xs }}>
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <Button label="Apply & close" variant="default" style={{ flex: 1 }}
+            disabled={!hasLoadDefault(calculated)} onPress={() => apply(false)} />
+          <Button label={nextUnsetKey(programStateDefaults, selectedKey) ? 'Apply & next' : 'Apply'}
+            style={{ flex: 1 }} disabled={!hasLoadDefault(calculated)} onPress={() => apply(true)}
+            testID="settings-calculator-apply" />
+        </View>
+        <Button label="Cancel" variant="subtle" fullWidth onPress={onClose} />
+      </View>}>
+      <Text size="xs" weight={800} tone="action">{setCount} of {oneRepMaxKeys.length} lifts set</Text>
+      <SegmentedControl label="Lift" options={liftOptions.map(option => ({ value: option.value,
+        label: strengthEstimateLabel(option.value) }))} value={selectedKey} onChange={selectLift}
+        variant="pills" accessibilityRole="radiogroup" accessibilityLabel="Lift for starting estimate" />
+      <Panel surface="inset" style={{ gap: spacing.md, padding: spacing.md }}>
+        <View style={{ gap: spacing.xs }}>
+          <SectionLabel>Known-set load</SectionLabel>
+          <TextInput value={knownSet.weight} onChangeText={value => updateKnownSet('weight', value)}
+            placeholder={`Load (${units})`} keyboardType="decimal-pad"
+            accessibilityLabel={`Known-set load in ${units}`} testID="settings-calculator-load" />
+        </View>
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <SectionLabel>Reps</SectionLabel>
+            <TextInput value={knownSet.reps} onChangeText={value => updateKnownSet('reps', value)}
+              placeholder="Reps" keyboardType="number-pad" accessibilityLabel="Reps completed"
+              testID="settings-calculator-reps" />
           </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <SectionLabel>Reps left</SectionLabel>
+            <TextInput value={knownSet.rir} onChangeText={value => updateKnownSet('rir', value)}
+              placeholder="0" keyboardType="number-pad" accessibilityLabel="Reps left in reserve"
+              testID="settings-calculator-rir" />
+          </View>
+        </View>
+        <Caption>Reps left means how many more you could have done. Use 0 if the set was your limit.</Caption>
+        <Panel style={{ gap: spacing.xs, padding: spacing.sm }}>
+          <SectionLabel>Estimated one-rep max</SectionLabel>
+          <Text weight={900}>{formatWeight(calculated, units) ?? 'Enter your set'}</Text>
+        </Panel>
+      </Panel>
+    </SheetModal>
   )
 }

@@ -1,3 +1,4 @@
+import { cycleDisplayIndex } from '@sheetless/domain/program/cycle-boundary'
 import { Button } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -28,6 +29,7 @@ import { ProgramTimeline } from './ProgramTimeline'
 import { ProgramWeekSessions } from './ProgramWeekSessions'
 import { ProgramWeekStrip } from './ProgramWeekStrip'
 import { ProgrammeSettingsPanel } from './ProgrammeSettingsPanel'
+import { CycleBoundaryCard } from './cycle/CycleBoundaryCard'
 
 export function ProgramPage({ user }: { user: AuthUser | null }) {
   if (!user) {
@@ -125,6 +127,7 @@ function AuthedProgram() {
         }
       />
 
+      {program.cycleBoundary ? <CycleBoundaryCard key={`${userId}:${program.cycleBoundary.id}`} boundary={program.cycleBoundary} /> : null}
       {settingsOpen ? (
         <ProgrammeSettingsPanel program={program} hasActiveSession={overview.hasActiveSession} />
       ) : null}
@@ -211,7 +214,7 @@ function FullCycle({ overview }: { overview: ProgramOverview }) {
   const definition = program.templateDefinition!
   const trajectory = buildProgramTrajectory({
     definition,
-    currentGlobalIndex: program.currentWeekIndex,
+    currentGlobalIndex: cycleDisplayIndex(program),
     loadAdjustments: program.loadAdjustments,
     returnSettings:
       program.returnPeriod?.status === 'active' || program.returnPeriod?.status === 'review'

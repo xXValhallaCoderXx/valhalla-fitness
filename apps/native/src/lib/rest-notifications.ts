@@ -59,9 +59,10 @@ export async function ensureRestNotificationPermission(): Promise<boolean> {
 }
 
 /** Schedule the rest-complete notification; returns its id, or null when unavailable. */
-export async function scheduleRestEnd(endsAt: number, label: string | null): Promise<string | null> {
+export async function scheduleRestEnd(endsAt: number, label: string | null, isCurrent = () => true): Promise<string | null> {
   if (Platform.OS === 'web') return null
   if (!(await ensureRestNotificationPermission())) return null
+  if (!isCurrent() || endsAt <= Date.now()) return null
   try {
     return await Notifications.scheduleNotificationAsync({
       content: {

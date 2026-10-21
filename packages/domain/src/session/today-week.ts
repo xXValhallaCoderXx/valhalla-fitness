@@ -1,3 +1,4 @@
+import { cycleDisplayIndex } from '../program/cycle-boundary'
 import type { ProgramInstance, TemplateDefinition } from '@sheetless/domain/program/types'
 
 /**
@@ -57,7 +58,7 @@ export type TodayWeek = {
  * today's is next, the rest are upcoming.
  */
 export function buildTodayWeek(
-  program: Pick<ProgramInstance, 'currentWeekIndex'>,
+  program: Pick<ProgramInstance, 'currentWeekIndex' | 'cycleBoundary'>,
   definition: TemplateDefinition,
   /** Look at another week of the current cycle; omit for the week the programme is on. */
   viewWeekIndex?: number,
@@ -65,8 +66,9 @@ export function buildTodayWeek(
   const { daysPerWeek, durationWeeks } = definition
   if (daysPerWeek <= 0 || durationWeeks <= 0) return null
 
+  const displayIndex = cycleDisplayIndex(program)
   const currentWeekIndex = Math.min(
-    sessionIndexInWeek(Math.floor(program.currentWeekIndex / daysPerWeek), durationWeeks),
+    sessionIndexInWeek(Math.floor(displayIndex / daysPerWeek), durationWeeks),
     durationWeeks - 1,
   )
   const weekIndex =
@@ -78,13 +80,13 @@ export function buildTodayWeek(
   // A past week is finished, a future week has not started, and only the current one is partway
   // through. Repeat cycles mean the same week index recurs, so sessions are addressed from the
   // start of the cycle the programme is in rather than from the programme's very first session.
-  const sessionsDone = isCurrent
+  const sessionsDone = program.cycleBoundary?.status === 'pending' ? daysPerWeek : isCurrent
     ? sessionIndexInWeek(program.currentWeekIndex, daysPerWeek)
     : weekIndex < currentWeekIndex
       ? daysPerWeek
       : 0
   const cycleLength = durationWeeks * daysPerWeek
-  const cycleStart = Math.floor(program.currentWeekIndex / cycleLength) * cycleLength
+  const cycleStart = Math.floor(displayIndex / cycleLength) * cycleLength
   const firstGlobalIndex = cycleStart + weekIndex * daysPerWeek
 
   return {
@@ -94,7 +96,7 @@ export function buildTodayWeek(
     weekNumber: weekIndex + 1,
     totalWeeks: durationWeeks,
     phaseLabel: definition.weeks[weekIndex]?.phaseLabel ?? null,
-    sessionNumber: sessionsDone + 1,
+    sessionNumber: program.cycleBoundary ? Math.min(daysPerWeek, sessionsDone + 1) : sessionsDone + 1,
     daysPerWeek,
     sessionsDone,
     sessions: definition.sessions.slice(0, daysPerWeek).map((session, index) => ({
