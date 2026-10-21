@@ -128,7 +128,7 @@ export const themes: { light: Theme; dark: Theme } = {
     border: '#2a3a40',
     cardBorder: '#2a3a40',
     primaryFill: '#2f98b3', // action[5]
-    primaryFillText: '#ffffff',
+    primaryFillText: '#081114', // Dark theme's brighter filled surfaces need a dark foreground.
     focusOutline: '#7fc8dc',
     focusRing: 'rgba(127, 200, 220, 0.23)',
     shadowCard: '0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -8px rgba(0, 0, 0, 0.55)',

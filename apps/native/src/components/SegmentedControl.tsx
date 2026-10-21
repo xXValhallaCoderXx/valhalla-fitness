@@ -71,7 +71,8 @@ export function SegmentedControl<T extends string>({
         style={({ pressed }) => ({
           alignItems: 'center',
           backgroundColor: selected ? inset ? theme.surface : theme.primaryFill : tone?.soft ?? (inset ? 'transparent' : theme.surface),
-          borderColor: inset || tone && !selected ? 'transparent' : selected ? theme.primaryFill : theme.border,
+          borderColor: selected && !inset && pressed && !inactive ? theme.primaryFillText
+            : inset || tone && !selected ? 'transparent' : selected ? theme.primaryFill : theme.border,
           borderRadius: size === 'sm' || inset ? radii.sm : radii.md,
           borderWidth: 1,
           // A closed set shares the width evenly; a scrolling row hugs its label.
@@ -81,7 +82,7 @@ export function SegmentedControl<T extends string>({
           // movement picker already opted into it by hand; this applies it to
           // every segment instead.
           minHeight: 44,
-          opacity: inactive ? 0.55 : pressed ? 0.85 : 1,
+          opacity: inactive ? 0.55 : pressed && (!selected || inset) ? 0.85 : 1,
           paddingHorizontal: variant === 'segments' ? spacing.xs : spacing.md,
           paddingVertical: 8,
         })}

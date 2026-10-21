@@ -57,14 +57,14 @@ export function FinishWorkoutSheet({ open, completedSetCount, incompleteSetCount
               style={({ pressed }) => ({
                 alignItems: 'center',
                 backgroundColor: selected ? theme.primaryFill : theme.surface,
-                borderColor: selected ? theme.primaryFill : theme.border,
+                borderColor: selected && pressed && !isPending ? theme.primaryFillText : selected ? theme.primaryFill : theme.border,
                 borderRadius: radii.sm,
                 borderWidth: 1,
                 minWidth: 44,
                 flexBasis: '17.5%',
                 flexGrow: 1,
                 minHeight: 44,
-                opacity: pressed ? 0.8 : 1,
+                opacity: pressed && !selected ? 0.8 : 1,
                 paddingVertical: spacing.xs + 2,
               })}
             >

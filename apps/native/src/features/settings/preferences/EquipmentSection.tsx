@@ -38,7 +38,7 @@ export function EquipmentSection({
                 accessibilityState={{ checked: selected, disabled }}
                 disabled={disabled}
                 style={({ pressed }) => ({ alignItems: 'center', flexDirection: 'row', gap: spacing.sm,
-                  minHeight: 48, paddingVertical: spacing.sm, opacity: disabled ? 0.5 : pressed ? 0.7 : 1 })}
+                  minHeight: 48, paddingVertical: spacing.sm, opacity: disabled ? 0.5 : pressed && !selected ? 0.7 : 1 })}
                 onPress={() => onToggle(item)}
                 testID={`settings-equipment-${item}`}
               >
