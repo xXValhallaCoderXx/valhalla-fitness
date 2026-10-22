@@ -69,6 +69,7 @@ type EligibleSet = {
   load: number
   reps: number
   rir: number | null
+  estimateKg: number
   value: number
 }
 
@@ -116,12 +117,14 @@ export function buildLiftE1rmSeries(
         const load = displayUnits
           ? convertWeight(set.actualLoad, session.units ?? displayUnits, displayUnits)
           : set.actualLoad
+        const assessment = assessments.get(assessmentKey(session.id, exercise.id, set.id))
         const eligible: EligibleSet = {
           id: set.id, exerciseId: exercise.id,
-          assessment: assessments.get(assessmentKey(session.id, exercise.id, set.id)),
+          assessment,
           load,
           reps: set.actualReps,
           rir: set.actualRir ?? null,
+          estimateKg: assessment?.estimateKg ?? e1rm(convertWeight(set.actualLoad, session.units ?? displayUnits, 'kg'), set.actualReps, set.actualRir ?? 0),
           value: mround(e1rm(load, set.actualReps, set.actualRir ?? 0), 0.5),
         }
         const existing = liftSets.get(exercise.performedMovementId)
@@ -154,7 +157,9 @@ export function buildLiftE1rmSeries(
     for (const entry of entries) {
       const clean = entry.sets.filter(set => !set.assessment?.unusual)
       const candidates = clean.length ? clean : entry.sets
-      const best = candidates.reduce((max, set) => (set.value > max.value ? set : max))
+      // Display rounding must not turn distinct estimates into a tie or change the
+      // source set when the account switches units. Records use the same kg basis.
+      const best = candidates.reduce((max, set) => (set.estimateKg > max.estimateKg ? set : max))
       const outlier = !clean.length
       points.push({
         date: entry.scheduledDate,
