@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getHistoryDashboard, getMovementHistory } from '@sheetless/data/history/history'
 import { makeStubCtx, type TestRow } from './support/supabase-stub'
+import { movementCatalog } from '@sheetless/domain/movement/movements'
 
 function completedSessions(count: number): TestRow[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -113,6 +114,38 @@ describe('getHistoryDashboard bounds', () => {
 
 
 describe('native full loaded history read option', () => {
+  it('returns summaries and best sets for all 45 real catalogue movements', async () => {
+    const movements = Object.values(movementCatalog)
+      .filter(movement => movement.status === 'active' && movement.resistanceMode !== 'bodyweight' && movement.loadConvention !== 'assistance')
+      .slice(0, 45)
+    expect(movements).toHaveLength(45)
+    const tables = dashboardTables(45)
+    tables.workout_sessions.forEach(row => {
+      row.prescription_snapshot = { units: 'kg', movements: [] }
+    })
+    const { ctx } = makeStubCtx({ ...tables,
+      exercise_logs: movements.map((movement, index) => ({
+        id: `exercise-${index}`, user_id: 'user-1', session_id: tables.workout_sessions[index].id,
+        planned_movement_id: movement.id, performed_movement_id: movement.id, role: 'main', order_index: 0,
+      })),
+      set_logs: movements.map((_, index) => ({
+        id: `set-${index}`, user_id: 'user-1', exercise_log_id: `exercise-${index}`, set_index: 1,
+        actual_load: '50', actual_reps: 5, actual_rir: 0, completed: true,
+      })),
+    })
+    const result = await getHistoryDashboard(ctx, { limit: 240, recentSessionLimit: null, bestSetLimit: null })
+    const expected = movements.map(movement => movement.id).sort()
+    expect(result.overview.uniqueMovements).toBe(45)
+    expect(result.movementSummaries.map(row => row.movementId).sort()).toEqual(expected)
+    expect(result.bestSets.map(row => row.movementId).sort()).toEqual(expected)
+    for (const [index, movement] of movements.entries()) {
+      expect(result.bestSets.find(set => set.movementId === movement.id)).toMatchObject({
+        id: `set-${index}`, exerciseId: `exercise-${index}`, sessionId: tables.workout_sessions[index].id,
+        movementName: movement.name, load: 50, units: 'kg',
+      })
+    }
+  })
+
   it('attaches the same set assessment and source identity to records, strength and movement history', async () => {
     const tables = dashboardTables(4)
     tables.workout_sessions.forEach((row, index) => {

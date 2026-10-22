@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildHistoryDashboard, rankBestSets, type HistorySessionInput } from '../src/history/history'
 import { buildHistoryInsights } from '../src/history/build-insights'
 import { assessHistorySets, assessmentKey } from '../src/history/set-assessment'
-import { buildLiftE1rmSeries } from '../src/history/strength'
+import { buildLiftE1rmSeries, classifyE1rmTrend } from '../src/history/strength'
 import { sortMovementSummaries } from '../src/history/insights'
 import { resolveInsightGates } from '../src/history/insight-gates'
 import { buildSessionLedgerRows, sessionsSubtitle } from '../src/history/session-ledger'
@@ -36,6 +36,20 @@ describe('shared Insights corrections', () => {
     expect(lb.overview.completedVolume).toBeCloseTo(kg.overview.completedVolume * LB_PER_KG)
     expect(lb.insights.weeklyVolume[0].volume).toBeCloseTo(kg.insights.weeklyVolume[0].volume * LB_PER_KG)
     expect(lb.insights.liftSeries[0].points[0].e1rm).toBeCloseTo(kg.insights.liftSeries[0].points[0].e1rm * LB_PER_KG, 0)
+  })
+
+  it('keeps the same source set when display rounding hides a higher estimate', () => {
+    const session = workout('close-estimates', today, [97.5, 92.5])
+    session.exercises[0].sets[0].actualReps = 6
+    session.exercises[0].sets[1].actualReps = 8
+    for (const units of ['kg', 'lb'] as const) {
+      const data = dashboard([session], units)
+      const point = data.insights.liftSeries[0].points[0]
+      expect(point).toMatchObject({ setId: 'close-estimates-1', exerciseId: 'close-estimates-exercise', reps: 8 })
+      expect(data.bestSets[0].id).toBe(point.setId)
+      expect(point.load).toBeCloseTo(units === 'kg' ? 92.5 : 92.5 * LB_PER_KG)
+      expect(point.e1rm).toBe(units === 'kg' ? 117 : 258.5)
+    }
   })
 
   it('uses the newest explicit historical unit for missing units, independent of array order and profile', () => {
@@ -82,6 +96,29 @@ describe('shared Insights corrections', () => {
     expect(assessment).toMatchObject({ priorObservations: 3, unusual: true })
   })
 
+  it('assesses a mixed-unit workout in kg without replacing its eligible source set', () => {
+    const sessions = ['2026-09-01', '2026-09-08', '2026-09-15'].map((date, i) => workout(`kg${i}`, date))
+    sessions.push(workout('pounds', today, [200, 400], 'squat', 'lb'))
+    const assessments = assessHistorySets(sessions)
+    expect(assessments.get(assessmentKey('pounds', 'pounds-exercise', 'pounds-0')))
+      .toMatchObject({ unusual: false, priorObservations: 3 })
+    expect(assessments.get(assessmentKey('pounds', 'pounds-exercise', 'pounds-1')))
+      .toMatchObject({ unusual: true, priorObservations: 3 })
+
+    const kg = dashboard(sessions)
+    const lb = dashboard([...sessions].reverse(), 'lb')
+    expect(kg.bestSets[0]).toMatchObject({ id: 'kg2-0', sessionId: 'kg2', load: 100, units: 'kg' })
+    expect(lb.bestSets).toEqual(kg.bestSets)
+    for (const data of [kg, lb]) {
+      expect(data.insights.liftSeries[0].points.at(-1)).toMatchObject({
+        sessionId: 'pounds', exerciseId: 'pounds-exercise', setId: 'pounds-0', outlier: false,
+        assessment: assessments.get(assessmentKey('pounds', 'pounds-exercise', 'pounds-0')),
+      })
+    }
+    expect(lb.overview.completedVolume).toBeCloseTo(kg.overview.completedVolume * LB_PER_KG)
+    expect(sessions.at(-1)?.exercises[0].sets.map(set => set.actualLoad)).toEqual([200, 400])
+  })
+
   it('keeps high-rep and bodyweight best-set eligibility separate from strength eligibility', () => {
     const high = workout('high', today, [80], 'bench_press')
     high.exercises[0].sets[0].actualReps = 20
@@ -100,6 +137,37 @@ describe('shared Insights corrections', () => {
     expect(resolveInsightGates(insights).strength_trend).toMatchObject({ unlocked: true, progress: { current: 4 } })
     const dirty = dashboard([workout('one', '2026-08-01'), workout('two', '2026-08-02'), workout('three', '2026-08-03'), workout('bad', today, [400])]).insights
     expect(resolveInsightGates(dirty).strength_trend).toMatchObject({ unlocked: false, progress: { current: 3 } })
+  })
+
+  it.each([
+    ['2026-09-07', true, 'flat'],
+    ['2026-09-08', false, 'insufficient'],
+  ] as const)('agrees on readiness and trend at the 21-day boundary starting %s', (start, unlocked, trend) => {
+    const sessions = [start, '2026-09-14', '2026-09-21'].map((date, i) => workout(`clean${i}`, date))
+    const flagged = workout('flagged', today, [400])
+    const before = dashboard([...sessions, flagged]).insights
+    expect(resolveInsightGates(before).strength_trend).toMatchObject({ unlocked: false, progress: { current: 3 } })
+    expect(classifyE1rmTrend(before.liftSeries[0].points, today)).toBe('insufficient')
+    sessions.push(workout('fourth', today))
+    const after = dashboard([...sessions, flagged]).insights
+    expect(resolveInsightGates(after).strength_trend).toMatchObject({ unlocked, progress: { current: 4 } })
+    expect(classifyE1rmTrend(after.liftSeries[0].points, today)).toBe(trend)
+    expect(after.liftSeries[0].points.find(point => point.sessionId === 'flagged')).toMatchObject({ outlier: true })
+  })
+
+  it('keeps competing same-day observations chronological and counts only usable workouts', () => {
+    const sessions = ['2026-09-07', '2026-09-14', '2026-09-21'].map((date, i) => workout(`clean${i}`, date))
+    const morning = { ...workout('z-morning', today, [100]), completedAt: `${today}T08:00:00Z` }
+    const evening = { ...workout('a-evening', today, [110]), completedAt: `${today}T18:00:00Z` }
+    const flagged = { ...workout('flagged', today, [400]), completedAt: `${today}T20:00:00Z` }
+    const insights = dashboard([flagged, evening, ...sessions.reverse(), morning]).insights
+    const points = insights.liftSeries[0].points
+    expect(points.slice(-3).map(point => [point.sessionId, point.outlier])).toEqual([
+      ['z-morning', false], ['a-evening', false], ['flagged', true],
+    ])
+    expect(resolveInsightGates(insights).strength_trend).toMatchObject({ unlocked: true, progress: { current: 5 } })
+    expect(classifyE1rmTrend(points, today)).toBe('rising')
+    expect(classifyE1rmTrend([...points].reverse(), today)).toBe('rising')
   })
 
   it('unlocks a total without bodyweight and preserves the fallback chain', () => {
