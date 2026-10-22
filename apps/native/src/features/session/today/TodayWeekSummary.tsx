@@ -4,23 +4,29 @@ import type { TodayHistorySupport } from '@sheetless/domain/history/types'
 import { Button, Caption, Panel, Text } from '@/components'
 import { radii, spacing, useTokens } from '@/lib/tokens'
 
-export function TodayWeekSummary({ data, mode, plannedDays, loading, error, onRetry }: {
+export function TodayWeekSummary({ data, mode, plannedDays, loading, error, onRetry, onOpenMuscles }: {
   data?: TodayHistorySupport
   mode: ExperienceMode
   plannedDays?: number
   loading: boolean
   error: boolean
   onRetry: () => void
+  onOpenMuscles: () => void
 }) {
   const { theme } = useTokens()
   const { width, fontScale } = useWindowDimensions()
   const compact = width < 360 || fontScale > 1.2
+  const muscleAction = <Button label="View muscle workload and fatigue" variant="subtle" onPress={onOpenMuscles} />
   if (error) return <Panel style={{ padding: spacing.md, gap: spacing.xs }}>
     <Text size="sm" tone="dimmed">Your week could not load. Your workout is still ready.</Text>
     <Button label="Retry weekly summary" variant="subtle" onPress={onRetry} loading={loading} />
+    {muscleAction}
   </Panel>
   const week = data?.calendarWeek
-  if (!week) return loading ? <Caption>Loading your week…</Caption> : null
+  if (!week) return <Panel style={{ padding: spacing.md, gap: spacing.xs }}>
+    {loading ? <Caption>Loading your week…</Caption> : null}
+    {muscleAction}
+  </Panel>
   const advanced = mode === 'full'
   const count = plannedDays ? `${week.completedSessions} of ${plannedDays} done` : `${week.completedSessions} workouts`
   const percent = week.volumeChangePercent
@@ -51,6 +57,7 @@ export function TodayWeekSummary({ data, mode, plannedDays, loading, error, onRe
       <WeekMetric compact={compact} value={String(data?.consistency.currentStreakWeeks ?? 0)} label="week run" />
     </View> : null}
     <Caption>Completed workouts · Monday–Sunday{plannedDays ? ' · target from your current plan' : ''}</Caption>
+    {muscleAction}
   </Panel>
 }
 

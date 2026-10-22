@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getHistoryDashboard, getMovementHistory } from '@sheetless/data/history/history'
+import { getHistoryDashboard, getHistoryInputs, getMovementHistory } from '@sheetless/data/history/history'
 import { makeStubCtx, type TestRow } from './support/supabase-stub'
 import { movementCatalog } from '@sheetless/domain/movement/movements'
 
@@ -114,6 +114,58 @@ describe('getHistoryDashboard bounds', () => {
 
 
 describe('native full loaded history read option', () => {
+  it('keeps the exact newest 240 workouts and their source children across tied boundary dates', async () => {
+    const sessions = completedSessions(241).map<TestRow>((session, index) => {
+      const date = new Date(Date.UTC(2026, 0, 1 + Math.floor(index / 4))).toISOString().slice(0, 10)
+      return {
+        ...session,
+        // Newer dates use smaller IDs; within each day, earlier completions use
+        // larger IDs. Only the two exact completion ties follow ID descending.
+        id: `session-${1000 - Math.floor(index / 4) * 4 + (index % 4 + 2) % 4}`,
+        scheduled_date: date,
+        completed_at: `${date}T${10 + Math.floor(index % 4 / 2)}:00:00Z`,
+        prescription_snapshot: { title: `Workout ${index}`, units: 'kg', movements: [] },
+      }
+    })
+    // Paired completion ties include rows 240/241; neither insertion order nor a
+    // date-only sort can choose the correct side of the native loaded boundary.
+    const { ctx } = makeStubCtx({
+      ...dashboardTables(0),
+      workout_sessions: [...sessions.filter((_, index) => index % 2), ...sessions.filter((_, index) => index % 2 === 0)],
+      exercise_logs: sessions.map((session, index) => ({
+        id: `exercise-${index}`, user_id: 'user-1', session_id: session.id,
+        planned_movement_id: 'barbell-bench-press', performed_movement_id: 'barbell-bench-press',
+        role: 'main', order_index: 0,
+      })),
+      set_logs: sessions.map((_, index) => ({
+        id: `set-${index}`, user_id: 'user-1', exercise_log_id: `exercise-${index}`,
+        set_index: 0, actual_load: String(20 + index), actual_reps: 5, actual_rir: 0, completed: true,
+      })),
+    })
+    const expectedIndexes = Array.from({ length: 240 }, (_, index) => 240 - index)
+    const expectedIds = expectedIndexes.map(index => sessions[index].id)
+
+    const inputs = await getHistoryInputs(ctx.supabase, ctx.user.id, { limit: 240 })
+    expect(inputs.sessions.map(session => session.id)).toEqual(expectedIds)
+    for (const [position, index] of expectedIndexes.entries()) {
+      expect(inputs.sessions[position].exercises).toEqual([
+        expect.objectContaining({ id: `exercise-${index}`, sets: [expect.objectContaining({
+          id: `set-${index}`, actualLoad: 20 + index, actualReps: 5, completed: true,
+        })] }),
+      ])
+    }
+
+    const result = await getHistoryDashboard(ctx, { limit: 240, recentSessionLimit: null, bestSetLimit: null })
+    expect(result.overview.completedSessions).toBe(240)
+    expect(result.overview.loggedSets).toBe(240)
+    expect(result.recentSessions.map(session => session.id)).toEqual(expectedIds)
+    expect(result.recentSessions.map(session => [session.title, session.tonnage, session.completedSetCount]))
+      .toEqual(expectedIndexes.map(index => [`Workout ${index}`, (20 + index) * 5, 1]))
+    expect(result.recentSessions.at(-1)?.id).toBe('session-1003')
+    expect(result.recentSessions.some(session => session.id === 'session-1002')).toBe(false)
+    expect(inputs.sessions.some(session => session.exercises.some(exercise => exercise.id === 'exercise-0'))).toBe(false)
+  })
+
   it('returns summaries and best sets for all 45 real catalogue movements', async () => {
     const movements = Object.values(movementCatalog)
       .filter(movement => movement.status === 'active' && movement.resistanceMode !== 'bodyweight' && movement.loadConvention !== 'assistance')

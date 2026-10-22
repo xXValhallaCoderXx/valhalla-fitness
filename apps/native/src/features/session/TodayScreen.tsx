@@ -88,7 +88,7 @@ export function TodayScreen() {
   const last = data?.lastCompletedSession ?? data?.completedSession
   const weekSummary = <TodayWeekSummary data={history.data ?? undefined} mode={mode}
     plannedDays={program?.templateDefinition?.daysPerWeek} loading={history.isFetching} error={history.isError}
-    onRetry={() => void history.refetch()} />
+    onRetry={() => void history.refetch()} onOpenMuscles={() => router.push('/history/muscles')} />
   const streakWeeks = history.data?.consistency.currentStreakWeeks
 
   const recentHistoryError = data?.historyReadError ? <Panel style={{ padding: spacing.md, gap: spacing.xs }}>
