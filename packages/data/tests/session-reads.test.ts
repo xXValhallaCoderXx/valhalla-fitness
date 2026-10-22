@@ -113,6 +113,60 @@ describe('getSession', () => {
 })
 
 describe('getToday', () => {
+  it.each([
+    { reason: 'programme scheduled date', programDate: '2026-09-21', adHocDate: '2026-09-20',
+      programCompletedAt: '2026-09-21T10:00:00Z', adHocCompletedAt: '2026-09-22T23:00:00Z',
+      programId: 'a-programme', adHocId: 'z-ad-hoc', expected: 'a-programme' },
+    { reason: 'ad-hoc scheduled date', programDate: '2026-09-20', adHocDate: '2026-09-21',
+      programCompletedAt: '2026-09-22T23:00:00Z', adHocCompletedAt: '2026-09-21T10:00:00Z',
+      programId: 'z-programme', adHocId: 'a-ad-hoc', expected: 'a-ad-hoc' },
+    { reason: 'programme completion time on the same date', programDate: '2026-09-21', adHocDate: '2026-09-21',
+      programCompletedAt: '2026-09-21T11:00:00Z', adHocCompletedAt: '2026-09-21T10:00:00Z',
+      programId: 'a-programme', adHocId: 'z-ad-hoc', expected: 'a-programme' },
+    { reason: 'ad-hoc completion time on the same date', programDate: '2026-09-21', adHocDate: '2026-09-21',
+      programCompletedAt: '2026-09-21T10:00:00Z', adHocCompletedAt: '2026-09-21T11:00:00Z',
+      programId: 'z-programme', adHocId: 'a-ad-hoc', expected: 'a-ad-hoc' },
+    { reason: 'programme ID after a completion-time tie', programDate: '2026-09-21', adHocDate: '2026-09-21',
+      programCompletedAt: '2026-09-21T10:00:00Z', adHocCompletedAt: '2026-09-21T10:00:00Z',
+      programId: 'z-programme', adHocId: 'a-ad-hoc', expected: 'z-programme' },
+    { reason: 'ad-hoc ID after a completion-time tie', programDate: '2026-09-21', adHocDate: '2026-09-21',
+      programCompletedAt: '2026-09-21T10:00:00Z', adHocCompletedAt: '2026-09-21T10:00:00Z',
+      programId: 'a-programme', adHocId: 'z-ad-hoc', expected: 'z-ad-hoc' },
+  ])('uses $reason for the last workout and its authoritative recap', async (scenario) => {
+    const tables = sessionTables()
+    const sources = [
+      { id: scenario.programId, date: scenario.programDate, completedAt: scenario.programCompletedAt, program: 'ended-plan', load: 100 },
+      { id: scenario.adHocId, date: scenario.adHocDate, completedAt: scenario.adHocCompletedAt, program: null, load: 75 },
+    ]
+    tables.workout_sessions = sources.map(source => ({
+      ...tables.workout_sessions[0], id: source.id, status: 'completed',
+      program_instance_id: source.program, scheduled_date: source.date,
+      completed_at: source.completedAt,
+      prescription_snapshot: { ...SNAPSHOT, kind: source.program ? undefined : 'ad_hoc',
+        title: source.id, units: 'kg' },
+    }))
+    tables.exercise_logs = sources.map(source => ({
+      ...tables.exercise_logs[0], id: `exercise-${source.id}`, session_id: source.id,
+    }))
+    tables.set_logs = sources.map(source => ({
+      ...tables.set_logs[0], id: `set-${source.id}`, exercise_log_id: `exercise-${source.id}`,
+      actual_load: String(source.load),
+    }))
+    const { ctx } = makeStubCtx(tables)
+
+    const result = await getToday(ctx)
+    const expected = sources.find(source => source.id === scenario.expected)!
+    expect(result.historyReadError).toBeNull()
+    expect(result.lastWorkoutLogged).toBe(expected.date)
+    expect(result.lastCompletedSession).toMatchObject({
+      sessionId: expected.id, title: expected.id, isAdHoc: expected.program === null,
+      movements: [expect.objectContaining({ id: `exercise-${expected.id}`, sets: [expect.objectContaining({
+        id: `set-${expected.id}`, exerciseLogId: `exercise-${expected.id}`, actualLoad: expected.load,
+      })] })],
+    })
+    expect(result.lastCompletedSession).toEqual(await getSession(ctx, expected.id))
+  })
+
   it('returns an all-null payload when nothing is active', async () => {
     const { ctx } = makeStubCtx({ program_instances: [], workout_sessions: [] })
 

@@ -187,7 +187,10 @@ labels existing `guided`/`full` values **Simple/Advanced** within the existing S
 - Today uses real Monday–Sunday account-calendar activity, plan weekly target, current-week volume
   against the previous full week, and an exact weekly streak from paginated completed dates. The
   detailed history window remains bounded. Simple shows the main lift and expands to every numeric
-  prescription; Advanced shows the full target table. Last workout works without an active plan.
+  prescription; Advanced shows the full target table, including available previous-set context for
+  accessories. Previous context remains hidden after a load-suggestion cutoff. The weekly summary
+  links to muscle workload and fatigue in Insights, including while the summary loads or needs a
+  retry. Last workout works without an active plan.
 - Focus and Overview share one controlled logger. Focus has a segmented set ring and countdown;
   Overview has the selected movement's full set table and a source-labelled rest dock. Completion
   and the foreground cue belong to one timer controller. Start set now dismisses rest without

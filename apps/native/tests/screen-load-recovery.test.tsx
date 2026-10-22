@@ -2,11 +2,13 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { themeProviderMock } from './support/theme'
+import { accountQueryKeys } from '@sheetless/domain/shared/query-keys'
 
 // Exercise query gates and retry wiring, not native layout, sheets, charts or navigation.
 const api = vi.hoisted(() => ({
   suggestions: vi.fn(), profile: vi.fn(), today: vi.fn(), templates: vi.fn(), setup: vi.fn(),
   program: vi.fn(), activeProgram: vi.fn(), session: vi.fn(), summary: vi.fn(), openBrowser: vi.fn(), navigate: vi.fn(),
+  historySupport: vi.fn(), startSession: vi.fn(),
 }))
 vi.mock('@/lib/theme-provider', () => themeProviderMock())
 vi.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }) }))
@@ -24,13 +26,13 @@ vi.mock('lucide-react-native', () => ({ Mail: () => null, Plus: () => null, Info
 vi.mock('@sheetless/data/account/profile', () => ({ getMe: api.profile }))
 vi.mock('@sheetless/data/session/reads', () => ({ getToday: api.today, getSession: api.session }))
 vi.mock('@sheetless/data/session/summary', () => ({ getSessionSummary: api.summary }))
-vi.mock('@sheetless/data/session/lifecycle', () => ({ startSession: vi.fn() }))
+vi.mock('@sheetless/data/session/lifecycle', () => ({ startSession: api.startSession }))
 vi.mock('@sheetless/data/program/setup-suggestions', () => ({ getProgramSetupSuggestions: api.suggestions }))
 vi.mock('@sheetless/data/program/templates', () => ({ listTemplates: api.templates, getProgramSetupOptions: api.setup }))
 vi.mock('@sheetless/data/history/history', () => ({ getProgramOverview: api.program }))
 vi.mock('@sheetless/data/program/active-program', () => ({ getActiveProgram: api.activeProgram }))
 vi.mock('@/features/history/queries', () => ({
-  todayHistorySupportQueryOptions: () => ({ queryKey: ['history-support'], queryFn: async () => null }),
+  todayHistorySupportQueryOptions: () => ({ queryKey: ['history-support'], queryFn: api.historySupport }),
 }))
 vi.mock('@/components', async () => {
   const { Button } = await import('../src/components/Button')
@@ -56,8 +58,12 @@ vi.mock('@/features/program/overview/ProgramTimeline', () => ({ ProgramTimeline:
 vi.mock('@/features/program/overview/ProgramPhaseMap', () => ({ ProgramPhaseMap: () => null }))
 vi.mock('@/features/program/overview/ProgramHeader', () => ({ ProgramHeader: () => null }))
 vi.mock('@/features/session/today/StartBlankWorkoutButton', () => ({ StartBlankWorkoutButton: () => null }))
-vi.mock('@/features/session/today/TodayPlannedSessionCard', () => ({ TodayPlannedSessionCard: () => null }))
-vi.mock('@/features/session/today/TodayActiveSessionCard', () => ({ TodayActiveSessionCard: () => null }))
+vi.mock('@/features/session/today/TodayPlannedSessionCard', () => ({
+  TodayPlannedSessionCard: ({ onStart }: { onStart: () => void }) => <button onClick={onStart}>Start workout</button>,
+}))
+vi.mock('@/features/session/today/TodayActiveSessionCard', () => ({
+  TodayActiveSessionCard: ({ onResume }: { onResume: () => void }) => <button onClick={onResume}>Resume workout</button>,
+}))
 vi.mock('@/features/settings/preferences/AdvancedInvitation', () => ({ AdvancedInvitation: () => null }))
 vi.mock('@/features/templates/setup/TemplateStartSetup', () => ({ TemplateStartSetup: () => <div>Programme setup ready</div> }))
 vi.mock('@/features/templates/catalogue/ActiveProgramBand', () => ({ ActiveProgramBand: () => null }))
@@ -104,6 +110,7 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
   api.profile.mockResolvedValue(profile)
   api.today.mockResolvedValue({ activeProgram: null, activeSession: null, plannedSession: null, pendingDecisions: [] })
+  api.historySupport.mockResolvedValue(null)
   api.templates.mockResolvedValue([])
   api.setup.mockResolvedValue({})
   api.suggestions.mockResolvedValue({ templateId: 'template-a', units: 'kg', rounding: 2.5, trainingMaxPercent: 90, workingLoadPercent: 75, stateValues: [], sourceRows: [], historyStatus: 'ready', unknownUnitSessions: 0 })
@@ -121,6 +128,51 @@ afterAll(() => vi.unstubAllGlobals())
 const mount = (node: React.ReactNode) => render(<QueryClientProvider client={client}>{node}</QueryClientProvider>)
 
 describe('native load recovery wiring', () => {
+  it.each(['guided', 'full'] as const)('keeps muscle navigation and workout entry available through weekly-summary states in %s mode', async (experienceMode) => {
+    api.profile.mockResolvedValue({ ...profile, experienceMode })
+    const planned = { id: 'planned', title: 'Workout', movements: [], units: 'kg' }
+    const today = { activeProgram: { id: 'programme', title: 'Plan' }, activeSession: null,
+      plannedSession: planned, pendingDecisions: [] }
+    api.today.mockResolvedValue(today)
+    api.historySupport.mockImplementation(() => new Promise(() => {}))
+    // A failed start stays on Today so the same mounted screen can exercise Resume.
+    api.startSession.mockRejectedValue(new Error('Try starting again'))
+    mount(<TodayScreen />)
+    await screen.findByText('Loading your week…')
+    fireEvent.click(screen.getByRole('button', { name: 'View muscle workload and fatigue' }))
+    expect(api.navigate).toHaveBeenLastCalledWith('/history/muscles')
+    expect(api.startSession).not.toHaveBeenCalled()
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Start workout' })))
+    await waitFor(() => expect(api.startSession).toHaveBeenCalledTimes(1))
+
+    // Set an actual query error without changing the ready Today query.
+    await act(async () => {
+      await client.cancelQueries({ queryKey: ['history-support'] })
+      api.historySupport.mockRejectedValue(new Error('Weekly history unavailable'))
+      await client.refetchQueries({ queryKey: ['history-support'] })
+    })
+    await screen.findByText('Your week could not load. Your workout is still ready.')
+    expect(screen.getByRole('button', { name: 'Start workout' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'View muscle workload and fatigue' }))
+    expect(api.navigate).toHaveBeenLastCalledWith('/history/muscles')
+
+    api.historySupport.mockResolvedValue({ units: 'kg', consistency: { currentStreakWeeks: 2 }, calendarWeek: {
+      today: '2026-09-22', completedSessions: 1, volume: 1200, volumeChangePercent: null,
+      days: [{ date: '2026-09-22', completedSessions: 1 }],
+    } })
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Retry weekly summary' })))
+    await screen.findByText('This week')
+    expect(screen.getByRole('button', { name: 'Start workout' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'View muscle workload and fatigue' }))
+    expect(api.navigate).toHaveBeenLastCalledWith('/history/muscles')
+
+    await act(async () => client.setQueryData(accountQueryKeys.today('account-a'), { ...today,
+      activeSession: { ...planned, sessionId: 'active-workout', status: 'in_progress' } }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Resume workout' }))
+    expect(api.navigate).toHaveBeenLastCalledWith({ pathname: '/session/[sessionId]', params: { sessionId: 'active-workout' } })
+    expect(api.startSession).toHaveBeenCalledTimes(1)
+  })
+
   it.each([
     { name: 'Today', renderScreen: () => <TodayScreen />, recovered: 'Pick a plan and we do the maths' },
     { name: 'programme setup', renderScreen: () => <TemplateSetupScreen templateId="template-a" />, recovered: 'Programme setup ready' },

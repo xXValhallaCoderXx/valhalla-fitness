@@ -33,7 +33,8 @@ export function WorkoutPreviewTable({ session, program, onOpen }: {
           <Text size="xs" weight={800} style={{ flex: 1.3 }}>{preview.loadLabel === '—' ? 'You pick' : preview.loadLabel === 'Bodyweight' ? 'BW' : preview.loadLabel.replace(` ${session.units}`, '')}</Text>
           <Text size="xs" tone="action" style={{ flex: 1 }}>{target}</Text>
         </View>
-        {movement.role === 'main' || movement.sets.some(item => item.isBackoff) ? <Text size="xs" tone="dimmed">{preview.prescription}</Text> : null}
+        {movement.role === 'main' || movement.sets.some(item => item.isBackoff) || (movement.previous && !movement.loadSuggestionCutoff)
+          ? <Text size="xs" tone="dimmed">{preview.prescription}</Text> : null}
         {provenance && movement.role === 'main' ? <Text size="xs" tone="action">{provenance} ›</Text> : null}
       </Pressable>
     })}
